@@ -1,9 +1,9 @@
 package frc.spectrumLib.hardware;
 
+import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import java.util.HashMap;
 import java.util.Map;
-import org.wpilib.driverstation.Alert;
 import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.framework.RobotBase;
 import org.wpilib.system.RobotController;

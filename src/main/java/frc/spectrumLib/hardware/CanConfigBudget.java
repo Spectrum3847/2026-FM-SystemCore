@@ -1,8 +1,8 @@
 package frc.spectrumLib.hardware;
 
 import com.ctre.phoenix6.StatusCode;
+import frc.spectrumLib.telemetry.Alert;
 import java.util.function.DoubleFunction;
-import org.wpilib.driverstation.Alert;
 import org.wpilib.driverstation.Alert.Level;
 
 /**

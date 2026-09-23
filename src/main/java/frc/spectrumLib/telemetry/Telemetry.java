@@ -161,46 +161,128 @@ public class Telemetry {
         Logger.recordOutputMeasure(key, value);
     }
 
-    // ── Dashboard tier (identical to log on AdvantageKit) ────────────────────
+    // ── Dashboard tier ───────────────────────────────────────────────────────
+    //
+    // As in the 2026 offseason code, NetworkTables carries only what a dashboard shows; the log
+    // file carries everything. logDash and logDashAlways record exactly like log, and also mark
+    // the key as a dashboard key, which DashboardReceiver lets through to NetworkTables. Keys the
+    // Elastic layout reads are marked at startup (see addDashboardKeysFromElasticLayout). The
+    // mirror switch sends everything, for a live AdvantageScope session on the bench.
+
+    /** Keys (relative to the outputs table, e.g. {@code "Hood/Voltage"}) published to NT. */
+    private static final java.util.Set<String> dashboardKeys =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /**
+     * Dashboard key of the switch that mirrors every log entry to NetworkTables. Forced off when
+     * the FMS is attached.
+     */
+    public static final String NT_MIRROR_SWITCH_KEY = "/SmartDashboard/Telemetry/MirrorLogsToNT";
+
+    private static org.littletonrobotics.junction.networktables.LoggedNetworkBoolean mirrorSwitch;
+
+    /** Read by the NT receiver thread; written once per loop on the main thread. */
+    private static volatile boolean mirrorAll = false;
+
+    /**
+     * Creates the mirror switch. Call once, after the logger has started.
+     *
+     * @param mirrorByDefault initial position: on in simulation, off on the robot
+     */
+    public static void startDashboard(boolean mirrorByDefault) {
+        mirrorSwitch =
+                new org.littletonrobotics.junction.networktables.LoggedNetworkBoolean(
+                        NT_MIRROR_SWITCH_KEY, mirrorByDefault);
+        mirrorAll = mirrorByDefault;
+    }
+
+    /** Updates the mirror switch. Call once per loop. */
+    public static void periodic() {
+        if (mirrorSwitch != null) {
+            mirrorAll = mirrorSwitch.get() && !org.wpilib.driverstation.RobotState.isFMSAttached();
+        }
+    }
+
+    /** Whether every output is being mirrored to NetworkTables right now. */
+    public static boolean isMirroringAll() {
+        return mirrorAll;
+    }
+
+    /** Whether an output key (relative to the outputs table) is a dashboard key. */
+    public static boolean isDashboardKey(String key) {
+        return dashboardKeys.contains(key);
+    }
+
+    /** Marks a key for NetworkTables, e.g. one a dashboard layout reads. */
+    public static void addDashboardKey(String key) {
+        dashboardKeys.add(key);
+    }
+
+    /**
+     * Marks every output the Elastic layout reads as a dashboard key, so what Elastic shows is
+     * exactly what goes over NetworkTables and the two cannot drift apart. Topics under {@code
+     * /AdvantageKit/RealOutputs/} become output keys.
+     *
+     * @param layoutJson the layout file's contents
+     * @return how many keys were added
+     */
+    public static int addDashboardKeysFromElasticLayout(String layoutJson) {
+        var m =
+                java.util.regex.Pattern.compile(
+                                "\"topic\"\\s*:\\s*\"/AdvantageKit/RealOutputs/([^\"]+)\"")
+                        .matcher(layoutJson);
+        int n = 0;
+        while (m.find()) {
+            if (dashboardKeys.add(m.group(1))) {
+                n++;
+            }
+        }
+        return n;
+    }
 
     public static void logDash(String key, double value) {
+        dashboardKeys.add(key);
         log(key, value);
     }
 
     public static void logDash(String key, double value, String unit) {
+        dashboardKeys.add(key);
         log(key, value, unit);
     }
 
     public static void logDash(String key, boolean value) {
+        dashboardKeys.add(key);
         log(key, value);
     }
 
     public static void logDash(String key, String value) {
+        dashboardKeys.add(key);
         log(key, value);
     }
 
     public static void logDash(String key, long value) {
+        dashboardKeys.add(key);
         log(key, value);
     }
 
     public static void logDashAlways(String key, double value) {
-        log(key, value);
+        logDash(key, value);
     }
 
     public static void logDashAlways(String key, double value, String unit) {
-        log(key, value, unit);
+        logDash(key, value, unit);
     }
 
     public static void logDashAlways(String key, boolean value) {
-        log(key, value);
+        logDash(key, value);
     }
 
     public static void logDashAlways(String key, String value) {
-        log(key, value);
+        logDash(key, value);
     }
 
     public static void logDashAlways(String key, long value) {
-        log(key, value);
+        logDash(key, value);
     }
 
     // ── Loop timers ──────────────────────────────────────────────────────────

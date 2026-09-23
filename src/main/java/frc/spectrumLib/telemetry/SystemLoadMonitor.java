@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import org.wpilib.driverstation.Alert;
 import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.driverstation.RobotState;
 import org.wpilib.system.Timer;
@@ -137,6 +136,9 @@ public class SystemLoadMonitor {
     public void periodic() {
         double now = Timer.getTimestamp();
         recordLoop(now);
+        if (++censusLoops == 1000) {
+            threadCensus("running"); // threads started lazily after robotInit
+        }
 
         if (Double.isNaN(bucketStartSeconds)) {
             bucketStartSeconds = now;
@@ -166,6 +168,156 @@ public class SystemLoadMonitor {
             stallAlert.set(true);
             stallLatchUntilSeconds = now + LATCH_SECONDS;
         }
+    }
+
+    private final java.lang.management.ThreadMXBean threadBean =
+            ManagementFactory.getThreadMXBean();
+    private final long mainThreadId = Thread.currentThread().threadId();
+    private long lastProcessCpuNanos = -1;
+    private long lastMainCpuNanos = -1;
+    private long lastShareWallNanos = -1;
+
+    /**
+     * Logs how much CPU this program and its main (robot loop) thread used over the last sample.
+     *
+     * <p>Separates "the loop is slow because our code is slow" from "the loop is late because
+     * something else on the controller has the CPU": on the SystemCore bench unit the loop ran 0.6
+     * ms of work per 10 ms cycle yet overran, with the Limelight vision servers for two cameras
+     * taking most of the CPU. {@code MainThreadPercent} is of one core; {@code ProcessPercent} is
+     * of the whole machine.
+     */
+    private void logProcessShare(double now) {
+        long wall = System.nanoTime();
+        long processCpu =
+                ProcessHandle.current()
+                        .info()
+                        .totalCpuDuration()
+                        .map(java.time.Duration::toNanos)
+                        .orElse(-1L);
+        long mainCpu =
+                threadBean.isThreadCpuTimeSupported()
+                        ? threadBean.getThreadCpuTime(mainThreadId)
+                        : -1;
+        if (lastShareWallNanos > 0) {
+            double wallNanos = wall - lastShareWallNanos;
+            int cores = Runtime.getRuntime().availableProcessors();
+            if (processCpu >= 0 && lastProcessCpuNanos >= 0) {
+                Telemetry.logDash(
+                        "System/ProcessPercent",
+                        100.0 * (processCpu - lastProcessCpuNanos) / (wallNanos * cores),
+                        "%");
+            }
+            if (mainCpu >= 0 && lastMainCpuNanos >= 0) {
+                Telemetry.logDash(
+                        "System/MainThreadPercent",
+                        100.0 * (mainCpu - lastMainCpuNanos) / wallNanos,
+                        "%");
+            }
+            Telemetry.logDash("System/ThreadCount", (long) threadBean.getThreadCount());
+            logTopThreads(wallNanos);
+        }
+        lastShareWallNanos = wall;
+        lastProcessCpuNanos = processCpu;
+        lastMainCpuNanos = mainCpu;
+    }
+
+    private int censusLoops = 0;
+    private static final java.util.Set<String> censusSeen = new java.util.HashSet<>();
+
+    /**
+     * Prints the thread ids that appeared since the last call, labelled, to the console (the
+     * journal on the robot). Native threads have no useful name in /proc; this ties the ids that
+     * {@code System/TopThreads} reports back to the library that started them. Boot-time only.
+     */
+    public static void threadCensus(String label) {
+        java.io.File[] tasks = new java.io.File("/proc/self/task").listFiles();
+        if (tasks == null) {
+            return;
+        }
+        StringBuilder fresh = new StringBuilder();
+        for (java.io.File task : tasks) {
+            if (censusSeen.add(task.getName())) {
+                String name = "?";
+                try {
+                    name = Files.readString(task.toPath().resolve("comm")).trim();
+                } catch (IOException e) {
+                    // exited
+                }
+                fresh.append(' ').append(task.getName()).append('(').append(name).append(')');
+            }
+        }
+        StringBuilder busy = new StringBuilder();
+        for (java.io.File task : tasks) {
+            try {
+                String stat = Files.readString(task.toPath().resolve("stat"));
+                String[] f = stat.substring(stat.lastIndexOf(')') + 2).split(" ");
+                long ticks = Long.parseLong(f[11]) + Long.parseLong(f[12]);
+                if (ticks >= 20) {
+                    busy.append(' ').append(task.getName()).append('=').append(ticks);
+                }
+            } catch (IOException | RuntimeException e) {
+                // exited
+            }
+        }
+        System.out.println("[Threads] " + label + ":" + fresh + " | cpu ticks:" + busy);
+    }
+
+    private final java.util.Map<String, Long> lastTaskTicks = new java.util.HashMap<>();
+
+    /** Linux clock ticks per second for /proc times (USER_HZ; 100 on every ARM Linux here). */
+    private static final double TICKS_PER_SECOND = 100.0;
+
+    /**
+     * Logs the busiest threads of this program over the last sample as {@code "name 12.3%"}
+     * (percent of one core), from {@code /proc/self/task}, so native threads -- Phoenix's CAN and
+     * odometry threads, NetworkTables, the HAL -- are counted as well as Java ones. On the
+     * SystemCore bench unit the program used ~1.4 cores while its main loop used 0.17; this is how
+     * to see where the rest goes.
+     */
+    private void logTopThreads(double wallNanos) {
+        java.io.File[] tasks = new java.io.File("/proc/self/task").listFiles();
+        if (tasks == null) {
+            return; // not Linux (the desktop sim)
+        }
+        java.util.Map<String, Long> now = new java.util.HashMap<>();
+        java.util.List<String> names = new java.util.ArrayList<>();
+        java.util.List<Double> pcts = new java.util.ArrayList<>();
+        for (java.io.File task : tasks) {
+            try {
+                String stat = Files.readString(task.toPath().resolve("stat"));
+                int open = stat.indexOf('(');
+                int close = stat.lastIndexOf(')');
+                String name = stat.substring(open + 1, close);
+                String[] f = stat.substring(close + 2).split(" ");
+                // After "(comm) ": state is f[0], utime f[11], stime f[12].
+                long ticks = Long.parseLong(f[11]) + Long.parseLong(f[12]);
+                String key = task.getName() + ":" + name;
+                now.put(key, ticks);
+                Long before = lastTaskTicks.get(key);
+                if (before != null) {
+                    // Native threads that never set a name inherit "java"; keep them apart.
+                    names.add(name.equals("java") ? "java/" + task.getName() : name);
+                    pcts.add(100.0 * (ticks - before) / TICKS_PER_SECOND / (wallNanos / 1e9));
+                }
+            } catch (IOException | RuntimeException e) {
+                // thread exited between listing and reading
+            }
+        }
+        lastTaskTicks.clear();
+        lastTaskTicks.putAll(now);
+        // Sum threads that share a name (thread pools), then rank.
+        java.util.Map<String, Double> byName = new java.util.HashMap<>();
+        for (int i = 0; i < names.size(); i++) {
+            byName.merge(names.get(i), pcts.get(i), Double::sum);
+        }
+        String[] top =
+                byName.entrySet().stream()
+                        .sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
+                        .limit(10)
+                        .map(e -> String.format("%s %.1f%%", e.getKey(), e.getValue()))
+                        .toArray(String[]::new);
+        Telemetry.addDashboardKey("System/TopThreads");
+        Telemetry.log("System/TopThreads", top);
     }
 
     private void sample(double now) {
@@ -224,6 +376,9 @@ public class SystemLoadMonitor {
                 cpuAlert.set(false);
             }
         }
+
+        // ── This program's share ─────────────────────────────────────────────
+        logProcessShare(now);
 
         // ── Memory ────────────────────────────────────────────────────────────
         double availableMb = readMemAvailableMb();

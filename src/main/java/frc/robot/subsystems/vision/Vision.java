@@ -12,6 +12,7 @@ import frc.spectrumLib.localization.PoseObservation.Kind;
 import frc.spectrumLib.localization.PoseSource;
 import frc.spectrumLib.localization.PoseSourceIO;
 import frc.spectrumLib.localization.YawRateHistory;
+import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.util.Util;
 import frc.spectrumLib.vision.Limelight;
@@ -25,7 +26,6 @@ import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Subsystem;
-import org.wpilib.driverstation.Alert;
 import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rotation2d;
@@ -230,7 +230,7 @@ public class Vision implements Subsystem {
 
     private final YawRateHistory yawRates = new YawRateHistory(64);
     private final LoggedNetworkBoolean chassisUseMt2 =
-            new LoggedNetworkBoolean("Vision/ChassisUseMT2", true);
+            new LoggedNetworkBoolean("/Vision/ChassisUseMT2", true);
 
     @Getter private boolean poseHeadingSeeded = false;
     @Getter private boolean poseSeedConfirmed = false;
@@ -546,9 +546,20 @@ public class Vision implements Subsystem {
      * Applies a source's results. The shadow always gets them; the fused pose only when the source
      * is enabled and {@code policyAllows}. Logs which it was.
      */
+    /** When a measurement last moved the fused pose; NaN until one has. */
+    private double lastFusedSeconds = Double.NaN;
+
     private void applyWithPolicy(PoseSource source, boolean policyAllows) {
         boolean fuse = policyAllows && source.isEnabled();
         source.logPolicy(policyAllows);
+        if (fuse) {
+            for (PoseSource.Result r : source.getResults()) {
+                if (r.accepted()) {
+                    lastFusedSeconds = Timer.getTimestamp();
+                    break;
+                }
+            }
+        }
         fusion.apply(source, source.getResults(), fuse);
     }
 
@@ -758,11 +769,28 @@ public class Vision implements Subsystem {
     private void logStatus(boolean disabled, boolean useMt2) {
         notSeededAlert.set(!poseHeadingSeeded && disabled);
         notConfirmedAlert.set(poseHeadingSeeded && !poseSeedConfirmed && disabled);
-        Telemetry.log("Vision/PoseHeadingSeeded", poseHeadingSeeded);
-        Telemetry.log("Vision/PoseSeedConfirmed", poseSeedConfirmed);
-        Telemetry.log("Vision/SeedConfirmProgress", seedConfirmStreak);
-        Telemetry.log("Vision/ChassisSource", useMt2 ? "MT2" : "MT1");
-        Telemetry.log("Vision/GrossHeadingCorrections", grossHeadingCorrections);
+        Telemetry.logDash("Vision/PoseHeadingSeeded", poseHeadingSeeded);
+        Telemetry.logDash("Vision/PoseSeedConfirmed", poseSeedConfirmed);
+        Telemetry.logDash("Vision/SeedConfirmProgress", (long) seedConfirmStreak);
+        Telemetry.logDash("Vision/ChassisSource", useMt2 ? "MT2" : "MT1");
+        Telemetry.logDash("Vision/GrossHeadingCorrections", (long) grossHeadingCorrections);
+        double sinceFused =
+                Double.isNaN(lastFusedSeconds)
+                        ? Double.POSITIVE_INFINITY
+                        : Timer.getTimestamp() - lastFusedSeconds;
+        Telemetry.logDash("Vision/SecondsSinceFusedEstimate", Math.min(sinceFused, 999.0));
+        if (Telemetry.slowLogThisLoop()) {
+            // One connected light per camera for the Pre-Match tab.
+            for (int i = 0; i < mt1Sources.size(); i++) {
+                Telemetry.logDash(
+                        "Vision/" + mt1Sources.get(i).getName().split("/")[0] + "/Connected",
+                        mt1Sources.get(i).isConnected());
+            }
+            for (PoseSource s : orinSources) {
+                Telemetry.logDash("Vision/" + s.getName() + "/Connected", s.isConnected());
+            }
+            Telemetry.logDash("Vision/Quest/Connected", questSource.isConnected());
+        }
         // (Each source's Connected flag is already a logged input.)
         if (!Telemetry.slowLogThisLoop()) {
             return; // the Field2d below is for dashboards; 10 Hz is plenty

@@ -1,5 +1,6 @@
 package frc.spectrumLib.gamepads;
 
+import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.util.ExpCurve;
 import frc.spectrumLib.util.Util;
@@ -13,7 +14,6 @@ import org.wpilib.command2.InstantCommand;
 import org.wpilib.command2.Subsystem;
 import org.wpilib.command2.button.CommandGamepad;
 import org.wpilib.command2.button.Trigger;
-import org.wpilib.driverstation.Alert;
 import org.wpilib.driverstation.Alliance;
 import org.wpilib.driverstation.GenericHID;
 import org.wpilib.driverstation.GenericHID.RumbleType;

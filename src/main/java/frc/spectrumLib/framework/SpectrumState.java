@@ -1,5 +1,6 @@
 package frc.spectrumLib.framework;
 
+import frc.spectrumLib.telemetry.Alert;
 import java.util.HashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
@@ -7,7 +8,6 @@ import org.wpilib.command2.Command;
 import org.wpilib.command2.Commands;
 import org.wpilib.command2.WaitCommand;
 import org.wpilib.command2.button.Trigger;
-import org.wpilib.driverstation.Alert;
 import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.event.EventLoop;
 

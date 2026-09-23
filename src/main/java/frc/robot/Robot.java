@@ -41,11 +41,12 @@ import frc.spectrumLib.framework.SpectrumRobot;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.hardware.CanConfigBudget;
 import frc.spectrumLib.hardware.Rio;
+import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.BatteryLogger;
+import frc.spectrumLib.telemetry.DashboardReceiver;
 import frc.spectrumLib.telemetry.SystemLoadMonitor;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.telemetry.Telemetry.PrintPriority;
-import frc.spectrumLib.telemetry.ThrottledReceiver;
 import frc.spectrumLib.util.CrashTracker;
 import frc.spectrumLib.util.Util;
 import java.io.IOException;
@@ -63,7 +64,6 @@ import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.CommandScheduler;
 import org.wpilib.command2.Commands;
-import org.wpilib.driverstation.Alert;
 import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.driverstation.Alliance;
 import org.wpilib.driverstation.MatchState;
@@ -139,7 +139,9 @@ public class Robot extends SpectrumRobot {
 
     public Robot() {
         super(Constants.LOOP_PERIOD_SECONDS);
+        SystemLoadMonitor.threadCensus("jvm");
         startLogging();
+        SystemLoadMonitor.threadCensus("logging");
 
         /*
          * Phoenix otherwise starts writing .hoot signal logs for every CAN device a second after
@@ -170,6 +172,7 @@ public class Robot extends SpectrumRobot {
             double canInitDelay = Constants.hasHardware() ? 0.1 : 0;
             mainCANBus = CanBuses.forName(CanBuses.CANIVORE);
             secondaryCANBus = CanBuses.forName(CanBuses.RIO_CANBUS);
+            SystemLoadMonitor.threadCensus("canbuses");
             if (Constants.currentMode == Constants.Mode.REAL
                     && !mainCANBus.getStatus().Status.isOK()) {
                 // No CANivore at all (not plugged in, or canivore-usb not installed on the
@@ -179,13 +182,17 @@ public class Robot extends SpectrumRobot {
 
             pilot = new Pilot(config.pilot);
             operator = new Operator(config.operator);
+            SystemLoadMonitor.threadCensus("controllers");
 
             batteryLogger = new BatteryLogger();
+            SystemLoadMonitor.threadCensus("batteryLogger");
 
             swerve = new Swerve(config.swerve);
+            SystemLoadMonitor.threadCensus("swerve");
             Timer.delay(canInitDelay);
 
             intakeExtension = new IntakeExtension(config.intakeExtension);
+            SystemLoadMonitor.threadCensus("intakeExtension");
             Timer.delay(canInitDelay);
 
             fuelIntake = new FuelIntake(config.fuelIntake);
@@ -195,12 +202,14 @@ public class Robot extends SpectrumRobot {
             Timer.delay(canInitDelay);
 
             launcher = new Launcher(config.launcher);
+            SystemLoadMonitor.threadCensus("hood+launcher");
             Timer.delay(canInitDelay);
 
             indexerTower = new IndexerTower(config.indexerTower);
             Timer.delay(canInitDelay);
 
             indexerBed = new IndexerBed(config.indexerBed);
+            SystemLoadMonitor.threadCensus("indexers");
             Timer.delay(canInitDelay);
 
             superStructure =
@@ -214,8 +223,11 @@ public class Robot extends SpectrumRobot {
                             hood);
 
             auton = new Auton(superStructure);
+            SystemLoadMonitor.threadCensus("auton");
             vision = new Vision(config.vision, swerve);
+            SystemLoadMonitor.threadCensus("vision");
             systemLoad = new SystemLoadMonitor();
+            SystemLoadMonitor.threadCensus("systemLoad");
 
             if (Constants.currentMode == Constants.Mode.SIM) {
                 robotSim = new RobotSim(superStructure);
@@ -227,6 +239,8 @@ public class Robot extends SpectrumRobot {
             batteryLogger.setEnabled(true);
 
             SmartDashboard.putData("Field2d", field2d);
+            // The commands running now, for Elastic's Scheduler widget (as in the offseason code).
+            SmartDashboard.putData("Scheduler", CommandScheduler.getInstance());
             // Build the ShotCalculator now so its Hub Model Chooser is on the dashboard before
             // enabling.
             ShotCalculator.getInstance();
@@ -295,13 +309,13 @@ public class Robot extends SpectrumRobot {
                 // SystemCore's own storage. Without a stick /U/logs cannot be opened and the
                 // match is not logged at all.
                 Logger.addDataReceiver(new WPILOGWriter(realLogFolder()));
-                // Live NT view at ~50 Hz; the log file keeps every cycle.
-                Logger.addDataReceiver(new ThrottledReceiver(new NT4Publisher(), ntEveryN()));
+                // Dashboard keys to NT at ~50 Hz; the log file keeps everything, every cycle.
+                Logger.addDataReceiver(new DashboardReceiver(new NT4Publisher(), ntEveryN()));
                 break;
             case SIM:
                 // Log to NT for AdvantageScope and to ./logs for replay practice.
                 Logger.addDataReceiver(new WPILOGWriter("logs"));
-                Logger.addDataReceiver(new ThrottledReceiver(new NT4Publisher(), ntEveryN()));
+                Logger.addDataReceiver(new DashboardReceiver(new NT4Publisher(), ntEveryN()));
                 break;
             case REPLAY:
                 setUseTiming(false); // Run as fast as possible
@@ -312,6 +326,19 @@ public class Robot extends SpectrumRobot {
                 break;
         }
         Logger.start();
+
+        // Dashboard keys: what the Elastic layout reads goes to NetworkTables; everything else
+        // stays in the log unless the mirror switch is on (default on in the simulator).
+        Telemetry.startDashboard(Constants.currentMode == Constants.Mode.SIM);
+        try {
+            var layout =
+                    java.nio.file.Files.readString(
+                            new java.io.File(Filesystem.getDeployDirectory(), "elastic-layout.json")
+                                    .toPath());
+            Telemetry.addDashboardKeysFromElasticLayout(layout);
+        } catch (java.io.IOException e) {
+            Telemetry.print("No elastic-layout.json in deploy; only logDash keys go to NT");
+        }
     }
 
     /** Cycles per NetworkTables publish, for about 50 Hz whatever the loop rate. */
@@ -438,6 +465,8 @@ public class Robot extends SpectrumRobot {
     public void robotPeriodic() {
         RobotLoop.next();
         RuntimeInputs.update();
+        Telemetry.periodic();
+        Alert.periodic();
         systemLoad.periodic();
 
         // Latched here rather than in the mode inits so every mode is covered by the same check.
@@ -469,7 +498,7 @@ public class Robot extends SpectrumRobot {
             Telemetry.log("Match Data/MatchTime", MatchState.getMatchTime(), "seconds");
             var shift = ShiftHelpers.getOfficialShiftInfo();
             Telemetry.log("Match Data/InShift", shift.active());
-            Telemetry.log("Match Data/TimeLeftInShift", shift.remainingTime(), "seconds");
+            Telemetry.logDash("Match Data/TimeLeftInShift", shift.remainingTime(), "seconds");
 
             batteryLogger.setBatteryVoltage(RuntimeInputs.batteryVoltage());
             // Every loop: a brownout is a few hundred milliseconds.
@@ -516,7 +545,7 @@ public class Robot extends SpectrumRobot {
 
         Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds());
         Telemetry.log("CANConfig/FailedCalls", CanConfigBudget.getFailedCalls());
-        Telemetry.log("CANConfig/BudgetExhausted", CanConfigBudget.exhausted());
+        Telemetry.logDash("CANConfig/BudgetExhausted", CanConfigBudget.exhausted());
 
         Telemetry.log("Match Data/EventName", MatchState.getEventName());
         Telemetry.log("Match Data/MatchType", MatchState.getMatchType().name());
@@ -537,13 +566,13 @@ public class Robot extends SpectrumRobot {
      * a bus whose status read itself failed, which looks exactly like a healthy idle bus.
      */
     private void logOneCanBus(String prefix, CANBusStatus canInfo) {
-        Telemetry.log(prefix + "/BusUtilization", canInfo.BusUtilization * 100, "%");
+        Telemetry.logDash(prefix + "/BusUtilization", canInfo.BusUtilization * 100, "%");
         Telemetry.log(prefix + "/BusOffCount", canInfo.BusOffCount);
         Telemetry.log(prefix + "/TxFullCount", canInfo.TxFullCount);
         Telemetry.log(prefix + "/ReceiveErrorCounter", canInfo.REC);
         Telemetry.log(prefix + "/TransmitErrorCounter", canInfo.TEC);
         Telemetry.log(prefix + "/Status", canInfo.Status.getName());
-        Telemetry.log(prefix + "/StatusOK", canInfo.Status.isOK());
+        Telemetry.logDash(prefix + "/StatusOK", canInfo.Status.isOK());
     }
 
     @Override
@@ -768,8 +797,8 @@ public class Robot extends SpectrumRobot {
         Pose2d pose = swerve.getRobotPose();
         double distanceMeters = pose.getTranslation().getDistance(start.get().getTranslation());
         double headingErrorDeg = pose.getRotation().minus(start.get().getRotation()).getDegrees();
-        Telemetry.log("Auton/StartPoseErrorMeters", distanceMeters, "m");
-        Telemetry.log("Auton/StartHeadingErrorDeg", headingErrorDeg, "deg");
+        Telemetry.logDash("Auton/StartPoseErrorMeters", distanceMeters, "m");
+        Telemetry.logDash("Auton/StartHeadingErrorDeg", headingErrorDeg, "deg");
 
         boolean off =
                 distanceMeters > START_POSE_ALERT_METERS

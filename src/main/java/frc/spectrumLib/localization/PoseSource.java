@@ -91,7 +91,9 @@ public class PoseSource {
         this.gates = List.copyOf(gates);
         this.stdDevModel = stdDevModel;
         this.logPrefix = "Localization/Sources/" + name;
-        this.enabled = new LoggedNetworkBoolean(logPrefix + "/Enabled", enabledByDefault);
+        // Leading slash: rooted at /Localization/... on NetworkTables (without it the topic has
+        // no leading slash at all, which dashboards cannot bind to).
+        this.enabled = new LoggedNetworkBoolean("/" + logPrefix + "/Enabled", enabledByDefault);
         acceptedPosesKey = logPrefix + "/AcceptedPoses";
         rejectedPosesKey = logPrefix + "/RejectedPoses";
         verdictsKey = logPrefix + "/Verdicts";
@@ -102,6 +104,11 @@ public class PoseSource {
         enabledSwitchKey = logPrefix + "/EnabledSwitch";
         policyKey = logPrefix + "/PolicyAllowsFusion";
         rejectionCountPrefix = logPrefix + "/RejectionCounts/";
+        // What the Localization tab shows for every source.
+        frc.spectrumLib.telemetry.Telemetry.addDashboardKey(acceptedCountKey);
+        frc.spectrumLib.telemetry.Telemetry.addDashboardKey(rejectedCountKey);
+        frc.spectrumLib.telemetry.Telemetry.addDashboardKey(lastVerdictKey);
+        frc.spectrumLib.telemetry.Telemetry.addDashboardKey(policyKey);
     }
 
     /** Whether accepted measurements from this source move the fused pose. */

@@ -20,13 +20,24 @@ public final class NtDump {
         NetworkTableInstance nt = NetworkTableInstance.create();
         nt.startClient("fm-ntdump");
         nt.setServer(host);
+        // -Dntdump.set=/Some/Boolean=true publishes one boolean before reading, e.g. to flip the
+        // MirrorLogsToNT switch from a laptop.
+        String set = System.getProperty("ntdump.set", "");
+        org.wpilib.networktables.BooleanPublisher setter = null;
+        if (set.contains("=")) {
+            String[] kv = set.split("=", 2);
+            setter = nt.getBooleanTopic(kv[0]).publish();
+            Thread.sleep(1500);
+            setter.set(Boolean.parseBoolean(kv[1]));
+            System.out.println("set " + kv[0] + " = " + kv[1]);
+        }
         var subs = new java.util.ArrayList<Object>();
         for (String p : prefixes) {
             subs.add(
                     new org.wpilib.networktables.MultiSubscriber(
                             nt, new String[] {p}, org.wpilib.networktables.PubSubOption.SEND_ALL));
         }
-        Thread.sleep(4000);
+        Thread.sleep(Long.getLong("ntdump.waitMs", 6000));
         System.out.println("connected=" + nt.isConnected());
         for (Topic t : nt.getTopics()) {
             String name = t.getName();

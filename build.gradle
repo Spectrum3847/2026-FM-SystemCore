@@ -208,13 +208,15 @@ tasks.register('printClasspath') {
 // Prints a robot's NetworkTables topics: ./gradlew ntDump -Phost=172.26.0.1 -Pprefix=/AdvantageKit
 tasks.register('ntDump', JavaExec) {
     group = 'Spectrum'
-    description = 'Dump NetworkTables topics from a robot (-Phost, -Pprefix)'
+    description = 'Dump NetworkTables topics from a robot (-Phost, -Pprefix, -PwaitMs, -Pset=/key=bool)'
     dependsOn 'testClasses', 'extractReleaseNative'
     mainClass = 'frc.tools.NtDump'
     classpath = sourceSets.test.runtimeClasspath
     def nativeDir = file("$buildDir/jni/release")
     jvmArgs = [
-        "-Djava.library.path=${nativeDir}"
+        "-Djava.library.path=${nativeDir}",
+        "-Dntdump.waitMs=${project.findProperty('waitMs') ?: 6000}",
+        "-Dntdump.set=${project.findProperty('set') ?: ''}"
     ]
     environment 'PATH', "${nativeDir}${File.pathSeparator}${System.getenv('PATH')}"
     args = [
@@ -226,13 +228,16 @@ tasks.register('ntDump', JavaExec) {
 // interesting lines), then restarts the program -- GradleRIO stops it before any artifact runs:
 //   ./gradlew deployrobotLogsystemcore -ProbotLog --info
 // Uses the deploy connection, so it needs nothing beyond what ./gradlew deploy needs.
-// -ProbotLogAll prints the last 300 lines unfiltered instead.
+// -ProbotLogAll prints the last 300 lines unfiltered instead; -ProbotThreads runs
+// tools/robot_threads.sh (per-thread CPU and the library each busy thread is in).
 if (project.hasProperty('robotLog')) {
     def filter = project.hasProperty('robotLogAll') ? "tail -300" :
-            "grep -E \"TIME:|Exception|rror|at frc|Started|Stopp|AdvantageKit|NT: \" | tail -150"
+            project.hasProperty('robotTop') ? "tail -1; top -b -n 1 | head -35; nproc; cat /proc/loadavg" :
+            "grep -E \"Threads]|TIME:|Exception|rror|at frc|Started|Stopp|AdvantageKit|NT: \" | tail -150"
     deploy.targets.systemcore.artifacts {
         robotLog(deploy.targets.systemcore.getArtifactTypeClass('CommandArtifact')) {
-            command = "journalctl -u robot -b --no-pager 2>&1 | ${filter}; sudo systemctl start robot"
+            command = project.hasProperty('robotThreads') ? file('tools/robot_threads.sh').text :
+                    "journalctl -u robot -b --no-pager 2>&1 | ${filter}; sudo systemctl start robot"
         }
     }
 }

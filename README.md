@@ -187,6 +187,41 @@ error): it differentiates the shoot-on-move yaw offset too, and that follows the
 which the turning itself disturbs. Logged as `Swerve/Aim/TargetRateFeedforward` (deg/s) and
 `Swerve/Aim/HeadingErrorDeg`.
 
+### Shot readiness gate (drivers: this changes how RT feels)
+
+**FM on 2026 `main` fed the moment RT was pulled**, whether or not the flywheel was up to speed,
+the hood had arrived or the robot had finished turning to the hub. Now the indexers hold the fuel
+(tower stopped, bed slow-indexing as when intaking) until the shot is ready, then feed at full
+speed. Drivers should practise with it: the first ball can come a few tenths later than they are
+used to, and pre-spinning with X (track target) before RT takes most of that away. Logic in
+[ShotGate](src/main/java/frc/robot/subsystems/ShotGate.java), from the offseason bot's feed gate
+(dcb88dc, 067af02, ddd564a) with the drivetrain's heading in place of its turret.
+
+| | Start a volley | Keep feeding |
+|---|---|---|
+| Flywheel | within 150 RPM of target (`Launcher.onTargetToleranceRPM`) | above 75% of target |
+| Hood | within 1 deg, and moving under 20 deg/s | within 3 deg |
+| Heading (while the drivetrain aims) | within `atan((hub radius - ball) / distance)` (4499), 2-10 deg; 10 deg for feed shots (9470) | twice the start tolerance |
+| Range | distance inside the model's fit, only while vision is under 3 s old | not checked |
+| All of it | held for 0.04 s | |
+
+- **Timeout**: held for 1.0 s in a launch state, it feeds anyway for the rest of that launch, so a
+  stuck sensor or an unreachable target can delay a shot by a second but never stop one. This is
+  what keeps autos safe (their `launch()` window is 2.5 s).
+- **Bypass**: **operator Y** (without LB; LB+Y is still the intake reset) feeds while held.
+- Leaving the launch state resets it: the next volley re-earns the start window.
+
+On the dashboard (Match and Shooting tabs): `Shot/Ready` (also lit while tracking with X, before
+RT) and `Shot/BlockedReason`: `None`, `NoShot`, `FlywheelNotReady`, `HoodNotReady`, `NotAimed`,
+`InvalidShot` or `Settling`. Also logged: `Shot/Feeding`, `Shot/FeedReason`
+(`Ready`/`Override`/`Timeout`/`Held`), the errors against each target, and running counts.
+`tools/wpilog_summary.py` prints each launch, how long it was held and by what.
+
+In the sim the flywheel runs 124 RPM over target (kS 20 A against no friction, kP 10 A/rps), which
+is why the flywheel tolerance is 150 and not the unused 100; the hood overshoots on Motion Magic,
+which is why its speed is checked. **CALIBRATE all of it from the first practice log**
+(`Shot/FlywheelErrorRPM`, `Shot/HoodErrorDeg`, `Shot/HeadingErrorDeg`, `Shot/SecondsHeld`).
+
 ## Loop rate, logging and the dashboard
 
 - **100 Hz.** `Constants.LOOP_PERIOD_SECONDS = 0.01` (FM ran 50 Hz on the roboRIO). Anything that

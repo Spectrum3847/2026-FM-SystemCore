@@ -27,6 +27,12 @@ public class Operator extends Gamepad {
     public final Trigger dPadLeft = leftDpad;
     public final Trigger dPadRight = rightDpad;
 
+    /*
+     * Held: feed the flywheel whatever the shot gate says, for a bad sensor or a deliberate dump
+     * (the offseason bot's operator Y). Not with LB, which makes LB+Y the intake position reset.
+     */
+    public final Trigger feedOverride_Y = YButton.and(LB.negate());
+
     public static class OperatorConfig extends Config {
 
         public OperatorConfig() {

@@ -433,6 +433,9 @@ public class Robot extends SpectrumRobot {
         operator.selectButton.onTrue(superStructure.setStateCommand(WantedSuperState.FORCE_HOME));
         operator.selectButton.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
 
+        // Held: feed regardless of the shot gate (SuperStructure / ShotGate).
+        superStructure.setFeedOverride(operator.feedOverride_Y);
+
         operator.dPadDown.onTrue(ShotCalculator.decreaseHoodAngleOffset());
         operator.dPadUp.onTrue(ShotCalculator.increaseHoodAngleOffset());
         operator.dPadRight.onTrue(ShotCalculator.decreaseDriveAngleOffset());

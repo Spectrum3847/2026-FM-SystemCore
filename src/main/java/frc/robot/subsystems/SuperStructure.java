@@ -1,5 +1,7 @@
 package frc.robot.subsystems;
 
+import frc.rebuilt.ShotCalculator;
+import frc.robot.Robot;
 import frc.robot.subsystems.fuelIntake.FuelIntake;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.indexerBed.IndexerBed;
@@ -9,6 +11,7 @@ import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.swerve.Swerve;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.util.Util;
+import java.util.function.BooleanSupplier;
 import lombok.Getter;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Commands;
@@ -80,6 +83,9 @@ public class SuperStructure extends SubsystemBase {
         this.indexerBed = indexerBed;
         this.launcher = launcher;
         this.hood = hood;
+        this.shotGate =
+                new ShotGate(
+                        ShotGate.Tolerances.fm(launcher.getConfig().getOnTargetToleranceRPM()));
     }
 
     private final Timer intakeSqueezeTimer = new Timer();
@@ -98,6 +104,9 @@ public class SuperStructure extends SubsystemBase {
             intakeSqueezeTimer.restart();
         }
 
+        // Before applyStates(): the launch states read the gate to pick the indexer states.
+        updateShotGate();
+
         applyStates();
 
         previousSuperState = currentSuperState;
@@ -106,6 +115,158 @@ public class SuperStructure extends SubsystemBase {
         Telemetry.log("SuperStructure/CurrentSuperState", currentSuperState.toString());
         Telemetry.log(
                 "SuperStructure/IntakeSqueezeTimerElapsed", intakeSqueezeTimer.get(), "seconds");
+    }
+
+    // -- Shot readiness gate ------------------------------------------------------
+    //
+    // FM on 2026 main fed the moment RT was pulled, whether or not the flywheel was up to speed,
+    // the
+    // hood had arrived or the robot had finished turning to the hub. Now the indexers hold fuel
+    // short of the flywheel until ShotGate says the shot is ready, and time out to feeding anyway
+    // after a second, so the gate can delay a shot but never stop one. Operator Y bypasses it.
+
+    private final ShotGate shotGate;
+
+    /** This loop's gate decision. */
+    @Getter private ShotGate.Decision shotDecision = ShotGate.Decision.IDLE;
+
+    /** Operator hold to feed regardless of the gate, for a bad sensor or a deliberate dump. */
+    private BooleanSupplier feedOverride = () -> false;
+
+    /**
+     * Vision estimate age past which range stops voting (offseason ddd564a). Without an accepted
+     * estimate the distance is whatever odometry was seeded with, so the range check is not
+     * measuring anything; the mechanism checks still gate the shot. Generous on purpose: shorter
+     * only makes the gate more permissive after a short dropout.
+     */
+    private static final double POSE_TRUST_TIMEOUT_SECONDS = 3.0;
+
+    /**
+     * Held-fuel indexer states. The tower (brake mode, the stage that lifts fuel into the flywheel)
+     * stops, which holds what is in it; the bed keeps slow-indexing as it does while intaking, so
+     * the tower is full when the gate opens.
+     */
+    private static final IndexerTower.WantedState TOWER_HOLD_STATE = IndexerTower.WantedState.OFF;
+
+    private static final IndexerBed.WantedState BED_HOLD_STATE = IndexerBed.WantedState.SLOW_INDEX;
+
+    private long launchingLoops = 0;
+    private long heldLoops = 0;
+    private long volleys = 0;
+    private boolean feedingLastLoop = false;
+
+    /**
+     * Sets the control that bypasses the gate while held. Polled every loop (a supplier, not a
+     * scheduled command, so there is no interrupt edge case).
+     *
+     * @param override true while the operator wants the gate ignored
+     */
+    public void setFeedOverride(BooleanSupplier override) {
+        this.feedOverride = override;
+    }
+
+    /** Whether the current state is one that feeds the flywheel. */
+    public boolean isLaunching() {
+        return isLaunchState(currentSuperState);
+    }
+
+    private static boolean isLaunchState(CurrentSuperState state) {
+        return state == CurrentSuperState.LAUNCH_WITH_SQUEEZE
+                || state == CurrentSuperState.LAUNCH_WITH_SQUEEZE_WITH_NO_DELAY
+                || state == CurrentSuperState.LAUNCH_WITHOUT_SQUEEZE
+                || state == CurrentSuperState.LAUNCH_WITH_BRAKE;
+    }
+
+    /** Whether fuel is being fed into the flywheel this loop. */
+    public boolean isFeeding() {
+        return shotDecision.feed();
+    }
+
+    /**
+     * Reads the shot's state from logged inputs only (flywheel and hood motor inputs, the fused
+     * pose, vision's estimate age, the operator's gamepad) and runs the gate.
+     */
+    private void updateShotGate() {
+        boolean launching = isLaunching();
+        double shotTargetRpm = launcher.getShotTargetRPM();
+        // The shot solution is already computed this loop whenever the launcher is on a shot.
+        boolean onShot = shotTargetRpm > 0;
+        ShotCalculator.ShootingParameters params =
+                onShot ? ShotCalculator.getInstance().getParameters() : null;
+
+        double sinceVision = Robot.getVision().secondsSinceFusedEstimate();
+        boolean poseTrusted = sinceVision <= POSE_TRUST_TIMEOUT_SECONDS;
+        boolean feedShot = params != null && isRobotInFeedZone();
+        double aimTolerance =
+                params == null
+                        ? ShotGate.MAX_AIM_TOLERANCE_RAD
+                        : ShotGate.aimToleranceRad(params.distance(), feedShot);
+        boolean checkAim = swerve.isAiming();
+        double headingError = swerve.getAimHeadingErrorRadians();
+        boolean override = feedOverride.getAsBoolean();
+
+        shotDecision =
+                shotGate.update(
+                        new ShotGate.Inputs(
+                                launching,
+                                override,
+                                Timer.getTimestamp(),
+                                launcher.getVelocityRPM(),
+                                shotTargetRpm,
+                                hood.getPositionDegrees(),
+                                hood.getVelocityRPM() * 6.0, // mechanism RPM to deg/s
+                                hood.getShotTargetDegrees(),
+                                checkAim,
+                                headingError,
+                                aimTolerance,
+                                poseTrusted,
+                                params != null && params.isValid()));
+
+        boolean feeding = shotDecision.feed();
+        if (launching) {
+            launchingLoops++;
+            if (!feeding) {
+                heldLoops++;
+            }
+        }
+        if (feeding && !feedingLastLoop) {
+            volleys++;
+        }
+        feedingLastLoop = feeding;
+
+        Telemetry.logDash("Shot/Ready", shotDecision.ready());
+        Telemetry.logDash("Shot/BlockedReason", shotDecision.blocker().label);
+        Telemetry.logDash("Shot/Feeding", feeding);
+        Telemetry.logDash("Shot/FeedReason", shotDecision.reason().label);
+        Telemetry.logDash("Shot/Override", override);
+        Telemetry.log("Shot/SecondsHeld", shotDecision.secondsHeld(), "seconds");
+        Telemetry.log("Shot/FlywheelErrorRPM", launcher.getVelocityRPM() - shotTargetRpm, "RPM");
+        Telemetry.log(
+                "Shot/HoodErrorDeg",
+                hood.getPositionDegrees() - hood.getShotTargetDegrees(),
+                "degrees");
+        Telemetry.log("Shot/HeadingErrorDeg", Math.toDegrees(headingError), "degrees");
+        Telemetry.log("Shot/AimToleranceDeg", Math.toDegrees(aimTolerance), "degrees");
+        Telemetry.log("Shot/CheckAim", checkAim);
+        Telemetry.log("Shot/PoseTrusted", poseTrusted);
+        Telemetry.log("Shot/InRange", params != null && params.isValid());
+        Telemetry.log("Shot/LaunchingLoops", launchingLoops);
+        Telemetry.log("Shot/HeldLoops", heldLoops);
+        Telemetry.log("Shot/Volleys", volleys);
+    }
+
+    /**
+     * The indexers for a launch: full speed while the gate allows it, fuel held short of the
+     * flywheel otherwise.
+     */
+    private void applyGatedFeed() {
+        if (shotDecision.feed()) {
+            indexerTower.setWantedState(IndexerTower.WantedState.INDEX_MAX);
+            indexerBed.setWantedState(IndexerBed.WantedState.INDEX_MAX);
+        } else {
+            indexerTower.setWantedState(TOWER_HOLD_STATE);
+            indexerBed.setWantedState(BED_HOLD_STATE);
+        }
     }
 
     private CurrentSuperState handleStateTransitions() {
@@ -212,8 +373,7 @@ public class SuperStructure extends SubsystemBase {
         swerve.setWantedState(Swerve.WantedState.PILOT_AIM_AT_TARGET);
         swerve.setTeleopVelocityCoefficient(SHOOTING_TELEOP_TRANSLATION_COEFFICIENT);
         fuelIntake.setWantedState(FuelIntake.WantedState.INTAKE);
-        indexerTower.setWantedState(IndexerTower.WantedState.INDEX_MAX);
-        indexerBed.setWantedState(IndexerBed.WantedState.INDEX_MAX);
+        applyGatedFeed();
         launcher.setWantedState(Launcher.WantedState.AIM_AT_TARGET);
         hood.setWantedState(Hood.WantedState.AIM_AT_TARGET);
 
@@ -229,8 +389,7 @@ public class SuperStructure extends SubsystemBase {
         swerve.setWantedState(Swerve.WantedState.PILOT_AIM_AT_TARGET);
         swerve.setTeleopVelocityCoefficient(SHOOTING_TELEOP_TRANSLATION_COEFFICIENT);
         fuelIntake.setWantedState(FuelIntake.WantedState.INTAKE);
-        indexerTower.setWantedState(IndexerTower.WantedState.INDEX_MAX);
-        indexerBed.setWantedState(IndexerBed.WantedState.INDEX_MAX);
+        applyGatedFeed();
         intakeExtension.setWantedState(IntakeExtension.WantedState.SLOW_CLOSE);
         launcher.setWantedState(Launcher.WantedState.AIM_AT_TARGET);
         hood.setWantedState(Hood.WantedState.AIM_AT_TARGET);
@@ -240,8 +399,7 @@ public class SuperStructure extends SubsystemBase {
         swerve.setWantedState(Swerve.WantedState.PILOT_AIM_AT_TARGET);
         swerve.setTeleopVelocityCoefficient(SHOOTING_TELEOP_TRANSLATION_COEFFICIENT);
         fuelIntake.setWantedState(FuelIntake.WantedState.INTAKE);
-        indexerTower.setWantedState(IndexerTower.WantedState.INDEX_MAX);
-        indexerBed.setWantedState(IndexerBed.WantedState.INDEX_MAX);
+        applyGatedFeed();
         intakeExtension.setWantedState(IntakeExtension.WantedState.FULL_EXTEND);
         launcher.setWantedState(Launcher.WantedState.AIM_AT_TARGET);
         hood.setWantedState(Hood.WantedState.AIM_AT_TARGET);
@@ -250,8 +408,7 @@ public class SuperStructure extends SubsystemBase {
     private void launchWithBrake() {
         swerve.setWantedState(Swerve.WantedState.X_BRAKE);
         fuelIntake.setWantedState(FuelIntake.WantedState.SLOW_INTAKE);
-        indexerTower.setWantedState(IndexerTower.WantedState.INDEX_MAX);
-        indexerBed.setWantedState(IndexerBed.WantedState.INDEX_MAX);
+        applyGatedFeed();
         intakeExtension.setWantedState(IntakeExtension.WantedState.FULL_EXTEND);
         launcher.setWantedState(Launcher.WantedState.AIM_AT_TARGET);
         hood.setWantedState(Hood.WantedState.AIM_AT_TARGET);

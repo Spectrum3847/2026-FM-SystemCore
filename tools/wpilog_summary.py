@@ -154,6 +154,53 @@ def main():
         vals = series(records, types, key)
         if vals:
             print(f"{key}: final {vals[-1][1]}")
+    shot_summary(records, types)
+
+
+def shot_summary(records, types):
+    """The shot gate: how each launch began feeding, and how long it was held first."""
+    reasons = series(records, types, "Shot/FeedReason")
+    if not reasons:
+        return
+    # Each launch is a run of FeedReason values between NotLaunching ones. Outputs are written
+    # only when they change, so a transition is a record.
+    launches = []
+    start = None
+    first_feed = None
+    for t, r in reasons:
+        if r == "NotLaunching":
+            if start is not None:
+                launches.append((start, first_feed))
+            start, first_feed = None, None
+            continue
+        if start is None:
+            start = t
+        if r != "Held" and first_feed is None:
+            first_feed = (t, r)
+    if start is not None:
+        launches.append((start, first_feed))
+    blocked = series(records, types, "Shot/BlockedReason")
+    print(f"Shot gate: {len(launches)} launches")
+    for s, feed in launches:
+        end = feed[0] if feed else s + 1e9
+        held_by = {b for t, b in blocked if s <= t < end}
+        before = [b for t, b in blocked if t <= s]
+        if before:
+            held_by.add(before[-1])  # the value carried into the launch's first loop
+        why = sorted(held_by - {"None"})
+        if feed:
+            print(f"  t={s:7.2f}s  fed after {feed[0] - s:5.2f} s ({feed[1]})"
+                  + (f", held by {', '.join(why)}" if why else ""))
+        else:
+            print(f"  t={s:7.2f}s  never fed" + (f", held by {', '.join(why)}" if why else ""))
+    for key in ("Shot/LaunchingLoops", "Shot/HeldLoops", "Shot/Volleys"):
+        vals = series(records, types, key)
+        if vals:
+            print(f"  {key}: {vals[-1][1]}")
+    for key in ("Sim/Launched", "Sim/Scored"):
+        vals = series(records, types, key)
+        if vals:
+            print(f"  {key}: {vals[-1][1]}")
 
 
 if __name__ == "__main__":

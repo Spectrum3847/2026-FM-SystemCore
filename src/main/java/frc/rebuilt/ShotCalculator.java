@@ -111,6 +111,16 @@ public class ShotCalculator {
     private static final double RPM_PER_MPS = 255.0;
 
     /**
+     * The ball exit speed a flywheel speed stands for, the inverse of the model's RPM conversion.
+     *
+     * @param rpm flywheel speed
+     * @return exit speed, m/s
+     */
+    public static double exitSpeedForFlywheelRpm(double rpm) {
+        return rpm / RPM_PER_MPS;
+    }
+
+    /**
      * A fitted degree-3 polynomial surface plus its input domain and normalisation. Inputs are
      * mapped to zero-mean unit-variance before evaluation, so the coefficients live in normalised
      * space and must not be applied to raw (metres / m/s) inputs directly.

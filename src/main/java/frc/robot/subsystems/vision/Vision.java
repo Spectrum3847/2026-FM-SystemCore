@@ -883,12 +883,22 @@ public class Vision implements Subsystem {
         return false;
     }
 
-    /** Triggers a rewind-capture snapshot on all Limelights (165 s of history). */
+    /**
+     * Saves the last 165 s (the most a Limelight keeps) of each of FM's Limelights' rewind buffer:
+     * video plus every frame's results, reviewable frame by frame afterwards. Rewind is a Limelight
+     * 4 feature; the camera writes the capture to its own storage and manages that space itself.
+     *
+     * <p>Not the SystemCore's own cameras: their "camera storage" is the robot controller's
+     * internal disk, which {@link frc.spectrumLib.telemetry.LogStorage} is keeping free.
+     */
     public void triggerRewindCaptureForAllCameras() {
         if (!Constants.hasHardware() || simVision != null) {
             return;
         }
         for (Limelight limelight : limelights) {
+            if (limelight.getName().startsWith("limelightsc")) {
+                continue;
+            }
             LimelightHelpers.triggerRewindCapture(limelight.getName(), 165);
         }
     }

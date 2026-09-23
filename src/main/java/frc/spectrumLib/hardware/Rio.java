@@ -24,7 +24,7 @@ public enum Rio {
     // 2026 Robots
     PHOTON2026("032B4BB3", true),
     PM_2026("0329AD07", true),
-    FM_2026("", true),
+    FM_2026("FB0687C7EC47BDC4", true), // SystemCore (device-tree serial), 2026-09-23
     OM_2026("", true),
 
     // 2025 Robots

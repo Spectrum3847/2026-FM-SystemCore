@@ -202,15 +202,19 @@ to surface, and worth checking on the real robot.
   - `System/Storage/FreeMB` is on the dashboard.
 - **Robot identity** (`Rio.id`). On alpha-6, `RobotController.getSerialNumber()` returns ""
   (SystemcoreTesting #38), so the serial is read from the device tree instead. Empty serials no
-  longer map to `SIM`. The serial prints at boot as `RIO SERIAL:`; add FM's to `Rio.FM_2026`.
+  longer map to `SIM`. The serial prints at boot as `RIO SERIAL:` and is logged as
+  `ControllerSerial`. FM's SystemCore is `FB0687C7EC47BDC4` (`Rio.FM_2026`).
 - **Pre-match alerts:**
   - **Battery low:** under 11.8 V for 3 s while disabled. CALIBRATE this against a meter, since
     SystemCore's reading has been reported ~1.5 V low (SystemcoreTesting #306).
   - **Camera disconnected:** FM's Limelights always. Any other camera only while one of its pose
     sources has its fuse switch on.
   - **Quest battery low:** below 20%.
-- **Limelight rewind** is captured when auto ends as well as when teleop ends (with the FMS
-  attached). The camera's buffer holds 165 s, less than a whole match.
+- **Limelight rewind** (Limelight 4 only): each camera keeps a rolling buffer of the last 165 s,
+  covering video plus every frame's targeting results. With the FMS attached, the robot tells FM's
+  three Limelights to save it to their own storage when auto ends and when teleop ends. Review a
+  capture frame by frame in the camera's web UI or Limelight's Rewind Viewer. The SystemCore's
+  own cameras are skipped, since their storage is the robot's internal disk.
 
 ## Hardware notes (SystemCore bench unit, 2026-09-22)
 

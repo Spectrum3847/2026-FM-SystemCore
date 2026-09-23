@@ -12,6 +12,7 @@ import frc.spectrumLib.framework.SpectrumState;
 import frc.spectrumLib.telemetry.Telemetry;
 import java.io.IOException;
 import org.json.simple.parser.ParseException;
+import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.CommandScheduler;
 import org.wpilib.command2.Commands;
@@ -20,8 +21,6 @@ import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.util.Units;
-import org.wpilib.smartdashboard.SendableChooser;
-import org.wpilib.smartdashboard.SmartDashboard;
 import org.wpilib.system.Timer;
 
 public class Auton {
@@ -35,7 +34,13 @@ public class Auton {
     public static final EventTrigger autonUnjam = new EventTrigger("unjam");
     public static final EventTrigger autonPoseUpdate = new EventTrigger("poseUpdate");
 
-    private final SendableChooser<Command> pathChooser = new SendableChooser<>();
+    /**
+     * The auto chooser. An AdvantageKit dashboard input rather than a plain SendableChooser, so the
+     * selected auto is in the log and replay runs the same auto.
+     */
+    private final LoggedDashboardChooser<Command> pathChooser =
+            new LoggedDashboardChooser<>("Auto Chooser");
+
     private boolean autoMessagePrinted = true;
     private double autonStart = 0;
 
@@ -48,7 +53,7 @@ public class Auton {
      */
     public void setupSelectors() {
 
-        pathChooser.setDefaultOption("Do Nothing", doNothing());
+        pathChooser.addDefaultOption("Do Nothing", doNothing());
 
         pathChooser.addOption("TBTB Left", TBTB(false));
         pathChooser.addOption("TBTB Right", TBTB(true));
@@ -73,8 +78,6 @@ public class Auton {
 
         pathChooser.addOption("2nd Man - BBD Left", secondMan_BBD(false));
         pathChooser.addOption("2nd Man - BBD Right", secondMan_BBD(true));
-
-        SmartDashboard.putData("Auto Chooser", pathChooser);
     }
 
     private SuperStructure robotSuperStructure;
@@ -245,7 +248,7 @@ public class Auton {
      *     indicating that the autonomous command is null.
      */
     public Command getAutonomousCommand() {
-        Command auton = pathChooser.getSelected(); // sees what auto is chosen on shuffleboard
+        Command auton = pathChooser.get(); // sees what auto is chosen on shuffleboard
         if (auton != null) {
             return auton; // checks to make sure there is an auto and if there is it runs an auto
         } else {

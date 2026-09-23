@@ -26,9 +26,23 @@ public final class SimScript {
 
     /** Whether the script runs: requested in simulation, and always in replay. */
     public static boolean requested() {
+        String script = System.getenv("FM_SIM_SCRIPT");
         return Constants.currentMode == Constants.Mode.REPLAY
-                || "drive".equalsIgnoreCase(System.getenv("FM_SIM_SCRIPT"));
+                || "drive".equalsIgnoreCase(script)
+                || (script != null && script.startsWith("auto:"));
     }
+
+    /**
+     * The auto to run for {@code FM_SIM_SCRIPT=auto:<chooser name>}, e.g. {@code auto:TBTB Left},
+     * or null for the teleop drive.
+     */
+    private static String requestedAuto() {
+        String script = System.getenv("FM_SIM_SCRIPT");
+        return script != null && script.startsWith("auto:") ? script.substring(5) : null;
+    }
+
+    /** Seconds the auto script runs autonomous for, after 6 s disabled. */
+    private static final double AUTO_SECONDS = 20.0;
 
     private static GamepadSim pilot;
     private static double start = Double.NaN;
@@ -98,6 +112,10 @@ public final class SimScript {
     }
 
     private static void drive() {
+        if (requestedAuto() != null) {
+            runAuto(requestedAuto());
+            return;
+        }
         double now = Timer.getTimestamp();
         if (Double.isNaN(start)) {
             start = now;
@@ -147,6 +165,29 @@ public final class SimScript {
         pilot.setAxis(Gamepad.Axis.LEFT_X, step[2]);
         pilot.setAxis(Gamepad.Axis.RIGHT_X, step[3]);
         pilot.notifyNewData();
+        DriverStationSim.notifyNewData();
+    }
+
+    /**
+     * Picks an auto on the chooser, sits disabled while the robot places itself on the auto's start
+     * and the cameras seed, then runs autonomous for {@link #AUTO_SECONDS}.
+     */
+    private static void runAuto(String autoName) {
+        double now = Timer.getTimestamp();
+        if (Double.isNaN(start)) {
+            start = now;
+            DriverStationSim.setDsAttached(true);
+            DriverStationSim.setAllianceStationId(AllianceStationID.BLUE_1);
+            DriverStationSim.setRobotMode(RobotMode.AUTONOMOUS);
+            DriverStationSim.setEnabled(false);
+            org.wpilib.networktables.NetworkTableInstance.getDefault()
+                    .getTable("SmartDashboard")
+                    .getSubTable("Auto Chooser")
+                    .getEntry("selected")
+                    .setString(autoName);
+        }
+        double t = now - start;
+        DriverStationSim.setEnabled(t >= 6.0 && t < 6.0 + AUTO_SECONDS);
         DriverStationSim.notifyNewData();
     }
 }

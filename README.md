@@ -49,6 +49,16 @@ QuestNav, then drives a lap of straights, spins and strafes in teleop:
 FM_SIM_SCRIPT=drive ./gradlew simulateJava -PnoSimGui
 ```
 
+Or run one of FM's PathPlanner autos (any name from the Auto Chooser), e.g.:
+
+```bash
+FM_SIM_SCRIPT="auto:TBTB Left" ./gradlew simulateJava -PnoSimGui
+```
+
+All 32 autos and 26 paths from 2026 `main` are in `src/main/deploy/pathplanner`, unchanged. The Auto
+Chooser is now an AdvantageKit `LoggedDashboardChooser` (same dashboard key), so the selected auto
+is logged and replays.
+
 Open AdvantageScope (2027), connect to `localhost` (or open the `logs/akit_*.wpilog` the sim wrote),
 and install the FM model from [advantagescope-custom-assets/Robot_FM](advantagescope-custom-assets/Robot_FM).
 

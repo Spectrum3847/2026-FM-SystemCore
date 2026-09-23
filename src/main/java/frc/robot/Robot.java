@@ -315,6 +315,7 @@ public class Robot extends SpectrumRobot {
         // Which robot config this controller selected (by serial number); replay always builds
         // FM2026, so a log from another robot says so here.
         Logger.recordMetadata("RobotIdentity", Rio.id.name());
+        Logger.recordMetadata("ControllerSerial", Rio.serial());
         Logger.recordMetadata("BuildDate", BuildConstants.BUILD_DATE);
         Logger.recordMetadata("GitSHA", BuildConstants.GIT_SHA);
         Logger.recordMetadata("GitDate", BuildConstants.GIT_DATE);
@@ -333,6 +334,7 @@ public class Robot extends SpectrumRobot {
                 // SystemCore's own storage. Without a stick /U/logs cannot be opened and the
                 // match is not logged at all.
                 Logger.addDataReceiver(new WPILOGWriter(LogStorage.chooseFolder()));
+                Logger.recordMetadata("LogFolder", LogStorage.folder());
                 // Dashboard keys to NT at ~50 Hz; the log file keeps everything, every cycle.
                 Logger.addDataReceiver(new DashboardReceiver(new NT4Publisher(), ntEveryN()));
                 break;
@@ -351,7 +353,6 @@ public class Robot extends SpectrumRobot {
         }
         Logger.start();
         if (Constants.currentMode == Constants.Mode.REAL) {
-            Logger.recordMetadata("LogFolder", LogStorage.folder());
             LogStorage.start();
         }
 

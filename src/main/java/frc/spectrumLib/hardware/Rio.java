@@ -43,7 +43,7 @@ public enum Rio {
         for (Rio i : Rio.values()) {
             // Unfilled serials are "" for several entries; mapping "" would make the last of them
             // (SIM) the identity of every controller whose serial could not be read.
-            if (!i.serialNumber.isEmpty()) {
+            if (i.serialNumber != null && !i.serialNumber.isEmpty()) {
                 IDs.put(i.serialNumber, i);
             }
         }
@@ -53,8 +53,16 @@ public enum Rio {
     private static final Alert rioIdUnknown = new Alert("UNKNOWN RIO: ", Level.HIGH);
     private static final Alert rio1alert = new Alert("RIO 1.0", Level.MEDIUM);
 
+    /** The serial number read at boot ("" off the robot), for the log's metadata. */
+    private static String readSerial = "";
+
     /** The {@link Rio} constant that matches the hardware running this code. */
     public static final Rio id = checkID();
+
+    /** The controller serial number read at boot; "" in simulation. */
+    public static String serial() {
+        return readSerial;
+    }
 
     /** CANivore bus selector that chooses the first CANivore found on the system. */
     public static final String CANIVORE = CanBuses.CANIVORE;
@@ -116,9 +124,10 @@ public enum Rio {
             if (serialNumber == null || serialNumber.isEmpty()) {
                 serialNumber = deviceTreeSerial();
             }
+            readSerial = serialNumber;
             Telemetry.print("RIO SERIAL: " + serialNumber);
         } else {
-            serialNumber = "";
+            return SIM;
         }
 
         if (IDs.containsKey(serialNumber)) {

@@ -47,6 +47,7 @@ import frc.spectrumLib.telemetry.DashboardReceiver;
 import frc.spectrumLib.telemetry.SystemLoadMonitor;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.telemetry.Telemetry.PrintPriority;
+import frc.spectrumLib.util.BackgroundSampler;
 import frc.spectrumLib.util.CrashTracker;
 import frc.spectrumLib.util.Util;
 import java.io.IOException;
@@ -169,7 +170,6 @@ public class Robot extends SpectrumRobot {
                     break;
             }
 
-            double canInitDelay = Constants.hasHardware() ? 0.1 : 0;
             mainCANBus = CanBuses.forName(CanBuses.CANIVORE);
             secondaryCANBus = CanBuses.forName(CanBuses.RIO_CANBUS);
             SystemLoadMonitor.threadCensus("canbuses");
@@ -178,6 +178,18 @@ public class Robot extends SpectrumRobot {
                 // No CANivore at all (not plugged in, or canivore-usb not installed on the
                 // SystemCore): do not spend a minute timing out every device on it.
                 CanConfigBudget.exhaust("CANivore '" + CanBuses.CANIVORE + "' not found");
+            } else if (Constants.currentMode == Constants.Mode.REAL && noCanTraffic()) {
+                // Buses up but nothing talking on any of them (a bench controller, or every
+                // device unpowered): the same minute of timeouts, so the same shortcut.
+                CanConfigBudget.exhaust("no CAN traffic on any bus");
+            }
+            if (Constants.hasHardware()) {
+                CANBus main = mainCANBus;
+                CANBus secondary = secondaryCANBus;
+                canStatus =
+                        BackgroundSampler.every(
+                                1.0,
+                                () -> new CANBusStatus[] {main.getStatus(), secondary.getStatus()});
             }
 
             pilot = new Pilot(config.pilot);
@@ -189,28 +201,21 @@ public class Robot extends SpectrumRobot {
 
             swerve = new Swerve(config.swerve);
             SystemLoadMonitor.threadCensus("swerve");
-            Timer.delay(canInitDelay);
 
             intakeExtension = new IntakeExtension(config.intakeExtension);
             SystemLoadMonitor.threadCensus("intakeExtension");
-            Timer.delay(canInitDelay);
 
             fuelIntake = new FuelIntake(config.fuelIntake);
-            Timer.delay(canInitDelay);
 
             hood = new Hood(config.hood);
-            Timer.delay(canInitDelay);
 
             launcher = new Launcher(config.launcher);
             SystemLoadMonitor.threadCensus("hood+launcher");
-            Timer.delay(canInitDelay);
 
             indexerTower = new IndexerTower(config.indexerTower);
-            Timer.delay(canInitDelay);
 
             indexerBed = new IndexerBed(config.indexerBed);
             SystemLoadMonitor.threadCensus("indexers");
-            Timer.delay(canInitDelay);
 
             superStructure =
                     new SuperStructure(
@@ -524,13 +529,39 @@ public class Robot extends SpectrumRobot {
         }
     }
 
-    /** Time of the last CAN bus status read. */
+    /**
+     * Whether every bus reads zero utilization twice, 0.3 s apart. Any powered Phoenix device
+     * broadcasts status frames continuously, so a bus with devices on it is never at zero.
+     */
+    private static boolean noCanTraffic() {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                Thread.sleep(300); // wall clock: the robot clock is frozen during init
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+            if (mainCANBus.getStatus().BusUtilization > 0
+                    || secondaryCANBus.getStatus().BusUtilization > 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Time of the last CAN bus status log. */
     private double lastCanStatusSeconds = Double.NEGATIVE_INFINITY;
 
     /**
-     * Reads and logs CAN bus health once a second (offseason: {@code getStatus()} can block for up
-     * to 1 ms, and nothing is lost at 1 Hz), plus the match identity, which the 2026 logs lacked.
+     * Both buses' status, read once a second on {@link BackgroundSampler}'s thread: {@code
+     * getStatus()} can block for up to a millisecond, which on the real-time main thread is a late
+     * loop. Null off the robot.
      */
+    private static BackgroundSampler.Latest<CANBusStatus[]> canStatus;
+
+    private long lastCanStatusSequence = 0;
+
+    /** Logs CAN bus health once a second, plus the match identity, which the 2026 logs lacked. */
     private void logCanBusStatus() {
         double now = Timer.getTimestamp();
         if (now - lastCanStatusSeconds < 1.0) {
@@ -538,9 +569,11 @@ public class Robot extends SpectrumRobot {
         }
         lastCanStatusSeconds = now;
 
-        if (Constants.hasHardware()) {
-            logOneCanBus("CANivore", mainCANBus.getStatus());
-            logOneCanBus("SystemCoreCAN0", secondaryCANBus.getStatus());
+        if (canStatus != null && canStatus.sequence() != lastCanStatusSequence) {
+            lastCanStatusSequence = canStatus.sequence();
+            CANBusStatus[] status = canStatus.get();
+            logOneCanBus("CANivore", status[0]);
+            logOneCanBus("SystemCoreCAN0", status[1]);
         }
 
         Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds());

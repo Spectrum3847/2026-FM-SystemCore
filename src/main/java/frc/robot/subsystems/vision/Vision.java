@@ -14,6 +14,7 @@ import frc.spectrumLib.localization.PoseSourceIO;
 import frc.spectrumLib.localization.YawRateHistory;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
+import frc.spectrumLib.telemetry.Telemetry.PrintPriority;
 import frc.spectrumLib.util.Util;
 import frc.spectrumLib.vision.Limelight;
 import frc.spectrumLib.vision.Limelight.LimelightConfig;
@@ -329,11 +330,8 @@ public class Vision implements Subsystem {
         if (!replay) {
             for (Limelight ll : limelights) {
                 ll.setLEDMode(false);
-                ll.setIMUmode(1);
-                if (config.pushLimelightMounts) {
-                    ll.pushConfiguredCameraPose();
-                }
             }
+            sendCameraSettings(Timer.getTimestamp());
         }
 
         // Not registered with the scheduler: Robot runs it explicitly, after the drivetrain's
@@ -503,9 +501,11 @@ public class Vision implements Subsystem {
             s.process(context);
         }
 
-        // 3. Seed (disabled) or fuse (enabled).
+        // 3. Seed (disabled, or enabled with nothing seeded yet) and fuse (enabled).
         if (disabled) {
             seedWhileDisabled();
+        } else {
+            seedWhileEnabled(context);
         }
         boolean llWindow =
                 !disabled
@@ -535,6 +535,9 @@ public class Vision implements Subsystem {
         }
 
         // 4. Keep the Limelights and the Quest aligned with the fused pose.
+        if (Constants.currentMode != Constants.Mode.REPLAY) {
+            sendCameraSettings(now);
+        }
         pushHeadingToLimelights();
         resetQuestAfterSeed();
 
@@ -638,6 +641,70 @@ public class Vision implements Subsystem {
         trackSeedConfirmation(o);
     }
 
+    /** Times the pose was seeded while enabled; logged so a match log shows it happened. */
+    private int enabledSeedCount = 0;
+
+    /**
+     * Seeds the pose during the match when nothing seeded it before enable, then confirms that seed
+     * the way a disabled one is confirmed.
+     *
+     * <p>Offseason Chezy QM4 (2026-09-19, 2e1ea2d): no camera saw a tag before the match, the robot
+     * enabled unseeded, and the only in-match recovery was the gross heading correction, which only
+     * fires above {@link VisionConfig#grossHeadingErrorDeg}; the robot ran about 7 deg off all
+     * match. FM aims with its drivetrain heading, so the same error costs every shot.
+     *
+     * <p>Seeding takes the first multi-tag MegaTag1 solve from the best Limelight while the robot
+     * is slow enough for the gross-heading net ({@link VisionConfig#grossHeadingMaxLinearSpeed},
+     * {@link VisionConfig#grossHeadingMaxOmega}). Single-tag headings are where the large MegaTag1
+     * heading errors come from, and a wrong seed while enabled aims wrong with confidence.
+     * Confirmation (which lets the chassis cameras move on to MegaTag2) is stricter than the
+     * disabled version: each counted frame's heading must also agree with the fused heading.
+     */
+    private void seedWhileEnabled(GateContext c) {
+        if (poseSeedConfirmed) {
+            return;
+        }
+        PoseSource.Result best = bestAcceptedMt1();
+        if (best == null) {
+            if (poseHeadingSeeded && anyMt1Frames()) {
+                seedConfirmStreak = 0;
+            }
+            return;
+        }
+        PoseObservation o = best.observation();
+        if (!poseHeadingSeeded) {
+            boolean slow =
+                    c.linearSpeed() <= config.grossHeadingMaxLinearSpeed
+                            && Math.abs(c.robotVelocity().omega) <= config.grossHeadingMaxOmega;
+            if (!slow || !o.multiTag()) {
+                return;
+            }
+            fusion.seed(
+                    o.pose2d(),
+                    o.timestampSeconds(),
+                    config.seedXyStdDev,
+                    Units.degreesToRadians(config.seedThetaStdDevDeg));
+            poseHeadingSeeded = true;
+            enabledSeedCount++;
+            resetQuestToRobotPose();
+            Telemetry.print(
+                    String.format(
+                            "Vision: pose seeded WHILE ENABLED from %s (%d tags); nothing had"
+                                    + " seeded it before enable.",
+                            o.source(), o.tagCount()),
+                    PrintPriority.HIGH);
+            return;
+        }
+        double errorDeg =
+                o.pose2d().getRotation().minus(headingAt(o.timestampSeconds())).getDegrees();
+        if (Math.abs(errorDeg) <= config.seedConfirmSpreadDeg) {
+            trackSeedConfirmation(o);
+        } else {
+            seedConfirmStreak = 0;
+            Telemetry.log("Vision/SeedConfirmBreak", "Disagrees with fused heading");
+        }
+    }
+
     /**
      * Counts consecutive seeding frames with a multi-tag MegaTag1 heading that holds within {@link
      * VisionConfig#seedConfirmSpreadDeg}; the seed is confirmed after {@link
@@ -728,6 +795,31 @@ public class Vision implements Subsystem {
     // Outputs to devices
     // =========================================================================
 
+    /**
+     * How often the settings the robot owns (IMU mode, and the mount poses when {@link
+     * VisionConfig#pushLimelightMounts} is on) are re-sent. A Limelight that boots after the robot,
+     * or reboots mid-match, comes back in IMU mode 0 and on whatever mount was last saved to it; in
+     * mode 0 its MegaTag2 poses are garbage, and FM fuses MegaTag2 once the seed is confirmed.
+     * Offseason 71dc7a7.
+     */
+    private static final double SETTINGS_RESEND_PERIOD_SECS = 2.0;
+
+    private double lastSettingsSendSeconds = Double.NEGATIVE_INFINITY;
+
+    /** Sends each Limelight its IMU mode (and mount), at most every resend period. */
+    private void sendCameraSettings(double now) {
+        if (now - lastSettingsSendSeconds < SETTINGS_RESEND_PERIOD_SECS) {
+            return;
+        }
+        lastSettingsSendSeconds = now;
+        for (Limelight ll : limelights) {
+            ll.setIMUmode(1);
+            if (config.pushLimelightMounts) {
+                ll.pushConfiguredCameraPose();
+            }
+        }
+    }
+
     /** MegaTag2 needs the robot's heading every loop. One NetworkTables flush for all cameras. */
     private void pushHeadingToLimelights() {
         if (!Constants.hasHardware() || simVision != null) {
@@ -774,6 +866,7 @@ public class Vision implements Subsystem {
         Telemetry.logDash("Vision/SeedConfirmProgress", (long) seedConfirmStreak);
         Telemetry.logDash("Vision/ChassisSource", useMt2 ? "MT2" : "MT1");
         Telemetry.logDash("Vision/GrossHeadingCorrections", (long) grossHeadingCorrections);
+        Telemetry.log("Vision/EnabledSeedCount", (long) enabledSeedCount);
         double sinceFused =
                 Double.isNaN(lastFusedSeconds)
                         ? Double.POSITIVE_INFINITY

@@ -245,6 +245,19 @@ PathPlanner's 0.84 m frame), and where the tower's centreline really is (`TOWER_
 the offseason code says it follows tag 31, FM's `Field` says the field centreline; the range barely
 changes, the heading does). In the `shoot` sim: tower 5 of 8, each trench 7-8 of 8.
 
+### Shot log
+
+One row per volley under `ShotLog/`, written on the loop the gate opens the feed: distance, radial
+and tangential velocity, hood and RPM target and actual, heading error and tolerance, the gate's
+reason (and what an override or timeout bypassed), how long it waited, pose trust
+(`SecondsSinceFusedEstimate`, seed confirmed), set shot or calculated, alliance, mode and match
+time; an end row gives the volley's length and its flywheel dips (roughly, balls; calibrate first).
+From the offseason bot's shot record (eb2d86e). Schema: [docs/shot-log.md](docs/shot-log.md).
+
+```bash
+python tools/shot_log.py logs/akit_XXXX.wpilog > shots.csv
+```
+
 ### Bindings
 
 Pilot (port 0):

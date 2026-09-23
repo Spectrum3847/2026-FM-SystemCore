@@ -18,6 +18,8 @@ import org.wpilib.command2.Commands;
 import org.wpilib.command2.InstantCommand;
 import org.wpilib.command2.SubsystemBase;
 import org.wpilib.command2.button.Trigger;
+import org.wpilib.driverstation.MatchState;
+import org.wpilib.driverstation.RobotState;
 import org.wpilib.system.Timer;
 
 public class SuperStructure extends SubsystemBase {
@@ -159,8 +161,13 @@ public class SuperStructure extends SubsystemBase {
 
     private long launchingLoops = 0;
     private long heldLoops = 0;
-    private long volleys = 0;
     private boolean feedingLastLoop = false;
+
+    /** When the current launch state was entered, for how long the gate held it. */
+    private double launchStartSeconds = Double.NaN;
+
+    /** One row per volley under {@code ShotLog/}. */
+    private final ShotLog shotLog = new ShotLog();
 
     /**
      * Sets the control that bypasses the gate while held. Polled every loop (a supplier, not a
@@ -211,9 +218,11 @@ public class SuperStructure extends SubsystemBase {
         boolean poseTrusted = sinceVision <= POSE_TRUST_TIMEOUT_SECONDS;
         boolean feedShot = params != null && isRobotInFeedZone();
         double aimTolerance =
-                params == null
-                        ? ShotGate.MAX_AIM_TOLERANCE_RAD
-                        : ShotGate.aimToleranceRad(params.distance(), feedShot);
+                setShot
+                        ? Double.NaN // the driver aims; nothing is checked
+                        : params == null
+                                ? ShotGate.MAX_AIM_TOLERANCE_RAD
+                                : ShotGate.aimToleranceRad(params.distance(), feedShot);
         boolean checkAim = swerve.isAiming();
         double headingError = swerve.getAimHeadingErrorRadians();
         boolean override = feedOverride.getAsBoolean();
@@ -236,6 +245,10 @@ public class SuperStructure extends SubsystemBase {
                                 params != null && params.isValid()));
 
         boolean feeding = shotDecision.feed();
+        double now = Timer.getTimestamp();
+        if (launching && !isLaunchState(previousSuperState)) {
+            launchStartSeconds = now;
+        }
         if (launching) {
             launchingLoops++;
             if (!feeding) {
@@ -243,7 +256,33 @@ public class SuperStructure extends SubsystemBase {
             }
         }
         if (feeding && !feedingLastLoop) {
-            volleys++;
+            var speeds = swerve.getCurrentRobotChassisSpeeds();
+            shotLog.start(
+                    new ShotLog.Shot(
+                            now,
+                            MatchState.getMatchTime(),
+                            MatchState.getAlliance().map(Enum::name).orElse("NONE"),
+                            RobotState.isAutonomous(),
+                            currentSuperState.toString(),
+                            shotDecision,
+                            now - launchStartSeconds,
+                            params,
+                            setShot ? ShotCalculator.getSelectedSetShot() : null,
+                            shotTargetRpm,
+                            launcher.getVelocityRPM(),
+                            hood.getShotTargetDegrees(),
+                            hood.getPositionDegrees(),
+                            headingError,
+                            aimTolerance,
+                            poseTrusted,
+                            sinceVision,
+                            Robot.getVision().isPoseSeedConfirmed(),
+                            Math.hypot(speeds.vx, speeds.vy),
+                            swerve.getRobotPose()));
+        } else if (feeding) {
+            shotLog.during(launcher.getVelocityRPM(), shotTargetRpm);
+        } else if (feedingLastLoop) {
+            shotLog.end(now);
         }
         feedingLastLoop = feeding;
 
@@ -265,7 +304,7 @@ public class SuperStructure extends SubsystemBase {
         Telemetry.log("Shot/InRange", params != null && params.isValid());
         Telemetry.log("Shot/LaunchingLoops", launchingLoops);
         Telemetry.log("Shot/HeldLoops", heldLoops);
-        Telemetry.log("Shot/Volleys", volleys);
+        Telemetry.log("Shot/Volleys", shotLog.count());
         if (setShot) {
             // Informational only: how far the fused heading is from the spot's heading. The set
             // shot exists for when that heading cannot be trusted, so it never gates.

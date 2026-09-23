@@ -63,7 +63,15 @@ public class ShotCalculator {
             /** Raw uncompensated distance to goal (metres). */
             double distanceNoLookahead,
             /** Estimated ball time-of-flight (seconds). */
-            double timeOfFlight) {}
+            double timeOfFlight,
+            /** Launcher velocity toward the goal (m/s), positive closing. */
+            double radialVelocity,
+            /** Launcher velocity across the line to the goal (m/s). */
+            double tangentialVelocity,
+            /** A feed (passing) shot rather than a hub shot. */
+            boolean feedShot,
+            /** Name of the fitted model the shot was evaluated on. */
+            String modelName) {}
 
     private ShootingParameters latestParameters = null;
 
@@ -579,7 +587,11 @@ public class ShotCalculator {
                         exitSpeedMs,
                         lookaheadDist,
                         distanceNoLookahead,
-                        tofFinal);
+                        tofFinal,
+                        radialVelocity,
+                        tangentialVelocity,
+                        feed,
+                        model.name());
 
         Telemetry.log("ShotCalc/LookaheadPose", lookaheadPose);
         Telemetry.log("ShotCalc/DistanceMeters", lookaheadDist, "meters");

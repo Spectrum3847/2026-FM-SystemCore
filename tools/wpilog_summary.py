@@ -201,6 +201,9 @@ def shot_summary(records, types):
         vals = series(records, types, key)
         if vals:
             print(f"  {key}: {vals[-1][1]}")
+    rows = series(records, types, "ShotLog/Index")
+    if rows:
+        print(f"  Shot log: {len(rows)} volleys (python tools/shot_log.py <log> for the rows)")
 
 
 if __name__ == "__main__":

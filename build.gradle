@@ -229,14 +229,15 @@ tasks.register('ntDump', JavaExec) {
 //   ./gradlew deployrobotLogsystemcore -ProbotLog --info
 // Uses the deploy connection, so it needs nothing beyond what ./gradlew deploy needs.
 // -ProbotLogAll prints the last 300 lines unfiltered instead; -ProbotThreads runs
-// tools/robot_threads.sh (per-thread CPU and the library each busy thread is in).
+// tools/robot_threads.sh (per-thread CPU and the library each busy thread is in);
+// -ProbotTop runs tools/robot_top.sh (system-wide top with the robot program running).
 if (project.hasProperty('robotLog')) {
     def filter = project.hasProperty('robotLogAll') ? "tail -300" :
-            project.hasProperty('robotTop') ? "tail -1; top -b -n 1 | head -35; nproc; cat /proc/loadavg" :
             "grep -E \"Threads]|TIME:|Exception|rror|at frc|Started|Stopp|AdvantageKit|NT: \" | tail -150"
     deploy.targets.systemcore.artifacts {
         robotLog(deploy.targets.systemcore.getArtifactTypeClass('CommandArtifact')) {
             command = project.hasProperty('robotThreads') ? file('tools/robot_threads.sh').text :
+                    project.hasProperty('robotTop') ? file('tools/robot_top.sh').text :
                     "journalctl -u robot -b --no-pager 2>&1 | ${filter}; sudo systemctl start robot"
         }
     }

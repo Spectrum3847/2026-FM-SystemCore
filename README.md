@@ -85,11 +85,22 @@ The 2026 code lives in [Spectrum3847/2026-Spectrum](https://github.com/Spectrum3
 - **API**: everything moved from `edu.wpi.first.*` to the 2027 `org.wpilib.*` packages
   (`DriverStation` split into `MatchState`/`RobotState`/`DriverStationErrors`, `ChassisSpeeds` →
   `ChassisVelocities`, gamepads → `CommandGamepad` face buttons, test mode → *utility* mode, …).
-- **CAN** ([CanBuses.java](src/main/java/frc/spectrumLib/hardware/CanBuses.java)): FM's CANivore is
-  kept — it works on SystemCore once CTRE's `canivore-usb` package is installed on it (see
-  wpilibsuite/SystemcoreTesting `CTR-Phoenix.md`). The devices that were on the roboRIO's own bus
-  (the intake rollers, IDs 5 and 6) now go on **SystemCore CAN port 0**. *Check this against the
-  wiring.*
+- **CAN** ([CanBuses.java](src/main/java/frc/spectrumLib/hardware/CanBuses.java)): one switch,
+  `CanBuses.USE_CANIVORE`, picks the wiring. **This branch sets it to `false`: no CANivore, only the
+  SystemCore's native CAN FD ports.**
+
+  | Port | Devices | With `USE_CANIVORE = true` |
+  |---|---|---|
+  | `systemcore:0` | intake rollers (5, 6) | same |
+  | `systemcore:1` | swerve: 8 TalonFX, 4 CANcoders, Pigeon (its own bus for 250 Hz odometry) | CANivore |
+  | `systemcore:2` | launcher (46–49), hood (15) | CANivore |
+  | `systemcore:3` | intake extension (4, 5), indexer bed (8, 9), indexer tower (51, 52), CANdle (1) | CANivore |
+  | `systemcore:4` | spare | — |
+
+  Bus health is logged as `SystemCoreCAN<n>/…` (and `CANivore/…` with it on). After flipping the
+  switch, rerun `python tools/make_elastic_layout.py`; the dashboard's main-bus widgets follow it.
+  A CANivore on SystemCore needs CTRE's `canivore-usb` package (wpilibsuite/SystemcoreTesting
+  `CTR-Phoenix.md`). *Check the port assignment against the wiring.*
 - **Logging**: AdvantageKit. `Telemetry.log(...)` keeps its 2026 API and now records AKit outputs.
   Logs go to a USB stick (`/U/logs`) if one is inserted, else `/home/systemcore/logs`.
 - **Replay**: every motor's status signals are AKit inputs ([MotorInputs](src/main/java/frc/spectrumLib/mechanism/MotorInputs.java)),
@@ -191,16 +202,21 @@ to surface, and worth checking on the real robot.
 
 Deployed to the bench SystemCore (no CAN devices, two cameras):
 
-- Boots in ~11 s with no CAN devices at all.
+- Boots in ~11 s with the CANivore layout and no CANivore: the missing CANivore spends the CAN
+  config budget at once. The native layout on an empty bench takes ~58 s, most of it (~26 s) in the
+  swerve constructor timing out on devices that aren't there. With the devices wired, this should
+  be much shorter.
 - At 100 Hz: `robotPeriodic` is ~1 ms and the mean period is 10.0–10.7 ms. 2–6% of loops run
   over 12.5 ms, and the worst are 20–45 ms.
 - **Why it jitters on the bench: the controller is out of CPU.** It reads 80–90% busy, from two causes:
   - The SystemCore's own Limelight vision servers for its two cameras use ~55% of the machine.
-  - One Phoenix native thread spins a full core. It is created when the CAN buses open, and it
-    starts spinning as the first device on the CANivore (`*`) bus is constructed. This unit has
-    no CANivore, so the spin is expected to go away with one attached. **Check `System/TopThreads`
-    on the real robot.**
-  - The robot program's main thread uses only ~16% of one core.
+  - **With `USE_CANIVORE = true` and no CANivore plugged in, one Phoenix native thread spins a
+    full core.** It starts as the first device on the `*` bus is constructed. With the native
+    layout nothing spins: the program uses ~18% of the machine instead of ~35%, and the
+    busiest thread is the main loop at ~25% of one core. Not yet checked: whether the spin also
+    happens with a real CANivore attached. **Check `System/TopThreads` on the real robot.**
+  - Native layout, bench unit: mean period 10.1–10.3 ms, 1–5% of loops over 12.5 ms, worst
+    14–30 ms, versus 20–45 ms before.
   - Unplug or disable the SystemCore cameras when they aren't being tested.
 - `System/TopThreads` lists this program's busiest threads from `/proc`, native ones included. A
   native thread that never named itself shows as `java/<tid>`. The boot console prints
@@ -231,8 +247,9 @@ Windows path.
 
 ## Before the event — CALIBRATE / check
 
-- [ ] **CAN wiring**: CANivore present and `canivore-usb` installed on the SystemCore; intake rollers
-      (5, 6) on SystemCore port 0. `CANivore/StatusOK` and `SystemCoreCAN0/StatusOK` in the log.
+- [ ] **CAN wiring** matches `CanBuses` (`USE_CANIVORE` and the port table above). With a CANivore:
+      `canivore-usb` installed on the SystemCore. `SystemCoreCAN<n>/StatusOK` (and
+      `CANivore/StatusOK`) in the log, and nonzero `BusUtilization` on every port in use.
 - [ ] **Swerve encoder offsets**: FM's 2026 values are in `FM2026`; re-check with the alignment page.
 - [ ] **Limelight mounts**: FM's 2026 code never pushed mounts from code, so `pushLimelightMounts` is
       off and the cameras' own flash is trusted. Verify, then turn it on.

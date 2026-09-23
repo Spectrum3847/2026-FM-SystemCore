@@ -3,7 +3,7 @@ package frc.robot.subsystems.hood;
 import com.ctre.phoenix6.hardware.TalonFX;
 import frc.rebuilt.ShotCalculator;
 import frc.robot.RobotSim;
-import frc.spectrumLib.hardware.Rio;
+import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
 import frc.spectrumLib.sim.ArmConfig;
 import frc.spectrumLib.sim.ArmSim;
@@ -48,7 +48,7 @@ public class Hood extends Mechanism {
         @Getter private final double length = Units.inchesToMeters(10);
 
         public HoodConfig() {
-            super("Hood", 15, Rio.CANIVORE);
+            super("Hood", 15, CanBuses.SHOOTER);
             configMinMaxRotations(minRotations, maxRotations);
             configPIDGains(0, positionKp, positionKi, positionKd);
             configFeedForwardGains(positionKs, positionKv, positionKa, positionKg);

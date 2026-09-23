@@ -5,7 +5,7 @@ import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import frc.rebuilt.ShotCalculator;
 import frc.robot.Robot;
 import frc.robot.RobotSim;
-import frc.spectrumLib.hardware.Rio;
+import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
 import frc.spectrumLib.sim.RollerConfig;
 import frc.spectrumLib.sim.RollerSim;
@@ -39,7 +39,7 @@ public class Launcher extends Mechanism {
         @Getter private final double wheelDiameter = 4;
 
         public LauncherConfig() {
-            super("Launcher", 46, Rio.CANIVORE);
+            super("Launcher", 46, CanBuses.SHOOTER);
             configPIDGains(0, velocityKp, 0, 0);
             configFeedForwardGains(velocityKs, velocityKv, 0, 0);
             configGearRatio(1);
@@ -55,13 +55,19 @@ public class Launcher extends Mechanism {
             configClockwise_Positive();
             setFollowerConfigs(
                     new FollowerConfig(
-                            "Launcher Top Right", 47, Rio.CANIVORE, MotorAlignmentValue.Opposed),
+                            "Launcher Top Right",
+                            47,
+                            CanBuses.SHOOTER,
+                            MotorAlignmentValue.Opposed),
                     new FollowerConfig(
-                            "Launcher Bottom Left", 48, Rio.CANIVORE, MotorAlignmentValue.Aligned),
+                            "Launcher Bottom Left",
+                            48,
+                            CanBuses.SHOOTER,
+                            MotorAlignmentValue.Aligned),
                     new FollowerConfig(
                             "Launcher Bottom Right",
                             49,
-                            Rio.CANIVORE,
+                            CanBuses.SHOOTER,
                             MotorAlignmentValue.Opposed));
         }
     }

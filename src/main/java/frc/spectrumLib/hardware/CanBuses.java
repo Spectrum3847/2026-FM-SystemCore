@@ -16,7 +16,8 @@ import com.ctre.phoenix6.CANBus;
  * #forName(String)} resolves {@link #SYSTEMCORE_PREFIX}{@code n} to {@code CANBus.systemcore(n)}
  * and anything else to a CANivore by name.
  *
- * <p><b>Check against the wiring before the event:</b> {@link #CANIVORE} and {@link #RIO_CANBUS}.
+ * <p><b>Check against the wiring before the event:</b> {@link #USE_CANIVORE} and the port of each
+ * group.
  */
 public final class CanBuses {
     private CanBuses() {}
@@ -24,7 +25,15 @@ public final class CanBuses {
     /** Prefix for a SystemCore native port, e.g. {@code "systemcore:0"}. */
     public static final String SYSTEMCORE_PREFIX = "systemcore:";
 
-    /** The first CANivore found. FM's drivetrain and most mechanisms. */
+    /**
+     * Whether FM runs its CANivore. {@code true} is the 2026 wiring: drivetrain and most mechanisms
+     * on the CANivore, intake rollers on SystemCore port 0. {@code false} spreads everything over
+     * the SystemCore's native ports instead (see {@link #DRIVETRAIN}, {@link #SHOOTER}, {@link
+     * #MECHANISMS}); no {@code "*"} bus is ever opened.
+     */
+    public static final boolean USE_CANIVORE = false;
+
+    /** The first CANivore found. */
     public static final String CANIVORE = "*";
 
     /**
@@ -32,6 +41,38 @@ public final class CanBuses {
      * live: SystemCore CAN port 0.
      */
     public static final String RIO_CANBUS = SYSTEMCORE_PREFIX + "0";
+
+    /**
+     * Swerve: 8 TalonFX, 4 CANcoders and the Pigeon. Without the CANivore it gets a port to itself,
+     * for the 250 Hz odometry signals.
+     */
+    public static final String DRIVETRAIN = USE_CANIVORE ? CANIVORE : SYSTEMCORE_PREFIX + "1";
+
+    /** Launcher (4 TalonFX) and hood. */
+    public static final String SHOOTER = USE_CANIVORE ? CANIVORE : SYSTEMCORE_PREFIX + "2";
+
+    /** Intake extension, indexer bed, indexer tower and the CANdle. */
+    public static final String MECHANISMS = USE_CANIVORE ? CANIVORE : SYSTEMCORE_PREFIX + "3";
+
+    /**
+     * The buses this layout uses, by the name their health is logged under ({@code
+     * <label>/StatusOK}, {@code <label>/BusUtilization}, ...).
+     *
+     * @return label to bus name, in port order
+     */
+    public static java.util.Map<String, String> inUse() {
+        java.util.Map<String, String> buses = new java.util.LinkedHashMap<>();
+        if (USE_CANIVORE) {
+            buses.put("CANivore", CANIVORE);
+        }
+        for (String name : new String[] {RIO_CANBUS, DRIVETRAIN, SHOOTER, MECHANISMS}) {
+            if (name.startsWith(SYSTEMCORE_PREFIX)) {
+                buses.putIfAbsent(
+                        "SystemCoreCAN" + name.substring(SYSTEMCORE_PREFIX.length()), name);
+            }
+        }
+        return buses;
+    }
 
     /**
      * Resolves a bus name from a config into a Phoenix {@link CANBus}.

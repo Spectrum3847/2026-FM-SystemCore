@@ -155,14 +155,14 @@
             }
           },
           {
-            "title": "CANivore",
+            "title": "Drive CAN 1",
             "x": 896,
             "y": 256,
             "width": 256,
             "height": 128,
             "type": "Boolean Box",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/CANivore/StatusOK",
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/StatusOK",
               "period": 0.1,
               "data_type": "boolean",
               "true_color": 4283215696,
@@ -1614,14 +1614,14 @@
             }
           },
           {
-            "title": "CANivore Bus (%)",
+            "title": "Drive CAN 1 Bus (%)",
             "x": 0,
             "y": 512,
             "width": 512,
             "height": 128,
             "type": "Number Bar",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/CANivore/BusUtilization",
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/BusUtilization",
               "period": 0.1,
               "data_type": "double",
               "min_value": 0,
@@ -2067,14 +2067,14 @@
             }
           },
           {
-            "title": "CANivore Bus (%)",
+            "title": "Drive CAN 1 Bus (%)",
             "x": 896,
             "y": 256,
             "width": 512,
             "height": 128,
             "type": "Number Bar",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/CANivore/BusUtilization",
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/BusUtilization",
               "period": 0.1,
               "data_type": "double",
               "min_value": 0,
@@ -2099,14 +2099,14 @@
             }
           },
           {
-            "title": "CANivore",
+            "title": "Drive CAN 1",
             "x": 896,
             "y": 384,
             "width": 256,
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/CANivore/Status",
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/Status",
               "period": 0.1,
               "data_type": "string",
               "show_submit_button": false

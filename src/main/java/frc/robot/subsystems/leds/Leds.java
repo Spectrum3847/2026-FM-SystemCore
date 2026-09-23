@@ -1,9 +1,8 @@
 package frc.robot.subsystems.leds;
 
-import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.signals.LossOfSignalBehaviorValue;
 import com.ctre.phoenix6.signals.StripTypeValue;
-import frc.spectrumLib.hardware.Rio;
+import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.leds.SpectrumLEDs;
 import frc.spectrumLib.telemetry.Telemetry;
 
@@ -35,7 +34,7 @@ public class Leds extends SpectrumLEDs {
     public static final Config ledsConfig;
 
     static {
-        ledsConfig = new Config("Leds", 1, NUM_LEDS, new CANBus(Rio.CANIVORE));
+        ledsConfig = new Config("Leds", 1, NUM_LEDS, CanBuses.forName(CanBuses.MECHANISMS));
         ledsConfig.setStripType(StripTypeValue.RGB);
         ledsConfig.setBrightness(0.5);
         ledsConfig.setLossOfSignalBehavior(LossOfSignalBehaviorValue.DisableLEDs);

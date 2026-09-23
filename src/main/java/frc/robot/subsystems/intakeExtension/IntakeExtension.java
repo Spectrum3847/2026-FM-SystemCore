@@ -4,7 +4,7 @@ import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfigurator;
 import com.ctre.phoenix6.hardware.TalonFX;
 import frc.robot.RobotSim;
-import frc.spectrumLib.hardware.Rio;
+import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
 import frc.spectrumLib.sim.LinearConfig;
 import frc.spectrumLib.sim.LinearSim;
@@ -93,7 +93,7 @@ public class IntakeExtension extends Mechanism {
         @Getter private final double maxExtensionHeight = 40;
 
         public IntakeExtensionConfig() {
-            super("IntakeExtension", 4, Rio.CANIVORE);
+            super("IntakeExtension", 4, CanBuses.MECHANISMS);
             configMinMaxRotations(minRotations, maxRotations);
             configPIDGains(0, positionKp, positionKi, positionKd);
             configFeedForwardGains(positionKs, positionKv, positionKa, positionKg);
@@ -136,7 +136,7 @@ public class IntakeExtension extends Mechanism {
 
         public static class RightConfig extends Config {
             public RightConfig(IntakeExtensionConfig left) {
-                super("IntakeExtensionRight", 5, Rio.CANIVORE);
+                super("IntakeExtensionRight", 5, CanBuses.MECHANISMS);
                 setAttached(left.isAttached());
                 configMinMaxRotations(left.getMinRotations(), left.getMaxRotations());
                 configPIDGains(0, left.getPositionKp(), left.getPositionKi(), left.getPositionKd());

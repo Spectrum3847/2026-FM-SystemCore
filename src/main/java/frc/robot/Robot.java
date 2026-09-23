@@ -131,11 +131,8 @@ public class Robot extends SpectrumRobot {
     @Getter private static SuperStructure superStructure;
     @Getter private static BatteryLogger batteryLogger;
 
-    /** FM's CANivore: drivetrain and most mechanisms. */
-    @Getter private static CANBus mainCANBus;
-
-    /** The SystemCore port that carries what was on the roboRIO's own bus in 2026. */
-    @Getter private static CANBus secondaryCANBus;
+    /** Every CAN bus this layout uses ({@link CanBuses#inUse()}), by log label. */
+    private static final java.util.Map<String, CANBus> canBuses = new java.util.LinkedHashMap<>();
 
     public Robot() {
         super(Constants.LOOP_PERIOD_SECONDS);
@@ -170,11 +167,11 @@ public class Robot extends SpectrumRobot {
             }
 
             double canInitDelay = Constants.hasHardware() ? 0.1 : 0;
-            mainCANBus = CanBuses.forName(CanBuses.CANIVORE);
-            secondaryCANBus = CanBuses.forName(CanBuses.RIO_CANBUS);
+            CanBuses.inUse().forEach((label, name) -> canBuses.put(label, CanBuses.forName(name)));
             SystemLoadMonitor.threadCensus("canbuses");
             if (Constants.currentMode == Constants.Mode.REAL
-                    && !mainCANBus.getStatus().Status.isOK()) {
+                    && CanBuses.USE_CANIVORE
+                    && !canBuses.get("CANivore").getStatus().Status.isOK()) {
                 // No CANivore at all (not plugged in, or canivore-usb not installed on the
                 // SystemCore): do not spend a minute timing out every device on it.
                 CanConfigBudget.exhaust("CANivore '" + CanBuses.CANIVORE + "' not found");
@@ -539,8 +536,7 @@ public class Robot extends SpectrumRobot {
         lastCanStatusSeconds = now;
 
         if (Constants.hasHardware()) {
-            logOneCanBus("CANivore", mainCANBus.getStatus());
-            logOneCanBus("SystemCoreCAN0", secondaryCANBus.getStatus());
+            canBuses.forEach((label, bus) -> logOneCanBus(label, bus.getStatus()));
         }
 
         Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds());

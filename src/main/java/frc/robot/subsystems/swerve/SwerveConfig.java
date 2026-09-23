@@ -129,7 +129,7 @@ public class SwerveConfig {
     @Getter @Setter private boolean invertLeftSide = false;
     @Getter @Setter private boolean invertRightSide = true;
 
-    @Getter @Setter private CANBus canBus = CanBuses.forName(CanBuses.CANIVORE);
+    @Getter @Setter private CANBus canBus = CanBuses.forName(CanBuses.DRIVETRAIN);
     @Getter private int pigeonId = 0;
 
     // These are only used for simulation

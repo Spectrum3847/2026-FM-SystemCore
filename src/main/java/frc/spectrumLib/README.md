@@ -41,7 +41,7 @@ Low-level hardware wrappers and robot identity constants.
 
 |          Class           |                                                       Description                                                       |
 |--------------------------|-------------------------------------------------------------------------------------------------------------------------|
-| `Rio`                    | Enum mapping RoboRIO serial numbers to robot identities; exposes `Rio.CANIVORE` and `Rio.RIO_CANBUS` bus name constants |
+| `Rio`                    | Enum mapping controller serial numbers to robot identities (bus names are in `CanBuses`) |
 | `SpectrumCANcoder`       | Configures a CANcoder and wires it into a `TalonFX` as Remote, Fused, or Sync feedback                                  |
 | `SpectrumCANcoderConfig` | Configuration holder for CANcoder offset, gear ratios, inversion, and attachment flag                                   |
 | `SpectrumServo`          | PWM servo wrapper that also implements `Subsystem`                                                                      |

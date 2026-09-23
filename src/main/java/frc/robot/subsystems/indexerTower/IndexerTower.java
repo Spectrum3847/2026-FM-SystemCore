@@ -1,7 +1,7 @@
 package frc.robot.subsystems.indexerTower;
 
 import com.ctre.phoenix6.signals.MotorAlignmentValue;
-import frc.spectrumLib.hardware.Rio;
+import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
 import frc.spectrumLib.telemetry.Telemetry;
 import lombok.Getter;
@@ -26,7 +26,7 @@ public class IndexerTower extends Mechanism {
         @Getter private final double wheelDiameter = 12;
 
         public IndexerTowerConfig() {
-            super("IndexerTower", 51, Rio.CANIVORE);
+            super("IndexerTower", 51, CanBuses.MECHANISMS);
             configPIDGains(0, velocityKp, 0, 0);
             configFeedForwardGains(velocityKs, velocityKv, 0, 0);
             configGearRatio(1);
@@ -42,7 +42,7 @@ public class IndexerTower extends Mechanism {
                     new FollowerConfig(
                             "IndexerTower Follower",
                             52,
-                            Rio.CANIVORE,
+                            CanBuses.MECHANISMS,
                             MotorAlignmentValue.Aligned));
         }
     }

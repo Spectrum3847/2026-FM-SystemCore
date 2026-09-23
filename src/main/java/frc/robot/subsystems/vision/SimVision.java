@@ -75,7 +75,7 @@ public class SimVision {
     public static SimCameraProperties limelight4() {
         SimCameraProperties p = new SimCameraProperties();
         p.setCalibration(1280, 800, Rotation2d.fromDegrees(82));
-        p.setCalibError(0.35, 0.10);
+        p.setCalibError(0.15, 0.05);
         p.setFPS(40);
         p.setAvgLatencyMs(25);
         p.setLatencyStdDevMs(5);
@@ -86,7 +86,7 @@ public class SimVision {
     public static SimCameraProperties thriftiestCam() {
         SimCameraProperties p = new SimCameraProperties();
         p.setCalibration(1280, 800, Rotation2d.fromDegrees(90));
-        p.setCalibError(0.25, 0.08);
+        p.setCalibError(0.15, 0.05);
         p.setFPS(50);
         p.setAvgLatencyMs(20);
         p.setLatencyStdDevMs(4);

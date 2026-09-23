@@ -6,7 +6,6 @@ import java.util.Map;
 import org.littletonrobotics.junction.Logger;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Commands;
-import org.wpilib.system.RobotController;
 import org.wpilib.system.Timer;
 import org.wpilib.units.Measure;
 import org.wpilib.units.Unit;
@@ -206,8 +205,8 @@ public class Telemetry {
 
     // ── Loop timers ──────────────────────────────────────────────────────────
 
-    /** Start times of open {@link #time} spans, in microseconds. */
-    private static final Map<String, Long> epochStartMicros = new HashMap<>();
+    /** Start times of open {@link #time} spans, in nanoseconds. */
+    private static final Map<String, Long> epochStartNanos = new HashMap<>();
 
     /**
      * Starts a timed span. Pair with {@link #timeEnd(String)} on the same key.
@@ -218,7 +217,7 @@ public class Telemetry {
      * @param key the log key the elapsed time will be written to
      */
     public static void time(String key) {
-        epochStartMicros.put(key, RobotController.getTime());
+        epochStartNanos.put(key, System.nanoTime());
     }
 
     /**
@@ -228,11 +227,11 @@ public class Telemetry {
      * @param key the key passed to {@link #time(String)}
      */
     public static void timeEnd(String key) {
-        Long start = epochStartMicros.remove(key);
+        Long start = epochStartNanos.remove(key);
         if (start == null) {
             return;
         }
-        log(key, (RobotController.getTime() - start) / 1_000_000.0, "seconds");
+        log(key, (System.nanoTime() - start) / 1e9, "seconds");
     }
 
     // ── Commands, prints ─────────────────────────────────────────────────────

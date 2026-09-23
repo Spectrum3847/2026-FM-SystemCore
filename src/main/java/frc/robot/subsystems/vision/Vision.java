@@ -157,9 +157,11 @@ public class Vision implements Subsystem {
         @Getter final double seedThetaStdDevDeg = 0.01;
 
         /**
-         * Consecutive disabled loops (about 50 Hz) in which the best Limelight must have seeded the
-         * pose from two or more tags, with its heading holding within {@link
-         * #seedConfirmSpreadDeg}, before the seed counts as confirmed. One second.
+         * Consecutive seeding frames in which the best Limelight must have seeded the pose from two
+         * or more tags, with its heading holding within {@link #seedConfirmSpreadDeg}, before the
+         * seed counts as confirmed. About a second at Limelight frame rates. (2026 counted loops
+         * and re-read the same frame each loop; frames are now reported once, so this counts frames
+         * and loops without a new frame neither extend nor break the run.)
          */
         @Getter final int seedConfirmLoops = 50;
 
@@ -215,7 +217,6 @@ public class Vision implements Subsystem {
     private double seedConfirmSpreadHigh = 0;
     private double grossHeadingSince = Double.NaN;
     private int grossHeadingCorrections = 0;
-    private double lastQuestResetTime = Double.NaN;
 
     private final Alert notSeededAlert =
             new Alert(
@@ -528,6 +529,16 @@ public class Vision implements Subsystem {
         return best;
     }
 
+    /** Whether any Limelight reported a MegaTag1 frame this loop. */
+    private boolean anyMt1Frames() {
+        for (PoseSource s : mt1Sources) {
+            if (!s.getResults().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** The best Limelight's latest accepted MegaTag1 result this loop, or {@code null}. */
     private PoseSource.Result bestAcceptedMt1() {
         int best = bestLimelightIndex();
@@ -551,7 +562,13 @@ public class Vision implements Subsystem {
     private void seedWhileDisabled() {
         PoseSource.Result best = bestAcceptedMt1();
         if (best == null) {
-            seedConfirmStreak = 0;
+            // A loop with no new frame from any camera is not evidence either way (the cameras run
+            // slower than the loop, and each frame is reported once); a loop whose frames were all
+            // rejected breaks the run.
+            if (anyMt1Frames()) {
+                seedConfirmStreak = 0;
+                Telemetry.log("Vision/SeedConfirmBreak", "Best frame rejected");
+            }
             return;
         }
         PoseObservation o = best.observation();
@@ -571,8 +588,12 @@ public class Vision implements Subsystem {
      * the wrap at 180 deg cannot split a run.
      */
     private void trackSeedConfirmation(PoseObservation o) {
-        if (poseSeedConfirmed || !o.multiTag()) {
+        if (poseSeedConfirmed) {
+            return;
+        }
+        if (!o.multiTag()) {
             seedConfirmStreak = 0;
+            Telemetry.log("Vision/SeedConfirmBreak", "Single tag");
             return;
         }
         Rotation2d heading = o.pose2d().getRotation();
@@ -585,6 +606,7 @@ public class Vision implements Subsystem {
         double low = Math.min(seedConfirmSpreadLow, d);
         double high = Math.max(seedConfirmSpreadHigh, d);
         if (high - low > config.seedConfirmSpreadDeg) {
+            Telemetry.log("Vision/SeedConfirmBreak", "Heading spread");
             seedConfirmHeadingRef = heading;
             seedConfirmStreak = 0;
             low = 0;
@@ -637,6 +659,7 @@ public class Vision implements Subsystem {
                     Units.degreesToRadians(config.seedThetaStdDevDeg));
             grossHeadingCorrections++;
             grossHeadingSince = Double.NaN;
+            resetQuestToRobotPose();
             Telemetry.print(
                     String.format(
                             "Vision: gross heading correction of %.1f deg from %s",
@@ -661,22 +684,27 @@ public class Vision implements Subsystem {
         NetworkTableInstance.getDefault().flush();
     }
 
+    /** Whether the seed was confirmed as of last loop, to catch the moment it becomes confirmed. */
+    private boolean wasSeedConfirmed = false;
+
     /**
-     * Re-origins the Quest onto the fused pose once the pose is worth trusting: when the disabled
-     * seed is confirmed, and after any explicit reset (auto start, reorient) via {@link
-     * #resetQuestToRobotPose()}.
+     * Re-origins the Quest onto the fused pose whenever the fused pose has just been set by vision:
+     * the moment the disabled seed is confirmed, and after a gross heading correction. A Quest
+     * re-origined before the seed would carry the robot's pre-seed guess forever. Explicit resets
+     * (auto start, reorient, the operator's LB+X) call {@link #resetQuestToRobotPose()}.
      */
     private void resetQuestAfterSeed() {
-        if (poseSeedConfirmed && Double.isNaN(lastQuestResetTime)) {
+        if (poseSeedConfirmed && !wasSeedConfirmed) {
             resetQuestToRobotPose();
         }
+        wasSeedConfirmed = poseSeedConfirmed;
     }
 
     /** Sends the Quest the current fused pose. */
     public void resetQuestToRobotPose() {
         questControl.resetPose(fusion.getPose());
-        lastQuestResetTime = Timer.getTimestamp();
         lastQuestPose = null;
+        Telemetry.print("Vision: QuestNav re-origined to the robot pose");
     }
 
     private void logStatus(boolean disabled, boolean useMt2) {

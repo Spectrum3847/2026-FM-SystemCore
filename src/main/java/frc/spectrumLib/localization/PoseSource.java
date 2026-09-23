@@ -48,6 +48,13 @@ public class PoseSource {
     @Getter private double lastAcceptedTimestamp = Double.NaN;
 
     /**
+     * Running count of rejections per reason, logged as {@code .../RejectionCounts/<reason>}. The
+     * verdict arrays are only written when they change, so these counters are the reliable way to
+     * tally a match.
+     */
+    private final java.util.Map<String, Long> rejectionCounts = new java.util.LinkedHashMap<>();
+
+    /**
      * Creates a source.
      *
      * @param name unique name; becomes the log path
@@ -129,6 +136,8 @@ public class PoseSource {
             } else {
                 rejectedCount++;
                 lastRejection = rejection;
+                long count = rejectionCounts.merge(rejection, 1L, Long::sum);
+                Logger.recordOutput(logPrefix + "/RejectionCounts/" + rejection, count);
             }
         }
         log();

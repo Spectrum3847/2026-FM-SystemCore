@@ -808,6 +808,9 @@ public class Robot extends SpectrumRobot {
 
     @Override
     public void simulationPeriodic() {
+        if (SimScript.requested()) {
+            SimScript.periodic();
+        }
         if (robotSim == null) {
             return;
         }

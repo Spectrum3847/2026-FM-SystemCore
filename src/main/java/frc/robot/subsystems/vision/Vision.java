@@ -1,0 +1,758 @@
+package frc.robot.subsystems.vision;
+
+import frc.robot.Constants;
+import frc.robot.Robot;
+import frc.robot.auton.Auton;
+import frc.robot.subsystems.swerve.Swerve;
+import frc.spectrumLib.localization.Gate;
+import frc.spectrumLib.localization.GateContext;
+import frc.spectrumLib.localization.PoseFusion;
+import frc.spectrumLib.localization.PoseObservation;
+import frc.spectrumLib.localization.PoseObservation.Kind;
+import frc.spectrumLib.localization.PoseSource;
+import frc.spectrumLib.localization.PoseSourceIO;
+import frc.spectrumLib.localization.YawRateHistory;
+import frc.spectrumLib.telemetry.Telemetry;
+import frc.spectrumLib.util.Util;
+import frc.spectrumLib.vision.Limelight;
+import frc.spectrumLib.vision.Limelight.LimelightConfig;
+import frc.spectrumLib.vision.LimelightHelpers;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BooleanSupplier;
+import lombok.Getter;
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
+import org.wpilib.command2.Command;
+import org.wpilib.command2.Subsystem;
+import org.wpilib.driverstation.Alert;
+import org.wpilib.driverstation.Alert.Level;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.math.geometry.Rotation3d;
+import org.wpilib.math.geometry.Transform3d;
+import org.wpilib.math.geometry.Translation3d;
+import org.wpilib.math.util.Units;
+import org.wpilib.networktables.NetworkTableInstance;
+import org.wpilib.system.Timer;
+import org.wpilib.vision.apriltag.AprilTagFieldLayout;
+import org.wpilib.vision.apriltag.AprilTagFields;
+
+/**
+ * FM's multi-source localization testbed: up to three Limelights, three Orin/PhotonVision cameras
+ * and a QuestNav, each gated on its own and each logged well enough to compare after the fact.
+ *
+ * <h2>Every loop</h2>
+ *
+ * <ol>
+ *   <li>Every source reads its device into logged inputs ({@link PoseSource#update()}), whether or
+ *       not it is enabled.
+ *   <li>Every source gates every observation and logs the verdict and reason.
+ *   <li>{@link PoseFusion} applies each source's accepted measurements to that source's shadow
+ *       track, and to the robot's fused pose if the source is enabled <em>and</em> its fusion
+ *       policy allows it right now (see below).
+ *   <li>While disabled, the best Limelight's MegaTag1 seeds the heading and translation of every
+ *       track. While enabled, the gross-heading safety net can re-seed once a camera has disagreed
+ *       with the gyro badly for a full second.
+ * </ol>
+ *
+ * <h2>Fusion policy (from the 2026 code)</h2>
+ *
+ * <ul>
+ *   <li>Limelights fuse while enabled only in teleop, or in auto while the path asks for pose
+ *       updates or the robot is launching (FM's {@code main}).
+ *   <li>Every chassis Limelight fuses, not just the best one (offseason: the estimator already
+ *       weights each by its std-devs).
+ *   <li>MegaTag1 until the disabled seed is confirmed, MegaTag2 after (offseason, switchable at
+ *       {@code Vision/ChassisUseMT2}).
+ *   <li>The Orin and QuestNav fuse whenever enabled and the robot is enabled. Both start
+ *       <b>disabled</b>: they are logged and shadowed, but do not move the robot pose until someone
+ *       flips {@code /Localization/Sources/<name>/Enabled} on the dashboard.
+ * </ul>
+ *
+ * <p>Not ported from the offseason branch: the placement-heading vote and the two-camera consensus
+ * heading correction (both need the offseason bot's camera geometry to be meaningful), and
+ * everything turret-camera specific.
+ */
+public class Vision implements Subsystem {
+
+    // =========================================================================
+    // Configuration
+    // =========================================================================
+
+    public static class VisionConfig {
+        @Getter final String name = "Vision";
+
+        // -- Limelights (FM, from 2026 main) ----------------------------------
+
+        @Getter
+        final LimelightConfig backConfig =
+                new LimelightConfig("limelight-back")
+                        .withTranslation(-0.3084987734, 0.2134100126, 0.6502249886)
+                        .withRotation(0, 0, 180);
+
+        @Getter
+        final LimelightConfig leftConfig =
+                new LimelightConfig("limelight-left")
+                        .withTranslation(0, 0.215, 0.188)
+                        .withRotation(0, 0, 90);
+
+        @Getter
+        final LimelightConfig rightConfig =
+                new LimelightConfig("limelight-right")
+                        .withTranslation(-0.04445, 0.3027487722, 0.7137249886)
+                        .withRotation(0, 0, -90);
+
+        /**
+         * Whether to push the mounts above to the cameras. Off: FM's 2026 code never pushed them,
+         * so the values in each camera's flash are the ones that were validated all season and the
+         * values above are unverified. Turn on once they have been checked against the web UI.
+         */
+        @Getter final boolean pushLimelightMounts = false;
+
+        @Getter final int tagPipeline = 0;
+
+        // -- Orin / PhotonVision (CALIBRATE: placeholders until mounted) --------
+
+        /** Camera names in the PhotonVision UI, and their mounts (x fwd, y left, z up). */
+        @Getter final String[] orinCameraNames = {"orin-front", "orin-left", "orin-right"};
+
+        @Getter
+        final Transform3d[] orinRobotToCamera = {
+            new Transform3d(
+                    new Translation3d(0.30, 0.0, 0.25),
+                    new Rotation3d(0, Units.degreesToRadians(-15), 0)),
+            new Transform3d(
+                    new Translation3d(0.0, 0.30, 0.25),
+                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(90))),
+            new Transform3d(
+                    new Translation3d(0.0, -0.30, 0.25),
+                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(-90)))
+        };
+
+        // -- QuestNav (CALIBRATE: placeholder until mounted) --------------------
+
+        @Getter
+        final Transform3d robotToQuest =
+                new Transform3d(new Translation3d(0.0, 0.0, 0.40), Rotation3d.kZero);
+
+        /** Frames arriving within this long of a pose reset may predate it. */
+        @Getter final double questResetSettleSeconds = 0.5;
+
+        /** Quest frames older than this are stale (it runs at ~100 Hz). */
+        @Getter final double questMaxAgeSeconds = 0.25;
+
+        /**
+         * A Quest frame whose motion since the previous frame differs from wheel odometry's by more
+         * than this is a tracking jump (re-localisation, re-origin) rather than motion.
+         */
+        @Getter final double questMaxJumpMeters = 0.25;
+
+        // -- Seeding (offseason) ------------------------------------------------
+
+        /** Translation std-dev while seeding, metres. From the 2026 {@code forceIntegrateXY}. */
+        @Getter final double seedXyStdDev = 0.01;
+
+        /** Heading std-dev while seeding, degrees. From the 2026 {@code forceIntegrateXY}. */
+        @Getter final double seedThetaStdDevDeg = 0.01;
+
+        /**
+         * Consecutive disabled loops (about 50 Hz) in which the best Limelight must have seeded the
+         * pose from two or more tags, with its heading holding within {@link
+         * #seedConfirmSpreadDeg}, before the seed counts as confirmed. One second.
+         */
+        @Getter final int seedConfirmLoops = 50;
+
+        /**
+         * Peak-to-peak spread (degrees) the MegaTag1 heading may show across the confirmation run.
+         * Four-tag heading holds to about a degree; a two-tag run that wanders past this is the
+         * geometry noise this exists to wait out, and the run starts over.
+         */
+        @Getter final double seedConfirmSpreadDeg = 3.0;
+
+        /**
+         * Gross heading correction while enabled. 20 deg sits clear of two-tag MegaTag1 heading
+         * noise (15 deg tail) while staying far below the 90 and 180 deg boot-heading errors this
+         * exists to catch. See the offseason {@code Vision.VisionConfig} for the log evidence.
+         */
+        @Getter final double grossHeadingErrorDeg = 20.0;
+
+        @Getter final double grossHeadingHoldSeconds = 1.0;
+        @Getter final double grossHeadingMaxLinearSpeed = 0.2; // m/s
+        @Getter final double grossHeadingMaxOmega = 0.1; // rad/s
+    }
+
+    // =========================================================================
+    // Fields
+    // =========================================================================
+
+    @Getter private static AprilTagFieldLayout tagLayout;
+
+    private final VisionConfig config;
+    private final Swerve swerve;
+    private final PoseFusion fusion;
+
+    @Getter private final List<Limelight> limelights = new ArrayList<>();
+    @Getter private final List<PoseSource> mt1Sources = new ArrayList<>();
+    @Getter private final List<PoseSource> mt2Sources = new ArrayList<>();
+    @Getter private final List<PoseSource> orinSources = new ArrayList<>();
+    @Getter private PoseSource questSource;
+    @Getter private final List<PoseSource> allSources = new ArrayList<>();
+
+    private QuestNavControl questControl = QuestNavControl.NONE;
+    private SimVision simVision;
+    private final List<SimVision.LimelightSimCamera> simLimelights = new ArrayList<>();
+
+    private final YawRateHistory yawRates = new YawRateHistory(64);
+    private final LoggedNetworkBoolean chassisUseMt2 =
+            new LoggedNetworkBoolean("Vision/ChassisUseMT2", true);
+
+    @Getter private boolean poseHeadingSeeded = false;
+    @Getter private boolean poseSeedConfirmed = false;
+    private int seedConfirmStreak = 0;
+    private Rotation2d seedConfirmHeadingRef = Rotation2d.kZero;
+    private double seedConfirmSpreadLow = 0;
+    private double seedConfirmSpreadHigh = 0;
+    private double grossHeadingSince = Double.NaN;
+    private int grossHeadingCorrections = 0;
+    private double lastQuestResetTime = Double.NaN;
+
+    private final Alert notSeededAlert =
+            new Alert(
+                    "Pose heading has not been vision-seeded yet - wait for a Limelight to see tags"
+                            + " before enabling",
+                    Level.MEDIUM);
+    private final Alert notConfirmedAlert =
+            new Alert(
+                    "Pose seed not confirmed yet - a Limelight needs two or more tags, steady, for"
+                            + " about a second before auto starts",
+                    Level.MEDIUM);
+
+    // =========================================================================
+    // Construction
+    // =========================================================================
+
+    public Vision(VisionConfig config, Swerve swerve) {
+        this.config = config;
+        this.swerve = swerve;
+        this.fusion = swerve.getPoseFusion();
+        tagLayout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded);
+
+        boolean sim = Constants.currentMode == Constants.Mode.SIM;
+        boolean replay = Constants.currentMode == Constants.Mode.REPLAY;
+        if (sim) {
+            simVision = new SimVision(tagLayout, swerve::getSimTruthPose);
+        }
+
+        // Limelights: MT1 and MT2 are separate sources so each gets its own shadow track.
+        LimelightConfig[] lls = {config.backConfig, config.leftConfig, config.rightConfig};
+        for (LimelightConfig llConfig : lls) {
+            Limelight ll = new Limelight(llConfig.getName(), config.tagPipeline, llConfig);
+            limelights.add(ll);
+            PoseSourceIO mt1Io;
+            PoseSourceIO mt2Io;
+            if (replay) {
+                mt1Io = PoseSourceIO.NONE;
+                mt2Io = PoseSourceIO.NONE;
+            } else if (sim) {
+                Transform3d mount = SimVision.robotToCamera(llConfig);
+                var cam =
+                        new SimVision.LimelightSimCamera(
+                                simVision.addCamera(
+                                        "sim-" + llConfig.getName(), SimVision.limelight4(), mount),
+                                mount,
+                                tagLayout);
+                simLimelights.add(cam);
+                mt1Io = new SimVision.LimelightSimIO(cam, Kind.LIMELIGHT_MT1, this::headingAt);
+                mt2Io = new SimVision.LimelightSimIO(cam, Kind.LIMELIGHT_MT2, this::headingAt);
+            } else {
+                mt1Io = new LimelightIO(ll, Kind.LIMELIGHT_MT1);
+                mt2Io = new LimelightIO(ll, Kind.LIMELIGHT_MT2);
+            }
+            String base = shortName(llConfig.getName());
+            PoseSource mt1 =
+                    new PoseSource(
+                            base + "/MT1",
+                            mt1Io,
+                            VisionGates.aprilTagGates(),
+                            VisionGates.LIMELIGHT_TIERS,
+                            true);
+            PoseSource mt2 =
+                    new PoseSource(
+                            base + "/MT2",
+                            mt2Io,
+                            VisionGates.aprilTagGates(),
+                            VisionGates.LIMELIGHT_TIERS,
+                            true);
+            mt1Sources.add(mt1);
+            mt2Sources.add(mt2);
+        }
+
+        // Orin cameras.
+        for (int i = 0; i < config.orinCameraNames.length; i++) {
+            String name = config.orinCameraNames[i];
+            Transform3d mount = config.orinRobotToCamera[i];
+            PoseSourceIO io;
+            if (replay) {
+                io = PoseSourceIO.NONE;
+            } else {
+                if (sim) {
+                    simVision.addCamera(name, SimVision.thriftiestCam(), mount);
+                }
+                io = new PhotonIO(name, mount, tagLayout);
+            }
+            orinSources.add(
+                    new PoseSource(
+                            shortName(name),
+                            io,
+                            VisionGates.aprilTagGates(),
+                            VisionGates.PHOTON_MODEL,
+                            false));
+        }
+
+        // QuestNav.
+        PoseSourceIO questIo;
+        if (replay) {
+            questIo = PoseSourceIO.NONE;
+        } else if (sim) {
+            var q = new SimVision.QuestSimIO(swerve::getSimTruthPose);
+            questControl = q;
+            questIo = q;
+        } else {
+            var q = new QuestNavIO(config.robotToQuest);
+            questControl = q;
+            questIo = q;
+        }
+        questSource =
+                new PoseSource("Quest", questIo, questGates(), VisionGates.QUEST_MODEL, false);
+
+        allSources.addAll(mt1Sources);
+        allSources.addAll(mt2Sources);
+        allSources.addAll(orinSources);
+        allSources.add(questSource);
+        for (PoseSource s : allSources) {
+            fusion.register(s);
+        }
+
+        if (!replay) {
+            for (Limelight ll : limelights) {
+                ll.setLEDMode(false);
+                ll.setIMUmode(1);
+                if (config.pushLimelightMounts) {
+                    ll.pushConfiguredCameraPose();
+                }
+            }
+        }
+
+        // Not registered with the scheduler: Robot runs it explicitly, after the drivetrain's
+        // odometry and before the scheduler, so this loop's correction lands before any
+        // mechanism or command reads the pose (the offseason ordering).
+        Telemetry.print(getName() + " Subsystem Initialized");
+    }
+
+    /** "limelight-back" becomes "LL-Back"; other names pass through. */
+    private static String shortName(String name) {
+        if (name.startsWith("limelight-")) {
+            String side = name.substring("limelight-".length());
+            return "LL-" + Character.toUpperCase(side.charAt(0)) + side.substring(1);
+        }
+        return name;
+    }
+
+    @Override
+    public String getName() {
+        return config.getName();
+    }
+
+    /** The fused heading at a capture time: what a Limelight was told the robot's yaw was. */
+    private Rotation2d headingAt(double timestampSeconds) {
+        return fusion.sampleAt(timestampSeconds).orElse(fusion.getPose()).getRotation();
+    }
+
+    // =========================================================================
+    // QuestNav gates (VIO failure modes, not AprilTag ones)
+    // =========================================================================
+
+    private Pose2d lastQuestPose = null;
+    private Pose2d lastQuestOdometry = null;
+
+    private List<Gate> questGates() {
+        return List.of(
+                Gate.rejectIf("Not Tracking Rejection", (o, c) -> !o.tracking()),
+                Gate.rejectIf(
+                        "Not Reset Rejection",
+                        (o, c) -> Double.isNaN(questHealth(QuestNavIO.H_LAST_RESET_TIME))),
+                Gate.rejectIf(
+                        "Recent Reset Rejection",
+                        (o, c) ->
+                                o.timestampSeconds() - questHealth(QuestNavIO.H_LAST_RESET_TIME)
+                                        < config.questResetSettleSeconds),
+                Gate.rejectIf(
+                        "Stale Estimate Rejection",
+                        (o, c) ->
+                                c.nowSeconds() - o.timestampSeconds() > config.questMaxAgeSeconds),
+                Gate.rejectIf(
+                        "Out of Field Rejection",
+                        (o, c) -> frc.rebuilt.FieldHelpers.poseOutOfField(o.pose2d())),
+                this::questJumpGate);
+    }
+
+    /**
+     * Compares the Quest's motion since its last frame with wheel odometry's over the same loop. A
+     * VIO source that re-localises or re-origins jumps; the wheels never do.
+     */
+    private String questJumpGate(PoseObservation o, GateContext c) {
+        Pose2d quest = o.pose2d();
+        Pose2d odom = c.odometryPose();
+        String result = null;
+        if (lastQuestPose != null && lastQuestOdometry != null) {
+            double questMove = quest.getTranslation().getDistance(lastQuestPose.getTranslation());
+            double odomMove = odom.getTranslation().getDistance(lastQuestOdometry.getTranslation());
+            if (Math.abs(questMove - odomMove) > config.questMaxJumpMeters) {
+                result = "Jump vs Odometry Rejection";
+            }
+        }
+        lastQuestPose = quest;
+        lastQuestOdometry = odom;
+        return result;
+    }
+
+    private double questHealth(int index) {
+        double[] h = questSource.getInputs().health;
+        return index < h.length ? h[index] : Double.NaN;
+    }
+
+    // =========================================================================
+    // Periodic
+    // =========================================================================
+
+    @Override
+    public void periodic() {
+        double now = Timer.getTimestamp();
+        boolean disabled = Util.disabled.getAsBoolean();
+
+        if (simVision != null) {
+            simVision.update();
+            for (var cam : simLimelights) {
+                cam.refresh();
+            }
+        }
+        for (Limelight ll : limelights) {
+            ll.invalidate();
+        }
+
+        // 1. Read every device.
+        for (PoseSource s : allSources) {
+            s.update();
+        }
+
+        // 2. Gate.
+        yawRates.record(now, swerve.getYawRateRadPerSec());
+        GateContext context =
+                new GateContext(
+                        now,
+                        fusion.getPose(),
+                        fusion.getOdometryPose(),
+                        swerve.getCurrentRobotChassisSpeeds(),
+                        yawRates.peak(now, VisionGates.YAW_RATE_LOOKBACK_SECONDS),
+                        disabled,
+                        poseHeadingSeeded);
+        for (PoseSource s : allSources) {
+            s.process(context);
+        }
+
+        // 3. Seed (disabled) or fuse (enabled).
+        if (disabled) {
+            seedWhileDisabled();
+        }
+        boolean llWindow =
+                !disabled
+                        && (Util.teleop.getAsBoolean()
+                                || Auton.autonPoseUpdate.getAsBoolean()
+                                || Auton.autonLaunching.getAsBoolean());
+        boolean useMt2 = poseSeedConfirmed && chassisUseMt2.get();
+        for (PoseSource s : mt1Sources) {
+            applyWithPolicy(s, llWindow && !useMt2);
+        }
+        for (PoseSource s : mt2Sources) {
+            applyWithPolicy(s, llWindow && useMt2);
+        }
+        for (PoseSource s : orinSources) {
+            applyWithPolicy(s, !disabled);
+        }
+        applyWithPolicy(questSource, !disabled);
+
+        if (!disabled) {
+            checkGrossHeadingError(context);
+        }
+
+        // 4. Keep the Limelights and the Quest aligned with the fused pose.
+        pushHeadingToLimelights();
+        resetQuestAfterSeed();
+
+        logStatus(disabled, useMt2);
+        swerve.afterVision();
+    }
+
+    /**
+     * Applies a source's results. The shadow always gets them; the fused pose only when the source
+     * is enabled and {@code policyAllows}. Logs which it was.
+     */
+    private void applyWithPolicy(PoseSource source, boolean policyAllows) {
+        boolean fuse = policyAllows && source.isEnabled();
+        Logger.recordOutput(
+                "Localization/Sources/" + source.getName() + "/PolicyAllowsFusion", policyAllows);
+        fusion.apply(source, source.getResults(), fuse);
+    }
+
+    // =========================================================================
+    // Seeding (offseason)
+    // =========================================================================
+
+    /** Best Limelight this loop: most MegaTag1 tags, then largest target (offseason ranking). */
+    private int bestLimelightIndex() {
+        int best = -1;
+        double bestScore = 0;
+        for (int i = 0; i < mt1Sources.size(); i++) {
+            for (PoseSource.Result r : mt1Sources.get(i).getResults()) {
+                PoseObservation o = r.observation();
+                double score =
+                        o.tagCount() * 100.0
+                                + (Double.isNaN(o.targetSizePercent()) ? 0 : o.targetSizePercent());
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = i;
+                }
+            }
+        }
+        return best;
+    }
+
+    /** The best Limelight's latest accepted MegaTag1 result this loop, or {@code null}. */
+    private PoseSource.Result bestAcceptedMt1() {
+        int best = bestLimelightIndex();
+        if (best < 0) {
+            return null;
+        }
+        List<PoseSource.Result> results = mt1Sources.get(best).getResults();
+        for (int i = results.size() - 1; i >= 0; i--) {
+            if (results.get(i).accepted()) {
+                return results.get(i);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * While disabled, seeds every track (translation and heading) from the best Limelight's
+     * MegaTag1 only. MegaTag2 is deliberately not used here: it depends on the heading we push to
+     * the camera, which is the very thing seeding is trying to fix.
+     */
+    private void seedWhileDisabled() {
+        PoseSource.Result best = bestAcceptedMt1();
+        if (best == null) {
+            seedConfirmStreak = 0;
+            return;
+        }
+        PoseObservation o = best.observation();
+        fusion.seed(
+                o.pose2d(),
+                o.timestampSeconds(),
+                config.seedXyStdDev,
+                Units.degreesToRadians(config.seedThetaStdDevDeg));
+        poseHeadingSeeded = true;
+        trackSeedConfirmation(o);
+    }
+
+    /**
+     * Counts consecutive seeding frames with a multi-tag MegaTag1 heading that holds within {@link
+     * VisionConfig#seedConfirmSpreadDeg}; the seed is confirmed after {@link
+     * VisionConfig#seedConfirmLoops}. Headings are compared relative to the run's first sample so
+     * the wrap at 180 deg cannot split a run.
+     */
+    private void trackSeedConfirmation(PoseObservation o) {
+        if (poseSeedConfirmed || !o.multiTag()) {
+            seedConfirmStreak = 0;
+            return;
+        }
+        Rotation2d heading = o.pose2d().getRotation();
+        if (seedConfirmStreak == 0) {
+            seedConfirmHeadingRef = heading;
+            seedConfirmSpreadLow = 0;
+            seedConfirmSpreadHigh = 0;
+        }
+        double d = heading.minus(seedConfirmHeadingRef).getDegrees();
+        double low = Math.min(seedConfirmSpreadLow, d);
+        double high = Math.max(seedConfirmSpreadHigh, d);
+        if (high - low > config.seedConfirmSpreadDeg) {
+            seedConfirmHeadingRef = heading;
+            seedConfirmStreak = 0;
+            low = 0;
+            high = 0;
+        }
+        seedConfirmSpreadLow = low;
+        seedConfirmSpreadHigh = high;
+        seedConfirmStreak++;
+
+        if (seedConfirmStreak >= config.seedConfirmLoops) {
+            poseSeedConfirmed = true;
+            Telemetry.print(
+                    String.format(
+                            "Vision: pose seed confirmed from %s (%d tags, %.1f deg spread);"
+                                    + " Limelights will fuse MegaTag2 while enabled.",
+                            o.source(), o.tagCount(), high - low));
+        }
+    }
+
+    /**
+     * Safety net for enabling before the cameras have seeded the pose: a stationary robot whose
+     * multi-tag MegaTag1 heading disagrees with the fused heading by more than {@link
+     * VisionConfig#grossHeadingErrorDeg} for {@link VisionConfig#grossHeadingHoldSeconds} gets
+     * re-seeded from that camera.
+     */
+    private void checkGrossHeadingError(GateContext c) {
+        PoseSource.Result best = bestAcceptedMt1();
+        boolean still =
+                c.linearSpeed() <= config.grossHeadingMaxLinearSpeed
+                        && Math.abs(c.robotVelocity().omega) <= config.grossHeadingMaxOmega;
+        if (best == null || !best.observation().multiTag() || !still) {
+            grossHeadingSince = Double.NaN;
+            return;
+        }
+        PoseObservation o = best.observation();
+        double errorDeg =
+                o.pose2d().getRotation().minus(headingAt(o.timestampSeconds())).getDegrees();
+        Logger.recordOutput("Vision/GrossHeadingErrorDeg", errorDeg);
+        if (Math.abs(errorDeg) < config.grossHeadingErrorDeg) {
+            grossHeadingSince = Double.NaN;
+            return;
+        }
+        if (Double.isNaN(grossHeadingSince)) {
+            grossHeadingSince = c.nowSeconds();
+        } else if (c.nowSeconds() - grossHeadingSince >= config.grossHeadingHoldSeconds) {
+            fusion.seed(
+                    o.pose2d(),
+                    o.timestampSeconds(),
+                    config.seedXyStdDev,
+                    Units.degreesToRadians(config.seedThetaStdDevDeg));
+            grossHeadingCorrections++;
+            grossHeadingSince = Double.NaN;
+            Telemetry.print(
+                    String.format(
+                            "Vision: gross heading correction of %.1f deg from %s",
+                            errorDeg, o.source()));
+        }
+    }
+
+    // =========================================================================
+    // Outputs to devices
+    // =========================================================================
+
+    /** MegaTag2 needs the robot's heading every loop. One NetworkTables flush for all cameras. */
+    private void pushHeadingToLimelights() {
+        if (!Constants.hasHardware() || simVision != null) {
+            return;
+        }
+        double yaw = fusion.getPose().getRotation().getDegrees();
+        double yawRate = Units.radiansToDegrees(swerve.getYawRateRadPerSec());
+        for (Limelight ll : limelights) {
+            ll.setRobotOrientation(yaw, yawRate);
+        }
+        NetworkTableInstance.getDefault().flush();
+    }
+
+    /**
+     * Re-origins the Quest onto the fused pose once the pose is worth trusting: when the disabled
+     * seed is confirmed, and after any explicit reset (auto start, reorient) via {@link
+     * #resetQuestToRobotPose()}.
+     */
+    private void resetQuestAfterSeed() {
+        if (poseSeedConfirmed && Double.isNaN(lastQuestResetTime)) {
+            resetQuestToRobotPose();
+        }
+    }
+
+    /** Sends the Quest the current fused pose. */
+    public void resetQuestToRobotPose() {
+        questControl.resetPose(fusion.getPose());
+        lastQuestResetTime = Timer.getTimestamp();
+        lastQuestPose = null;
+    }
+
+    private void logStatus(boolean disabled, boolean useMt2) {
+        notSeededAlert.set(!poseHeadingSeeded && disabled);
+        notConfirmedAlert.set(poseHeadingSeeded && !poseSeedConfirmed && disabled);
+        Telemetry.log("Vision/PoseHeadingSeeded", poseHeadingSeeded);
+        Telemetry.log("Vision/PoseSeedConfirmed", poseSeedConfirmed);
+        Telemetry.log("Vision/SeedConfirmProgress", seedConfirmStreak);
+        Telemetry.log("Vision/ChassisSource", useMt2 ? "MT2" : "MT1");
+        Telemetry.log("Vision/GrossHeadingCorrections", grossHeadingCorrections);
+        for (PoseSource s : allSources) {
+            Telemetry.log("Localization/Sources/" + s.getName() + "/ConnectedNow", s.isConnected());
+        }
+        Pose2d[] llPoses = new Pose2d[mt1Sources.size()];
+        for (int i = 0; i < llPoses.length; i++) {
+            var results = mt1Sources.get(i).getResults();
+            llPoses[i] =
+                    results.isEmpty()
+                            ? Pose2d.kZero
+                            : results.get(results.size() - 1).observation().pose2d();
+        }
+        for (int i = 0; i < limelights.size(); i++) {
+            Robot.getField2d().getObject(limelights.get(i).getCameraName()).setPose(llPoses[i]);
+        }
+    }
+
+    // =========================================================================
+    // Queries & commands kept from 2026
+    // =========================================================================
+
+    /** Whether any Limelight produced an accepted estimate this loop. */
+    public boolean hasAccuratePose() {
+        for (PoseSource s : mt1Sources) {
+            for (var r : s.getResults()) {
+                if (r.accepted()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Triggers a rewind-capture snapshot on all Limelights (165 s of history). */
+    public void triggerRewindCaptureForAllCameras() {
+        if (!Constants.hasHardware() || simVision != null) {
+            return;
+        }
+        for (Limelight limelight : limelights) {
+            LimelightHelpers.triggerRewindCapture(limelight.getName(), 165);
+        }
+    }
+
+    /** Sets all Limelights to a pipeline. */
+    public void setLimelightPipelines(int pipeline) {
+        for (Limelight limelight : limelights) {
+            limelight.setLimelightPipeline(pipeline);
+        }
+    }
+
+    /** Blinks every Limelight's LEDs while held. */
+    public Command blinkLimelights() {
+        return startEnd(
+                        () -> limelights.forEach(Limelight::blinkLEDs),
+                        () -> limelights.forEach(ll -> ll.setLEDMode(false)))
+                .withName("Vision.blinkLimelights");
+    }
+
+    /** Re-origins the QuestNav onto the current robot pose. */
+    public Command resetQuestCommand() {
+        return runOnce(this::resetQuestToRobotPose)
+                .ignoringDisable(true)
+                .withName("Vision.resetQuest");
+    }
+
+    /** A {@link BooleanSupplier} for whether the pose seed is confirmed. */
+    public BooleanSupplier seedConfirmed() {
+        return () -> poseSeedConfirmed;
+    }
+}

@@ -79,6 +79,9 @@ dependencies {
     nativeRelease wpi.java.vendor.jniRelease(wpi.platforms.desktop)
     simulationRelease wpi.sim.enableRelease()
 
+    // LimelightHelpers parses Limelight JSON with Jackson; WPILib 2027 no longer ships it.
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.19.2'
+
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
@@ -118,6 +121,7 @@ wpi.java.configureTestTasks(test)
 tasks.withType(JavaCompile) {
     options.compilerArgs.add '-XDstringConcat=inline'
     options.encoding = 'UTF-8'
+    options.compilerArgs.addAll(['-Xmaxerrs', '3000'])
 }
 
 // Create version file
@@ -188,5 +192,13 @@ spotless {
         leadingTabsToSpaces(4)
         trimTrailingWhitespace()
         endWithNewline()
+    }
+}
+
+tasks.register('printClasspath') {
+    doLast {
+        configurations.runtimeClasspath.each {
+            println it
+        }
     }
 }

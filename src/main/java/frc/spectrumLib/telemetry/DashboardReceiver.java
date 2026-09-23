@@ -27,8 +27,7 @@ import org.littletonrobotics.junction.LogTable.LogValue;
  * <p>The WPILOG file gets every key, every cycle, regardless.
  */
 public class DashboardReceiver implements LogDataReceiver {
-    private static final String OUTPUTS = "RealOutputs/";
-    private static final String METADATA = "RealMetadata/";
+    private static final String METADATA = "/RealMetadata/";
 
     private final LogDataReceiver inner;
     private final int everyN;
@@ -57,13 +56,13 @@ public class DashboardReceiver implements LogDataReceiver {
     @Override
     public void putTable(LogTable table) throws InterruptedException {
         boolean all = Telemetry.isMirroringAll();
-        for (Map.Entry<String, LogValue> e : table.getAll(true).entrySet()) {
+        // getAll(false) is the table's own map (absolute keys, "/RealOutputs/..."), not a copy:
+        // with ~1,100 entries every 10 ms, copying it and cutting a substring per key was most of
+        // this thread's work.
+        for (Map.Entry<String, LogValue> e : table.getAll(false).entrySet()) {
             String key = e.getKey();
-            if (all
-                    || key.startsWith(METADATA)
-                    || (key.startsWith(OUTPUTS)
-                            && Telemetry.isDashboardKey(key.substring(OUTPUTS.length())))) {
-                pending.put(key, e.getValue());
+            if (all || key.startsWith(METADATA) || Telemetry.isDashboardTableKey(key)) {
+                pending.put(key.substring(1), e.getValue()); // put() takes keys relative to "/"
             }
         }
         if (++cycle % everyN != 0) {

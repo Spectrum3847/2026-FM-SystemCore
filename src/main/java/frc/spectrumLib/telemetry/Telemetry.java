@@ -213,9 +213,27 @@ public class Telemetry {
         return dashboardKeys.contains(key);
     }
 
+    /** The same keys as absolute log-table keys ({@code /RealOutputs/<key>}). */
+    private static final java.util.Set<String> dashboardTableKeys =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /**
+     * Whether an absolute log-table key ({@code /RealOutputs/<key>}) is a dashboard key. For the
+     * NetworkTables receiver, which walks the whole table every cycle: one hash lookup per entry,
+     * no substring.
+     */
+    public static boolean isDashboardTableKey(String tableKey) {
+        return dashboardTableKeys.contains(tableKey);
+    }
+
+    private static boolean markDashboard(String key) {
+        dashboardTableKeys.add("/RealOutputs/" + key);
+        return dashboardKeys.add(key);
+    }
+
     /** Marks a key for NetworkTables, e.g. one a dashboard layout reads. */
     public static void addDashboardKey(String key) {
-        dashboardKeys.add(key);
+        markDashboard(key);
     }
 
     /**
@@ -233,7 +251,7 @@ public class Telemetry {
                         .matcher(layoutJson);
         int n = 0;
         while (m.find()) {
-            if (dashboardKeys.add(m.group(1))) {
+            if (markDashboard(m.group(1))) {
                 n++;
             }
         }
@@ -241,27 +259,27 @@ public class Telemetry {
     }
 
     public static void logDash(String key, double value) {
-        dashboardKeys.add(key);
+        markDashboard(key);
         log(key, value);
     }
 
     public static void logDash(String key, double value, String unit) {
-        dashboardKeys.add(key);
+        markDashboard(key);
         log(key, value, unit);
     }
 
     public static void logDash(String key, boolean value) {
-        dashboardKeys.add(key);
+        markDashboard(key);
         log(key, value);
     }
 
     public static void logDash(String key, String value) {
-        dashboardKeys.add(key);
+        markDashboard(key);
         log(key, value);
     }
 
     public static void logDash(String key, long value) {
-        dashboardKeys.add(key);
+        markDashboard(key);
         log(key, value);
     }
 

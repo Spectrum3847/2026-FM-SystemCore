@@ -68,8 +68,14 @@ public class BatteryLogger {
     /** Estimated current drawn by the RoboRIO itself, in amps. */
     @Setter private double rioCurrent = 0.0;
 
-    private final Map<String, Double> subsystemCurrents = new HashMap<>();
-    private final Map<String, Double> subsystemEnergies = new HashMap<>();
+    // One-element arrays, not Doubles: dozens of channels are updated every loop, and boxing each
+    // update was a steady stream of garbage.
+    private final Map<String, double[]> subsystemCurrents = new HashMap<>();
+    private final Map<String, double[]> subsystemEnergies = new HashMap<>();
+
+    private static double[] cell(Map<String, double[]> map, String key) {
+        return map.computeIfAbsent(key, k -> new double[1]);
+    }
 
     /** Channel name to its parent keys, derived once per channel by {@link #deriveParentKeys}. */
     private final Map<String, String[]> parentKeys = new HashMap<>();
@@ -125,10 +131,10 @@ public class BatteryLogger {
             for (double amp : amps) totalAmps += Math.abs(amp);
 
             totalCurrent += totalAmps;
-            subsystemCurrents.put(key, totalAmps);
+            cell(subsystemCurrents, key)[0] = totalAmps;
 
             for (String parent : parentKeys.computeIfAbsent(key, BatteryLogger::deriveParentKeys)) {
-                subsystemCurrents.merge(parent, totalAmps, Double::sum);
+                cell(subsystemCurrents, parent)[0] += totalAmps;
             }
         }
     }
@@ -167,8 +173,8 @@ public class BatteryLogger {
             totalPower = totalCurrent * batteryVoltage;
             totalEnergy += totalPower * elapsed;
             for (var entry : subsystemCurrents.entrySet()) {
-                subsystemEnergies.merge(
-                        entry.getKey(), entry.getValue() * batteryVoltage * elapsed, Double::sum);
+                cell(subsystemEnergies, entry.getKey())[0] +=
+                        entry.getValue()[0] * batteryVoltage * elapsed;
             }
 
             boolean logSlow =
@@ -193,7 +199,7 @@ public class BatteryLogger {
 
             for (var entry : subsystemCurrents.entrySet()) {
                 String key = entry.getKey();
-                double amps = entry.getValue();
+                double amps = entry.getValue()[0];
                 if (logCurrent) {
                     Telemetry.logDash(
                             currentLogKeys.computeIfAbsent(key, k -> "BatteryLogger/Current/" + k),
@@ -206,14 +212,14 @@ public class BatteryLogger {
                             amps * batteryVoltage,
                             "watts");
                 }
-                entry.setValue(0.0);
+                entry.getValue()[0] = 0.0;
             }
             if (logSlow) {
                 for (var entry : subsystemEnergies.entrySet()) {
                     Telemetry.log(
                             energyLogKeys.computeIfAbsent(
                                     entry.getKey(), k -> "BatteryLogger/Energy/" + k),
-                            joulesToWattHours(entry.getValue()),
+                            joulesToWattHours(entry.getValue()[0]),
                             "wh");
                 }
             }
@@ -228,7 +234,8 @@ public class BatteryLogger {
      * tests.
      */
     double getSubsystemCurrent(String key) {
-        return subsystemCurrents.getOrDefault(key, 0.0);
+        double[] c = subsystemCurrents.get(key);
+        return c == null ? 0.0 : c[0];
     }
 
     /** Joules to watt hours. */

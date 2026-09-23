@@ -13,23 +13,39 @@ import org.wpilib.math.geometry.Pose3d;
  * observations are stored as parallel arrays because AdvantageKit logs arrays of primitives and
  * structs natively.
  *
+ * <p>Size matters here: these inputs were a third of the log. AdvantageKit writes a value only when
+ * it changes, and the observation arrays change every frame (a frame is reported once, then the
+ * arrays go back to empty). So values that are the same for every observation of a source are not
+ * arrays: {@code Kind} is one number per source, written once, and {@code Tracking} is written only
+ * for a loop in which some observation was not tracking (AprilTag solves always are; the Quest
+ * sometimes is not). Logs written before this change still replay: their per-observation {@code
+ * Kinds} and full {@code Tracking} arrays are read when present.
+ *
  * <p>Logged under {@code /Localization/Sources/<name>/...}.
  */
 public class PoseSourceInputs implements LoggableInputs {
     /** Whether the device is talking at all (NT heartbeat, frames arriving). */
     public boolean connected = false;
 
-    public double[] timestamps = new double[0];
-    public Pose3d[] poses = new Pose3d[0];
+    private static final double[] EMPTY_DOUBLE = new double[0];
+    private static final int[] EMPTY_INT = new int[0];
+    private static final boolean[] EMPTY_BOOLEAN = new boolean[0];
+    private static final Pose3d[] EMPTY_POSE = new Pose3d[0];
 
-    /** {@link Kind} ordinal per observation. */
-    public int[] kinds = new int[0];
+    public double[] timestamps = EMPTY_DOUBLE;
+    public Pose3d[] poses = EMPTY_POSE;
 
-    public int[] tagCounts = new int[0];
-    public double[] avgTagDistances = new double[0];
-    public double[] targetSizes = new double[0];
-    public double[] maxAmbiguities = new double[0];
-    public boolean[] tracking = new boolean[0];
+    /** {@link Kind} ordinal of this source's observations; -1 before the first. */
+    public int kind = -1;
+
+    /** Per-observation kinds, only from logs written before {@link #kind}; else empty. */
+    private int[] legacyKinds = EMPTY_INT;
+
+    public int[] tagCounts = EMPTY_INT;
+    public double[] avgTagDistances = EMPTY_DOUBLE;
+    public double[] targetSizes = EMPTY_DOUBLE;
+    public double[] maxAmbiguities = EMPTY_DOUBLE;
+    public boolean[] tracking = EMPTY_BOOLEAN;
 
     /** Every tag id seen this loop, for display. */
     public int[] tagIds = new int[0];
@@ -39,9 +55,21 @@ public class PoseSourceInputs implements LoggableInputs {
 
     /** Sets the observation arrays to hold {@code n} entries. */
     public void resize(int n) {
+        legacyKinds = EMPTY_INT;
+        if (n == 0) {
+            // Most loops: no new frame. Shared empty arrays, nothing allocated (they cannot be
+            // written into, so sharing them keeps the never-mutate-an-input rule).
+            timestamps = EMPTY_DOUBLE;
+            poses = EMPTY_POSE;
+            tagCounts = EMPTY_INT;
+            avgTagDistances = EMPTY_DOUBLE;
+            targetSizes = EMPTY_DOUBLE;
+            maxAmbiguities = EMPTY_DOUBLE;
+            tracking = EMPTY_BOOLEAN;
+            return;
+        }
         timestamps = new double[n];
         poses = new Pose3d[n];
-        kinds = new int[n];
         tagCounts = new int[n];
         avgTagDistances = new double[n];
         targetSizes = new double[n];
@@ -53,7 +81,7 @@ public class PoseSourceInputs implements LoggableInputs {
     public void set(int i, PoseObservation o) {
         timestamps[i] = o.timestampSeconds();
         poses[i] = o.pose();
-        kinds[i] = o.kind().ordinal();
+        kind = o.kind().ordinal();
         tagCounts[i] = o.tagCount();
         avgTagDistances[i] = o.avgTagDistanceMeters();
         targetSizes[i] = o.targetSizePercent();
@@ -70,7 +98,7 @@ public class PoseSourceInputs implements LoggableInputs {
     public PoseObservation get(String source, int i) {
         return new PoseObservation(
                 source,
-                Kind.values()[kinds[i]],
+                Kind.values()[legacyKinds.length == count() ? legacyKinds[i] : kind],
                 timestamps[i],
                 poses[i],
                 tagCounts[i],
@@ -85,12 +113,16 @@ public class PoseSourceInputs implements LoggableInputs {
         table.put("Connected", connected);
         table.put("Timestamps", timestamps);
         table.put("Poses", poses);
-        table.put("Kinds", kinds);
+        table.put("Kind", kind);
         table.put("TagCounts", tagCounts);
         table.put("AvgTagDistances", avgTagDistances);
         table.put("TargetSizes", targetSizes);
         table.put("MaxAmbiguities", maxAmbiguities);
-        table.put("Tracking", tracking);
+        boolean allTracking = true;
+        for (boolean t : tracking) {
+            allTracking &= t;
+        }
+        table.put("Tracking", allTracking ? EMPTY_BOOLEAN : tracking);
         table.put("TagIds", tagIds);
         table.put("Health", health);
     }
@@ -100,12 +132,18 @@ public class PoseSourceInputs implements LoggableInputs {
         connected = table.get("Connected", connected);
         timestamps = table.get("Timestamps", timestamps);
         poses = table.get("Poses", poses);
-        kinds = table.get("Kinds", kinds);
+        kind = table.get("Kind", kind);
+        legacyKinds = table.get("Kinds", EMPTY_INT);
         tagCounts = table.get("TagCounts", tagCounts);
         avgTagDistances = table.get("AvgTagDistances", avgTagDistances);
         targetSizes = table.get("TargetSizes", targetSizes);
         maxAmbiguities = table.get("MaxAmbiguities", maxAmbiguities);
-        tracking = table.get("Tracking", tracking);
+        tracking = table.get("Tracking", EMPTY_BOOLEAN);
+        if (tracking.length != timestamps.length) {
+            // Written empty when every observation was tracking.
+            tracking = new boolean[timestamps.length];
+            java.util.Arrays.fill(tracking, true);
+        }
         tagIds = table.get("TagIds", tagIds);
         health = table.get("Health", health);
     }

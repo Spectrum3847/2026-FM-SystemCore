@@ -306,7 +306,8 @@ public class Telemetry {
     // ── Loop timers ──────────────────────────────────────────────────────────
 
     /** Start times of open {@link #time} spans, in nanoseconds. */
-    private static final Map<String, Long> epochStartNanos = new HashMap<>();
+    /** Start time per timer key; a one-element array so restarting a timer allocates nothing. */
+    private static final Map<String, long[]> epochStartNanos = new HashMap<>();
 
     /**
      * Starts a timed span. Pair with {@link #timeEnd(String)} on the same key.
@@ -317,7 +318,7 @@ public class Telemetry {
      * @param key the log key the elapsed time will be written to
      */
     public static void time(String key) {
-        epochStartNanos.put(key, System.nanoTime());
+        epochStartNanos.computeIfAbsent(key, k -> new long[1])[0] = System.nanoTime();
     }
 
     /**
@@ -327,11 +328,12 @@ public class Telemetry {
      * @param key the key passed to {@link #time(String)}
      */
     public static void timeEnd(String key) {
-        Long start = epochStartNanos.remove(key);
-        if (start == null) {
+        long[] start = epochStartNanos.get(key);
+        if (start == null || start[0] == 0) {
             return;
         }
-        log(key, (System.nanoTime() - start) / 1e9, "seconds");
+        log(key, (System.nanoTime() - start[0]) / 1e9, "seconds");
+        start[0] = 0;
     }
 
     // ── Events ───────────────────────────────────────────────────────────────

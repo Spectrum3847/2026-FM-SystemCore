@@ -4,6 +4,7 @@ import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.util.ExpCurve;
 import frc.spectrumLib.util.Util;
+import java.util.Optional;
 import java.util.function.DoubleSupplier;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,18 +13,19 @@ import org.wpilib.command2.CommandScheduler;
 import org.wpilib.command2.Commands;
 import org.wpilib.command2.InstantCommand;
 import org.wpilib.command2.Subsystem;
-import org.wpilib.command2.button.CommandGamepad;
 import org.wpilib.command2.button.Trigger;
 import org.wpilib.driverstation.Alliance;
 import org.wpilib.driverstation.GenericHID;
 import org.wpilib.driverstation.GenericHID.RumbleType;
 import org.wpilib.driverstation.MatchState;
+import org.wpilib.driverstation.POVDirection;
 import org.wpilib.math.geometry.Rotation2d;
 
 /**
  * Abstract base class for robot gamepad (Xbox-compatible) controllers.
  *
- * <p>Wraps a WPILib {@link CommandGamepad} and exposes:
+ * <p>Reads a WPILib {@link GenericHID} through a {@link GamepadLayout}, which says where each
+ * control's data arrives for the Driver Station in use ({@link Config#setMapping}), and exposes:
  *
  * <ul>
  *   <li>Pre-built {@link Trigger} fields for every button, bumper, trigger, stick-click, and D-pad
@@ -41,6 +43,9 @@ import org.wpilib.math.geometry.Rotation2d;
  *
  * <p>When {@link Config#isAttached()} returns {@code false}, all triggers remain permanently {@code
  * false} and axis reads return {@code 0.0}.
+ *
+ * <p>Each loop it logs the controller's raw data and what the code reads from it under {@code
+ * Gamepads/<name>/} (dashboard keys), for checking the mapping on the bench (see the README).
  */
 // Gamepad class
 public abstract class Gamepad implements Subsystem {
@@ -50,8 +55,25 @@ public abstract class Gamepad implements Subsystem {
     /** A trigger that is always {@code false}; used as a safe default before hardware is ready. */
     public static final Trigger kFalse = new Trigger(() -> false);
 
-    /** The underlying WPILib Xbox controller used to read button and axis states. */
-    private CommandGamepad xboxController;
+    /** The controller on the Driver Station, read by raw index through {@link #layout}. */
+    private GenericHID hid;
+
+    /**
+     * Where this controller's buttons and axes arrive. Fixed by {@link Config#getMapping()}, or
+     * followed from the controller's data with {@link Mapping#AUTO}.
+     */
+    @Getter private GamepadLayout layout;
+
+    /** What {@link GamepadLayout#detect(GenericHID)} made of the controller this loop. */
+    private Optional<GamepadLayout> detectedLayout = Optional.empty();
+
+    /** Raised when the controller's data doesn't look like the layout being read. */
+    private Alert layoutAlert;
+
+    private String layoutWarning = "";
+
+    /** Dashboard keys for {@link #logBench()}, built once. */
+    private BenchKeys benchKeys;
 
     /** Trigger for the A (cross) face button. */
     protected Trigger A = kFalse;
@@ -182,6 +204,24 @@ public abstract class Gamepad implements Subsystem {
     protected Trigger disabled = Util.disabled;
 
     /**
+     * Which Driver Station's controller layout to read (see {@link GamepadLayout}).
+     *
+     * <p>{@link #NI_DS} is the default because the 2026 FMS only takes the 2026 NI Driver Station.
+     */
+    public enum Mapping {
+        /** The 2026 NI FRC Driver Station (the legacy XInput order, D-pad on the POV). */
+        NI_DS,
+        /** The 2027 WPILib Driver Station (the 2027 {@code Gamepad} order, D-pad as buttons). */
+        WPILIB_DS,
+        /**
+         * Follow {@link GamepadLayout#detect(GenericHID)}, starting from {@link #NI_DS} and keeping
+         * the last recognised layout. The detection is a heuristic; bench-test it before using
+         * this.
+         */
+        AUTO
+    }
+
+    /**
      * Configuration for a {@link Gamepad} instance, defining the DriverStation USB port, axis curve
      * parameters, and whether the controller should be used on this robot.
      */
@@ -224,6 +264,12 @@ public abstract class Gamepad implements Subsystem {
 
         /** Output scalar applied after the analog-trigger exponential curve. */
         @Getter @Setter double triggersScalar = 1.0;
+
+        /**
+         * Which Driver Station's controller layout to read. {@link Mapping#NI_DS}: the 2026 NI DS
+         * is what the October 2026 event's FMS runs.
+         */
+        @Getter @Setter Mapping mapping = Mapping.NI_DS;
 
         /**
          * Creates a gamepad configuration for the given port.
@@ -272,36 +318,34 @@ public abstract class Gamepad implements Subsystem {
                         config.getTriggersScalar(),
                         config.getTriggersDeadzone());
 
+        layout =
+                config.getMapping() == Mapping.WPILIB_DS
+                        ? GamepadLayout.WPILIB_DS
+                        : GamepadLayout.NI_DS;
+        layoutAlert = new Alert(config.name + " controller layout", Alert.Level.MEDIUM);
+        benchKeys = new BenchKeys("Gamepads/" + config.name + "/");
+
         if (config.attached) {
-            xboxController = new CommandGamepad(config.port);
-            A = xboxController.southFace();
-            B = xboxController.eastFace();
-            X = xboxController.westFace();
-            Y = xboxController.northFace();
-            leftBumper = xboxController.leftBumper();
-            rightBumper = xboxController.rightBumper();
-            leftTrigger =
-                    xboxController.leftTrigger(
-                            config.triggersDeadzone); // Assuming a default threshold of 0.5
-            rightTrigger =
-                    xboxController.rightTrigger(
-                            config.triggersDeadzone); // Assuming a default threshold of 0.5
-            leftStickClick = xboxController.leftStick();
-            rightStickClick = xboxController.rightStick();
-            start = xboxController.start();
-            select = xboxController.back();
-            upDpad = xboxController.dpadUp();
-            downDpad = xboxController.dpadDown();
-            leftDpad =
-                    xboxController
-                            .povLeft()
-                            .or(xboxController.dpadUp().and(xboxController.dpadLeft()))
-                            .or(xboxController.dpadDown().and(xboxController.dpadLeft()));
-            rightDpad =
-                    xboxController
-                            .povRight()
-                            .or(xboxController.dpadDown().and(xboxController.dpadRight()))
-                            .or(xboxController.dpadUp().and(xboxController.dpadRight()));
+            hid = new GenericHID(config.port);
+            // Each trigger reads the layout when it is polled, so AUTO can change it.
+            A = new Trigger(() -> button(layout.a));
+            B = new Trigger(() -> button(layout.b));
+            X = new Trigger(() -> button(layout.x));
+            Y = new Trigger(() -> button(layout.y));
+            leftBumper = new Trigger(() -> button(layout.leftBumper));
+            rightBumper = new Trigger(() -> button(layout.rightBumper));
+            leftTrigger = new Trigger(() -> getLeftTriggerAxis() > config.triggersDeadzone);
+            rightTrigger = new Trigger(() -> getRightTriggerAxis() > config.triggersDeadzone);
+            leftStickClick = new Trigger(() -> button(layout.leftStick));
+            rightStickClick = new Trigger(() -> button(layout.rightStick));
+            start = new Trigger(() -> button(layout.start));
+            select = new Trigger(() -> button(layout.back));
+            // FM's 2026 D-pad: up and down are the pure directions, left and right include their
+            // diagonals.
+            upDpad = new Trigger(() -> getDpad() == POVDirection.UP);
+            downDpad = new Trigger(() -> getDpad() == POVDirection.DOWN);
+            leftDpad = new Trigger(() -> isLeft(getDpad()));
+            rightDpad = new Trigger(() -> isRight(getDpad()));
             leftStickY = leftYTrigger(Threshold.ABS_GREATER, config.leftStickDeadzone);
             leftStickX = leftXTrigger(Threshold.ABS_GREATER, config.leftStickDeadzone);
             rightStickY = rightYTrigger(Threshold.ABS_GREATER, config.rightStickDeadzone);
@@ -326,6 +370,206 @@ public abstract class Gamepad implements Subsystem {
     @Override
     public void periodic() {
         configure();
+        if (config.isAttached()) {
+            updateLayout();
+            logBench();
+        }
+    }
+
+    /**
+     * Picks the layout for {@link Mapping#AUTO}, and raises {@link #layoutAlert} when the
+     * controller's data looks like a different layout from the one being read.
+     */
+    private void updateLayout() {
+        detectedLayout = isConnected() ? GamepadLayout.detect(hid) : Optional.empty();
+        if (config.getMapping() == Mapping.AUTO && detectedLayout.isPresent()) {
+            if (detectedLayout.get() != layout) {
+                Telemetry.print(
+                        "## " + getName() + ": reading the " + detectedLayout.get() + " layout ##");
+            }
+            layout = detectedLayout.get();
+        }
+
+        String warning = "";
+        if (detectedLayout.isPresent() && detectedLayout.get() != layout) {
+            warning =
+                    config.name
+                            + " controller looks like the "
+                            + detectedLayout.get()
+                            + " layout, but is read as "
+                            + layout
+                            + ": check Gamepad mapping";
+        } else if (config.getMapping() == Mapping.AUTO
+                && isConnected()
+                && detectedLayout.isEmpty()) {
+            warning = config.name + " controller layout not recognised, reading it as " + layout;
+        }
+        if (!warning.equals(layoutWarning)) {
+            layoutWarning = warning;
+            if (!warning.isEmpty()) {
+                layoutAlert.setText(warning);
+            }
+        }
+        layoutAlert.set(!warning.isEmpty());
+    }
+
+    private static final class BenchKeys {
+        final String mapping, layout, detected, connected, name, pressed;
+        final String rawButtons, rawButtonsAvailable, rawPov;
+        final String[] rawAxes = new String[6];
+        final String leftX, leftY, rightX, rightY, leftTrigger, rightTrigger;
+
+        BenchKeys(String p) {
+            mapping = p + "Mapping";
+            layout = p + "Layout";
+            detected = p + "DetectedLayout";
+            connected = p + "Connected";
+            name = p + "Name";
+            pressed = p + "Pressed";
+            rawButtons = p + "Raw/Buttons";
+            rawButtonsAvailable = p + "Raw/ButtonsAvailable";
+            rawPov = p + "Raw/POV";
+            for (int i = 0; i < rawAxes.length; i++) {
+                rawAxes[i] = p + "Raw/Axis" + i;
+            }
+            leftX = p + "LeftX";
+            leftY = p + "LeftY";
+            rightX = p + "RightX";
+            rightY = p + "RightY";
+            leftTrigger = p + "LeftTrigger";
+            rightTrigger = p + "RightTrigger";
+        }
+    }
+
+    /**
+     * Logs the controller's raw data next to what the code reads from it, for the bench test in the
+     * README: press each control and check {@code Pressed} names it.
+     */
+    private void logBench() {
+        var k = benchKeys;
+        Telemetry.logDash(k.mapping, config.getMapping().name());
+        Telemetry.logDash(k.layout, layout.name());
+        Telemetry.logDash(k.detected, detectedLayout.map(Enum::name).orElse("UNKNOWN"));
+        boolean connected = isConnected();
+        Telemetry.logDash(k.connected, connected);
+        if (!connected) {
+            return;
+        }
+        Telemetry.logDash(k.name, hid.getName());
+
+        long available = hid.getButtonsAvailable();
+        long pressedBits = 0;
+        for (int i = 0; i < 64; i++) {
+            if ((available & (1L << i)) != 0 && hid.getRawButton(i)) {
+                pressedBits |= 1L << i;
+            }
+        }
+        Telemetry.logDash(k.rawButtons, pressedBits);
+        Telemetry.logDash(k.rawButtonsAvailable, available);
+        Telemetry.logDash(
+                k.rawPov, (hid.getPOVsAvailable() & 1) != 0 ? hid.getPOV(0).name() : "NONE");
+        for (int i = 0; i < k.rawAxes.length; i++) {
+            Telemetry.logDash(k.rawAxes[i], axis(i));
+        }
+
+        Telemetry.logDash(k.pressed, describePressed());
+        Telemetry.logDash(k.leftX, getLeftX());
+        Telemetry.logDash(k.leftY, getLeftY());
+        Telemetry.logDash(k.rightX, getRightX());
+        Telemetry.logDash(k.rightY, getRightY());
+        Telemetry.logDash(k.leftTrigger, getLeftTriggerAxis());
+        Telemetry.logDash(k.rightTrigger, getRightTriggerAxis());
+    }
+
+    /**
+     * The controls the code reads as pressed, e.g. {@code "A LB DpadUp"}, or {@code ""}.
+     *
+     * @return space-separated control names
+     */
+    public String describePressed() {
+        StringBuilder sb = new StringBuilder();
+        appendIf(sb, A, "A");
+        appendIf(sb, B, "B");
+        appendIf(sb, X, "X");
+        appendIf(sb, Y, "Y");
+        appendIf(sb, leftBumper, "LB");
+        appendIf(sb, rightBumper, "RB");
+        appendIf(sb, leftTrigger, "LT");
+        appendIf(sb, rightTrigger, "RT");
+        appendIf(sb, select, "Back");
+        appendIf(sb, start, "Start");
+        appendIf(sb, leftStickClick, "LS");
+        appendIf(sb, rightStickClick, "RS");
+        appendIf(sb, upDpad, "DpadUp");
+        appendIf(sb, downDpad, "DpadDown");
+        appendIf(sb, leftDpad, "DpadLeft");
+        appendIf(sb, rightDpad, "DpadRight");
+        return sb.toString();
+    }
+
+    private static void appendIf(StringBuilder sb, Trigger t, String name) {
+        if (t.getAsBoolean()) {
+            if (!sb.isEmpty()) {
+                sb.append(' ');
+            }
+            sb.append(name);
+        }
+    }
+
+    /**
+     * Reads a button by raw index, only if the controller has it (reading a missing one makes
+     * WPILib print a warning every second).
+     */
+    private boolean button(int index) {
+        if (index < 0 || !isConnected()) {
+            return false;
+        }
+        return (hid.getButtonsAvailable() & (1L << index)) != 0 && hid.getRawButton(index);
+    }
+
+    /** Reads an axis by raw index, or 0 if the controller doesn't have it. */
+    private double axis(int index) {
+        if (!isConnected() || (hid.getAxesAvailable() & (1 << index)) == 0) {
+            return 0.0;
+        }
+        return hid.getRawAxis(index);
+    }
+
+    /**
+     * The D-pad direction, from POV 0 or from the four D-pad buttons, depending on the layout.
+     *
+     * @return the D-pad direction, {@link POVDirection#CENTER} if released or not connected
+     */
+    protected POVDirection getDpad() {
+        if (!isConnected()) {
+            return POVDirection.CENTER;
+        }
+        if (layout.dpadOnPov()) {
+            return (hid.getPOVsAvailable() & 1) != 0 ? hid.getPOV(0) : POVDirection.CENTER;
+        }
+        boolean up = button(layout.dpadUp);
+        boolean down = button(layout.dpadDown) && !up;
+        boolean left = button(layout.dpadLeft);
+        boolean right = button(layout.dpadRight) && !left;
+        if (up) {
+            return left ? POVDirection.UP_LEFT : right ? POVDirection.UP_RIGHT : POVDirection.UP;
+        }
+        if (down) {
+            return left
+                    ? POVDirection.DOWN_LEFT
+                    : right ? POVDirection.DOWN_RIGHT : POVDirection.DOWN;
+        }
+        return left ? POVDirection.LEFT : right ? POVDirection.RIGHT : POVDirection.CENTER;
+    }
+
+    private static boolean isLeft(POVDirection d) {
+        return d == POVDirection.LEFT || d == POVDirection.UP_LEFT || d == POVDirection.DOWN_LEFT;
+    }
+
+    private static boolean isRight(POVDirection d) {
+        return d == POVDirection.RIGHT
+                || d == POVDirection.UP_RIGHT
+                || d == POVDirection.DOWN_RIGHT;
     }
 
     /**
@@ -699,7 +943,7 @@ public abstract class Gamepad implements Subsystem {
         if (!isConnected()) {
             return 0.0;
         }
-        return xboxController.getRightTriggerAxis();
+        return axis(layout.rightTrigger);
     }
 
     /**
@@ -711,7 +955,7 @@ public abstract class Gamepad implements Subsystem {
         if (!isConnected()) {
             return 0.0;
         }
-        return xboxController.getLeftTriggerAxis();
+        return axis(layout.leftTrigger);
     }
 
     /**
@@ -736,7 +980,7 @@ public abstract class Gamepad implements Subsystem {
         if (!isConnected()) {
             return 0.0;
         }
-        return xboxController.getLeftX();
+        return axis(layout.leftX);
     }
 
     /**
@@ -748,7 +992,7 @@ public abstract class Gamepad implements Subsystem {
         if (!isConnected()) {
             return 0.0;
         }
-        return xboxController.getLeftY();
+        return axis(layout.leftY);
     }
 
     /**
@@ -760,7 +1004,7 @@ public abstract class Gamepad implements Subsystem {
         if (!isConnected()) {
             return 0.0;
         }
-        return xboxController.getRightX();
+        return axis(layout.rightX);
     }
 
     /**
@@ -772,7 +1016,7 @@ public abstract class Gamepad implements Subsystem {
         if (!isConnected()) {
             return 0.0;
         }
-        return xboxController.getRightY();
+        return axis(layout.rightY);
     }
 
     /**
@@ -785,7 +1029,7 @@ public abstract class Gamepad implements Subsystem {
         if (!config.attached) {
             return null;
         }
-        return xboxController.getHID();
+        return hid;
     }
 
     /**
@@ -798,7 +1042,7 @@ public abstract class Gamepad implements Subsystem {
         if (!isConnected()) {
             return null;
         }
-        return xboxController.getHID();
+        return hid;
     }
 
     /**

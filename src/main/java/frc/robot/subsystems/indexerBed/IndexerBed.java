@@ -116,11 +116,10 @@ public class IndexerBed extends Mechanism {
         Telemetry.log("IndexerBed/WantedState", wantedState.toString());
         Telemetry.log("IndexerBed/SystemState", systemState.toString());
         Telemetry.log("IndexerBed/CurrentCommand", getCurrentCommandName());
-        Telemetry.log("IndexerBed/Voltage", getVoltage(), "volts");
-        Telemetry.log("IndexerBed/StatorCurrent", getStatorCurrent(), "amps");
-        Telemetry.log("IndexerBed/SupplyCurrent", getSupplyCurrent(), "amps");
+        // Voltage, currents, temperature and connection at 10 Hz (offseason); the
+        // same signals are also recorded every loop as inputs under Mechanisms/.
+        logDiagnostics("IndexerBed");
         Telemetry.log("IndexerBed/RPM", getVelocityRPM(), "RPM");
-        Telemetry.log("IndexerBed/Temp", getTemp(), "deg_C");
     }
 
     // --------------------------------------------------------------------------------

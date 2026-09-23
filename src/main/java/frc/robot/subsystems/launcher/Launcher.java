@@ -138,11 +138,10 @@ public class Launcher extends Mechanism {
         Telemetry.log("Launcher/WantedState", wantedState.toString());
         Telemetry.log("Launcher/SystemState", systemState.toString());
         Telemetry.log("Launcher/CurrentCommand", getCurrentCommandName());
-        Telemetry.log("Launcher/Voltage", getVoltage(), "volts");
-        Telemetry.log("Launcher/StatorCurrent", getStatorCurrent(), "amps");
-        Telemetry.log("Launcher/SupplyCurrent", getSupplyCurrent(), "amps");
+        // Voltage, currents, temperature and connection at 10 Hz (offseason); the
+        // same signals are also recorded every loop as inputs under Mechanisms/.
+        logDiagnostics("Launcher");
         Telemetry.log("Launcher/RPM", getVelocityRPM(), "RPM");
-        Telemetry.log("Launcher/Temp", getTemp(), "deg_C");
     }
 
     // --------------------------------------------------------------------------------

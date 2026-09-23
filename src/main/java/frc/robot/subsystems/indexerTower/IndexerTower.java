@@ -119,11 +119,10 @@ public class IndexerTower extends Mechanism {
         Telemetry.log("IndexerTower/WantedState", wantedState.toString());
         Telemetry.log("IndexerTower/SystemState", systemState.toString());
         Telemetry.log("IndexerTower/CurrentCommand", getCurrentCommandName());
-        Telemetry.log("IndexerTower/Voltage", getVoltage(), "volts");
-        Telemetry.log("IndexerTower/StatorCurrent", getStatorCurrent(), "amps");
-        Telemetry.log("IndexerTower/SupplyCurrent", getSupplyCurrent(), "amps");
+        // Voltage, currents, temperature and connection at 10 Hz (offseason); the
+        // same signals are also recorded every loop as inputs under Mechanisms/.
+        logDiagnostics("IndexerTower");
         Telemetry.log("IndexerTower/RPM", getVelocityRPM(), "RPM");
-        Telemetry.log("IndexerTower/Temp", getTemp(), "deg_C");
     }
 
     // --------------------------------------------------------------------------------

@@ -142,12 +142,11 @@ public class Hood extends Mechanism {
         Telemetry.log("Hood/WantedState", wantedState.toString());
         Telemetry.log("Hood/SystemState", systemState.toString());
         Telemetry.log("Hood/CurrentCommand", getCurrentCommandName());
-        Telemetry.log("Hood/Voltage", getVoltage(), "volts");
-        Telemetry.log("Hood/StatorCurrent", getStatorCurrent(), "amps");
-        Telemetry.log("Hood/SupplyCurrent", getSupplyCurrent(), "amps");
+        // Voltage, currents, temperature and connection at 10 Hz (offseason); the
+        // same signals are also recorded every loop as inputs under Mechanisms/.
+        logDiagnostics("Hood");
         Telemetry.log("Hood/PositionDegrees", getPositionDegrees(), "degrees");
         Telemetry.log("Hood/RPM", getVelocityRPM(), "RPM");
-        Telemetry.log("Hood/Temp", getTemp(), "deg_C");
     }
 
     // --------------------------------------------------------------------------------

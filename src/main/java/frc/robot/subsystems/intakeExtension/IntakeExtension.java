@@ -207,12 +207,11 @@ public class IntakeExtension extends Mechanism {
         public void periodic() {
             logBatteryUsage();
             Telemetry.log("IntakeExtensionRight/CurrentCommand", getCurrentCommandName());
-            Telemetry.log("IntakeExtensionRight/Voltage", getVoltage(), "volts");
-            Telemetry.log("IntakeExtensionRight/StatorCurrent", getStatorCurrent(), "amps");
-            Telemetry.log("IntakeExtensionRight/SupplyCurrent", getSupplyCurrent(), "amps");
+            // Voltage, currents, temperature and connection at 10 Hz (offseason); the
+            // same signals are also recorded every loop as inputs under Mechanisms/.
+            logDiagnostics("IntakeExtensionRight");
             Telemetry.log("IntakeExtensionRight/Position", getPositionRotations(), "rotations");
             Telemetry.log("IntakeExtensionRight/RPM", getVelocityRPM(), "RPM");
-            Telemetry.log("IntakeExtensionRight/Temp", getTemp(), "deg_C");
         }
     }
 
@@ -479,12 +478,11 @@ public class IntakeExtension extends Mechanism {
         Telemetry.log("IntakeExtension/WantedState", wantedState.toString());
         Telemetry.log("IntakeExtension/SystemState", systemState.toString());
         Telemetry.log("IntakeExtension/CurrentCommand", getCurrentCommandName());
-        Telemetry.log("IntakeExtension/Voltage", getVoltage(), "volts");
-        Telemetry.log("IntakeExtension/StatorCurrent", getStatorCurrent(), "amps");
-        Telemetry.log("IntakeExtension/SupplyCurrent", getSupplyCurrent(), "amps");
+        // Voltage, currents, temperature and connection at 10 Hz (offseason); the
+        // same signals are also recorded every loop as inputs under Mechanisms/.
+        logDiagnostics("IntakeExtension");
         Telemetry.log("IntakeExtension/Position", getPositionRotations(), "rotations");
         Telemetry.log("IntakeExtension/RPM", getVelocityRPM(), "RPM");
-        Telemetry.log("IntakeExtension/Temp", getTemp(), "deg_C");
         Telemetry.log("IntakeExtension/LeftHomed", leftHomed);
         Telemetry.log("IntakeExtension/RightHomed", rightHomed);
 

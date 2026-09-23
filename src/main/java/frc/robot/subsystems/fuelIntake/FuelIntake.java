@@ -131,11 +131,10 @@ public class FuelIntake extends Mechanism {
         Telemetry.log("FuelIntake/WantedState", wantedState.toString());
         Telemetry.log("FuelIntake/SystemState", systemState.toString());
         Telemetry.log("FuelIntake/CurrentCommand", getCurrentCommandName());
-        Telemetry.log("FuelIntake/Voltage", getVoltage(), "volts");
-        Telemetry.log("FuelIntake/StatorCurrent", getStatorCurrent(), "amps");
-        Telemetry.log("FuelIntake/SupplyCurrent", getSupplyCurrent(), "amps");
+        // Voltage, currents, temperature and connection at 10 Hz (offseason); the
+        // same signals are also recorded every loop as inputs under Mechanisms/.
+        logDiagnostics("FuelIntake");
         Telemetry.log("FuelIntake/RPM", getVelocityRPM(), "RPM");
-        Telemetry.log("FuelIntake/Temp", getTemp(), "deg_C");
     }
 
     // --------------------------------------------------------------------------------

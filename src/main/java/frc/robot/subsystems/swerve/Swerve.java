@@ -18,11 +18,13 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
+import com.pathplanner.lib.util.PathPlannerLogging;
 import frc.rebuilt.Field;
 import frc.rebuilt.FieldHelpers;
 import frc.rebuilt.ShotCalculator;
 import frc.robot.Constants;
 import frc.robot.Robot;
+import frc.spectrumLib.framework.RobotLoop;
 import frc.spectrumLib.hardware.CanConfigBudget;
 import frc.spectrumLib.localization.PoseFusion;
 import frc.spectrumLib.telemetry.Telemetry;
@@ -314,7 +316,9 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         inputs.odometryModuleDistances = distances;
         inputs.odometryModuleAngles = angles;
 
-        SwerveDriveState state = getState();
+        // A copy: getState() hands back the object the odometry thread keeps writing, and
+        // AdvantageKit serializes these arrays after this line.
+        SwerveDriveState state = getStateCopy();
         inputs.ctrePose = state.Pose;
         inputs.robotVelocity = state.Velocity;
         inputs.moduleVelocities = state.ModuleVelocities;
@@ -349,7 +353,8 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
             poseFusion.addOdometry(
                     inputs.odometryTimestamps[s],
                     Rotation2d.fromRadians(inputs.odometryYawRadians[s]),
-                    scratchPositions);
+                    scratchPositions,
+                    s == inputs.odometryTimestamps.length - 1);
         }
     }
 
@@ -838,6 +843,18 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                         Field.getBlueHubCenter().getY(),
                         Rotation2d.fromDegrees(0)));
 
+        // PathPlanner's own view of what it is doing, as AdvantageKit outputs: the path being
+        // followed, where the controller wants the robot, and the pose it is using. Called from
+        // PathPlanner's commands, so on the main loop.
+        PathPlannerLogging.setLogActivePathCallback(
+                poses ->
+                        Logger.recordOutput(
+                                "PathPlanner/ActivePath", poses.toArray(new Pose2d[0])));
+        PathPlannerLogging.setLogTargetPoseCallback(
+                pose -> Logger.recordOutput("PathPlanner/TargetPose", pose));
+        PathPlannerLogging.setLogCurrentPoseCallback(
+                pose -> Logger.recordOutput("PathPlanner/CurrentPose", pose));
+
         try {
             var ppConfig = RobotConfig.fromGUISettings();
             AutoBuilder.configure(
@@ -847,7 +864,8 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                     (speeds, feedforwards) ->
                             setControl(
                                     autoRequest
-                                            .withVelocity(speeds.discretize(0.020))
+                                            .withVelocity(
+                                                    speeds.discretize(RobotLoop.periodSeconds()))
                                             .withWheelForceFeedforwardsX(
                                                     feedforwards.robotRelativeForcesX())
                                             .withWheelForceFeedforwardsY(

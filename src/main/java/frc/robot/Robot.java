@@ -6,7 +6,6 @@ import com.ctre.phoenix6.SignalLogger;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.commands.FollowPathCommand;
 import com.pathplanner.lib.commands.PathPlannerAuto;
-import com.pathplanner.lib.commands.PathfindingCommand;
 import com.pathplanner.lib.path.PathPlannerPath;
 import frc.rebuilt.ShiftHelpers;
 import frc.rebuilt.ShotCalculator;
@@ -46,6 +45,7 @@ import frc.spectrumLib.telemetry.BatteryLogger;
 import frc.spectrumLib.telemetry.SystemLoadMonitor;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.telemetry.Telemetry.PrintPriority;
+import frc.spectrumLib.telemetry.ThrottledReceiver;
 import frc.spectrumLib.util.CrashTracker;
 import frc.spectrumLib.util.Util;
 import java.io.IOException;
@@ -138,7 +138,7 @@ public class Robot extends SpectrumRobot {
     @Getter private static CANBus secondaryCANBus;
 
     public Robot() {
-        super();
+        super(Constants.LOOP_PERIOD_SECONDS);
         startLogging();
 
         /*
@@ -272,6 +272,11 @@ public class Robot extends SpectrumRobot {
         Logger.recordMetadata("ProjectName", BuildConstants.MAVEN_NAME);
         Logger.recordMetadata("Robot", "FM-2026-SystemCore");
         Logger.recordMetadata("TeamNumber", "8515");
+        Logger.recordMetadata("LoopPeriodSeconds", Double.toString(Constants.LOOP_PERIOD_SECONDS));
+        Logger.recordMetadata("RuntimeMode", Constants.currentMode.name());
+        // Which robot config this controller selected (by serial number); replay always builds
+        // FM2026, so a log from another robot says so here.
+        Logger.recordMetadata("RobotIdentity", Rio.id.name());
         Logger.recordMetadata("BuildDate", BuildConstants.BUILD_DATE);
         Logger.recordMetadata("GitSHA", BuildConstants.GIT_SHA);
         Logger.recordMetadata("GitDate", BuildConstants.GIT_DATE);
@@ -290,12 +295,13 @@ public class Robot extends SpectrumRobot {
                 // SystemCore's own storage. Without a stick /U/logs cannot be opened and the
                 // match is not logged at all.
                 Logger.addDataReceiver(new WPILOGWriter(realLogFolder()));
-                Logger.addDataReceiver(new NT4Publisher());
+                // Live NT view at ~50 Hz; the log file keeps every cycle.
+                Logger.addDataReceiver(new ThrottledReceiver(new NT4Publisher(), ntEveryN()));
                 break;
             case SIM:
                 // Log to NT for AdvantageScope and to ./logs for replay practice.
                 Logger.addDataReceiver(new WPILOGWriter("logs"));
-                Logger.addDataReceiver(new NT4Publisher());
+                Logger.addDataReceiver(new ThrottledReceiver(new NT4Publisher(), ntEveryN()));
                 break;
             case REPLAY:
                 setUseTiming(false); // Run as fast as possible
@@ -306,6 +312,11 @@ public class Robot extends SpectrumRobot {
                 break;
         }
         Logger.start();
+    }
+
+    /** Cycles per NetworkTables publish, for about 50 Hz whatever the loop rate. */
+    private static int ntEveryN() {
+        return (int) Math.max(1, Math.round(0.02 / Constants.LOOP_PERIOD_SECONDS));
     }
 
     /** {@code /U/logs} when a USB stick is mounted, else {@code /home/systemcore/logs}. */
@@ -426,6 +437,7 @@ public class Robot extends SpectrumRobot {
     @Override
     public void robotPeriodic() {
         RobotLoop.next();
+        RuntimeInputs.update();
         systemLoad.periodic();
 
         // Latched here rather than in the mode inits so every mode is covered by the same check.
@@ -459,7 +471,7 @@ public class Robot extends SpectrumRobot {
             Telemetry.log("Match Data/InShift", shift.active());
             Telemetry.log("Match Data/TimeLeftInShift", shift.remainingTime(), "seconds");
 
-            batteryLogger.setBatteryVoltage(RobotController.getBatteryVoltage());
+            batteryLogger.setBatteryVoltage(RuntimeInputs.batteryVoltage());
             // Every loop: a brownout is a few hundred milliseconds.
             if (powerApiAvailable) {
                 Telemetry.log("SystemStats/BrownedOut", RobotController.isBrownedOut());
@@ -470,7 +482,10 @@ public class Robot extends SpectrumRobot {
 
             logCanBusStatus();
 
-            field2d.setRobotPose(swerve.getRobotPose());
+            // For dashboards (AdvantageKit logs the pose itself every loop); 10 Hz is plenty.
+            if (Telemetry.slowLogThisLoop()) {
+                field2d.setRobotPose(swerve.getRobotPose());
+            }
 
             Telemetry.timeEnd("Scheduler/robotPeriodic");
         } catch (Throwable t) {
@@ -542,7 +557,11 @@ public class Robot extends SpectrumRobot {
             Command autonStartCommand =
                     Commands.sequence(
                                     FollowPathCommand.warmupCommand(),
-                                    PathfindingCommand.warmupCommand(),
+                                    // No PathfindingCommand warmup: FM's autos never pathfind, and
+                                    // warming it up starts PathPlanner's AD* planning thread, which
+                                    // then runs for the whole match and finishes on its own
+                                    // schedule (not replayable). If pathfinding is added, use
+                                    // AdvantageKit's LocalADStarAK so it replays.
                                     Commands.runOnce(
                                             () -> {
                                                 Telemetry.log("Initialized", true);
@@ -684,7 +703,9 @@ public class Robot extends SpectrumRobot {
 
     /** Only before the first enable on the robot; always in simulation. */
     private boolean mayPlaceAtAutoStart() {
-        return Constants.currentMode != Constants.Mode.REAL || !hasBeenEnabled;
+        // RuntimeInputs, not Constants.currentMode: replaying a real match runs in REPLAY mode,
+        // and must refuse the placement exactly as the robot did.
+        return RuntimeInputs.isSimulation() || !hasBeenEnabled;
     }
 
     // -- Start pose check (offseason) ---------------------------------------------------------
@@ -739,7 +760,7 @@ public class Robot extends SpectrumRobot {
         }
         if (!vision.isPoseHeadingSeeded()) {
             clearStartPoseReport();
-            startPoseUnverifiedAlert.set(Constants.currentMode == Constants.Mode.REAL);
+            startPoseUnverifiedAlert.set(!RuntimeInputs.isSimulation());
             return;
         }
         startPoseUnverifiedAlert.set(false);

@@ -548,8 +548,7 @@ public class Vision implements Subsystem {
      */
     private void applyWithPolicy(PoseSource source, boolean policyAllows) {
         boolean fuse = policyAllows && source.isEnabled();
-        Logger.recordOutput(
-                "Localization/Sources/" + source.getName() + "/PolicyAllowsFusion", policyAllows);
+        source.logPolicy(policyAllows);
         fusion.apply(source, source.getResults(), fuse);
     }
 
@@ -764,8 +763,9 @@ public class Vision implements Subsystem {
         Telemetry.log("Vision/SeedConfirmProgress", seedConfirmStreak);
         Telemetry.log("Vision/ChassisSource", useMt2 ? "MT2" : "MT1");
         Telemetry.log("Vision/GrossHeadingCorrections", grossHeadingCorrections);
-        for (PoseSource s : allSources) {
-            Telemetry.log("Localization/Sources/" + s.getName() + "/ConnectedNow", s.isConnected());
+        // (Each source's Connected flag is already a logged input.)
+        if (!Telemetry.slowLogThisLoop()) {
+            return; // the Field2d below is for dashboards; 10 Hz is plenty
         }
         // Each Limelight's latest MegaTag1 pose on the Field2d, named like its camera.
         List<PoseSource> cameraMt1 = new ArrayList<>(mt1Sources);

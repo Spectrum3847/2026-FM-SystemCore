@@ -14,6 +14,9 @@ package frc.spectrumLib.framework;
 public final class RobotLoop {
     private static long count = 0;
 
+    /** The robot loop period in seconds; set once by {@link SpectrumRobot}. */
+    private static double periodSeconds = 0.02;
+
     private RobotLoop() {}
 
     /** Advances to the next loop. Called once, at the top of {@code robotPeriodic()}. */
@@ -28,6 +31,32 @@ public final class RobotLoop {
      */
     public static long count() {
         return count;
+    }
+
+    /**
+     * Sets the loop period. Called once, by {@link SpectrumRobot}'s constructor.
+     *
+     * @param seconds the robot loop period
+     */
+    static void setPeriodSeconds(double seconds) {
+        periodSeconds = seconds;
+    }
+
+    /** The robot loop period in seconds (0.02 at 50 Hz, 0.01 at 100 Hz). */
+    public static double periodSeconds() {
+        return periodSeconds;
+    }
+
+    /**
+     * Returns {@code true} about once every {@code seconds}, whatever the loop rate. The 2026 code
+     * counted loops and assumed 20 ms; this keeps its "every fifth loop = 10 Hz" meaning at any
+     * rate.
+     *
+     * @param seconds interval between {@code true} results
+     * @return whether this loop is one to run the periodic work on
+     */
+    public static boolean everySeconds(double seconds) {
+        return every((int) Math.max(1, Math.round(seconds / periodSeconds)));
     }
 
     /**

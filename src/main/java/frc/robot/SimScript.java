@@ -165,6 +165,10 @@ public final class SimScript {
         pilot.setAxis(Gamepad.Axis.LEFT_X, step[2]);
         pilot.setAxis(Gamepad.Axis.RIGHT_X, step[3]);
         pilot.notifyNewData();
+        // Known limitation: a simulated DS change made mid-loop reaches AdvantageKit's HAL snapshot
+        // one loop before WPILib's Driver Station cache, so replaying a *scripted* run enables one
+        // loop early. Refreshing the cache here does not help. Real Driver Station packets are
+        // picked up at the top of a loop and are not affected.
         DriverStationSim.notifyNewData();
     }
 
@@ -188,6 +192,10 @@ public final class SimScript {
         }
         double t = now - start;
         DriverStationSim.setEnabled(t >= 6.0 && t < 6.0 + AUTO_SECONDS);
+        // Known limitation: a simulated DS change made mid-loop reaches AdvantageKit's HAL snapshot
+        // one loop before WPILib's Driver Station cache, so replaying a *scripted* run enables one
+        // loop early. Refreshing the cache here does not help. Real Driver Station packets are
+        // picked up at the top of a loop and are not affected.
         DriverStationSim.notifyNewData();
     }
 }

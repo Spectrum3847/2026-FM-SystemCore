@@ -69,8 +69,8 @@ public class Telemetry {
     /** Minimum priority level a message must have to be written to the console. */
     private static PrintPriority priority = PrintPriority.HIGH;
 
-    /** Loops between slow-tier publishes: every fifth 20 ms loop is 10 Hz. */
-    public static final int SLOW_LOG_EVERY_LOOPS = 5;
+    /** Seconds between slow-tier publishes (10 Hz at any loop rate). */
+    public static final double SLOW_LOG_PERIOD_SECONDS = 0.1;
 
     private Telemetry() {}
 
@@ -81,7 +81,7 @@ public class Telemetry {
      * @return whether slow-tier values should be logged this loop
      */
     public static boolean slowLogThisLoop() {
-        return RobotLoop.every(SLOW_LOG_EVERY_LOOPS);
+        return RobotLoop.everySeconds(SLOW_LOG_PERIOD_SECONDS);
     }
 
     /**
@@ -234,6 +234,34 @@ public class Telemetry {
         log(key, (System.nanoTime() - start) / 1e9, "seconds");
     }
 
+    // ── Events ───────────────────────────────────────────────────────────────
+
+    /** Loop whose events {@link #events} holds. */
+    private static long eventLoop = -1;
+
+    /** Events logged this loop, by key. */
+    private static final Map<String, java.util.List<String>> events = new HashMap<>();
+
+    /**
+     * Logs a discrete event. AdvantageKit keeps one value per key per cycle, so logging two
+     * messages to the same key in one loop kept only the second -- two commands ending on the same
+     * loop, or two prints, lost one. Events are accumulated per loop and recorded as a string array
+     * holding every one of them.
+     *
+     * @param key the log key
+     * @param message the event
+     */
+    public static void logEvent(String key, String message) {
+        long loop = RobotLoop.count();
+        if (loop != eventLoop) {
+            eventLoop = loop;
+            events.clear();
+        }
+        var list = events.computeIfAbsent(key, k -> new java.util.ArrayList<>(2));
+        list.add(message);
+        Logger.recordOutput(key, list.toArray(new String[0]));
+    }
+
     // ── Commands, prints ─────────────────────────────────────────────────────
 
     /**
@@ -245,8 +273,8 @@ public class Telemetry {
     public static Command log(Command cmd) {
         return cmd.deadlineFor(
                         Commands.startEnd(
-                                () -> log("Commands", "Init: " + cmd.getName()),
-                                () -> log("Commands", "End: " + cmd.getName())))
+                                () -> logEvent("Commands", "Init: " + cmd.getName()),
+                                () -> logEvent("Commands", "End: " + cmd.getName())))
                 .ignoringDisable(cmd.runsWhenDisabled())
                 .withName(cmd.getName());
     }
@@ -260,7 +288,7 @@ public class Telemetry {
         if (priority == PrintPriority.HIGH || Telemetry.priority == PrintPriority.NORMAL) {
             System.out.println(out);
         }
-        log("Prints", out);
+        logEvent("Prints", out);
     }
 
     /**

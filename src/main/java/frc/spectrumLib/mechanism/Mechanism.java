@@ -800,10 +800,17 @@ public abstract class Mechanism implements Subsystem {
         inputs.statorCurrentAmps = statorCurrentSignal.getValueAsDouble();
         inputs.supplyCurrentAmps = supplyCurrentSignal.getValueAsDouble();
         inputs.tempCelsius = tempSignal.getValueAsDouble();
+        // New arrays every loop, never written in place: AdvantageKit holds a reference to an
+        // input array and serializes it after this cycle, so reusing one logged whatever the next
+        // loop wrote into it -- the log disagreed with what the code used, and replay diverged.
+        double[] followerAmps = new double[followerSupplySignals.length];
+        boolean[] followerOk = new boolean[followerSupplySignals.length];
         for (int i = 0; i < followerSupplySignals.length; i++) {
-            inputs.followerSupplyCurrentAmps[i] = followerSupplySignals[i].getValueAsDouble();
-            inputs.followerConnected[i] = followerSupplySignals[i].getStatus().isOK();
+            followerAmps[i] = followerSupplySignals[i].getValueAsDouble();
+            followerOk[i] = followerSupplySignals[i].getStatus().isOK();
         }
+        inputs.followerSupplyCurrentAmps = followerAmps;
+        inputs.followerConnected = followerOk;
         // Records the readings on the robot; overwrites them from the log in replay.
         Logger.processInputs(inputsKey, inputs);
     }

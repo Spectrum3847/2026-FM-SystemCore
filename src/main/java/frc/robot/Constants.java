@@ -21,6 +21,13 @@ public final class Constants {
 
     public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
 
+    /**
+     * Robot loop period. The 2026 roboRIO ran 0.020 (50 Hz) and was often over budget; SystemCore
+     * runs the whole cycle in a few milliseconds, so FM runs at 100 Hz. Everything that used to
+     * assume 20 ms reads {@code RobotLoop.periodSeconds()} instead.
+     */
+    public static final double LOOP_PERIOD_SECONDS = 0.01;
+
     public enum Mode {
         /** Running on a real robot. */
         REAL,

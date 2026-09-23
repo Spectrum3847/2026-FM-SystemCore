@@ -45,7 +45,6 @@ public class SwerveAlignment {
     private static final double PUBLISH_HZ = 20.0;
 
     /** Robot loops between publishes. The main loop runs at 50 Hz. */
-    private static final int LOOPS_PER_PUBLISH = (int) Math.round(50.0 / PUBLISH_HZ);
 
     /** One module's encoder signals plus the offsets we want to compare against. */
     private static class ModuleEncoder {
@@ -126,7 +125,6 @@ public class SwerveAlignment {
 
     private final ModuleEncoder[] moduleEncoders;
     private final BaseStatusSignal[] allSignals;
-    private int loopCount = 0;
 
     /**
      * Creates the alignment publisher.
@@ -169,7 +167,7 @@ public class SwerveAlignment {
             return;
         }
 
-        if (loopCount++ % LOOPS_PER_PUBLISH != 0) {
+        if (!frc.spectrumLib.framework.RobotLoop.everySeconds(1.0 / PUBLISH_HZ)) {
             return;
         }
 

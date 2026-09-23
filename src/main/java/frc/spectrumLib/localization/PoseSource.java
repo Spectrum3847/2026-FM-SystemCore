@@ -39,6 +39,22 @@ public class PoseSource {
     private final LoggedNetworkBoolean enabled;
     private final String logPrefix;
 
+    // Log keys, built once: 14 sources times a dozen keys was a lot of string building per loop.
+    private final String acceptedPosesKey;
+    private final String rejectedPosesKey;
+    private final String verdictsKey;
+    private final String xyStdKey;
+    private final String acceptedCountKey;
+    private final String rejectedCountKey;
+    private final String lastVerdictKey;
+    private final String enabledSwitchKey;
+    private final String policyKey;
+    private final String rejectionCountPrefix;
+    private final java.util.Map<String, String> rejectionCountKeys = new java.util.HashMap<>();
+
+    /** Observations last loop, so a quiet source does not rewrite its empty arrays every loop. */
+    private int lastLoggedCount = -1;
+
     /** Results of the most recent {@link #process} call. */
     @Getter private final List<Result> results = new ArrayList<>();
 
@@ -76,6 +92,16 @@ public class PoseSource {
         this.stdDevModel = stdDevModel;
         this.logPrefix = "Localization/Sources/" + name;
         this.enabled = new LoggedNetworkBoolean(logPrefix + "/Enabled", enabledByDefault);
+        acceptedPosesKey = logPrefix + "/AcceptedPoses";
+        rejectedPosesKey = logPrefix + "/RejectedPoses";
+        verdictsKey = logPrefix + "/Verdicts";
+        xyStdKey = logPrefix + "/XYStdDevs";
+        acceptedCountKey = logPrefix + "/AcceptedCount";
+        rejectedCountKey = logPrefix + "/RejectedCount";
+        lastVerdictKey = logPrefix + "/LastVerdict";
+        enabledSwitchKey = logPrefix + "/EnabledSwitch";
+        policyKey = logPrefix + "/PolicyAllowsFusion";
+        rejectionCountPrefix = logPrefix + "/RejectionCounts/";
     }
 
     /** Whether accepted measurements from this source move the fused pose. */
@@ -137,15 +163,32 @@ public class PoseSource {
                 rejectedCount++;
                 lastRejection = rejection;
                 long count = rejectionCounts.merge(rejection, 1L, Long::sum);
-                Logger.recordOutput(logPrefix + "/RejectionCounts/" + rejection, count);
+                Logger.recordOutput(
+                        rejectionCountKeys.computeIfAbsent(
+                                rejection, r -> rejectionCountPrefix + r),
+                        count);
             }
         }
         log();
         return results;
     }
 
+    /**
+     * Logs whether the fusion policy allowed this source to move the fused pose this loop.
+     *
+     * @param allowed the policy's answer
+     */
+    public void logPolicy(boolean allowed) {
+        Logger.recordOutput(policyKey, allowed);
+    }
+
     private void log() {
         int n = results.size();
+        Logger.recordOutput(enabledSwitchKey, isEnabled());
+        if (n == 0 && lastLoggedCount == 0) {
+            return; // nothing new: the empty arrays and the counts are already in the log
+        }
+        lastLoggedCount = n;
         List<Pose2d> accepted = new ArrayList<>();
         List<Pose2d> rejected = new ArrayList<>();
         String[] verdicts = new String[n];
@@ -162,17 +205,16 @@ public class PoseSource {
                 xyStd[i] = Double.NaN;
             }
         }
-        Logger.recordOutput(logPrefix + "/AcceptedPoses", accepted.toArray(new Pose2d[0]));
-        Logger.recordOutput(logPrefix + "/RejectedPoses", rejected.toArray(new Pose2d[0]));
+        Logger.recordOutput(acceptedPosesKey, accepted.toArray(new Pose2d[0]));
+        Logger.recordOutput(rejectedPosesKey, rejected.toArray(new Pose2d[0]));
         // One entry per observation, in input order: the tier if accepted, the reason if not.
-        Logger.recordOutput(logPrefix + "/Verdicts", verdicts);
-        Logger.recordOutput(logPrefix + "/XYStdDevs", xyStd);
-        Logger.recordOutput(logPrefix + "/AcceptedCount", acceptedCount);
-        Logger.recordOutput(logPrefix + "/RejectedCount", rejectedCount);
+        Logger.recordOutput(verdictsKey, verdicts);
+        Logger.recordOutput(xyStdKey, xyStd);
+        Logger.recordOutput(acceptedCountKey, acceptedCount);
+        Logger.recordOutput(rejectedCountKey, rejectedCount);
         if (n > 0) {
-            Logger.recordOutput(logPrefix + "/LastVerdict", verdicts[n - 1]);
+            Logger.recordOutput(lastVerdictKey, verdicts[n - 1]);
         }
-        Logger.recordOutput(logPrefix + "/EnabledSwitch", isEnabled());
     }
 
     /** Whether any observation of the given kind was accepted this loop. */

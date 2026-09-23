@@ -47,6 +47,24 @@ public class PoseFusion {
     private final SwerveDriveOdometry odometry;
     private final Map<String, SwerveDrivePoseEstimator> shadows = new LinkedHashMap<>();
 
+    /** Per-source log keys, built once at registration (they were concatenated every loop). */
+    private record Keys(
+            String fusedThisLoop,
+            String errorVsFused,
+            String headingErrorVsFused,
+            String errorVsTruth,
+            String shadowPose,
+            String shadowDistance,
+            String shadowTruthError) {}
+
+    private final Map<String, Keys> keys = new LinkedHashMap<>();
+
+    /** Observations each source had last loop, so empty arrays are not rewritten every loop. */
+    private final Map<String, Integer> lastObservationCount = new LinkedHashMap<>();
+
+    /** Time of the last odometry sample, for starting a shadow with one buffer entry. */
+    private double lastSampleTime = 0;
+
     private Rotation2d lastGyro = Rotation2d.kZero;
     private SwerveModulePosition[] lastPositions;
 
@@ -95,7 +113,36 @@ public class PoseFusion {
      * @param source the source
      */
     public void register(PoseSource source) {
-        shadows.computeIfAbsent(source.getName(), n -> newEstimator(odometryStdDevs, getPose()));
+        String n = source.getName();
+        String p = PREFIX + "Sources/" + n;
+        String sh = PREFIX + "Shadow/" + n;
+        keys.put(
+                n,
+                new Keys(
+                        p + "/FusedThisLoop",
+                        p + "/ErrorVsFusedMeters",
+                        p + "/HeadingErrorVsFusedDeg",
+                        p + "/ErrorVsTruthMeters",
+                        sh + "/Pose",
+                        sh + "/DistanceFromFusedMeters",
+                        sh + "/ErrorVsTruthMeters"));
+    }
+
+    /**
+     * A source's shadow, created the first time the source has an accepted measurement.
+     *
+     * <p>Lazily, so a source whose device is absent (no Orin plugged in, no Quest) costs nothing:
+     * every shadow is a full pose estimator updated with odometry every loop. A new shadow starts
+     * from the fused pose with one odometry entry, so its first measurement is applied against it.
+     */
+    private SwerveDrivePoseEstimator shadowFor(String source) {
+        return shadows.computeIfAbsent(
+                source,
+                n -> {
+                    SwerveDrivePoseEstimator e = newEstimator(odometryStdDevs, getPose());
+                    e.updateWithTime(lastSampleTime, lastGyro, lastPositions);
+                    return e;
+                });
     }
 
     /**
@@ -107,8 +154,31 @@ public class PoseFusion {
      */
     public void addOdometry(
             double timestampSeconds, Rotation2d gyro, SwerveModulePosition[] positions) {
+        addOdometry(timestampSeconds, gyro, positions, true);
+    }
+
+    /**
+     * Feeds one odometry sample to the fused and odometry tracks, and to the shadows when {@code
+     * includeShadows}.
+     *
+     * <p>The fused pose takes every 250 Hz sample. The shadows are comparison tracks and take one
+     * per robot loop (the caller passes {@code true} for the loop's last sample): module positions
+     * are absolute, so skipping intermediate samples only coarsens the arc between them, and it
+     * cuts the shadows' cost by the number of samples per loop.
+     *
+     * @param timestampSeconds sample time, {@code Timer.getTimestamp()} base
+     * @param gyro gyro yaw at the sample
+     * @param positions module positions at the sample
+     * @param includeShadows whether the shadow tracks take this sample
+     */
+    public void addOdometry(
+            double timestampSeconds,
+            Rotation2d gyro,
+            SwerveModulePosition[] positions,
+            boolean includeShadows) {
         lastGyro = gyro;
         lastPositions = copy(positions);
+        lastSampleTime = timestampSeconds;
         if (!haveOdometry) {
             // The estimators were built before any sample existed, with a zero gyro and zero
             // wheel distances. Re-baseline them on the first real sample without moving the pose,
@@ -124,8 +194,10 @@ public class PoseFusion {
         }
         fused.updateWithTime(timestampSeconds, gyro, positions);
         odometry.update(gyro, positions);
-        for (SwerveDrivePoseEstimator shadow : shadows.values()) {
-            shadow.updateWithTime(timestampSeconds, gyro, positions);
+        if (includeShadows) {
+            for (SwerveDrivePoseEstimator shadow : shadows.values()) {
+                shadow.updateWithTime(timestampSeconds, gyro, positions);
+            }
         }
     }
 
@@ -139,8 +211,16 @@ public class PoseFusion {
      * @param fuse whether accepted measurements also move the fused pose
      */
     public void apply(PoseSource source, List<PoseSource.Result> results, boolean fuse) {
-        SwerveDrivePoseEstimator shadow = shadows.get(source.getName());
+        String name = source.getName();
+        Keys k = keys.get(name);
         int n = results.size();
+        Integer last = lastObservationCount.put(name, n);
+        if (k != null) {
+            Logger.recordOutput(k.fusedThisLoop(), fuse);
+        }
+        if (n == 0 && last != null && last == 0) {
+            return; // nothing new; the empty arrays are already in the log
+        }
         double[] errorMeters = new double[n];
         double[] headingErrorDeg = new double[n];
         double[] truthErrorMeters = new double[n];
@@ -162,19 +242,17 @@ public class PoseFusion {
                             r.stdDevs().xyMeters(),
                             r.stdDevs().xyMeters(),
                             r.stdDevs().thetaRadians());
-            if (shadow != null) {
-                shadow.addVisionMeasurement(measured, t, std);
-            }
+            shadowFor(name).addVisionMeasurement(measured, t, std);
             if (fuse) {
                 fused.addVisionMeasurement(measured, t, std);
             }
         }
-        String p = PREFIX + "Sources/" + source.getName();
-        Logger.recordOutput(p + "/FusedThisLoop", fuse);
-        Logger.recordOutput(p + "/ErrorVsFusedMeters", errorMeters);
-        Logger.recordOutput(p + "/HeadingErrorVsFusedDeg", headingErrorDeg);
-        if (truth.isPresent()) {
-            Logger.recordOutput(p + "/ErrorVsTruthMeters", truthErrorMeters);
+        if (k != null) {
+            Logger.recordOutput(k.errorVsFused(), errorMeters);
+            Logger.recordOutput(k.headingErrorVsFused(), headingErrorDeg);
+            if (truth.isPresent()) {
+                Logger.recordOutput(k.errorVsTruth(), truthErrorMeters);
+            }
         }
     }
 
@@ -244,28 +322,31 @@ public class PoseFusion {
         Logger.recordOutput(PREFIX + "FusedPose", fusedPose);
         Logger.recordOutput(PREFIX + "OdometryPose", getOdometryPose());
         for (var e : shadows.entrySet()) {
+            Keys k = keys.get(e.getKey());
+            if (k == null) {
+                continue;
+            }
             Pose2d shadowPose = e.getValue().getEstimatedPosition();
-            String p = PREFIX + "Shadow/" + e.getKey();
-            Logger.recordOutput(p + "/Pose", shadowPose);
+            Logger.recordOutput(k.shadowPose(), shadowPose);
             Logger.recordOutput(
-                    p + "/DistanceFromFusedMeters",
+                    k.shadowDistance(),
                     shadowPose.getTranslation().getDistance(fusedPose.getTranslation()));
-            truth.ifPresent(
-                    t ->
-                            Logger.recordOutput(
-                                    p + "/ErrorVsTruthMeters",
-                                    shadowPose.getTranslation().getDistance(t.getTranslation())));
+            if (truth.isPresent()) {
+                Logger.recordOutput(
+                        k.shadowTruthError(),
+                        shadowPose.getTranslation().getDistance(truth.get().getTranslation()));
+            }
         }
-        truth.ifPresent(
-                t -> {
-                    Logger.recordOutput(PREFIX + "SimTruthPose", t);
-                    Logger.recordOutput(
-                            PREFIX + "FusedErrorVsTruthMeters",
-                            fusedPose.getTranslation().getDistance(t.getTranslation()));
-                    Logger.recordOutput(
-                            PREFIX + "OdometryErrorVsTruthMeters",
-                            getOdometryPose().getTranslation().getDistance(t.getTranslation()));
-                });
+        if (truth.isPresent()) {
+            Pose2d t = truth.get();
+            Logger.recordOutput(PREFIX + "SimTruthPose", t);
+            Logger.recordOutput(
+                    PREFIX + "FusedErrorVsTruthMeters",
+                    fusedPose.getTranslation().getDistance(t.getTranslation()));
+            Logger.recordOutput(
+                    PREFIX + "OdometryErrorVsTruthMeters",
+                    getOdometryPose().getTranslation().getDistance(t.getTranslation()));
+        }
     }
 
     private static SwerveModulePosition[] copy(SwerveModulePosition[] positions) {

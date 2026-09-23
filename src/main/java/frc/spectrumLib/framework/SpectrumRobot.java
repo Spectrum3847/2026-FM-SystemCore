@@ -24,9 +24,15 @@ public class SpectrumRobot extends LoggedRobot {
      */
     public static final double LOOP_OVERRUN_WARNING_SECONDS = 0.20;
 
-    /** Sets the loop overrun watchdogs to {@link #LOOP_OVERRUN_WARNING_SECONDS}. */
-    public SpectrumRobot() {
-        super();
+    /**
+     * Starts the robot loop at {@code periodSeconds} and sets the loop overrun watchdogs to {@link
+     * #LOOP_OVERRUN_WARNING_SECONDS}.
+     *
+     * @param periodSeconds the robot loop period; SystemCore runs 0.01 (100 Hz) comfortably
+     */
+    public SpectrumRobot(double periodSeconds) {
+        super(periodSeconds);
+        RobotLoop.setPeriodSeconds(periodSeconds);
         try {
             Field watchdogField = IterativeRobotBase.class.getDeclaredField("m_watchdog");
             watchdogField.setAccessible(true);

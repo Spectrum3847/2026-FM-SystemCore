@@ -4,6 +4,7 @@ import frc.rebuilt.targetFactories.FeedTargetFactory;
 import frc.rebuilt.targetFactories.HubTargetFactory;
 import frc.robot.Robot;
 import frc.spectrumLib.telemetry.Telemetry;
+import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Commands;
 import org.wpilib.math.filter.LinearFilter;
@@ -14,8 +15,6 @@ import org.wpilib.math.geometry.Translation2d;
 import org.wpilib.math.geometry.Twist2d;
 import org.wpilib.math.kinematics.ChassisVelocities;
 import org.wpilib.math.util.MathUtil;
-import org.wpilib.smartdashboard.SendableChooser;
-import org.wpilib.smartdashboard.SmartDashboard;
 
 @SuppressWarnings("unused")
 public class ShotCalculator {
@@ -257,12 +256,14 @@ public class ShotCalculator {
      * picked when testing indoors without a redeploy. Feed shots always use {@link #FEED_MODEL} and
      * are unaffected.
      */
-    private final SendableChooser<PolyModel> hubModelChooser = new SendableChooser<>();
+    private final LoggedDashboardChooser<PolyModel> hubModelChooser =
+            new LoggedDashboardChooser<>("Hub Model Chooser");
 
+    // An AdvantageKit dashboard input (same dashboard key as the 2026 SendableChooser): the shot
+    // model changes every hood angle and RPM, so replay has to know which one was selected.
     private ShotCalculator() {
-        hubModelChooser.setDefaultOption(NO_CEILING_HUB_MODEL.name(), NO_CEILING_HUB_MODEL);
+        hubModelChooser.addDefaultOption(NO_CEILING_HUB_MODEL.name(), NO_CEILING_HUB_MODEL);
         hubModelChooser.addOption(CEILING_3M_HUB_MODEL.name(), CEILING_3M_HUB_MODEL);
-        SmartDashboard.putData("Hub Model Chooser", hubModelChooser);
     }
 
     /**
@@ -270,7 +271,7 @@ public class ShotCalculator {
      * been selected yet.
      */
     private PolyModel selectedHubModel() {
-        PolyModel selected = hubModelChooser.getSelected();
+        PolyModel selected = hubModelChooser.get();
         return selected != null ? selected : NO_CEILING_HUB_MODEL;
     }
 
@@ -278,7 +279,9 @@ public class ShotCalculator {
     // State — Velocity Derivative Filters
     // =========================================================================
 
-    private static final double LOOP_PERIOD_SECS = 0.02;
+    /** Robot loop period, for the ~100 ms filter windows below. */
+    private static final double LOOP_PERIOD_SECS =
+            frc.spectrumLib.framework.RobotLoop.periodSeconds();
 
     /**
      * Phase delay applied to the estimated robot pose before computing shot parameters,

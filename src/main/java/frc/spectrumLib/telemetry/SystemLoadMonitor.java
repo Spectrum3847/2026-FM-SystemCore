@@ -47,7 +47,12 @@ public class SystemLoadMonitor {
     public static final double SAMPLE_PERIOD_SECONDS = 1.0;
 
     /** A loop longer than this counts as an overrun. The budget is 20 ms. */
-    public static final double LOOP_OVERRUN_MS = 25.0;
+    public static final double LOOP_OVERRUN_FACTOR = 1.25;
+
+    /** A loop longer than this counts as an overrun: 25 ms at 50 Hz, 12.5 ms at 100 Hz. */
+    private static double loopOverrunMs() {
+        return frc.spectrumLib.framework.RobotLoop.periodSeconds() * 1000.0 * LOOP_OVERRUN_FACTOR;
+    }
 
     /** Share of overrunning loops that starts the loop alert clock. */
     public static final double LOOP_OVERRUN_ALERT_PERCENT = 50.0;
@@ -91,11 +96,11 @@ public class SystemLoadMonitor {
     private static final Path PROC_STAT = Paths.get("/proc/stat");
     private static final Path PROC_MEMINFO = Paths.get("/proc/meminfo");
 
-    private final Alert cpuAlert = new Alert("roboRIO CPU high", Level.MEDIUM);
+    private final Alert cpuAlert = new Alert("Controller CPU high", Level.MEDIUM);
     private final Alert loopAlert = new Alert("Robot loop overrunning", Level.MEDIUM);
     private final Alert stallAlert = new Alert("Robot loop stalled while enabled", Level.HIGH);
     private final Alert gcAlert = new Alert("GC pause while enabled", Level.MEDIUM);
-    private final Alert memoryAlert = new Alert("roboRIO memory low", Level.MEDIUM);
+    private final Alert memoryAlert = new Alert("Controller memory low", Level.MEDIUM);
 
     private final List<GarbageCollectorMXBean> gcBeans =
             ManagementFactory.getGarbageCollectorMXBeans();
@@ -152,7 +157,7 @@ public class SystemLoadMonitor {
         bucketLoops++;
         bucketSumMs += periodMs;
         bucketMaxMs = Math.max(bucketMaxMs, periodMs);
-        if (periodMs > LOOP_OVERRUN_MS) {
+        if (periodMs > loopOverrunMs()) {
             bucketOverruns++;
         }
 
@@ -185,7 +190,7 @@ public class SystemLoadMonitor {
                         String.format(
                                 "Robot loop overrunning: %.0f%% of loops over %.0f ms for %.0f s"
                                         + " (mean %.1f ms)",
-                                overrunPercent, LOOP_OVERRUN_MS, held, meanMs));
+                                overrunPercent, loopOverrunMs(), held, meanMs));
                 loopAlert.set(true);
             }
         } else if (overrunPercent < LOOP_OVERRUN_CLEAR_PERCENT) {
@@ -210,7 +215,7 @@ public class SystemLoadMonitor {
                 if (held >= CPU_HOLD_SECONDS && (!cpuAlert.get() || refreshText)) {
                     cpuAlert.setText(
                             String.format(
-                                    "roboRIO CPU at %.0f%% for %.0f s - loop budget at risk",
+                                    "Controller CPU at %.0f%% for %.0f s - loop budget at risk",
                                     cpuPercent, held));
                     cpuAlert.set(true);
                 }

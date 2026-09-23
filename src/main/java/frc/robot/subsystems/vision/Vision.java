@@ -241,6 +241,25 @@ public class Vision implements Subsystem {
     private double grossHeadingSince = Double.NaN;
     private int grossHeadingCorrections = 0;
 
+    /**
+     * One disconnected alert per camera (a Limelight's MT1 and MT2 sources are one camera). FM's
+     * Limelights fuse by default, so theirs always applies; every other camera's only while one of
+     * its sources has its fuse switch on, so an unplugged testbed camera stays quiet.
+     */
+    private record CameraAlert(
+            String camera,
+            List<PoseSource> sources,
+            boolean always,
+            Alert alert,
+            org.wpilib.math.filter.Debouncer debounce) {}
+
+    private final List<CameraAlert> cameraAlerts = new ArrayList<>();
+
+    /** Quest battery below this percentage raises an alert (1425 uses 20). */
+    private static final double QUEST_LOW_BATTERY_PERCENT = 20;
+
+    private final Alert questBatteryAlert = new Alert("", Level.MEDIUM);
+
     private final Alert notSeededAlert =
             new Alert(
                     "Pose heading has not been vision-seeded yet - wait for a Limelight to see tags"
@@ -325,6 +344,16 @@ public class Vision implements Subsystem {
         for (PoseSource s : allSources) {
             fusion.register(s);
         }
+        for (int i = 0; i < mt1Sources.size(); i++) {
+            addCameraAlert(List.of(mt1Sources.get(i), mt2Sources.get(i)), true);
+        }
+        for (int i = 0; i < scMt1Sources.size(); i++) {
+            addCameraAlert(List.of(scMt1Sources.get(i), scMt2Sources.get(i)), false);
+        }
+        for (PoseSource s : orinSources) {
+            addCameraAlert(List.of(s), false);
+        }
+        addCameraAlert(List.of(questSource), false);
 
         if (!replay) {
             for (Limelight ll : limelights) {
@@ -766,7 +795,37 @@ public class Vision implements Subsystem {
         Telemetry.print("Vision: QuestNav re-origined to the robot pose");
     }
 
+    private void addCameraAlert(List<PoseSource> sources, boolean always) {
+        String camera = sources.get(0).getName().split("/")[0];
+        cameraAlerts.add(
+                new CameraAlert(
+                        camera,
+                        sources,
+                        always,
+                        new Alert("Camera disconnected: " + camera, Level.MEDIUM),
+                        new org.wpilib.math.filter.Debouncer(2.0)));
+    }
+
+    /** Disconnected-camera and Quest battery alerts, from logged inputs. */
+    private void updateDeviceAlerts() {
+        for (CameraAlert c : cameraAlerts) {
+            boolean connected = false;
+            boolean wanted = c.always();
+            for (PoseSource s : c.sources()) {
+                connected |= s.isConnected();
+                wanted |= s.isEnabled();
+            }
+            c.alert().set(c.debounce().calculate(wanted && !connected));
+        }
+        double[] health = questSource.getInputs().health;
+        double battery = health.length > 2 ? health[2] : -1;
+        questBatteryAlert.setText(String.format("Quest battery low: %.0f%%", battery));
+        questBatteryAlert.set(
+                questSource.isConnected() && battery >= 0 && battery < QUEST_LOW_BATTERY_PERCENT);
+    }
+
     private void logStatus(boolean disabled, boolean useMt2) {
+        updateDeviceAlerts();
         notSeededAlert.set(!poseHeadingSeeded && disabled);
         notConfirmedAlert.set(poseHeadingSeeded && !poseSeedConfirmed && disabled);
         Telemetry.logDash("Vision/PoseHeadingSeeded", poseHeadingSeeded);

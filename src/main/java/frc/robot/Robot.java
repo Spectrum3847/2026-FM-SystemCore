@@ -44,6 +44,7 @@ import frc.spectrumLib.hardware.Rio;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.BatteryLogger;
 import frc.spectrumLib.telemetry.DashboardReceiver;
+import frc.spectrumLib.telemetry.LogStorage;
 import frc.spectrumLib.telemetry.SystemLoadMonitor;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.telemetry.Telemetry.PrintPriority;
@@ -275,6 +276,29 @@ public class Robot extends SpectrumRobot {
         }
     }
 
+    /**
+     * Battery voltage below which a disabled robot raises the swap-the-battery alert. CALIBRATE
+     * against a meter: SystemCore's reading has been reported ~1.5 V low (SystemcoreTesting #306).
+     */
+    private static final double LOW_BATTERY_VOLTS = 11.8;
+
+    private final Alert lowBatteryAlert = new Alert("", Level.MEDIUM);
+    private final org.wpilib.math.filter.Debouncer lowBatteryDebounce =
+            new org.wpilib.math.filter.Debouncer(3.0);
+
+    /**
+     * Before a match (disabled), a battery that stays under {@link #LOW_BATTERY_VOLTS} for three
+     * seconds raises an alert. Disabled only: under load while driving the voltage sags by design.
+     */
+    private void checkBatteryBeforeMatch() {
+        double volts = RuntimeInputs.batteryVoltage();
+        boolean low =
+                lowBatteryDebounce.calculate(
+                        RobotState.isDisabled() && volts > 1 && volts < LOW_BATTERY_VOLTS);
+        lowBatteryAlert.setText(String.format("Battery low: %.1f V, swap before the match", volts));
+        lowBatteryAlert.set(low);
+    }
+
     /** Whether the HAL's brownout API works here (it did not on the 2026-09 SystemCore). */
     private boolean powerApiAvailable = false;
 
@@ -308,7 +332,7 @@ public class Robot extends SpectrumRobot {
                 // A USB stick if one is inserted (AdvantageKit's default /U/logs), otherwise the
                 // SystemCore's own storage. Without a stick /U/logs cannot be opened and the
                 // match is not logged at all.
-                Logger.addDataReceiver(new WPILOGWriter(realLogFolder()));
+                Logger.addDataReceiver(new WPILOGWriter(LogStorage.chooseFolder()));
                 // Dashboard keys to NT at ~50 Hz; the log file keeps everything, every cycle.
                 Logger.addDataReceiver(new DashboardReceiver(new NT4Publisher(), ntEveryN()));
                 break;
@@ -326,6 +350,10 @@ public class Robot extends SpectrumRobot {
                 break;
         }
         Logger.start();
+        if (Constants.currentMode == Constants.Mode.REAL) {
+            Logger.recordMetadata("LogFolder", LogStorage.folder());
+            LogStorage.start();
+        }
 
         // Dashboard keys: what the Elastic layout reads goes to NetworkTables; everything else
         // stays in the log unless the mirror switch is on (default on in the simulator).
@@ -344,17 +372,6 @@ public class Robot extends SpectrumRobot {
     /** Cycles per NetworkTables publish, for about 50 Hz whatever the loop rate. */
     private static int ntEveryN() {
         return (int) Math.max(1, Math.round(0.02 / Constants.LOOP_PERIOD_SECONDS));
-    }
-
-    /** {@code /U/logs} when a USB stick is mounted, else {@code /home/systemcore/logs}. */
-    private static String realLogFolder() {
-        java.io.File usb = new java.io.File("/U");
-        if (usb.isDirectory() && usb.canWrite()) {
-            return "/U/logs";
-        }
-        java.io.File local = new java.io.File("/home/systemcore/logs");
-        local.mkdirs();
-        return local.getPath();
     }
 
     public void configureBindings() {
@@ -467,6 +484,7 @@ public class Robot extends SpectrumRobot {
         RuntimeInputs.update();
         Telemetry.periodic();
         Alert.periodic();
+        LogStorage.periodic();
         systemLoad.periodic();
 
         // Latched here rather than in the mode inits so every mode is covered by the same check.
@@ -501,6 +519,7 @@ public class Robot extends SpectrumRobot {
             Telemetry.logDash("Match Data/TimeLeftInShift", shift.remainingTime(), "seconds");
 
             batteryLogger.setBatteryVoltage(RuntimeInputs.batteryVoltage());
+            checkBatteryBeforeMatch();
             // Every loop: a brownout is a few hundred milliseconds.
             if (powerApiAvailable) {
                 Telemetry.log("SystemStats/BrownedOut", RobotController.isBrownedOut());
@@ -848,6 +867,11 @@ public class Robot extends SpectrumRobot {
 
     @Override
     public void autonomousExit() {
+        // The Limelight rewind buffer holds 165 s, less than auto plus teleop, so each period is
+        // captured as it ends (10183 found the teleop-only capture missed auto at Summer Scorcher).
+        if (RobotState.isFMSAttached()) {
+            vision.triggerRewindCaptureForAllCameras();
+        }
         auton.exit();
         Telemetry.print("@@@ Auton Exit @@@ ");
     }

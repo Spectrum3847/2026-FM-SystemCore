@@ -187,6 +187,31 @@ to surface, and worth checking on the real robot.
   python tools/make_elastic_layout.py
   ```
 
+## Storage, identity and pre-match alerts
+
+- **Logs and storage** ([LogStorage](src/main/java/frc/spectrumLib/telemetry/LogStorage.java)). Logs
+  go to a USB stick (`/U/logs`) when one is mounted. Boot waits up to 3 s for the stick, because
+  the program can start before `/U` mounts (SystemcoreTesting #341). Without a stick, logs go to
+  `/home/systemcore/logs`, and a low-priority `LogStorage` thread keeps that folder in check:
+  - At boot, the oldest logs are deleted until the folder is under 2 GB and the disk has 1 GB
+    free. Every 10 s after that, the free space is re-checked.
+  - The newest two logs are never deleted, so the one being written is safe.
+  - A full internal disk is how other teams' SystemCores lost control or ended up with empty logs
+    at events (SystemcoreTesting #210, #211, #156).
+  - Alerts: "Logging to internal storage" (info), and "Robot storage low" (red, below 500 MB).
+  - `System/Storage/FreeMB` is on the dashboard.
+- **Robot identity** (`Rio.id`). On alpha-6, `RobotController.getSerialNumber()` returns ""
+  (SystemcoreTesting #38), so the serial is read from the device tree instead. Empty serials no
+  longer map to `SIM`. The serial prints at boot as `RIO SERIAL:`; add FM's to `Rio.FM_2026`.
+- **Pre-match alerts:**
+  - **Battery low:** under 11.8 V for 3 s while disabled. CALIBRATE this against a meter, since
+    SystemCore's reading has been reported ~1.5 V low (SystemcoreTesting #306).
+  - **Camera disconnected:** FM's Limelights always. Any other camera only while one of its pose
+    sources has its fuse switch on.
+  - **Quest battery low:** below 20%.
+- **Limelight rewind** is captured when auto ends as well as when teleop ends (with the FMS
+  attached). The camera's buffer holds 165 s, less than a whole match.
+
 ## Hardware notes (SystemCore bench unit, 2026-09-22)
 
 Deployed to the bench SystemCore (no CAN devices, two cameras):

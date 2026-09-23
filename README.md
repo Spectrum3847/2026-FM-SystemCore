@@ -166,6 +166,14 @@ to surface, and worth checking on the real robot.
 - **100 Hz.** `Constants.LOOP_PERIOD_SECONDS = 0.01` (FM ran 50 Hz on the roboRIO). Anything that
   was "every N loops" is now `RobotLoop.everySeconds(...)`, so slow-tier logging stays at 10 Hz / 1 Hz
   whatever the period.
+- **The main thread is real-time** (`Constants.MAIN_THREAD_RT_PRIORITY = 15`, set at the end of
+  robot init, real robot only). SystemCore's cores are ~85% busy with its own camera servers and
+  services, and a normal-priority loop waits behind them. Bench unit, 2026-09-23, 1 s samples:
+  the worst loop per sample went from 11–46 ms to 10.1–10.7 ms (one sample in 30 hit 15 ms), and
+  late loops (over 12.5 ms) went from 1.7% to 0.05%. System CPU stays ~88%.
+  It sits below the HAL notifier (40), which wakes it. Threads the main thread starts afterwards
+  inherit the priority; `System/TopThreads` marks real-time threads `[rt N]`. Set it to 0 to turn
+  this off.
 - **The log gets everything; NetworkTables gets the dashboard.** [DashboardReceiver](src/main/java/frc/spectrumLib/telemetry/DashboardReceiver.java)
   sits in front of AdvantageKit's NT publisher and passes only dashboard keys (`Telemetry.logDash`
   keys, plus every key [elastic-layout.json](src/main/deploy/elastic-layout.json) reads) at 50 Hz (every 20 ms, as before). The sim mirrors everything by default.

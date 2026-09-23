@@ -28,6 +28,18 @@ public final class Constants {
      */
     public static final double LOOP_PERIOD_SECONDS = 0.01;
 
+    /**
+     * Real-time (SCHED_FIFO) priority for the robot's main thread on the real robot, 1-99; 0 leaves
+     * it as a normal thread. SystemCore shares its four cores with its own camera servers and
+     * services (~85% busy on the bench unit), and a normal-priority main thread waits its turn
+     * behind them, which shows up as late loops. 15 puts it ahead of every normal process but below
+     * the HAL notifier thread (40), which has to preempt it to wake the next loop.
+     *
+     * <p>Threads the main thread starts after this is set inherit it, so it is applied at the end
+     * of robot init; {@code System/TopThreads} marks real-time threads with {@code [rt N]}.
+     */
+    public static final int MAIN_THREAD_RT_PRIORITY = 15;
+
     public enum Mode {
         /** Running on a real robot. */
         REAL,

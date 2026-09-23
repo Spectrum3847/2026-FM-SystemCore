@@ -248,6 +248,9 @@ public class Robot extends SpectrumRobot {
                 WebServer.start(5800, Filesystem.getDeployDirectory().getPath());
             }
 
+            if (Constants.currentMode == Constants.Mode.REAL) {
+                setMainThreadPriority(Constants.MAIN_THREAD_RT_PRIORITY);
+            }
             Telemetry.print("--- Robot Init Complete ---");
 
         } catch (Throwable t) {
@@ -273,6 +276,31 @@ public class Robot extends SpectrumRobot {
                     "Brownout voltage API unavailable on this controller: " + e.getMessage(),
                     PrintPriority.HIGH);
         }
+    }
+
+    private final Alert mainThreadPriorityAlert = new Alert("", Level.MEDIUM);
+
+    /** Makes the calling (main) thread real-time; see {@link Constants#MAIN_THREAD_RT_PRIORITY}. */
+    @SuppressWarnings("deprecation") // WPILib deprecates it as a warning to know what you are doing
+    private void setMainThreadPriority(int priority) {
+        if (priority <= 0) {
+            return;
+        }
+        // Read it back rather than trusting the return value: on alpha-6 SystemCore it reports
+        // false even when the priority took (2026-09-23 bench unit: false, then 15).
+        org.wpilib.system.Threads.setCurrentThreadPriority(priority);
+        int now = org.wpilib.system.Threads.getCurrentThreadPriority();
+        boolean ok = now == priority;
+        Logger.recordMetadata("MainThreadPriority", Integer.toString(now));
+        Telemetry.print(
+                "Main thread real-time priority "
+                        + priority
+                        + (ok ? " set" : " FAILED")
+                        + " (now "
+                        + now
+                        + ")");
+        mainThreadPriorityAlert.setText("Main thread real-time priority " + priority + " failed");
+        mainThreadPriorityAlert.set(!ok);
     }
 
     /** Whether the HAL's brownout API works here (it did not on the 2026-09 SystemCore). */

@@ -907,5 +907,7 @@ public class Robot extends SpectrumRobot {
         robotSim.getBallSim().tick(); // runs physics, publishes ball positions to NT
         robotSim.updateArticulatedMechanisms();
         Telemetry.log("Sim/Fuel", robotSim.getBallSim().getTotalIntaked());
+        Telemetry.log("Sim/Launched", robotSim.getBallSim().getTotalLaunched());
+        Telemetry.log("Sim/Scored", robotSim.getBallSim().getTotalScored());
     }
 }

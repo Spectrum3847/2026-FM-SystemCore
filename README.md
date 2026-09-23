@@ -55,6 +55,16 @@ Or run one of FM's PathPlanner autos (any name from the Auto Chooser), e.g.:
 FM_SIM_SCRIPT="auto:TBTB Left" ./gradlew simulateJava -PnoSimGui
 ```
 
+Or the scripted shooting run: aim and launch standing, then aim and launch while strafing, with
+fuel put in the hopper before each launch (it exercises everything under [Shooting](#shooting)):
+
+```bash
+FM_SIM_SCRIPT=shoot ./gradlew simulateJava -PnoSimGui
+```
+
+Add `FM_SIM_EXIT=1` to any scripted run to have the program close its log and exit when the script
+ends, so the run is one command.
+
 All 32 autos and 26 paths from 2026 `main` are in `src/main/deploy/pathplanner`, unchanged. The Auto
 Chooser is now an AdvantageKit `LoggedDashboardChooser` (same dashboard key), so the selected auto
 is logged and replays.
@@ -160,6 +170,22 @@ odometry alone drifts to ~0.16 m while the fused pose averages ~0.014 m error. M
 tracks come out slightly worse than MegaTag1's, because MegaTag2 inherits the simulated gyro drift
 through the heading the robot pushes to the camera — exactly the kind of finding the testbed exists
 to surface, and worth checking on the real robot.
+
+## Shooting
+
+### Aim feedforward
+
+While aiming (`PILOT_AIM_AT_TARGET`: pilot X, every RT launch, and every auto `launch()`), the
+heading request now gets a feedforward: how fast the bearing to the hub is turning, `-v_tangential
+/ distance` (581's form), in rad/s counter-clockwise, clamped to +/-2 rad/s (2910's clamp). The
+heading PID alone only turns once it has fallen behind. In the `shoot` sim, strafing past the hub
+at about 1 m/s from 2.5 m, the heading error went from a steady 4-5 deg to about 1 deg.
+
+`ShotCalculator` used to differentiate its own drive angle for this, in rotations per second (2 pi
+too small; nothing read it). Fixed to rad/s and used, that made the aim oscillate (6-9 deg mean
+error): it differentiates the shoot-on-move yaw offset too, and that follows the measured velocity,
+which the turning itself disturbs. Logged as `Swerve/Aim/TargetRateFeedforward` (deg/s) and
+`Swerve/Aim/HeadingErrorDeg`.
 
 ## Loop rate, logging and the dashboard
 

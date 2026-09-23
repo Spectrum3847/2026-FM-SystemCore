@@ -14,7 +14,6 @@ import org.wpilib.math.geometry.Transform2d;
 import org.wpilib.math.geometry.Translation2d;
 import org.wpilib.math.geometry.Twist2d;
 import org.wpilib.math.kinematics.ChassisVelocities;
-import org.wpilib.math.util.MathUtil;
 
 @SuppressWarnings("unused")
 public class ShotCalculator {
@@ -46,7 +45,10 @@ public class ShotCalculator {
             boolean isValid,
             /** Field-relative heading the robot must face to aim at the goal. */
             Rotation2d driveAngle,
-            /** Rate of change of {@code driveAngle} (rad/s) for heading feedforward. */
+            /**
+             * How fast the bearing to the goal is turning (rad/s, counter-clockwise positive), for
+             * the drivetrain's heading feedforward. See {@link #bearingRateRadPerSec}.
+             */
             double driveAngularVelocity,
             /** Commanded hood/pivot angle (degrees), including {@link #HOOD_ANGLE_OFFSET}. */
             double hoodAngle,
@@ -292,11 +294,7 @@ public class ShotCalculator {
     private final LinearFilter hoodAngleFilter =
             LinearFilter.movingAverage((int) (0.1 / LOOP_PERIOD_SECS)); // ~100 ms window
 
-    private final LinearFilter driveAngleFilter =
-            LinearFilter.movingAverage((int) (0.1 / LOOP_PERIOD_SECS)); // ~100 ms window
-
     private double lastHoodAngle = Double.NaN;
-    private Rotation2d lastDriveAngle = null;
 
     // =========================================================================
     // Main API
@@ -404,12 +402,9 @@ public class ShotCalculator {
                                                 launcherVelocityY * tofFinal)),
                         driveAngle);
 
-        // Drive angular velocity (rad/s) for heading feedforward
-        if (lastDriveAngle == null) lastDriveAngle = driveAngle;
-        double deltaRot =
-                MathUtil.inputModulus(driveAngle.minus(lastDriveAngle).getRotations(), -0.5, 0.5);
-        double driveAngularVelocity = driveAngleFilter.calculate(deltaRot / LOOP_PERIOD_SECS);
-        lastDriveAngle = driveAngle;
+        // ── Drive angular velocity (rad/s, CCW positive) for heading feedforward ──
+        double driveAngularVelocity =
+                bearingRateRadPerSec(launcherToTarget, launcherVelocityX, launcherVelocityY);
 
         // ── Hood angle + velocity ─────────────────────────────────────────────
         // Compute velocity on the raw (un-offset) angle so HOOD_ANGLE_OFFSET (a
@@ -458,6 +453,39 @@ public class ShotCalculator {
         Telemetry.log("ShotCalc/Target", target);
 
         return latestParameters;
+    }
+
+    /**
+     * How fast the bearing from the launcher to the goal turns while the launcher moves: minus the
+     * tangential velocity over the distance (581's {@code AimParameterUtil}), in rad/s,
+     * counter-clockwise positive, the convention of the heading it feeds forward. {@code
+     * driveAngle} is that bearing plus a constant half turn plus the shoot-on-move yaw offset,
+     * which barely moves at a steady velocity, so this is very nearly the rate it turns at.
+     *
+     * <p>Until 2026-09 this was a numerical derivative of {@code driveAngle} itself, in rotations
+     * per second (2 pi too small; nothing read it yet). Fixed to rad/s and handed to the heading
+     * request it made the aim oscillate in simulation (mean heading error 6-9 deg strafing at 1
+     * m/s, against a steady 4-5 deg lag with no feedforward): differentiating {@code driveAngle}
+     * also differentiates the yaw offset, which follows the measured velocity, which the rotation
+     * itself disturbs. The analytic rate has no derivative in it to amplify that.
+     *
+     * @param launcherToTarget field-relative vector from the launcher to the goal, metres
+     * @param launcherVx field-relative launcher velocity, x, m/s
+     * @param launcherVy field-relative launcher velocity, y, m/s
+     * @return rad/s, counter-clockwise positive; 0 when on top of the goal
+     */
+    static double bearingRateRadPerSec(
+            Translation2d launcherToTarget, double launcherVx, double launcherVy) {
+        double distance = launcherToTarget.getNorm();
+        if (distance < 1e-6) {
+            return 0;
+        }
+        double ux = launcherToTarget.getX() / distance;
+        double uy = launcherToTarget.getY() / distance;
+        // Same decomposition as getParameters(): positive tangential is the launcher moving to
+        // the left of its line of sight, so the bearing to the goal turns clockwise.
+        double tangential = -launcherVx * uy + launcherVy * ux;
+        return -tangential / distance;
     }
 
     /**

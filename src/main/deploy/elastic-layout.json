@@ -933,11 +933,24 @@
             "title": "Shot Blocked By",
             "x": 1280,
             "y": 256,
-            "width": 512,
+            "width": 256,
             "height": 128,
             "type": "Large Text Display",
             "properties": {
               "topic": "/AdvantageKit/RealOutputs/Shot/BlockedReason",
+              "period": 0.1,
+              "data_type": "string"
+            }
+          },
+          {
+            "title": "Set Shot",
+            "x": 1536,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Large Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/SetShot",
               "period": 0.1,
               "data_type": "string"
             }

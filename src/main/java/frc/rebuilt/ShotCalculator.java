@@ -276,6 +276,7 @@ public class ShotCalculator {
     private ShotCalculator() {
         hubModelChooser.addDefaultOption(NO_CEILING_HUB_MODEL.name(), NO_CEILING_HUB_MODEL);
         hubModelChooser.addOption(CEILING_3M_HUB_MODEL.name(), CEILING_3M_HUB_MODEL);
+        Telemetry.logDash("ShotCalc/SetShot", selectedSetShot.label);
     }
 
     /**
@@ -285,6 +286,141 @@ public class ShotCalculator {
     private PolyModel selectedHubModel() {
         PolyModel selected = hubModelChooser.get();
         return selected != null ? selected : NO_CEILING_HUB_MODEL;
+    }
+
+    // =========================================================================
+    // Set shots: fixed shots from known parking spots, for when the pose is gone
+    // =========================================================================
+
+    /**
+     * FM's centre to its bumper face, metres: half the 0.84 m bumpered frame PathPlanner uses
+     * ({@code settings.json}). CALIBRATE: measure FM's bumper-to-centre, both ways.
+     */
+    public static final double FM_HALF_LENGTH_METERS = 0.42;
+
+    /**
+     * The y of the tower's centreline, metres. CALIBRATE on the field. The offseason bot parked on
+     * tag 31's y (147.469 in in the 2026 welded layout, 3.746 m) and found "squared up dead flat is
+     * 5.3 deg off, because the tower's centreline follows tag 31 and the hub sits on the field
+     * centreline". FM's own {@code Field.BlueTower.tag31Y} puts the tower on the field centreline
+     * instead (4.035 m); the distance differs by under a centimetre, only the heading moves.
+     */
+    public static final double TOWER_CENTRE_Y_METERS = 147.469 * 0.0254;
+
+    /**
+     * The fixed shots, one per parking spot, from the offseason bot's set shots (463c465, fa1376b)
+     * less its hub-face shot, which FM cannot make. Each is a place to park, blue alliance, the
+     * robot centre and the heading that points the launcher (FM's back) at the hub centre; on red
+     * the spot is the same one rotated about the field centre. The hood and flywheel are not stored
+     * here: they are FM's selected hub model evaluated at the spot's range at a standstill ({@link
+     * #setShotSolution}), so a set shot follows the shot map, and the operator's hood trim, without
+     * anyone retyping numbers.
+     *
+     * <p>The driver aims, as on the offseason bot: park where the spot says, point the back of the
+     * robot at the hub (the heading below), hold the chord. Nothing reads the pose, so the shot is
+     * only as good as the parking. The model moves about 0.5 deg of hood and 35 RPM per 15 cm here,
+     * so lining up by eye against the field element is good enough.
+     *
+     * <p>Hub centre: {@code Field.BlueHub} (the midpoint of tags 26 and 20, 4.626, 4.035 m).
+     */
+    public enum SetShot {
+        /**
+         * Intake (front bumper) against the tower's field-facing wall, on its centreline, back of
+         * the robot to the hub: (1.525, 3.746) m, 3.11 m out. Squared up to the wall the launcher
+         * points 5.3 deg right of the hub, so turn the robot about 5 deg counter-clockwise (from
+         * above) off square.
+         */
+        TOWER("Tower", Field.BlueTower.frontFaceX + FM_HALF_LENGTH_METERS, TOWER_CENTRE_Y_METERS),
+        /**
+         * In the left trench lane (the driver's left: +y on blue) just clear of the trench on the
+         * alliance side, intake to the wall, back to the hub. Lane centre is half the 50.34 in
+         * opening from the wall; the trench is the hub's 47 in deep, centred on the hub's x.
+         * (3.609, 7.430) m, 3.54 m out. CALIBRATE both: the offseason bot used the same spot, 3.53
+         * m with its smaller frame.
+         */
+        LEFT_TRENCH(
+                "LeftTrench",
+                Field.BlueHub.centerX - Field.BlueTrench.depth / 2.0 - FM_HALF_LENGTH_METERS,
+                Field.fieldWidth - Field.BlueTrench.openingWidth / 2.0),
+        /** Mirror of {@link #LEFT_TRENCH} across the field's long centreline. */
+        RIGHT_TRENCH(
+                "RightTrench",
+                Field.BlueHub.centerX - Field.BlueTrench.depth / 2.0 - FM_HALF_LENGTH_METERS,
+                Field.BlueTrench.openingWidth / 2.0);
+
+        /** Short name, logged to {@code ShotCalc/SetShot}. */
+        public final String label;
+
+        /** Where to park on the blue side, and the heading to hold there. */
+        public final Pose2d bluePose;
+
+        /** Robot centre (the launcher: {@code robotToLauncher} is zero) to the hub centre. */
+        public final double distanceMeters;
+
+        SetShot(String label, double blueX, double blueY) {
+            this.label = label;
+            Translation2d spot = new Translation2d(blueX, blueY);
+            Translation2d toHub =
+                    new Translation2d(Field.BlueHub.centerX, Field.BlueHub.centerY).minus(spot);
+            this.bluePose = new Pose2d(spot, toHub.getAngle().plus(Rotation2d.k180deg));
+            this.distanceMeters = toHub.getNorm();
+        }
+
+        /** The spot and heading for the alliance the robot is on (rotated about centre for red). */
+        public Pose2d pose() {
+            return FieldHelpers.flipIfRed(bluePose);
+        }
+    }
+
+    private static SetShot selectedSetShot = SetShot.TOWER;
+
+    /**
+     * Picks which fixed shot the SET_SHOT super state runs. Called from the pilot binding before
+     * the state is requested; the selection sticks until the next binding changes it. Main thread
+     * only; the binding comes from logged Driver Station inputs, so replay makes the same pick.
+     *
+     * @param shot the parking spot
+     */
+    public static void selectSetShot(SetShot shot) {
+        selectedSetShot = shot;
+        Telemetry.logDash("ShotCalc/SetShot", shot.label);
+    }
+
+    /** The fixed shot currently selected, {@link SetShot#TOWER} until a binding picks one. */
+    public static SetShot getSelectedSetShot() {
+        return selectedSetShot;
+    }
+
+    /**
+     * Hood angle and flywheel speed for a set shot: the hub model at the spot's range at a
+     * standstill, exactly what {@link #getParameters()} commands standing still at that range (with
+     * no velocity the virtual-target solver evaluates the model at the real distance), with the
+     * same hood trim and 9 deg floor. Never reads the pose.
+     *
+     * @param model the hub model to evaluate
+     * @param distanceMeters range to the hub centre
+     * @return {@code {hoodDegrees, flywheelRPM}}
+     */
+    static double[] setShotSolution(PolyModel model, double distanceMeters) {
+        double[] raw = evalPolyRaw(model, distanceMeters, 0.0);
+        double hoodDegrees = Math.max(90 - raw[1] + HOOD_ANGLE_OFFSET, 9);
+        double rpm = raw[0] * MPS_FACTOR * RPM_PER_MPS;
+        return new double[] {hoodDegrees, rpm};
+    }
+
+    /** {@link #setShotSolution} for a spot on the no-ceiling (competition) hub model. */
+    static double[] setShotSolution(SetShot shot) {
+        return setShotSolution(NO_CEILING_HUB_MODEL, shot.distanceMeters);
+    }
+
+    /** Hood angle for the selected set shot, degrees, on the dashboard's hub model. */
+    public static double getSetShotHoodDegrees() {
+        return setShotSolution(getInstance().selectedHubModel(), selectedSetShot.distanceMeters)[0];
+    }
+
+    /** Flywheel speed for the selected set shot, RPM, on the dashboard's hub model. */
+    public static double getSetShotFlywheelRPM() {
+        return setShotSolution(getInstance().selectedHubModel(), selectedSetShot.distanceMeters)[1];
     }
 
     // =========================================================================

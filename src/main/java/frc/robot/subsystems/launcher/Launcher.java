@@ -81,6 +81,8 @@ public class Launcher extends Mechanism {
         IDLE_PREP,
         SLOW_LAUNCH,
         AIM_AT_TARGET,
+        /** The selected set shot's speed, off the hub model at the spot's range. */
+        SET_SHOT,
     }
 
     public enum SystemState {
@@ -88,6 +90,7 @@ public class Launcher extends Mechanism {
         IDLE_PREP,
         SLOW_LAUNCH,
         AIM_AT_TARGET,
+        SET_SHOT,
     }
 
     private WantedState wantedState = WantedState.OFF;
@@ -103,6 +106,7 @@ public class Launcher extends Mechanism {
             case IDLE_PREP -> SystemState.IDLE_PREP;
             case SLOW_LAUNCH -> SystemState.SLOW_LAUNCH;
             case AIM_AT_TARGET -> SystemState.AIM_AT_TARGET;
+            case SET_SHOT -> SystemState.SET_SHOT;
         };
     }
 
@@ -129,6 +133,10 @@ public class Launcher extends Mechanism {
             case AIM_AT_TARGET:
                 var params = ShotCalculator.getInstance().getParameters();
                 wantedRPM = params.flywheelSpeed();
+                shotTargetRPM = wantedRPM;
+                break;
+            case SET_SHOT:
+                wantedRPM = ShotCalculator.getSetShotFlywheelRPM();
                 shotTargetRPM = wantedRPM;
                 break;
         }

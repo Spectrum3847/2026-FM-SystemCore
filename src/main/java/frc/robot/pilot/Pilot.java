@@ -31,6 +31,27 @@ public class Pilot extends Gamepad {
     public final Trigger dPadLeft = leftDpad;
     public final Trigger dPadRight = rightDpad;
 
+    /*
+     * Fixed shots (ShotCalculator.SetShot), for when the pose is gone: LB + a face button, as on
+     * the offseason bot, so they can be held while driving (left index on the bumper, right thumb
+     * on the button, left thumb never leaves the drive stick). Teleop only. The offseason bot's
+     * fourth, LB+Y from the hub face, is not here: FM cannot make that shot.
+     *
+     * X and A are also bound bare (track target, unjam), so those carry "not LB" or LB + X would
+     * fire both. Release order matters at the margin: let go of LB first with the face button still
+     * down and the bare binding fires for the rest of the press. Let go of the face button first,
+     * or both together.
+     */
+    public final Trigger setShotTower_LB_A = LB.and(AButton).and(teleop);
+    public final Trigger setShotLeftTrench_LB_X = LB.and(XButton).and(teleop);
+    public final Trigger setShotRightTrench_LB_B = LB.and(BButton).and(teleop);
+    public final Trigger anySetShot =
+            setShotTower_LB_A.or(setShotLeftTrench_LB_X).or(setShotRightTrench_LB_B);
+
+    /* Bare face buttons, gated so the chords above own an LB-held press */
+    public final Trigger trackTarget_X = XButton.and(LB.negate());
+    public final Trigger unjam_A = AButton.and(LB.negate());
+
     public static class PilotConfig extends Config {
         private double deadzone = 0.15;
 

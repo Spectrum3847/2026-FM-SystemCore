@@ -46,6 +46,11 @@ public class SuperStructure extends SubsystemBase {
         UNJAM,
         EJECT,
         FORCE_HOME,
+        /**
+         * Fixed shot from a known parking spot, picked with {@link ShotCalculator#selectSetShot}.
+         * See {@link #setShot()}.
+         */
+        SET_SHOT,
     }
 
     public enum CurrentSuperState {
@@ -62,6 +67,7 @@ public class SuperStructure extends SubsystemBase {
         UNJAM,
         EJECT,
         FORCE_HOME,
+        SET_SHOT,
     }
 
     @Getter private WantedSuperState wantedSuperState = WantedSuperState.IDLE;
@@ -92,7 +98,8 @@ public class SuperStructure extends SubsystemBase {
     private final double secondsToSqueeze = 1.0;
 
     private static boolean isSqueezeState(CurrentSuperState state) {
-        return state == CurrentSuperState.LAUNCH_WITH_SQUEEZE;
+        return state == CurrentSuperState.LAUNCH_WITH_SQUEEZE
+                || state == CurrentSuperState.SET_SHOT;
     }
 
     @Override
@@ -174,7 +181,8 @@ public class SuperStructure extends SubsystemBase {
         return state == CurrentSuperState.LAUNCH_WITH_SQUEEZE
                 || state == CurrentSuperState.LAUNCH_WITH_SQUEEZE_WITH_NO_DELAY
                 || state == CurrentSuperState.LAUNCH_WITHOUT_SQUEEZE
-                || state == CurrentSuperState.LAUNCH_WITH_BRAKE;
+                || state == CurrentSuperState.LAUNCH_WITH_BRAKE
+                || state == CurrentSuperState.SET_SHOT;
     }
 
     /** Whether fuel is being fed into the flywheel this loop. */
@@ -188,13 +196,18 @@ public class SuperStructure extends SubsystemBase {
      */
     private void updateShotGate() {
         boolean launching = isLaunching();
+        boolean setShot = currentSuperState == CurrentSuperState.SET_SHOT;
         double shotTargetRpm = launcher.getShotTargetRPM();
-        // The shot solution is already computed this loop whenever the launcher is on a shot.
+        // The shot solution is already computed this loop whenever the launcher is on a
+        // calculated shot. A set shot never reads the pose, so it never asks.
         boolean onShot = shotTargetRpm > 0;
         ShotCalculator.ShootingParameters params =
-                onShot ? ShotCalculator.getInstance().getParameters() : null;
+                onShot && !setShot ? ShotCalculator.getInstance().getParameters() : null;
 
         double sinceVision = Robot.getVision().secondsSinceFusedEstimate();
+        // The set shot is the deliberate exception to range (and to aim: the drivetrain is not
+        // aiming, so checkAim is false): it exists for when there is no pose to compute them from,
+        // and the driver has taken responsibility for parking. Flywheel and hood still vote.
         boolean poseTrusted = sinceVision <= POSE_TRUST_TIMEOUT_SECONDS;
         boolean feedShot = params != null && isRobotInFeedZone();
         double aimTolerance =
@@ -219,7 +232,7 @@ public class SuperStructure extends SubsystemBase {
                                 checkAim,
                                 headingError,
                                 aimTolerance,
-                                poseTrusted,
+                                poseTrusted && !setShot,
                                 params != null && params.isValid()));
 
         boolean feeding = shotDecision.feed();
@@ -253,6 +266,17 @@ public class SuperStructure extends SubsystemBase {
         Telemetry.log("Shot/LaunchingLoops", launchingLoops);
         Telemetry.log("Shot/HeldLoops", heldLoops);
         Telemetry.log("Shot/Volleys", volleys);
+        if (setShot) {
+            // Informational only: how far the fused heading is from the spot's heading. The set
+            // shot exists for when that heading cannot be trusted, so it never gates.
+            Telemetry.log(
+                    "Shot/SetShotHeadingErrorDeg",
+                    swerve.getRobotPose()
+                            .getRotation()
+                            .minus(ShotCalculator.getSelectedSetShot().pose().getRotation())
+                            .getDegrees(),
+                    "degrees");
+        }
     }
 
     /**
@@ -287,6 +311,7 @@ public class SuperStructure extends SubsystemBase {
             case UNJAM -> CurrentSuperState.UNJAM;
             case EJECT -> CurrentSuperState.EJECT;
             case FORCE_HOME -> CurrentSuperState.FORCE_HOME;
+            case SET_SHOT -> CurrentSuperState.SET_SHOT;
         };
     }
 
@@ -330,6 +355,9 @@ public class SuperStructure extends SubsystemBase {
                 break;
             case FORCE_HOME:
                 forceHome();
+                break;
+            case SET_SHOT:
+                setShot();
                 break;
         }
     }
@@ -376,6 +404,38 @@ public class SuperStructure extends SubsystemBase {
         applyGatedFeed();
         launcher.setWantedState(Launcher.WantedState.AIM_AT_TARGET);
         hood.setWantedState(Hood.WantedState.AIM_AT_TARGET);
+
+        if (intakeSqueezeTimer.hasElapsed(secondsToSqueeze)) {
+            intakeExtension.setWantedState(IntakeExtension.WantedState.SLOW_CLOSE);
+            intakeSqueezeTimer.stop();
+        } else {
+            intakeExtension.setWantedState(IntakeExtension.WantedState.FULL_EXTEND);
+        }
+    }
+
+    /**
+     * Fixed shot from a known parking spot ({@link ShotCalculator.SetShot}), for when the pose is
+     * gone (offseason 463c465, fa1376b).
+     *
+     * <p>Every other launch state asks {@link ShotCalculator} where the hub is, which means asking
+     * where the robot is. When vision has not seeded the pose that answer is wrong in a way nothing
+     * on the robot can detect. This state asks nothing: the hood and flywheel go to the pair of
+     * numbers the spot's range works out to, and the driver aims by parking, as on the offseason
+     * bot. The drivetrain stays in teleop drive at the launch states' slowed translation, so the
+     * driver can square up; heading is theirs. Deliberately not a drive-to-pose or a held heading:
+     * a pose good enough to drive to is a pose good enough to aim with, and this is for not having
+     * one.
+     *
+     * <p>Otherwise it is RT's launch (intake running, squeeze after a second) behind the shot gate
+     * with flywheel and hood voting and aim and range not.
+     */
+    private void setShot() {
+        swerve.setWantedState(Swerve.WantedState.TELEOP_DRIVE);
+        swerve.setTeleopVelocityCoefficient(SHOOTING_TELEOP_TRANSLATION_COEFFICIENT);
+        fuelIntake.setWantedState(FuelIntake.WantedState.INTAKE);
+        applyGatedFeed();
+        launcher.setWantedState(Launcher.WantedState.SET_SHOT);
+        hood.setWantedState(Hood.WantedState.SET_SHOT);
 
         if (intakeSqueezeTimer.hasElapsed(secondsToSqueeze)) {
             intakeExtension.setWantedState(IntakeExtension.WantedState.SLOW_CLOSE);
@@ -535,5 +595,20 @@ public class SuperStructure extends SubsystemBase {
 
     public Command setStateCommand(WantedSuperState state) {
         return new InstantCommand(() -> setWantedSuperState(state));
+    }
+
+    /**
+     * Picks a fixed shot and requests {@link WantedSuperState#SET_SHOT} in one command.
+     *
+     * @param shot the parking spot
+     * @return the command
+     */
+    public Command setShotCommand(ShotCalculator.SetShot shot) {
+        return new InstantCommand(
+                        () -> {
+                            ShotCalculator.selectSetShot(shot);
+                            setWantedSuperState(WantedSuperState.SET_SHOT);
+                        })
+                .withName("SuperStructure.setShot." + shot.label);
     }
 }

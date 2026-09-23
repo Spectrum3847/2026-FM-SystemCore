@@ -1,6 +1,7 @@
 package frc.robot;
 
 import frc.rebuilt.Field;
+import frc.rebuilt.ShotCalculator;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
@@ -23,8 +24,9 @@ import org.wpilib.system.Timer;
  *
  * <ul>
  *   <li>{@code drive}: the localization lap.
- *   <li>{@code shoot}: aiming and launching, standing and on the move, with fuel put in the hopper
- *       before each launch. For the aim feedforward and the shot log.
+ *   <li>{@code shoot}: aiming and launching, standing and on the move, then each set shot from its
+ *       spot, with fuel put in the hopper before each launch. For the aim feedforward, the shot
+ *       gate, the set shots and the shot log.
  *   <li>{@code auto:<chooser name>}: one PathPlanner auto.
  * </ul>
  *
@@ -106,11 +108,27 @@ public final class SimScript {
         {17.0, 0, -0.35, 0, 0, 1, 0, 0, 0}, // X + strafe left, back to the middle
         {17.5, 0, 0, 0, 0, 0, 0, 0, 0},
         {20.0, 0, -0.35, 0, 1, 0, 0, 0, 0}, // RT + strafe: launch on the move (slowed to 10%)
-        {21.0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {21.0, 0, 0, 0, 0, 0, 0, 0, 0}, // placed on the tower spot
+        {24.0, 0, 0, 0, 0, 0, 1, 1, 0}, // LB+A: tower set shot
+        {24.5, 0, 0, 0, 0, 0, 0, 0, 0}, // placed on the left trench spot
+        {27.5, 0, 0, 0, 0, 1, 1, 0, 0}, // LB+X: left trench set shot
+        {28.0, 0, 0, 0, 0, 0, 0, 0, 0}, // placed on the right trench spot
+        {31.0, 0, 0, 0, 0, 0, 1, 0, 1}, // LB+B: right trench set shot
+        {32.0, 0, 0, 0, 0, 0, 0, 0, 0},
     };
 
     /** Loads the hopper at the start of these steps (index into {@link #SHOOT_STEPS}). */
-    private static final int[] SHOOT_REFILL_STEPS = {3, 9};
+    private static final int[] SHOOT_REFILL_STEPS = {3, 9, 11, 13, 15};
+
+    /**
+     * Puts the robot on a set-shot spot, at its heading, at the start of these steps: {@code {step,
+     * SetShot ordinal}}.
+     */
+    private static final int[][] SHOOT_PLACE_STEPS = {
+        {10, ShotCalculator.SetShot.TOWER.ordinal()},
+        {12, ShotCalculator.SetShot.LEFT_TRENCH.ordinal()},
+        {14, ShotCalculator.SetShot.RIGHT_TRENCH.ordinal()},
+    };
 
     /** Fuel per refill: the sim launches it four lanes at a time. */
     private static final int REFILL_FUEL = 8;
@@ -253,6 +271,12 @@ public final class SimScript {
         for (int refill : SHOOT_REFILL_STEPS) {
             if (refill == index) {
                 Robot.getRobotSim().getBallSim().setHopperCount(REFILL_FUEL);
+            }
+        }
+        for (int[] place : SHOOT_PLACE_STEPS) {
+            if (place[0] == index) {
+                actions.placeRobot = true;
+                actions.placePose = ShotCalculator.SetShot.values()[place[1]].pose();
             }
         }
     }

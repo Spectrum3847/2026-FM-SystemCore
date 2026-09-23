@@ -222,6 +222,60 @@ is why the flywheel tolerance is 150 and not the unused 100; the hood overshoots
 which is why its speed is checked. **CALIBRATE all of it from the first practice log**
 (`Shot/FlywheelErrorRPM`, `Shot/HoodErrorDeg`, `Shot/HeadingErrorDeg`, `Shot/SecondsHeld`).
 
+### Set shots (fixed shots for when the pose is gone)
+
+From the offseason bot (463c465, fa1376b), without its turret and without its hub-face shot (FM
+cannot make it). Park at a known spot, point the **back** of the robot (FM's launcher side) at the
+hub, and hold the chord: the hood and flywheel go to FM's own hub model evaluated at that spot's
+range standing still, with the operator's hood trim, and the gate feeds once flywheel and hood are
+there. Nothing reads the pose and the aim is not checked: as on the offseason bot, **the driver
+aims by parking**, with translation slowed to the launch states' 10%. Everything is in
+`ShotCalculator.SetShot` (spots per alliance from `Field`, rotated about the field centre for red).
+
+| Chord (pilot, teleop) | Spot (blue; red is rotated) | Heading | Range | Hood / RPM (no-ceiling model, trim -2) |
+|---|---|---|---|---|
+| **LB + A** | Tower: intake against the tower's field-facing wall on its centreline, (1.525, 3.746) m | 185.3 deg: square to the wall, then about 5 deg counter-clockwise | 3.11 m | 14.7 deg / 2074 RPM |
+| **LB + X** | Left trench: in the lane, just clear of the trench on the alliance side, (3.609, 7.430) m | 106.7 deg | 3.54 m | 16.4 deg / 2129 RPM |
+| **LB + B** | Right trench: the mirror, (3.609, 0.639) m | -106.7 deg | 3.54 m | 16.4 deg / 2129 RPM |
+
+Hood and RPM follow the Hub Model chooser and the hood trim live; the table is the default model.
+`Shot/SetShotHeadingErrorDeg` logs the fused heading against the spot's (information only).
+**CALIBRATE** before relying on them: FM's bumper-to-centre (`FM_HALF_LENGTH_METERS`, 0.42 m from
+PathPlanner's 0.84 m frame), and where the tower's centreline really is (`TOWER_CENTRE_Y_METERS`:
+the offseason code says it follows tag 31, FM's `Field` says the field centreline; the range barely
+changes, the heading does). In the `shoot` sim: tower 5 of 8, each trench 7-8 of 8.
+
+### Bindings
+
+Pilot (port 0):
+
+| Input | Does |
+|---|---|
+| RT | Launch (squeeze after 1 s); RT + LT launch without squeeze; LT released with RT held, launch with no delay. All behind the shot gate |
+| LT | Intake; LT + LB eject |
+| X (without LB) | Track target: aim and spin up, no feed |
+| A (without LB) | Unjam |
+| **LB + A / LB + X / LB + B** | **Set shot: tower / left trench / right trench** |
+| Select | Force home |
+| LB + D-pad | Reorient forward / left / back / right |
+| A / B, disabled | Coast / brake the intake extension and hood |
+
+Operator (port 1):
+
+| Input | Does |
+|---|---|
+| **Y (without LB)** | **Hold to feed regardless of the shot gate** |
+| LB + X | Re-origin the QuestNav on the robot pose |
+| LB + Y | Intake extension: reset position to max |
+| Select | Force home |
+| D-pad up / down | Hood trim +/- 0.1 deg |
+| D-pad left / right | Aim trim +/- 1 deg |
+| A / B, disabled | Coast / brake |
+
+Release order on the chords: let go of the face button first (or both together). Letting go of LB
+first with X or A still held starts track target or unjam for the rest of the press, as on the
+offseason bot.
+
 ## Loop rate, logging and the dashboard
 
 - **100 Hz.** `Constants.LOOP_PERIOD_SECONDS = 0.01` (FM ran 50 Hz on the roboRIO). Anything that

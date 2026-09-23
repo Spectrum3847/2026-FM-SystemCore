@@ -73,12 +73,15 @@ public class Hood extends Mechanism {
         HOME,
         STOPPED,
         AIM_AT_TARGET,
+        /** The selected set shot's angle, off the hub model at the spot's range. */
+        SET_SHOT,
     }
 
     public enum SystemState {
         HOME,
         STOPPED,
         AIM_AT_TARGET,
+        SET_SHOT,
     }
 
     private WantedState wantedState = WantedState.HOME;
@@ -93,6 +96,7 @@ public class Hood extends Mechanism {
             case HOME -> SystemState.HOME;
             case STOPPED -> SystemState.STOPPED;
             case AIM_AT_TARGET -> SystemState.AIM_AT_TARGET;
+            case SET_SHOT -> SystemState.SET_SHOT;
         };
     }
 
@@ -116,6 +120,10 @@ public class Hood extends Mechanism {
             case AIM_AT_TARGET:
                 var params = ShotCalculator.getInstance().getParameters();
                 wantedDegrees = params.hoodAngle();
+                shotTargetDegrees = wantedDegrees;
+                break;
+            case SET_SHOT:
+                wantedDegrees = ShotCalculator.getSetShotHoodDegrees();
                 shotTargetDegrees = wantedDegrees;
                 break;
         }

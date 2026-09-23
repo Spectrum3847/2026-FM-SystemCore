@@ -43,6 +43,7 @@ import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.driverstation.Alliance;
 import org.wpilib.driverstation.DriverStationErrors;
 import org.wpilib.driverstation.MatchState;
+import org.wpilib.hardware.hal.HALUtil;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rectangle2d;
 import org.wpilib.math.geometry.Rotation2d;
@@ -150,14 +151,17 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
             double ctreTimestamp, Rotation2d rawHeading, SwerveModulePosition[] positions) {}
 
     /**
-     * Samples waiting for the main loop. 250 Hz is five per 20 ms loop; 64 rides out a loop stall
-     * of a quarter second. When full, the oldest sample is the one lost.
+     * Samples waiting for the main loop. 250 Hz is two or three per 10 ms loop; 64 rides out a loop
+     * stall of a quarter second. When full, the oldest sample is the one lost.
      */
     private final ArrayBlockingQueue<OdometrySample> odometryQueue = new ArrayBlockingQueue<>(64);
 
     private final StatusSignal<AngularVelocity> yawRateSignal;
     private final StatusSignal<Angle> pitchSignal;
     private final StatusSignal<Angle> rollSignal;
+
+    /** Module stator/supply currents: logged at 10 Hz, so 20 Hz frames are plenty. */
+    private static final double MODULE_CURRENT_HZ = 20;
 
     /** Last heading the aim request was asked to hold, for a replayable at-rotation check. */
     private Rotation2d aimTarget = Rotation2d.kZero;
@@ -182,7 +186,10 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         yawRateSignal = pigeon.getAngularVelocityZWorld(false);
         pitchSignal = pigeon.getPitch(false);
         rollSignal = pigeon.getRoll(false);
-        BaseStatusSignal.setUpdateFrequencyForAll(100, yawRateSignal, pitchSignal, rollSignal);
+        // Pitch and roll only. The yaw rate (AngularVelocityZWorld) is one of the signals CTRE's
+        // 250 Hz odometry thread waits on for latency compensation; setting it to 100 Hz here
+        // would starve that wait (WaitForAll -1003, "CAN message is stale" on the Pigeon).
+        BaseStatusSignal.setUpdateFrequencyForAll(100, pitchSignal, rollSignal);
 
         SwerveModulePosition[] startPositions = new SwerveModulePosition[getModules().length];
         for (int i = 0; i < startPositions.length; i++) {
@@ -252,6 +259,12 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
             moduleConnectedKeys[2 * i] = "Swerve/Modules/" + module + "/DriveConnected";
             moduleConnectedKeys[2 * i + 1] = "Swerve/Modules/" + module + "/SteerConnected";
         }
+        // optimizeBusUtilization() above turned off every signal nobody had given a rate, these
+        // included, so without this the currents (and the DriveConnected/SteerConnected checks and
+        // the battery logger's swerve share built on them) read frozen values on the robot.
+        if (!CanConfigBudget.exhausted()) {
+            BaseStatusSignal.setUpdateFrequencyForAll(MODULE_CURRENT_HZ, moduleCurrentSignals);
+        }
 
         Telemetry.print(getName() + " Subsystem Initialized");
     }
@@ -278,9 +291,12 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
 
     /** Fills {@link #inputs} from the hardware. Not called in replay. */
     private void readHardware() {
-        // Phoenix's clock and WPILib's are read back to back, so the difference converts a CTRE
-        // sample time into the Timer.getTimestamp() base the pose estimator and vision share.
-        double phoenixMinusWpilib = Utils.getCurrentTimeSeconds() - Timer.getTimestamp();
+        // Phoenix's clock and the HAL's monotonic clock are read back to back, so the difference
+        // converts a CTRE sample time into the Timer.getTimestamp() base the pose estimator and
+        // vision share. Not Timer.getTimestamp() itself: AdvantageKit pins that to the start of the
+        // cycle, which would shift every sample by however far into the loop this line runs.
+        double phoenixMinusWpilib =
+                Utils.getCurrentTimeSeconds() - HALUtil.getMonotonicTime() * 1e-6;
 
         int n = odometryQueue.size();
         double[] times = new double[n];

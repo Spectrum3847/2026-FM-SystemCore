@@ -16,7 +16,6 @@ frc.spectrumLib
 ├── gamepads/       Xbox controller abstraction with deadbanding and rumble
 ├── leds/           CTRE CANdle wrapper with built-in pattern library
 ├── sim/            Mechanism2d simulation helpers (arm, roller, linear)
-├── swerve/         Swerve-specific utilities (SysID, Maple-Sim bridge)
 └── vision/         Limelight helpers and vision logging
 ```
 
@@ -127,17 +126,6 @@ Mechanism2d simulation helpers for visualizing robot mechanisms in DriverStation
 
 ---
 
-### `swerve`
-
-Swerve-specific utilities.
-
-|           Class            |                              Description                              |
-|----------------------------|-----------------------------------------------------------------------|
-| `MapleSimSwerveDrivetrain` | Maple-Sim simulation bridge for CTRE swerve                           |
-| `SysID`                    | SysID characterization routine wrapper (translation, rotation, steer) |
-
----
-
 ### `vision`
 
 Limelight vision utilities.
@@ -146,7 +134,6 @@ Limelight vision utilities.
 |--------------------|----------------------------------------------------------------------------------------------------------------------------|
 | `Limelight`        | Wrapper around `LimelightHelpers` with null-safe MegaTag1/MegaTag2 pose access, tag-count queries, and distance estimation |
 | `LimelightHelpers` | Vendored Limelight utility library                                                                                         |
-| `VisionLogger`     | Logs vision pose estimates and tag data to telemetry                                                                       |
 
 ---
 
@@ -156,7 +143,6 @@ Limelight vision utilities.
 - [CTRE Phoenix 6](https://pro.docs.ctr-electronics.com/en/stable/)
 - [DogLog](https://github.com/jonahsnider/doglog)
 - [PathPlanner](https://github.com/mjansen4857/pathplanner)
-- [Maple-Sim](https://github.com/Shenzhen-Robotics-Alliance/Maple-Sim) *(simulation only)*
 - [Lombok](https://projectlombok.org/) *(compile-time `@Getter`/`@Setter` generation)*
 
 ---

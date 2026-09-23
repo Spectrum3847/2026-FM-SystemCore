@@ -46,7 +46,7 @@ public class SystemLoadMonitor {
     /** Seconds between samples and dashboard publishes. */
     public static final double SAMPLE_PERIOD_SECONDS = 1.0;
 
-    /** A loop longer than this counts as an overrun. The budget is 20 ms. */
+    /** A loop longer than this many periods counts as an overrun. */
     public static final double LOOP_OVERRUN_FACTOR = 1.25;
 
     /** A loop longer than this counts as an overrun: 25 ms at 50 Hz, 12.5 ms at 100 Hz. */

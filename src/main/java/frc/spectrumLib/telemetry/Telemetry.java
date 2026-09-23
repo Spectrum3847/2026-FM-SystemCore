@@ -35,13 +35,13 @@ import org.wpilib.util.struct.StructSerializable;
  * <h2>Tiers</h2>
  *
  * <ul>
- *   <li>{@link #log} records to the log. AdvantageKit's NT4 publisher also mirrors every output to
- *       NetworkTables on a real robot, which SystemCore has the CPU for (the 2026 roboRIO did not;
- *       see the offseason notes on 2026-09-05 CPU load).
- *   <li>{@link #logDash} / {@link #logDashAlways} are kept for call-site compatibility. They are
- *       the keys a dashboard reads, and are identical to {@link #log} here.
- *   <li>{@link #slowLogThisLoop()} is true every fifth loop. Wrap logs that do not need loop-rate
- *       resolution (currents, temperatures, vision status) in it.
+ *   <li>{@link #log} records to the log only.
+ *   <li>{@link #logDash} / {@link #logDashAlways} record to the log and mark the key as a dashboard
+ *       key, which {@link DashboardReceiver} also sends to NetworkTables. Only dashboard keys
+ *       (these, and every key the Elastic layout reads) go to NT, unless the {@value
+ *       #NT_MIRROR_SWITCH_KEY} switch is on -- the 2026 offseason rule, for the CPU it costs.
+ *   <li>{@link #slowLogThisLoop()} is true at 10 Hz whatever the loop rate. Wrap logs that do not
+ *       need loop-rate resolution (currents, temperatures, vision status) in it.
  * </ul>
  */
 public class Telemetry {

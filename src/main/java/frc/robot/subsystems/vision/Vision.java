@@ -542,13 +542,13 @@ public class Vision implements Subsystem {
         swerve.afterVision();
     }
 
+    /** When a measurement last moved the fused pose; NaN until one has. */
+    private double lastFusedSeconds = Double.NaN;
+
     /**
      * Applies a source's results. The shadow always gets them; the fused pose only when the source
      * is enabled and {@code policyAllows}. Logs which it was.
      */
-    /** When a measurement last moved the fused pose; NaN until one has. */
-    private double lastFusedSeconds = Double.NaN;
-
     private void applyWithPolicy(PoseSource source, boolean policyAllows) {
         boolean fuse = policyAllows && source.isEnabled();
         source.logPolicy(policyAllows);

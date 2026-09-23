@@ -1,6 +1,5 @@
 package frc.spectrumLib.vision;
 
-import frc.spectrumLib.vision.LimelightHelpers.LimelightResults;
 import frc.spectrumLib.vision.LimelightHelpers.PoseEstimate;
 import frc.spectrumLib.vision.LimelightHelpers.RawFiducial;
 import java.text.DecimalFormat;
@@ -562,14 +561,6 @@ public class Limelight {
     /*
      * Utility Wrappers
      */
-
-    /**
-     * @return The latest LL results as a LimelightResults object.
-     */
-    @SuppressWarnings("unused")
-    private LimelightResults retrieveJSON() {
-        return LimelightHelpers.getLatestResults(config.name);
-    }
 
     /**
      * Sets the LL pipeline to the given index.

@@ -192,6 +192,15 @@ Read its NetworkTables from a laptop:
 
 ## Known gaps
 
+- **Offseason mechanism behaviour is not ported, only its infrastructure.** Every FM mechanism runs
+  on the offseason `Mechanism` (status-signal rates, per-loop batched reads, CAN budget, follower
+  health alerts, 10 Hz diagnostics) and AKit inputs, but FM keeps its own state machines and tuning.
+  The offseason intake is different hardware now (extension 3.5:1 over 3.65 rot vs FM's 11.25:1
+  over 2.8; a kicker roller FM does not have; a hood at 59.4:1 on a different CAN ID). Candidates to
+  bring over with bench time: extension tooth-skip RESYNC, clamp-past-max and hold-when-retracted
+  (`b25ec09`, `d3bd875`), current-aware agitate and unjam modes (`5b6cfca`), and the hood's
+  stop-at-home-rest fix for the 75 A stall (offseason `Hood.homeRestToleranceDegrees`).
+
 - Offseason Vision's placement-heading vote and two-camera consensus heading correction are not
   ported (they are tied to that bot's camera layout).
 - maple-sim's field collisions and `RobotBumpSim` are gone with maple-sim.

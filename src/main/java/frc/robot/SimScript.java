@@ -36,15 +36,19 @@ public final class SimScript {
     /** One step: {@code [until seconds, leftY, leftX, rightX]}; stick up is negative Y. */
     private static final double[][] STEPS = {
         {6.0, 0, 0, 0}, // disabled: Limelights seed and confirm
-        {9.0, -0.6, 0, 0}, // forward
-        {11.0, 0, 0, 0.8}, // spin in place (spin gate should reject frames)
-        {14.0, 0, -0.6, 0}, // strafe
-        {17.0, 0.6, 0, 0}, // back
-        {20.0, -0.4, 0.4, 0.3}, // arc
-        {23.0, 0, 0, 0}, // stop: stationary tiers
-        {26.0, -0.5, 0, 0},
-        {28.0, 0, 0, 0},
+        {9.0, -0.35, 0, 0}, // forward
+        {11.0, 0, 0, 0.8}, // spin in place (the spin gate should reject frames)
+        {13.5, 0, -0.35, 0}, // strafe left
+        {16.0, 0.35, 0, 0}, // back
+        {19.0, -0.3, 0.3, 0.3}, // arc
+        {22.0, 0, 0, 0}, // stop: stationary tiers
+        {24.5, 0, 0.35, 0}, // strafe right
+        {27.0, -0.3, 0, 0.2},
+        {29.0, 0, 0, 0},
     };
+
+    /** Metres from the field edge inside which the script stops translating (sim has no walls). */
+    private static final double EDGE_MARGIN_METERS = 1.0;
 
     /**
      * The script's two non-driver actions, as an AdvantageKit input so a replay of a scripted run
@@ -126,6 +130,18 @@ public final class SimScript {
             }
         }
         boolean enabled = t >= STEPS[0][0] && t < STEPS[STEPS.length - 1][0];
+        var truth = Robot.getSwerve().getSimTruthPose();
+        if (truth.isPresent()) {
+            var p = truth.get();
+            boolean nearEdge =
+                    p.getX() < EDGE_MARGIN_METERS
+                            || p.getY() < EDGE_MARGIN_METERS
+                            || p.getX() > Field.fieldLength - EDGE_MARGIN_METERS
+                            || p.getY() > Field.fieldWidth - EDGE_MARGIN_METERS;
+            if (nearEdge) {
+                step = new double[] {step[0], 0, 0, step[3]};
+            }
+        }
         DriverStationSim.setEnabled(enabled);
         pilot.setAxis(Gamepad.Axis.LEFT_Y, step[1]);
         pilot.setAxis(Gamepad.Axis.LEFT_X, step[2]);

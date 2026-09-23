@@ -61,6 +61,13 @@ def read_wpilog(path):
 
 
 def decode(typ, payload):
+    try:
+        return _decode(typ, payload)
+    except (struct.error, IndexError, UnicodeDecodeError):
+        return None  # a record cut off at the end of a log that was not closed cleanly
+
+
+def _decode(typ, payload):
     if typ == "double":
         return struct.unpack("<d", payload)[0]
     if typ == "boolean":
@@ -119,6 +126,8 @@ def main():
         shadow = series(records, types, f"Localization/Shadow/{s}/ErrorVsTruthMeters")
         acc = series(records, types, f"Localization/Sources/{s}/AcceptedCount")
         rej = series(records, types, f"Localization/Sources/{s}/RejectedCount")
+        acc = [a for a in acc if a[1] is not None]
+        rej = [r for r in rej if r[1] is not None]
         accepted = acc[-1][1] if acc else 0
         total = accepted + (rej[-1][1] if rej else 0)
         prefix = f"/Localization/Sources/{s}/RejectionCounts/"
@@ -128,7 +137,7 @@ def main():
                 vals = series(records, types, k.split("Outputs/", 1)[-1])
                 if vals:
                     rejections[k.split(prefix, 1)[1]] = vals[-1][1]
-        frame_errs = [e for _, es in errs for e in (es or []) if not math.isnan(e)]
+        frame_errs = [e for _, es in errs for e in (es or []) if e is not None and not math.isnan(e)]
         shadow_errs = [e for _, e in shadow if e is not None and not math.isnan(e)]
         # FusedThisLoop is only logged when it changes, so report whether it was ever true.
         fused_loops = "yes" if any(f for _, f in fused) else "no"

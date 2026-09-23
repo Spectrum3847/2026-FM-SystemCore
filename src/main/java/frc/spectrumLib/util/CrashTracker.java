@@ -13,13 +13,13 @@ import org.wpilib.framework.RobotBase;
 public class CrashTracker {
 
     private static final UUID RUN_INSTANCE_UUID = UUID.randomUUID();
-    private static String filePath = "/home/lvuser/crash_tracking.txt";
+    private static String filePath = "/home/systemcore/crash_tracking.txt";
 
     /**
      * Logs details of a Throwable exception to a designated file. This method captures the unique
      * run instance UUID, the type of marker (in this case, "Exception"), the current date and time,
      * and the stack trace of the Throwable, if present. The log entry is appended to the file
-     * '/home/lvuser/crash_tracking.txt', ensuring that each incident is recorded sequentially
+     * '/home/systemcore/crash_tracking.txt', ensuring that each incident is recorded sequentially
      * without overwriting previous entries. This method is typically used to record unexpected
      * exceptions or crashes that occur during the runtime of the application, aiding in post-event
      * analysis and debugging.
@@ -60,7 +60,7 @@ public class CrashTracker {
                             "CrashTracker failed to save crash file to robot: running in simulation mode");
                 } else {
                     Telemetry.print(
-                            "CrashTracker failed to save crash file to robot: path `/home/lvuser/crash_tracking.txt` not found");
+                            "CrashTracker failed to save crash file to robot: path `/home/systemcore/crash_tracking.txt` not found");
                 }
             } else {
                 e.printStackTrace();

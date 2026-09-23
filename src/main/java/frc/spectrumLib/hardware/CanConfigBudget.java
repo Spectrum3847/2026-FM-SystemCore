@@ -4,7 +4,6 @@ import com.ctre.phoenix6.StatusCode;
 import java.util.function.DoubleFunction;
 import org.wpilib.driverstation.Alert;
 import org.wpilib.driverstation.Alert.Level;
-import org.wpilib.system.Timer;
 
 /**
  * A cap on how long boot may spend on CAN device configuration that is not working.
@@ -100,11 +99,15 @@ public final class CanConfigBudget {
      * @return the status the call returned
      */
     public static StatusCode run(String name, DoubleFunction<StatusCode> call) {
-        double start = Timer.getTimestamp();
+        // Wall clock, not Timer: AdvantageKit pins the robot clock to the cycle timestamp so replay
+        // is deterministic, and during robot init that clock does not move at all -- every
+        // failed call was charged 0 s and the budget never tripped (found on the SystemCore
+        // bench, 2026-09-22: a 60 s boot with no CAN devices attached).
+        long start = System.nanoTime();
         StatusCode result = call.apply(CALL_TIMEOUT_SECONDS);
         if (!result.isOK()) {
             boolean wasExhausted = exhausted();
-            spentSeconds += Timer.getTimestamp() - start;
+            spentSeconds += (System.nanoTime() - start) / 1e9;
             failedCalls++;
             if (!wasExhausted && exhausted()) {
                 exhaustedAlert.setText(
@@ -118,6 +121,25 @@ public final class CanConfigBudget {
             }
         }
         return result;
+    }
+
+    /**
+     * Spends the whole budget at once, for a bus known to be unreachable before any device is
+     * configured (e.g. no CANivore found). Every later call then fails once instead of retrying.
+     *
+     * @param reason what was found, for the alert
+     */
+    public static void exhaust(String reason) {
+        if (exhausted()) {
+            return;
+        }
+        spentSeconds = BUDGET_SECONDS;
+        exhaustedAlert.setText(
+                "CAN config budget spent before boot: "
+                        + reason
+                        + ". Retries are off so boot can finish -- expect those mechanisms to be"
+                        + " unconfigured.");
+        exhaustedAlert.set(true);
     }
 
     /**

@@ -311,6 +311,11 @@ public abstract class Mechanism implements Subsystem {
      * @param fastOutput {@code true} to publish the output frames at the control rate
      */
     private static void configureStatusSignals(TalonFX talon, SignalRole role, boolean fastOutput) {
+        // Each call below blocks until the device acks or times out. On a bus that is known to be
+        // dead that is several timeouts per motor for rates nobody will receive.
+        if (CanConfigBudget.exhausted()) {
+            return;
+        }
         double controlHz = role == SignalRole.FOLLOWER ? DIAGNOSTIC_SIGNAL_HZ : CONTROL_SIGNAL_HZ;
         double outputHz =
                 fastOutput

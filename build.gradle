@@ -91,6 +91,8 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    // src/test also holds desktop tools (frc.tools.NtDump) that are not tests.
+    failOnNoDiscoveredTests = false
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
 }
 
@@ -199,6 +201,38 @@ tasks.register('printClasspath') {
     doLast {
         configurations.runtimeClasspath.each {
             println it
+        }
+    }
+}
+
+// Prints a robot's NetworkTables topics: ./gradlew ntDump -Phost=172.26.0.1 -Pprefix=/AdvantageKit
+tasks.register('ntDump', JavaExec) {
+    group = 'Spectrum'
+    description = 'Dump NetworkTables topics from a robot (-Phost, -Pprefix)'
+    dependsOn 'testClasses', 'extractReleaseNative'
+    mainClass = 'frc.tools.NtDump'
+    classpath = sourceSets.test.runtimeClasspath
+    def nativeDir = file("$buildDir/jni/release")
+    jvmArgs = [
+        "-Djava.library.path=${nativeDir}"
+    ]
+    environment 'PATH', "${nativeDir}${File.pathSeparator}${System.getenv('PATH')}"
+    args = [
+        project.findProperty('host') ?: '172.26.0.1'
+    ] + ((project.findProperty('prefix') ?: '/').toString().split(',') as List)
+}
+
+// Prints the robot program's console output since boot from the SystemCore (filtered to the
+// interesting lines), then restarts the program -- GradleRIO stops it before any artifact runs:
+//   ./gradlew deployrobotLogsystemcore -ProbotLog --info
+// Uses the deploy connection, so it needs nothing beyond what ./gradlew deploy needs.
+// -ProbotLogAll prints the last 300 lines unfiltered instead.
+if (project.hasProperty('robotLog')) {
+    def filter = project.hasProperty('robotLogAll') ? "tail -300" :
+            "grep -E \"TIME:|Exception|rror|at frc|Started|Stopp|AdvantageKit|NT: \" | tail -150"
+    deploy.targets.systemcore.artifacts {
+        robotLog(deploy.targets.systemcore.getArtifactTypeClass('CommandArtifact')) {
+            command = "journalctl -u robot -b --no-pager 2>&1 | ${filter}; sudo systemctl start robot"
         }
     }
 }

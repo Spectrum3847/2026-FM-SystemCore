@@ -1,8 +1,14 @@
 package frc.robot;
 
+import frc.rebuilt.Field;
+import org.littletonrobotics.junction.LogTable;
+import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.inputs.LoggableInputs;
 import org.wpilib.driverstation.Gamepad;
 import org.wpilib.hardware.hal.AllianceStationID;
 import org.wpilib.hardware.hal.RobotMode;
+import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.simulation.DriverStationSim;
 import org.wpilib.simulation.GamepadSim;
 import org.wpilib.system.Timer;
@@ -18,14 +24,14 @@ import org.wpilib.system.Timer;
 public final class SimScript {
     private SimScript() {}
 
-    /** Whether the script was requested. */
+    /** Whether the script runs: requested in simulation, and always in replay. */
     public static boolean requested() {
-        return "drive".equalsIgnoreCase(System.getenv("FM_SIM_SCRIPT"));
+        return Constants.currentMode == Constants.Mode.REPLAY
+                || "drive".equalsIgnoreCase(System.getenv("FM_SIM_SCRIPT"));
     }
 
     private static GamepadSim pilot;
     private static double start = Double.NaN;
-    private static boolean questReset = false;
 
     /** One step: {@code [until seconds, leftY, leftX, rightX]}; stick up is negative Y. */
     private static final double[][] STEPS = {
@@ -40,8 +46,54 @@ public final class SimScript {
         {28.0, 0, 0, 0},
     };
 
-    /** Advances the script. Call from {@code simulationPeriodic}. */
+    /**
+     * The script's two non-driver actions, as an AdvantageKit input so a replay of a scripted run
+     * performs them on the same loop (the driving itself is already replayed, through the logged
+     * Driver Station).
+     */
+    public static final class Actions implements LoggableInputs {
+        public boolean placeRobot = false;
+        public Pose2d placePose = Pose2d.kZero;
+        public boolean resetQuest = false;
+
+        @Override
+        public void toLog(LogTable table) {
+            table.put("PlaceRobot", placeRobot);
+            table.put("PlacePose", placePose);
+            table.put("ResetQuest", resetQuest);
+        }
+
+        @Override
+        public void fromLog(LogTable table) {
+            placeRobot = table.get("PlaceRobot", placeRobot);
+            placePose = table.get("PlacePose", placePose);
+            resetQuest = table.get("ResetQuest", resetQuest);
+        }
+    }
+
+    private static final Actions actions = new Actions();
+    private static boolean questResetDone = false;
+
+    /**
+     * Advances the script. Call from {@code simulationPeriodic}, in simulation (script requested)
+     * and in replay (so a replayed scripted run repeats the script's actions).
+     */
     public static void periodic() {
+        actions.placeRobot = false;
+        actions.resetQuest = false;
+        if (Constants.currentMode == Constants.Mode.SIM) {
+            drive();
+        }
+        Logger.processInputs("SimScript", actions);
+        if (actions.placeRobot) {
+            Robot.getSwerve().resetPose(actions.placePose);
+        }
+        if (actions.resetQuest) {
+            Robot.getVision().resetQuestToRobotPose();
+        }
+    }
+
+    private static void drive() {
         double now = Timer.getTimestamp();
         if (Double.isNaN(start)) {
             start = now;
@@ -56,19 +108,15 @@ public final class SimScript {
             DriverStationSim.setEnabled(false);
             // Back to the blue hub, 2.5 m out: the back Limelight looks straight at a hub face,
             // enough tags for the disabled seed to confirm.
-            var hub = frc.rebuilt.Field.getBlueHubCenter();
-            Robot.getSwerve()
-                    .resetPose(
-                            new org.wpilib.math.geometry.Pose2d(
-                                    hub.getX() - 2.5,
-                                    hub.getY(),
-                                    org.wpilib.math.geometry.Rotation2d.k180deg));
+            var hub = Field.getBlueHubCenter();
+            actions.placeRobot = true;
+            actions.placePose = new Pose2d(hub.getX() - 2.5, hub.getY(), Rotation2d.k180deg);
         }
         double t = now - start;
-        if (!questReset && t > 4.0) {
+        if (!questResetDone && t > 4.0) {
             // What the operator's LB+X does: put the QuestNav's frame on the robot's pose.
-            questReset = true;
-            Robot.getVision().resetQuestToRobotPose();
+            questResetDone = true;
+            actions.resetQuest = true;
         }
         double[] step = STEPS[STEPS.length - 1];
         for (double[] s : STEPS) {

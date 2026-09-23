@@ -112,6 +112,27 @@ public class Vision implements Subsystem {
 
         @Getter final int tagPipeline = 0;
 
+        // -- SystemCore's built-in cameras (CALIBRATE: placeholder mounts) ------
+        //
+        // The SystemCore image runs the Limelight vision stack for cameras plugged into it,
+        // publishing them as limelightsc0/1/2 and reading MegaTag2 orientation from
+        // limelightshared. It only ever connects to 127.0.0.1:5810 -- which, with FM's code
+        // running on the SystemCore, is this program (see Spectrum3847/SystemCoreVision; the
+        // NT bridge that repo provides is only needed when a roboRIO is the controller).
+
+        @Getter
+        final LimelightConfig[] systemCoreCameras = {
+            new LimelightConfig("limelightsc0")
+                    .withTranslation(0.25, -0.25, 0.30)
+                    .withRotation(0, 15, 0),
+            new LimelightConfig("limelightsc1")
+                    .withTranslation(-0.25, 0.25, 0.30)
+                    .withRotation(0, 15, 180),
+        };
+
+        /** Table the SystemCore vision stack reads robot orientation from, for MegaTag2. */
+        @Getter final String systemCoreSharedTable = "limelightshared";
+
         // -- Orin / PhotonVision (CALIBRATE: placeholders until mounted) --------
 
         /** Camera names in the PhotonVision UI, and their mounts (x fwd, y left, z up). */
@@ -197,6 +218,8 @@ public class Vision implements Subsystem {
     @Getter private final List<Limelight> limelights = new ArrayList<>();
     @Getter private final List<PoseSource> mt1Sources = new ArrayList<>();
     @Getter private final List<PoseSource> mt2Sources = new ArrayList<>();
+    @Getter private final List<PoseSource> scMt1Sources = new ArrayList<>();
+    @Getter private final List<PoseSource> scMt2Sources = new ArrayList<>();
     @Getter private final List<PoseSource> orinSources = new ArrayList<>();
     @Getter private PoseSource questSource;
     @Getter private final List<PoseSource> allSources = new ArrayList<>();
@@ -248,45 +271,11 @@ public class Vision implements Subsystem {
         // Limelights: MT1 and MT2 are separate sources so each gets its own shadow track.
         LimelightConfig[] lls = {config.backConfig, config.leftConfig, config.rightConfig};
         for (LimelightConfig llConfig : lls) {
-            Limelight ll = new Limelight(llConfig.getName(), config.tagPipeline, llConfig);
-            limelights.add(ll);
-            PoseSourceIO mt1Io;
-            PoseSourceIO mt2Io;
-            if (replay) {
-                mt1Io = PoseSourceIO.NONE;
-                mt2Io = PoseSourceIO.NONE;
-            } else if (sim) {
-                Transform3d mount = SimVision.robotToCamera(llConfig);
-                var cam =
-                        new SimVision.LimelightSimCamera(
-                                simVision.addCamera(
-                                        "sim-" + llConfig.getName(), SimVision.limelight4(), mount),
-                                mount,
-                                tagLayout);
-                simLimelights.add(cam);
-                mt1Io = new SimVision.LimelightSimIO(cam, Kind.LIMELIGHT_MT1, this::headingAt);
-                mt2Io = new SimVision.LimelightSimIO(cam, Kind.LIMELIGHT_MT2, this::headingAt);
-            } else {
-                mt1Io = new LimelightIO(ll, Kind.LIMELIGHT_MT1);
-                mt2Io = new LimelightIO(ll, Kind.LIMELIGHT_MT2);
-            }
-            String base = shortName(llConfig.getName());
-            PoseSource mt1 =
-                    new PoseSource(
-                            base + "/MT1",
-                            mt1Io,
-                            VisionGates.aprilTagGates(),
-                            VisionGates.LIMELIGHT_TIERS,
-                            true);
-            PoseSource mt2 =
-                    new PoseSource(
-                            base + "/MT2",
-                            mt2Io,
-                            VisionGates.aprilTagGates(),
-                            VisionGates.LIMELIGHT_TIERS,
-                            true);
-            mt1Sources.add(mt1);
-            mt2Sources.add(mt2);
+            addLimelight(llConfig, true, mt1Sources, mt2Sources, sim, replay);
+        }
+        // SystemCore's own cameras: logged and shadowed, fused only when enabled on the dashboard.
+        for (LimelightConfig llConfig : config.systemCoreCameras) {
+            addLimelight(llConfig, false, scMt1Sources, scMt2Sources, sim, replay);
         }
 
         // Orin cameras.
@@ -329,6 +318,8 @@ public class Vision implements Subsystem {
 
         allSources.addAll(mt1Sources);
         allSources.addAll(mt2Sources);
+        allSources.addAll(scMt1Sources);
+        allSources.addAll(scMt2Sources);
         allSources.addAll(orinSources);
         allSources.add(questSource);
         for (PoseSource s : allSources) {
@@ -351,8 +342,58 @@ public class Vision implements Subsystem {
         Telemetry.print(getName() + " Subsystem Initialized");
     }
 
-    /** "limelight-back" becomes "LL-Back"; other names pass through. */
+    /** Creates one Limelight's MT1 and MT2 sources (real, simulated, or replay). */
+    private void addLimelight(
+            LimelightConfig llConfig,
+            boolean fusedByDefault,
+            List<PoseSource> mt1List,
+            List<PoseSource> mt2List,
+            boolean sim,
+            boolean replay) {
+        Limelight ll = new Limelight(llConfig.getName(), config.tagPipeline, llConfig);
+        limelights.add(ll);
+        PoseSourceIO mt1Io;
+        PoseSourceIO mt2Io;
+        if (replay) {
+            mt1Io = PoseSourceIO.NONE;
+            mt2Io = PoseSourceIO.NONE;
+        } else if (sim) {
+            Transform3d mount = SimVision.robotToCamera(llConfig);
+            var cam =
+                    new SimVision.LimelightSimCamera(
+                            simVision.addCamera(
+                                    "sim-" + llConfig.getName(), SimVision.limelight4(), mount),
+                            mount,
+                            tagLayout);
+            simLimelights.add(cam);
+            mt1Io = new SimVision.LimelightSimIO(cam, Kind.LIMELIGHT_MT1, this::headingAt);
+            mt2Io = new SimVision.LimelightSimIO(cam, Kind.LIMELIGHT_MT2, this::headingAt);
+        } else {
+            mt1Io = new LimelightIO(ll, Kind.LIMELIGHT_MT1);
+            mt2Io = new LimelightIO(ll, Kind.LIMELIGHT_MT2);
+        }
+        String base = shortName(llConfig.getName());
+        mt1List.add(
+                new PoseSource(
+                        base + "/MT1",
+                        mt1Io,
+                        VisionGates.aprilTagGates(),
+                        VisionGates.LIMELIGHT_TIERS,
+                        fusedByDefault));
+        mt2List.add(
+                new PoseSource(
+                        base + "/MT2",
+                        mt2Io,
+                        VisionGates.aprilTagGates(),
+                        VisionGates.LIMELIGHT_TIERS,
+                        fusedByDefault));
+    }
+
+    /** "limelight-back" becomes "LL-Back", "limelightsc0" becomes "SC0". */
     private static String shortName(String name) {
+        if (name.startsWith("limelightsc")) {
+            return "SC" + name.substring("limelightsc".length());
+        }
         if (name.startsWith("limelight-")) {
             String side = name.substring("limelight-".length());
             return "LL-" + Character.toUpperCase(side.charAt(0)) + side.substring(1);
@@ -476,6 +517,12 @@ public class Vision implements Subsystem {
             applyWithPolicy(s, llWindow && !useMt2);
         }
         for (PoseSource s : mt2Sources) {
+            applyWithPolicy(s, llWindow && useMt2);
+        }
+        for (PoseSource s : scMt1Sources) {
+            applyWithPolicy(s, llWindow && !useMt2);
+        }
+        for (PoseSource s : scMt2Sources) {
             applyWithPolicy(s, llWindow && useMt2);
         }
         for (PoseSource s : orinSources) {
@@ -681,6 +728,8 @@ public class Vision implements Subsystem {
         for (Limelight ll : limelights) {
             ll.setRobotOrientation(yaw, yawRate);
         }
+        LimelightHelpers.SetRobotOrientation_NoFlush(
+                config.systemCoreSharedTable, yaw, yawRate, 0, 0, 0, 0);
         NetworkTableInstance.getDefault().flush();
     }
 
@@ -718,16 +767,16 @@ public class Vision implements Subsystem {
         for (PoseSource s : allSources) {
             Telemetry.log("Localization/Sources/" + s.getName() + "/ConnectedNow", s.isConnected());
         }
-        Pose2d[] llPoses = new Pose2d[mt1Sources.size()];
-        for (int i = 0; i < llPoses.length; i++) {
-            var results = mt1Sources.get(i).getResults();
-            llPoses[i] =
-                    results.isEmpty()
-                            ? Pose2d.kZero
-                            : results.get(results.size() - 1).observation().pose2d();
-        }
-        for (int i = 0; i < limelights.size(); i++) {
-            Robot.getField2d().getObject(limelights.get(i).getCameraName()).setPose(llPoses[i]);
+        // Each Limelight's latest MegaTag1 pose on the Field2d, named like its camera.
+        List<PoseSource> cameraMt1 = new ArrayList<>(mt1Sources);
+        cameraMt1.addAll(scMt1Sources);
+        for (int i = 0; i < limelights.size() && i < cameraMt1.size(); i++) {
+            var results = cameraMt1.get(i).getResults();
+            if (!results.isEmpty()) {
+                Robot.getField2d()
+                        .getObject(limelights.get(i).getCameraName())
+                        .setPose(results.get(results.size() - 1).observation().pose2d());
+            }
         }
     }
 

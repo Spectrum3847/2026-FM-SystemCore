@@ -170,6 +170,12 @@ public class Robot extends SpectrumRobot {
             double canInitDelay = Constants.hasHardware() ? 0.1 : 0;
             mainCANBus = CanBuses.forName(CanBuses.CANIVORE);
             secondaryCANBus = CanBuses.forName(CanBuses.RIO_CANBUS);
+            if (Constants.currentMode == Constants.Mode.REAL
+                    && !mainCANBus.getStatus().Status.isOK()) {
+                // No CANivore at all (not plugged in, or canivore-usb not installed on the
+                // SystemCore): do not spend a minute timing out every device on it.
+                CanConfigBudget.exhaust("CANivore '" + CanBuses.CANIVORE + "' not found");
+            }
 
             pilot = new Pilot(config.pilot);
             operator = new Operator(config.operator);
@@ -239,8 +245,24 @@ public class Robot extends SpectrumRobot {
         // Offseason: 6.0 V rather than 4.6 V. A worse sag than Chezy's 8.8 V would take the
         // controller below its own reset point before a 4.6 V brownout ever tripped, and a reboot
         // mid-match is far worse than a second of disabled outputs.
-        RobotController.setBrownoutVoltage(Units.Volts.of(6.0));
+        //
+        // SystemCore image on the alpha-6 bench unit rejects this (HAL -1098, "handle"), which
+        // crashed the constructor. The brownout API is treated as optional: if setting it
+        // fails, the brownout telemetry that reads it is skipped too.
+        try {
+            RobotController.setBrownoutVoltage(Units.Volts.of(6.0));
+            RobotController.isBrownedOut();
+            powerApiAvailable = true;
+        } catch (RuntimeException e) {
+            powerApiAvailable = false;
+            Telemetry.print(
+                    "Brownout voltage API unavailable on this controller: " + e.getMessage(),
+                    PrintPriority.HIGH);
+        }
     }
+
+    /** Whether the HAL's brownout API works here (it did not on the 2026-09 SystemCore). */
+    private boolean powerApiAvailable = false;
 
     /**
      * Configures AdvantageKit: metadata, where the log goes, and in replay where it comes from.
@@ -264,8 +286,10 @@ public class Robot extends SpectrumRobot {
 
         switch (Constants.currentMode) {
             case REAL:
-                // SystemCore: logs to its default log folder (a USB stick if one is inserted).
-                Logger.addDataReceiver(new WPILOGWriter());
+                // A USB stick if one is inserted (AdvantageKit's default /U/logs), otherwise the
+                // SystemCore's own storage. Without a stick /U/logs cannot be opened and the
+                // match is not logged at all.
+                Logger.addDataReceiver(new WPILOGWriter(realLogFolder()));
                 Logger.addDataReceiver(new NT4Publisher());
                 break;
             case SIM:
@@ -282,6 +306,17 @@ public class Robot extends SpectrumRobot {
                 break;
         }
         Logger.start();
+    }
+
+    /** {@code /U/logs} when a USB stick is mounted, else {@code /home/systemcore/logs}. */
+    private static String realLogFolder() {
+        java.io.File usb = new java.io.File("/U");
+        if (usb.isDirectory() && usb.canWrite()) {
+            return "/U/logs";
+        }
+        java.io.File local = new java.io.File("/home/systemcore/logs");
+        local.mkdirs();
+        return local.getPath();
     }
 
     public void configureBindings() {
@@ -426,7 +461,9 @@ public class Robot extends SpectrumRobot {
 
             batteryLogger.setBatteryVoltage(RobotController.getBatteryVoltage());
             // Every loop: a brownout is a few hundred milliseconds.
-            Telemetry.log("SystemStats/BrownedOut", RobotController.isBrownedOut());
+            if (powerApiAvailable) {
+                Telemetry.log("SystemStats/BrownedOut", RobotController.isBrownedOut());
+            }
             // SystemCore reports no input current (the roboRIO did); the battery logger sums
             // the mechanisms instead.
             batteryLogger.logPower();
@@ -474,7 +511,10 @@ public class Robot extends SpectrumRobot {
                 "Match Data/Alliance", MatchState.getAlliance().map(Enum::name).orElse("NONE"));
         Telemetry.log("Match Data/Station", MatchState.getLocation().orElse(0));
         Telemetry.log("Match Data/FMSAttached", RobotState.isFMSAttached());
-        Telemetry.log("SystemStats/BrownoutVoltage", RobotController.getBrownoutVoltage(), "volts");
+        if (powerApiAvailable) {
+            Telemetry.log(
+                    "SystemStats/BrownoutVoltage", RobotController.getBrownoutVoltage(), "volts");
+        }
     }
 
     /**

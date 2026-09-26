@@ -121,9 +121,10 @@ public class SwerveConfig {
     // Configs for the Pigeon 2; leave this null to skip applying Pigeon 2 configs
     @Getter private Pigeon2Configuration pigeonConfigs = new Pigeon2Configuration();
 
-    // Every 1 rotation of the azimuth results in kCoupleRatio drive motor turns;
-    // This may need to be tuned to your individual robot
-    @Getter private double coupleRatio = 4.5;
+    // Every 1 rotation of the azimuth results in kCoupleRatio drive motor turns.
+    // MK5n: 54T gear driven by the swappable motor pinion, so couple = 54 / pinion.
+    // R1 = 12T (4.5), R2 = 14T (3.857), R3 = 16T (3.375). FM runs R2.
+    @Getter private double coupleRatio = 54.0 / 14.0;
 
     @Getter @Setter private boolean steerMotorReversed = false;
     @Getter @Setter private boolean invertLeftSide = false;

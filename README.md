@@ -302,6 +302,17 @@ Press and release order on the chords does not matter: the state follows what is
 (`FaceChord`). LB pressed while X or A is held goes to that set shot; LB let go with X or A still
 held goes back to track target or unjam, as on the offseason bot; everything let go is IDLE.
 
+**Bare A and X wait 0.12 s** (`FaceChordFilter.SETTLE_SECONDS`) before they count; the LB chords
+act at once. This absorbs sloppy chord timing:
+- Letting go of LB + A with A a cycle or two late goes straight to IDLE. There's no 10–20 ms unjam
+  jerking the indexer backwards as the shot ends.
+- Pressing A a cycle before LB gives no unjam blip before the tower shot.
+- X works the same way with the left-trench chord.
+
+The costs: a deliberate unjam or track starts 0.12 s after the press, and letting go of LB with X
+still held is IDLE for 0.12 s before tracking resumes. Holding X and then pressing A keeps tracking
+until unjam takes over, with no IDLE in between.
+
 ## Loop rate, logging and the dashboard
 
 - **100 Hz.** `Constants.LOOP_PERIOD_SECONDS = 0.01` (FM ran 50 Hz on the roboRIO). Anything that

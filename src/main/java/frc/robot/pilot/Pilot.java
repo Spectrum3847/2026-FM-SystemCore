@@ -41,7 +41,9 @@ public class Pilot extends Gamepad {
      * buttons held (FaceChord), so any press or release order lands in what the buttons now say:
      * LB pressed with X held goes to the left-trench shot, LB let go with X still held goes back to
      * tracking, everything let go goes to IDLE (anyFaceChord's falling edge). Bind only the rising
-     * edges of the individual triggers: exactly one of them is true at a time.
+     * edges of the individual triggers: exactly one of them is true at a time. Bare A and X only
+     * count after being held alone for 0.12 s (FaceChordFilter), so a button let go a cycle after
+     * LB, or pressed a cycle before it, does nothing.
      */
     public final Trigger setShotTower_LB_A = faceChord(FaceChord.SET_SHOT_TOWER);
     public final Trigger setShotLeftTrench_LB_X = faceChord(FaceChord.SET_SHOT_LEFT_TRENCH);
@@ -52,14 +54,19 @@ public class Pilot extends Gamepad {
     /** Any of the above; its falling edge (every face button and chord let go) is IDLE. */
     public final Trigger anyFaceChord = new Trigger(() -> faceChord() != FaceChord.NONE);
 
-    /** What LB and the face buttons ask for right now. */
+    /** Bare A and X wait {@link FaceChordFilter#SETTLE_SECONDS} before they count. */
+    private final FaceChordFilter faceChordFilter = new FaceChordFilter();
+
+    /** What LB and the face buttons ask for right now, after the bare-button settle time. */
     public FaceChord faceChord() {
-        return FaceChord.of(
-                LB.getAsBoolean(),
-                AButton.getAsBoolean(),
-                XButton.getAsBoolean(),
-                BButton.getAsBoolean(),
-                teleop.getAsBoolean());
+        return faceChordFilter.update(
+                org.wpilib.system.Timer.getTimestamp(),
+                FaceChord.of(
+                        LB.getAsBoolean(),
+                        AButton.getAsBoolean(),
+                        XButton.getAsBoolean(),
+                        BButton.getAsBoolean(),
+                        teleop.getAsBoolean()));
     }
 
     private Trigger faceChord(FaceChord chord) {

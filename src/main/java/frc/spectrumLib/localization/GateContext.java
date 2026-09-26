@@ -14,6 +14,7 @@ import org.wpilib.math.kinematics.ChassisVelocities;
  * @param peakYawRateRadPerSec largest |yaw rate| over the configured lookback window
  * @param disabled whether the robot is disabled
  * @param headingSeeded whether a camera has set the field heading yet
+ * @param robotTiltDegrees the robot's tilt from level (Pigeon pitch and roll), degrees
  */
 public record GateContext(
         double nowSeconds,
@@ -22,7 +23,28 @@ public record GateContext(
         ChassisVelocities robotVelocity,
         double peakYawRateRadPerSec,
         boolean disabled,
-        boolean headingSeeded) {
+        boolean headingSeeded,
+        double robotTiltDegrees) {
+
+    /** A context for a level robot. */
+    public GateContext(
+            double nowSeconds,
+            Pose2d fusedPose,
+            Pose2d odometryPose,
+            ChassisVelocities robotVelocity,
+            double peakYawRateRadPerSec,
+            boolean disabled,
+            boolean headingSeeded) {
+        this(
+                nowSeconds,
+                fusedPose,
+                odometryPose,
+                robotVelocity,
+                peakYawRateRadPerSec,
+                disabled,
+                headingSeeded,
+                0);
+    }
 
     /** Robot linear speed in m/s. */
     public double linearSpeed() {

@@ -42,6 +42,20 @@ class PoseSourceInputsTest {
     }
 
     @Test
+    void stdDevScalesSurviveTheLog() {
+        PoseObservation scaled =
+                new PoseObservation(
+                        "S", Kind.PHOTON, 2.0, new Pose3d(), 1, 2.0, Double.NaN, 0.1, true, 3.5);
+        PoseSourceInputs in = new PoseSourceInputs();
+        in.resize(2);
+        in.set(0, obs(true));
+        in.set(1, scaled);
+        PoseSourceInputs out = roundTrip(in);
+        assertEquals(1.0, out.get("S", 0).stdDevScale());
+        assertEquals(scaled, out.get("S", 1));
+    }
+
+    @Test
     void emptyLoopSurvivesTheLog() {
         PoseSourceInputs in = new PoseSourceInputs();
         in.resize(0);

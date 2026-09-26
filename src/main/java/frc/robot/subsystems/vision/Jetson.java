@@ -107,6 +107,8 @@ public class Jetson {
     private final Alert rewindSpace = new Alert("", Level.MEDIUM);
     private final Alert rewindDropping =
             new Alert("Rewind is dropping frames while recording", Level.MEDIUM);
+    private final Alert rebooted = new Alert("", Level.MEDIUM);
+    private double lastUptime = Double.NaN;
     private final Alert rewindNotRecording =
             new Alert("Rewind should be recording this match but isn't", Level.MEDIUM);
 
@@ -141,7 +143,12 @@ public class Jetson {
             stuck = new Alert("Orin camera " + n + " at 0 fps", Level.HIGH);
             slow = new Alert("", Level.MEDIUM);
             decode = new Alert("Orin camera " + n + " has JPEG decode failures", Level.MEDIUM);
-            recovered = new Alert("", Level.MEDIUM);
+            recovered =
+                    new Alert(
+                            "Orin camera "
+                                    + n
+                                    + " was reset this match (out ~3-10 s): check its cable",
+                            Level.MEDIUM);
             stale =
                     new Alert(
                             "Orin camera "
@@ -223,6 +230,7 @@ public class Jetson {
         updateRewind(now, enabled);
 
         if (enabled && !wasEnabled) {
+            rebooted.set(false);
             overCurrentAtEnable = inputs.overCurrentEvents;
             for (CameraCheck c : checks) {
                 c.recoveriesAtEnable = c.camera.source().getCameraInputs().healthRecoveries;
@@ -254,20 +262,7 @@ public class Jetson {
             lastEnabledSeconds = now;
         }
         if (RobotState.isFMSAttached()) {
-            String type =
-                    switch (MatchState.getMatchType()) {
-                        case PRACTICE -> "P";
-                        case QUALIFICATION -> "Q";
-                        case ELIMINATION -> "E";
-                        default -> "M";
-                    };
-            String label =
-                    String.format(
-                            "%s-%s%d-r%d",
-                            MatchState.getEventName(),
-                            type,
-                            MatchState.getMatchNumber(),
-                            MatchState.getReplayNumber());
+            String label = rewindLabel();
             recordRequested = now - lastEnabledSeconds < REWIND_TAIL_SECONDS;
             io.setRewind(recordRequested, label);
             Logger.recordOutput(PREFIX + "Rewind/Label", label);
@@ -280,6 +275,39 @@ public class Jetson {
             recordRequested = manual;
         }
         Logger.recordOutput(PREFIX + "Rewind/RecordRequested", recordRequested);
+    }
+
+    private String cachedLabel = "";
+    private String cachedLabelKey = "";
+
+    /** {@code <event>-Q12-r0}, rebuilt only when the match changes. */
+    private String rewindLabel() {
+        var type = MatchState.getMatchType();
+        int number = MatchState.getMatchNumber();
+        int replay = MatchState.getReplayNumber();
+        String event = MatchState.getEventName();
+        String key = event + type + number + ":" + replay;
+        if (!key.equals(cachedLabelKey)) {
+            cachedLabelKey = key;
+            String letter =
+                    switch (type) {
+                        case PRACTICE -> "P";
+                        case QUALIFICATION -> "Q";
+                        case ELIMINATION -> "E";
+                        default -> "M";
+                    };
+            cachedLabel = String.format("%s-%s%d-r%d", event, letter, number, replay);
+        }
+        return cachedLabel;
+    }
+
+    /** Sets an alert, building its text only while it is active (no per-loop strings). */
+    private static void show(
+            Alert alert, boolean active, java.util.function.Supplier<String> text) {
+        if (active) {
+            alert.setText(text.get());
+        }
+        alert.set(active);
     }
 
     private void updateJetsonAlerts(double now) {
@@ -295,26 +323,45 @@ public class Jetson {
         frc.spectrumLib.telemetry.Telemetry.logDash("Vision/Jetson/Connected", !down);
         boolean up = expectJetson && !down;
 
-        hot.setText(String.format("Jetson hot: %.0f C (throttles in the 80s)", inputs.tjTempC));
-        hot.set(up && inputs.tjTempC > MAX_TJ_TEMP_C);
-        fan.setText(String.format("Jetson fan stopped? %.0f rpm", inputs.fanRpm));
-        fan.set(up && inputs.fanRpm < MIN_FAN_RPM);
+        // Uptime dropping means the Jetson rebooted (power or watchdog); its own log survives power
+        // cuts, so look up why after the match. Stays up until the next enable.
+        if (!Double.isNaN(lastUptime) && inputs.uptimeSeconds < lastUptime - 1.0) {
+            rebooted.setText(
+                    String.format(
+                            "Jetson rebooted at robot time %.0f s: check its log and power", now));
+            rebooted.set(expectJetson);
+        }
+        if (!Double.isNaN(inputs.uptimeSeconds)) {
+            lastUptime = inputs.uptimeSeconds;
+        }
+
+        show(
+                hot,
+                up && inputs.tjTempC > MAX_TJ_TEMP_C,
+                () -> String.format("Jetson hot: %.0f C (throttles in the 80s)", inputs.tjTempC));
+        show(
+                fan,
+                up && inputs.fanRpm < MIN_FAN_RPM,
+                () -> String.format("Jetson fan stopped? %.0f rpm", inputs.fanRpm));
         jpeg.set(up && (inputs.jpegChecksDiffer > 0 || inputs.jpegHardwareOff));
         String t = inputs.throttle;
         boolean throttling =
                 t.contains("OVER-CURRENT") || t.contains("HIGH TEMP") || t.contains("CLOCK CAPPED");
-        throttle.setText("Jetson throttling: " + t);
-        throttle.set(up && throttling);
+        show(throttle, up && throttling, () -> "Jetson throttling: " + t);
         boolean overCurrentRose =
                 overCurrentAtEnable >= 0 && inputs.overCurrentEvents > overCurrentAtEnable;
-        overCurrent.setText(
-                String.format(
-                        "Jetson over-current events this match: %d (check its power wiring)",
-                        inputs.overCurrentEvents - Math.max(overCurrentAtEnable, 0)));
-        overCurrent.set(up && overCurrentRose);
-
-        rewindSpace.setText(String.format("Rewind SSD low: %.0f GB free", inputs.rewindFreeGB));
-        rewindSpace.set(up && inputs.rewindFreeGB < MIN_REWIND_FREE_GB);
+        show(
+                overCurrent,
+                up && overCurrentRose,
+                () ->
+                        String.format(
+                                "Jetson over-current events this match: %d (check its power"
+                                        + " wiring)",
+                                inputs.overCurrentEvents - Math.max(overCurrentAtEnable, 0)));
+        show(
+                rewindSpace,
+                up && inputs.rewindFreeGB < MIN_REWIND_FREE_GB,
+                () -> String.format("Rewind SSD low: %.0f GB free", inputs.rewindFreeGB));
         if (inputs.rewindFramesDropped > lastFramesDropped
                 && lastFramesDropped >= 0
                 && inputs.rewindRecording) {
@@ -345,11 +392,13 @@ public class Jetson {
                 in.connected && (Double.isNaN(lastResult) || now - lastResult > NO_FRAMES_SECONDS);
         c.noFrames.set(watch && noFrames);
         c.stuck.set(c.stuckDebounce.calculate(watch && in.connected && in.healthFps == 0));
-        c.slow.setText(
-                String.format("Orin camera %s slow: %.0f fps", c.camera.name(), in.healthFps));
-        c.slow.set(
+        show(
+                c.slow,
                 c.slowDebounce.calculate(
-                        watch && in.connected && in.healthFps > 0 && in.healthFps < MIN_FPS));
+                        watch && in.connected && in.healthFps > 0 && in.healthFps < MIN_FPS),
+                () ->
+                        String.format(
+                                "Orin camera %s slow: %.0f fps", c.camera.name(), in.healthFps));
 
         if (c.decodeBaseline < 0 && in.healthDecodeFailures >= 0) {
             c.decodeBaseline = in.healthDecodeFailures;
@@ -357,10 +406,6 @@ public class Jetson {
         c.decode.set(watch && c.decodeBaseline >= 0 && in.healthDecodeFailures > c.decodeBaseline);
 
         boolean recovered = c.recoveriesAtEnable >= 0 && in.healthRecoveries > c.recoveriesAtEnable;
-        c.recovered.setText(
-                "Orin camera "
-                        + c.camera.name()
-                        + " was reset this match (out ~3-10 s): check its cable");
         c.recovered.set(watch && recovered);
 
         double age = now - c.camera.source().getLastResultTimestampSeconds();
@@ -389,6 +434,9 @@ public class Jetson {
                 Math.abs(dPitch) > MOUNT_MAX_ANGLE_ERROR_DEG
                         || Math.abs(dRoll) > MOUNT_MAX_ANGLE_ERROR_DEG
                         || Math.abs(dHeight) > MOUNT_MAX_HEIGHT_ERROR_M;
+        if (!bumped) {
+            return false;
+        }
         c.mount.setText(
                 String.format(
                         "Orin camera %s mount differs from config: pitch %+.1f deg, roll %+.1f"

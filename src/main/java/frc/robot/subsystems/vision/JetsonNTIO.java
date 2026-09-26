@@ -18,6 +18,9 @@ import org.wpilib.networktables.StringSubscriber;
  * some as integer.
  */
 public class JetsonNTIO implements JetsonIO {
+    /** The Jetson's hostname, the last part of its metrics topic. */
+    private static final String METRICS_HOST = "photonvision-3847";
+
     /** 2026-01-01 UTC: before this the robot's clock has not been set by the Driver Station. */
     private static final long CLOCK_VALID_AFTER_MS = 1_767_225_600_000L;
 
@@ -47,6 +50,13 @@ public class JetsonNTIO implements JetsonIO {
     private final StringSubscriber session;
     private final GenericSubscriber freeGB;
     private final GenericSubscriber framesDropped;
+
+    /**
+     * PhotonVision's metrics protobuf. It builds the name as {@code getSubTable("/metrics")} under
+     * {@code /photonvision}, hence the double slash; the single-slash form is watched too in case
+     * that changes. CHECK the host part on the robot network.
+     */
+    private final GenericSubscriber[] metrics;
 
     private final BooleanPublisher record;
     private final StringPublisher label;
@@ -82,6 +92,13 @@ public class JetsonNTIO implements JetsonIO {
         framesDropped = number(rewind, "framesDropped");
         record = rewind.getBooleanTopic("record").publish();
         label = rewind.getStringTopic("label").publish();
+
+        NetworkTableInstance nt = NetworkTableInstance.getDefault();
+        metrics =
+                new GenericSubscriber[] {
+                    nt.getTopic("/photonvision//metrics/" + METRICS_HOST).genericSubscribe(),
+                    nt.getTopic("/photonvision/metrics/" + METRICS_HOST).genericSubscribe()
+                };
 
         clock = pv.getSubTable("clock").getIntegerTopic("unixMs").publish();
         excludedTags = pv.getIntegerArrayTopic("excludedTags").publish();
@@ -123,10 +140,33 @@ public class JetsonNTIO implements JetsonIO {
         inputs.overCurrentEvents = (long) read(overCurrentEvents, -1);
         inputs.settingsJson = settingsJson.get();
         inputs.excludedTagsActive = excludedTagsActive.get();
+        readMetrics(inputs);
         inputs.rewindRecording = recording.get();
         inputs.rewindSession = session.get();
         inputs.rewindFreeGB = read(freeGB, Double.NaN);
         inputs.rewindFramesDropped = (long) read(framesDropped, -1);
+    }
+
+    private long lastMetricsTime = 0;
+
+    /** Parses the newest metrics message, if one arrived since the last loop. */
+    private void readMetrics(JetsonInputs inputs) {
+        for (GenericSubscriber sub : metrics) {
+            NetworkTableValue v = sub.get();
+            if (!v.isRaw() || v.getTime() == lastMetricsTime) {
+                continue;
+            }
+            lastMetricsTime = v.getTime();
+            try {
+                var m = org.photonvision.proto.Photon.ProtobufDeviceMetrics.parseFrom(v.getRaw());
+                inputs.uptimeSeconds = m.getUptime();
+                inputs.cpuUtilPct = m.getCpuUtil();
+                inputs.ramUtilPct = m.getRamUtil();
+                inputs.diskUsableSpace = m.getDiskUsableSpace();
+            } catch (Exception e) {
+                // A malformed message: keep the last values.
+            }
+        }
     }
 
     @Override
@@ -135,10 +175,19 @@ public class JetsonNTIO implements JetsonIO {
         this.record.set(record);
     }
 
+    private long lastClockPublishMs = 0;
+
+    /**
+     * At 1 Hz: the value changes every millisecond, so NetworkTables would send every call, and the
+     * Jetson only needs it fresher than 5 s.
+     */
     @Override
     public void publishRobotClock() {
         long now = System.currentTimeMillis();
-        if (now > CLOCK_VALID_AFTER_MS && now < CLOCK_VALID_BEFORE_MS) {
+        if (now > CLOCK_VALID_AFTER_MS
+                && now < CLOCK_VALID_BEFORE_MS
+                && now - lastClockPublishMs >= 1000) {
+            lastClockPublishMs = now;
             clock.set(now);
         }
     }

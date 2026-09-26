@@ -61,7 +61,9 @@ public class DashboardReceiver implements LogDataReceiver {
         // this thread's work.
         for (Map.Entry<String, LogValue> e : table.getAll(false).entrySet()) {
             String key = e.getKey();
-            if (all || key.startsWith(METADATA) || Telemetry.isDashboardTableKey(key)) {
+            // The Orin's raw results are most of the log's bytes; never mirror them to NT.
+            boolean mirror = all && !key.endsWith("/Results") && !key.contains("/Results/");
+            if (mirror || key.startsWith(METADATA) || Telemetry.isDashboardTableKey(key)) {
                 pending.put(key.substring(1), e.getValue()); // put() takes keys relative to "/"
             }
         }

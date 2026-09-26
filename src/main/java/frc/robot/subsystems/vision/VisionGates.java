@@ -103,9 +103,26 @@ public final class VisionGates {
                         (o, c) -> Math.abs(o.pose().getZ()) > MAX_Z_ERROR_METERS),
                 Gate.rejectIf(
                         "Stale Estimate Rejection",
-                        (o, c) ->
-                                c.nowSeconds() - o.timestampSeconds() > MAX_ESTIMATE_AGE_SECONDS));
+                        (o, c) -> c.nowSeconds() - o.timestampSeconds() > MAX_ESTIMATE_AGE_SECONDS),
+                ROBOT_TILT_GATE);
     }
+
+    /**
+     * Robot tilt (degrees, from the Pigeon) above which sources that assume a level robot are
+     * rejected: Limelight MegaTag2 and the Orin's gyro and tx/ty sources take only the yaw, so on a
+     * bump their camera is not where they think it is.
+     */
+    public static final double MAX_ROBOT_TILT_DEGREES = 5.0;
+
+    /** Rejects frames while the robot is tilted, for sources that assume it is level. */
+    public static final Gate ROBOT_TILT_GATE =
+            Gate.rejectIf(
+                    "Robot Tilted Rejection",
+                    (o, c) ->
+                            (o.kind() == Kind.LIMELIGHT_MT2
+                                            || o.kind() == Kind.PHOTON_GYRO
+                                            || o.kind() == Kind.PHOTON_TXTY)
+                                    && c.robotTiltDegrees() > MAX_ROBOT_TILT_DEGREES);
 
     // ── Orin (Jetson + PhotonVision) extra gates, issue #10 section 8b ─────────
 
@@ -172,6 +189,38 @@ public final class VisionGates {
                                                                 .minus(c.fusedPose().getRotation())
                                                                 .getDegrees())
                                                 > ORIN_MAX_HEADING_ERROR_DEG));
+        gates.add(
+                Gate.rejectIf(
+                        "Auto Start Rejection",
+                        (o, c) ->
+                                secondsSinceAutoStart.getAsDouble()
+                                        < ORIN_AUTO_START_IGNORE_SECONDS));
+        return List.copyOf(gates);
+    }
+
+    /**
+     * Gates for the Orin's gyro-based sources ({@link OrinGyroSourceIO}): the shared AprilTag
+     * gates, the z range, single-tag distance and start-of-auto gates. No ambiguity or heading
+     * gate: the heading is the robot's own.
+     *
+     * @param secondsSinceAutoStart seconds since auto started, or infinity outside auto
+     */
+    public static List<Gate> orinGyroGates(
+            java.util.function.DoubleSupplier secondsSinceAutoStart) {
+        List<Gate> gates = new java.util.ArrayList<>(aprilTagGates());
+        gates.add(
+                Gate.rejectIf(
+                        "Z Range Rejection",
+                        (o, c) ->
+                                o.pose().getZ() < ORIN_MIN_Z_METERS
+                                        || o.pose().getZ() > ORIN_MAX_Z_METERS));
+        gates.add(
+                Gate.rejectIf(
+                        "Single-Tag Distance Rejection",
+                        (o, c) ->
+                                o.tagCount() == 1
+                                        && o.avgTagDistanceMeters()
+                                                > ORIN_MAX_SINGLE_TAG_DISTANCE_METERS));
         gates.add(
                 Gate.rejectIf(
                         "Auto Start Rejection",

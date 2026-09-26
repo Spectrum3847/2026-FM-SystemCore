@@ -22,7 +22,7 @@ public class OrinPoseSourceIO implements PoseSourceIO {
     private final String logPrefix;
     private final OrinCameraIO io;
     @Getter private final OrinCameraInputs cameraInputs = new OrinCameraInputs();
-    private final OrinSolver solver;
+    @Getter private final OrinSolver solver;
     private final Supplier<Set<Integer>> excludedTags;
     private final DoubleFunction<Rotation2d> headingAt;
 
@@ -76,7 +76,7 @@ public class OrinPoseSourceIO implements PoseSourceIO {
         Logger.processInputs(logPrefix, cameraInputs);
 
         double now = Timer.getTimestamp();
-        int n = cameraInputs.results.length;
+        int n = cameraInputs.resultCount;
         if (n > 0) {
             lastResultSeconds = now;
         }

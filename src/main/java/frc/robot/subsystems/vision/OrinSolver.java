@@ -55,6 +55,9 @@ public final class OrinSolver {
 
     public int excludedTargets;
 
+    /** The last {@link #solve} call's decoded results, oldest first, for sources built on them. */
+    public final List<PhotonPipelineResult> decoded = new ArrayList<>();
+
     /** Every fiducial id seen in the last {@link #solve} call's results. */
     public final java.util.BitSet seenTags = new java.util.BitSet();
 
@@ -79,6 +82,11 @@ public final class OrinSolver {
         this.cameraFactor = cameraFactor;
         this.imageWidth = imageWidth;
         this.imageHeight = imageHeight;
+    }
+
+    /** This camera's std-dev factor. */
+    public double cameraFactor() {
+        return cameraFactor;
     }
 
     /** Decodes one logged result, or empty if the bytes are bad (PhotonVision #2528). */
@@ -108,13 +116,15 @@ public final class OrinSolver {
         decodeFailures = 0;
         excludedTargets = 0;
         seenTags.clear();
+        decoded.clear();
         List<PoseObservation> out = new ArrayList<>();
         for (byte[] bytes : inputs.results) {
-            Optional<PhotonPipelineResult> decoded = decode(bytes);
-            if (decoded.isEmpty()) {
+            Optional<PhotonPipelineResult> maybe = decode(bytes);
+            if (maybe.isEmpty()) {
                 continue;
             }
-            PhotonPipelineResult result = decoded.get();
+            PhotonPipelineResult result = maybe.get();
+            decoded.add(result);
             for (PhotonTrackedTarget t : result.getTargets()) {
                 if (t.fiducialId >= 0) {
                     seenTags.set(t.fiducialId);
@@ -229,7 +239,7 @@ public final class OrinSolver {
      * closest corner reaches an edge. Near the edge lens distortion is strongest, the calibration
      * has the least data, and tags are often cut off.
      */
-    double edgeScale(PhotonTrackedTarget t) {
+    public double edgeScale(PhotonTrackedTarget t) {
         List<TargetCorner> corners = t.getDetectedCorners();
         if (corners == null || corners.isEmpty()) {
             return 1.0;

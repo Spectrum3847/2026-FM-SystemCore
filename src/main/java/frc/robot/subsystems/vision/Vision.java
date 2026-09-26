@@ -257,6 +257,10 @@ public class Vision implements Subsystem {
     @Getter private final List<PoseSource> scMt1Sources = new ArrayList<>();
     @Getter private final List<PoseSource> scMt2Sources = new ArrayList<>();
     @Getter private final List<PoseSource> orinSources = new ArrayList<>();
+
+    /** Orin sources built on the main ones: gyro-held PnP and tx/ty (issue #10, 3 and 8c). */
+    @Getter private final List<PoseSource> orinGyroSources = new ArrayList<>();
+
     @Getter private Jetson jetson;
     private double autoStartSeconds = Double.NaN;
     @Getter private PoseSource questSource;
@@ -371,6 +375,27 @@ public class Vision implements Subsystem {
                             VisionGates.orinGates(this::secondsSinceAutoStart),
                             VisionGates.ORIN_MODEL,
                             false));
+            for (OrinGyroSourceIO.Mode mode : OrinGyroSourceIO.Mode.values()) {
+                orinGyroSources.add(
+                        new PoseSource(
+                                "Orin-"
+                                        + name
+                                        + (mode == OrinGyroSourceIO.Mode.TXTY ? "/TxTy" : "/Gyro"),
+                                new OrinGyroSourceIO(
+                                        mode,
+                                        name,
+                                        io,
+                                        mount,
+                                        tagLayout,
+                                        () ->
+                                                jetson == null
+                                                        ? java.util.Set.of()
+                                                        : jetson.getExcludedTags(),
+                                        this::orinFusedPoseAt),
+                                VisionGates.orinGyroGates(this::secondsSinceAutoStart),
+                                VisionGates.ORIN_MODEL,
+                                false));
+            }
         }
         jetson =
                 new Jetson(
@@ -400,6 +425,7 @@ public class Vision implements Subsystem {
         allSources.addAll(scMt1Sources);
         allSources.addAll(scMt2Sources);
         allSources.addAll(orinSources);
+        allSources.addAll(orinGyroSources); // after orinSources: they read this loop's results
         allSources.add(questSource);
         for (PoseSource s : allSources) {
             fusion.register(s);
@@ -493,6 +519,13 @@ public class Vision implements Subsystem {
     /** The fused heading at a capture time for the Orin solver, or null before it is seeded. */
     private Rotation2d orinHeadingAt(double timestampSeconds) {
         return poseHeadingSeeded ? headingAt(timestampSeconds) : null;
+    }
+
+    /** The fused pose at a capture time for the gyro-based Orin sources, or null before seeding. */
+    private Pose2d orinFusedPoseAt(double timestampSeconds) {
+        return poseHeadingSeeded
+                ? fusion.sampleAt(timestampSeconds).orElse(fusion.getPose())
+                : null;
     }
 
     /** Seconds since auto started, or infinity outside auto. From replayed robot state. */
@@ -602,7 +635,8 @@ public class Vision implements Subsystem {
                         swerve.getCurrentRobotChassisSpeeds(),
                         yawRates.peak(now, VisionGates.YAW_RATE_LOOKBACK_SECONDS),
                         disabled,
-                        poseHeadingSeeded);
+                        poseHeadingSeeded,
+                        swerve.getTilt().tiltDeg());
         for (PoseSource s : allSources) {
             s.process(context);
         }
@@ -632,6 +666,9 @@ public class Vision implements Subsystem {
             applyWithPolicy(s, llWindow && useMt2);
         }
         for (PoseSource s : orinSources) {
+            applyWithPolicy(s, !disabled);
+        }
+        for (PoseSource s : orinGyroSources) {
             applyWithPolicy(s, !disabled);
         }
         applyWithPolicy(questSource, !disabled);

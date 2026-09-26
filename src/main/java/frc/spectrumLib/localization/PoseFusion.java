@@ -190,6 +190,26 @@ public class PoseFusion {
             Rotation2d gyro,
             SwerveModulePosition[] positions,
             boolean includeShadows) {
+        addOdometry(timestampSeconds, gyro, positions, positions, includeShadows);
+    }
+
+    /**
+     * As {@link #addOdometry(double, Rotation2d, SwerveModulePosition[], boolean)}, with separate
+     * module positions for the odometry-only track: the fused pose and shadows can take adjusted
+     * (e.g. tilt-scaled) wheel travel while {@code OdometryPose} keeps the raw wheels and gyro.
+     *
+     * @param timestampSeconds sample time, {@code Timer.getTimestamp()} base
+     * @param gyro gyro yaw at the sample
+     * @param positions module positions for the fused pose and the shadows
+     * @param rawPositions module positions for the odometry-only track
+     * @param includeShadows whether the shadow tracks take this sample
+     */
+    public void addOdometry(
+            double timestampSeconds,
+            Rotation2d gyro,
+            SwerveModulePosition[] positions,
+            SwerveModulePosition[] rawPositions,
+            boolean includeShadows) {
         lastGyro = gyro;
         lastPositions = copy(positions);
         lastSampleTime = timestampSeconds;
@@ -200,7 +220,7 @@ public class PoseFusion {
             // as motion.
             haveOdometry = true;
             fused.resetPosition(gyro, positions, fused.getEstimatedPosition());
-            odometry.resetPosition(gyro, positions, odometry.getPose());
+            odometry.resetPosition(gyro, rawPositions, odometry.getPose());
             clearVisionHistory();
             for (SwerveDrivePoseEstimator shadow : shadows.values()) {
                 shadow.resetPosition(gyro, positions, shadow.getEstimatedPosition());
@@ -208,7 +228,7 @@ public class PoseFusion {
             return;
         }
         fused.updateWithTime(timestampSeconds, gyro, positions);
-        odometry.update(gyro, positions);
+        odometry.update(gyro, rawPositions);
         if (includeShadows) {
             for (SwerveDrivePoseEstimator shadow : shadows.values()) {
                 shadow.updateWithTime(timestampSeconds, gyro, positions);

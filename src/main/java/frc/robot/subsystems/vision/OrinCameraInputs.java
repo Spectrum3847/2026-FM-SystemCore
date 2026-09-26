@@ -31,6 +31,14 @@ public class OrinCameraInputs implements LoggableInputs {
     /** Serialized {@code PhotonPipelineResult}s, oldest first. */
     public byte[][] results = NO_RESULTS;
 
+    /**
+     * Results the camera sent this loop, including any not logged in {@link #results}: while the
+     * robot is disabled only the newest result with targets is kept, at 10 Hz, to keep the log
+     * small (the Orin feeds neither the pose nor the seed while disabled). Frame rate and the
+     * no-frames alert use this count.
+     */
+    public int resultCount = 0;
+
     /** Results PhotonLib failed to read this loop (PhotonVision #2528); they were dropped. */
     public int readFailures = 0;
 
@@ -70,6 +78,7 @@ public class OrinCameraInputs implements LoggableInputs {
     /** Clears the per-loop fields before a read. */
     public void clearResults() {
         results = NO_RESULTS;
+        resultCount = 0;
         readFailures = 0;
     }
 
@@ -79,6 +88,7 @@ public class OrinCameraInputs implements LoggableInputs {
         table.put("Enabled", enabled);
         table.put("PipelineIndex", pipelineIndex);
         table.put("Results", results);
+        table.put("ResultCount", resultCount);
         table.put("ReadFailures", readFailures);
         table.put("CameraMatrix", cameraMatrix);
         table.put("DistCoeffs", distCoeffs);
@@ -109,6 +119,8 @@ public class OrinCameraInputs implements LoggableInputs {
         enabled = table.get("Enabled", enabled);
         pipelineIndex = table.get("PipelineIndex", pipelineIndex);
         results = table.get("Results", NO_RESULTS);
+        // Logs from before ResultCount logged every result.
+        resultCount = table.get("ResultCount", results.length);
         readFailures = table.get("ReadFailures", 0);
         cameraMatrix = table.get("CameraMatrix", cameraMatrix);
         distCoeffs = table.get("DistCoeffs", distCoeffs);

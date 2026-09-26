@@ -36,6 +36,14 @@ public class JetsonInputs implements LoggableInputs {
     public long overCurrentEvents = -1;
     public String settingsJson = "";
 
+    // -- PhotonVision's metrics protobuf, /photonvision//metrics/<host> (section 7a) --
+    /** Seconds since the Jetson booted; a drop means it rebooted. */
+    public double uptimeSeconds = Double.NaN;
+
+    public double cpuUtilPct = Double.NaN;
+    public double ramUtilPct = Double.NaN;
+    public double diskUsableSpace = Double.NaN;
+
     // -- /photonvision/ --
     /** The Jetson's saved excluded tags plus the robot's ({@code excludedTagsActive}). */
     public long[] excludedTagsActive = NO_TAGS;
@@ -65,6 +73,10 @@ public class JetsonInputs implements LoggableInputs {
         table.put("Throttle", throttle);
         table.put("OverCurrentEvents", overCurrentEvents);
         table.put("SettingsJson", settingsJson);
+        table.put("UptimeSeconds", uptimeSeconds);
+        table.put("CpuUtilPct", cpuUtilPct);
+        table.put("RamUtilPct", ramUtilPct);
+        table.put("DiskUsableSpace", diskUsableSpace);
         table.put("ExcludedTagsActive", excludedTagsActive);
         table.put("Rewind/Recording", rewindRecording);
         table.put("Rewind/Session", rewindSession);
@@ -91,6 +103,10 @@ public class JetsonInputs implements LoggableInputs {
         throttle = table.get("Throttle", throttle);
         overCurrentEvents = table.get("OverCurrentEvents", overCurrentEvents);
         settingsJson = table.get("SettingsJson", settingsJson);
+        uptimeSeconds = table.get("UptimeSeconds", uptimeSeconds);
+        cpuUtilPct = table.get("CpuUtilPct", cpuUtilPct);
+        ramUtilPct = table.get("RamUtilPct", ramUtilPct);
+        diskUsableSpace = table.get("DiskUsableSpace", diskUsableSpace);
         excludedTagsActive = table.get("ExcludedTagsActive", excludedTagsActive);
         rewindRecording = table.get("Rewind/Recording", rewindRecording);
         rewindSession = table.get("Rewind/Session", rewindSession);

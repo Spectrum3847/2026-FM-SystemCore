@@ -224,6 +224,17 @@ layout is now **2026 Rebuilt AndyMark**, to match the Jetson. It must also match
 - A bad PhotonLib packet is counted and dropped (`DecodeFailures`), so it can't stop the loop
   (section 10b).
 
+**Two more estimates per camera**, logged and shadowed, not fused. Both are built from the same
+logged results, so they replay too, and both need the pose seeded first:
+- **`Orin-<camera>/Gyro`** (#10 section 3) solves on the robot with the heading held to the gyro at the frame's
+  timestamp. With 2+ tags it uses PhotonLib's constrained SolvePnP, seeded from the fused pose. With
+  one tag, or if the constrained solve lands more than 1 m from its seed, it uses the distance-trig
+  solve instead. It runs on the newest frame per camera only. `Vision/Orin/<camera>/GYRO_PNP/SolveMicros` is the
+  time to watch on the SystemCore. PhotonLib's native solver is loaded explicitly, so it also works in replay.
+- **`Orin-<camera>/TxTy`** (#10 section 8c, 6328's final-alignment estimate) takes the closest tag's angles and
+  solved distance, plus the gyro heading, and gives the robot's position.
+- In the sim both come within 2–4 cm of the true pose, about the same as the main Orin source.
+
 **Dashboard controls** (NetworkTables, recorded by AdvantageKit):
 
 | Topic | What it does |
@@ -269,16 +280,54 @@ frame's result, a few Mbps for four cameras, and anything the Driver Station sub
 the field radio. Subscribe only to the topics you display. Don't open the camera streams
 (ports 1181+) or the PhotonVision UI (5800) from the DS during a match.
 
-**Not done yet** (issue #10): the gyro-held "MT2" Orin source (3), the final-alignment single-tag
-estimate (8c), tilt-scaled odometry (8g), a game-piece map (8e), and parsing PhotonVision's metrics
-protobuf (7a). The Jetson's `/photonvision/jetson/*` topics already cover its health, except
-uptime.
+**Jetson uptime** is read from PhotonVision's metrics protobuf (`/photonvision//metrics/photonvision-3847`;
+check the host name on the robot network). If uptime drops, the Jetson rebooted, and a "Jetson rebooted"
+warning stays up until the next enable.
+
+**Log size.** The raw Orin results are the biggest thing in the log:
+- With the robot enabled, every result is kept. A 5-minute session with four cameras at 122 fps is
+  about 160–330 MB, versus about 60 MB without the Orin.
+- With the robot disabled, only the newest result with targets is kept, at 10 Hz per camera.
+  `ResultCount` still records every frame, for the frame rate and the no-frames alert.
+- The unused min-area-rect corners are dropped before logging.
+- Use a USB stick at events: the internal-storage cap (2 GB) holds only about 6–12 such matches.
+- If the log writer ever falls behind, AdvantageKit drops that loop's data and prints a warning. It
+  never blocks the robot loop. Watch `Logger/QueuedCycles` on the robot.
+
+**Replay is exact up to floating-point noise.** A replayed run can drift by a centimetre or so from
+the original. Replay's first difference is in the last bit (about 1e-18) around seeding: Java's
+`Math.sin`/`cos` may round differently in interpreted and JIT-compiled code, and a threshold then
+amplifies it. Orin observations that don't depend on the fused pose replay bit-exact.
+
+**Not done yet** (issue #10): a game-piece map (8e).
 
 **To check on the robot:**
 - the Jetson topic names (AdvantageScope on `/photonvision`)
 - timestamps (spin in front of a tag and look for smear)
 - NetworkTables reconnects (Jetson booting first, robot reboot, cable pulls)
 - a multi-tag frame with an excluded tag in view
+
+## Tilt and knocks (Pigeon)
+
+The Pigeon's pitch, roll, pitch and roll rates, and 3-axis acceleration are logged inputs
+(`Swerve/Gyro*`, `Swerve/Accel*G`). [TiltState](src/main/java/frc/robot/subsystems/swerve/TiltState.java)
+derives the following, logged under `Swerve/Tilt/*`:
+- **`TiltDegrees`:** the angle from level, from pitch and roll.
+- **`TiltRateDegPerSec`**
+- **`ImpactG`:** how far the total acceleration is from 1 g. It stays near 0 whether the robot is still, tilted or driving smoothly, and spikes on a collision or a bump landing.
+- **`BumpedRecently`:** an impact above 0.5 g in the last 0.5 s.
+- **`Tilted`:** above 5°.
+
+How they're used:
+- **Odometry** (#10 section 8g, 6328): wheel travel is scaled by `OdometryScale`. The scale is 1 up to 2° of tilt,
+  falls linearly to 0 at 25°, and is switched at `/Localization/TiltScaledOdometry` (on by default). On a bump the
+  wheels slip, lift or climb, so they overstate travel across the floor. `Localization/OdometryPose` is never
+  scaled, so replay can compare the two.
+- **Vision:** "Robot Tilted Rejection" drops Limelight MegaTag2 and the Orin gyro and tx/ty frames while the
+  robot is tilted more than 5°. Those take only the robot's yaw, so on a bump the camera isn't where they think.
+  Full 3-D solves (MegaTag1, the Orin's main source) are unaffected.
+- **Shooting:** `Swerve.isTilted()` and `Swerve.wasBumpedRecently()` are available to the shot readiness gate,
+  but are not wired in yet. That's a driver-feel decision to make with logs.
 
 ## Shooting
 

@@ -92,9 +92,17 @@ public class PhotonOrinIO implements OrinCameraIO {
         return dflt;
     }
 
+    /** While disabled, at most one result is logged per this long (seconds). */
+    private static final double DISABLED_RESULT_PERIOD = 0.1;
+
+    private double lastDisabledResultSeconds = Double.NEGATIVE_INFINITY;
+    private double lastSlowReadSeconds = Double.NEGATIVE_INFINITY;
+    private double lastCalibrationTrySeconds = Double.NEGATIVE_INFINITY;
+
     @Override
     public void updateInputs(OrinCameraInputs inputs) {
         inputs.clearResults();
+        double now = org.wpilib.system.Timer.getTimestamp();
         inputs.connected = camera.isConnected();
         inputs.enabled = camera.getEnabled();
         inputs.pipelineIndex = camera.getPipelineIndex();
@@ -109,10 +117,19 @@ public class PhotonOrinIO implements OrinCameraIO {
             unread = List.of();
             inputs.readFailures++;
         }
+        inputs.resultCount = unread.size();
+        if (org.wpilib.driverstation.RobotState.isDisabled()) {
+            unread = newestWithTargets(unread, now);
+        }
         byte[][] out = new byte[unread.size()][];
         int n = 0;
         for (PhotonPipelineResult r : unread) {
             try {
+                // The solver uses the detected corners only; the min-area-rect corners are about a
+                // fifth of each result's bytes.
+                for (var t : r.targets) {
+                    t.minAreaRectCorners = List.of();
+                }
                 packet.clear();
                 PhotonPipelineResult.photonStruct.pack(packet, r);
                 out[n++] = packet.getWrittenDataCopy();
@@ -122,12 +139,19 @@ public class PhotonOrinIO implements OrinCameraIO {
         }
         inputs.results = n == out.length ? out : java.util.Arrays.copyOf(out, n);
 
-        if (inputs.cameraMatrix.length == 0) {
+        if ((inputs.cameraMatrix.length == 0 || inputs.distCoeffs.length == 0)
+                && now - lastCalibrationTrySeconds >= 1.0) {
+            lastCalibrationTrySeconds = now;
             camera.getCameraMatrix().ifPresent(m -> inputs.cameraMatrix = m.getData());
-        }
-        if (inputs.distCoeffs.length == 0) {
             camera.getDistCoeffs().ifPresent(m -> inputs.distCoeffs = m.getData());
         }
+
+        // The Jetson publishes health once a second and the mount estimate every 0.5 s: 10 Hz
+        // reads catch every update without ~18 NetworkTables calls per camera every loop.
+        if (now - lastSlowReadSeconds < 0.1) {
+            return;
+        }
+        lastSlowReadSeconds = now;
 
         inputs.healthFps = read(fps, Double.NaN);
         inputs.healthPipelineMs = read(pipelineMs, Double.NaN);
@@ -150,6 +174,24 @@ public class PhotonOrinIO implements OrinCameraIO {
         inputs.mountSamples = (long) read(samples, 0);
 
         inputs.settingsJson = settingsJson.get();
+    }
+
+    /**
+     * While disabled: the newest result with targets, at most every {@link
+     * #DISABLED_RESULT_PERIOD}.
+     */
+    private List<PhotonPipelineResult> newestWithTargets(
+            List<PhotonPipelineResult> unread, double now) {
+        if (now - lastDisabledResultSeconds < DISABLED_RESULT_PERIOD) {
+            return List.of();
+        }
+        for (int i = unread.size() - 1; i >= 0; i--) {
+            if (unread.get(i).hasTargets()) {
+                lastDisabledResultSeconds = now;
+                return List.of(unread.get(i));
+            }
+        }
+        return List.of();
     }
 
     @Override

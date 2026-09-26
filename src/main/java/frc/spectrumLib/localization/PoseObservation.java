@@ -71,7 +71,11 @@ public record PoseObservation(
         /** PhotonVision multi-tag (or lowest-ambiguity single-tag) solve. */
         PHOTON,
         /** Meta Quest inside-out tracking via QuestNav. */
-        QUESTNAV
+        QUESTNAV,
+        /** PhotonVision tags solved on the robot with the heading held to the gyro. */
+        PHOTON_GYRO,
+        /** One tag's angles and distance plus the gyro heading (6328's tx/ty estimate). */
+        PHOTON_TXTY
     }
 
     /** The pose flattened to the field plane. */

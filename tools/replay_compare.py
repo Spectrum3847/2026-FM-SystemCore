@@ -57,6 +57,10 @@ def distance(a, b):
         return math.hypot(a[0] - b[0], a[1] - b[1])
     if isinstance(a, tuple) and isinstance(b, tuple) and len(a) == len(b) == 7:
         return math.dist(a[:3], b[:3])
+    if isinstance(a, float) and isinstance(b, float) and math.isnan(a) and math.isnan(b):
+        return 0.0
+    if isinstance(a, tuple) and isinstance(b, tuple) and len(a) == len(b):
+        return max((distance(x, y) for x, y in zip(a, b)), default=0.0)
     return 0.0 if a == b else 1.0
 
 

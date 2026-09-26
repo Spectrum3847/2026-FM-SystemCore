@@ -189,7 +189,8 @@ public class Robot extends SpectrumRobot {
                                 () -> {
                                     var status =
                                             new java.util.LinkedHashMap<String, CANBusStatus>();
-                                    canBuses.forEach((label, bus) -> status.put(label, bus.getStatus()));
+                                    canBuses.forEach(
+                                            (label, bus) -> status.put(label, bus.getStatus()));
                                     return status;
                                 });
             }
@@ -615,9 +616,9 @@ public class Robot extends SpectrumRobot {
     private double lastCanStatusSeconds = Double.NEGATIVE_INFINITY;
 
     /**
-     * Every bus's status by log label, read once a second on {@link BackgroundSampler}'s thread: {@code
-     * getStatus()} can block for up to a millisecond, which on the real-time main thread is a late
-     * loop. Null off the robot.
+     * Every bus's status by log label, read once a second on {@link BackgroundSampler}'s thread:
+     * {@code getStatus()} can block for up to a millisecond, which on the real-time main thread is
+     * a late loop. Null off the robot.
      */
     private static BackgroundSampler.Latest<java.util.Map<String, CANBusStatus>> canStatus;
 

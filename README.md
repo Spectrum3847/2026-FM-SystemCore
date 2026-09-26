@@ -298,9 +298,9 @@ Operator (port 1):
 | D-pad left / right | Aim trim +/- 1 deg |
 | A / B, disabled | Coast / brake |
 
-Release order on the chords: let go of the face button first (or both together). Letting go of LB
-first with X or A still held starts track target or unjam for the rest of the press, as on the
-offseason bot.
+Press and release order on the chords does not matter: the state follows what is held now
+(`FaceChord`). LB pressed while X or A is held goes to that set shot; LB let go with X or A still
+held goes back to track target or unjam, as on the offseason bot; everything let go is IDLE.
 
 ## Loop rate, logging and the dashboard
 

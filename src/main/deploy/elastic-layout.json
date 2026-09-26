@@ -1319,14 +1319,14 @@
             }
           },
           {
-            "title": "orin-front",
+            "title": "Orin-TopLeft",
             "x": 512,
             "y": 512,
             "width": 256,
             "height": 128,
             "type": "Toggle Switch",
             "properties": {
-              "topic": "/Localization/Sources/orin-front/Enabled",
+              "topic": "/Localization/Sources/Orin-TopLeft/Enabled",
               "period": 0.1,
               "data_type": "boolean"
             }
@@ -1339,21 +1339,21 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/orin-front/LastVerdict",
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/Orin-TopLeft/LastVerdict",
               "period": 0.1,
               "data_type": "string",
               "show_submit_button": false
             }
           },
           {
-            "title": "orin-left",
+            "title": "Orin-TopRight",
             "x": 512,
             "y": 640,
             "width": 256,
             "height": 128,
             "type": "Toggle Switch",
             "properties": {
-              "topic": "/Localization/Sources/orin-left/Enabled",
+              "topic": "/Localization/Sources/Orin-TopRight/Enabled",
               "period": 0.1,
               "data_type": "boolean"
             }
@@ -1366,34 +1366,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/orin-left/LastVerdict",
-              "period": 0.1,
-              "data_type": "string",
-              "show_submit_button": false
-            }
-          },
-          {
-            "title": "orin-right",
-            "x": 1024,
-            "y": 0,
-            "width": 256,
-            "height": 128,
-            "type": "Toggle Switch",
-            "properties": {
-              "topic": "/Localization/Sources/orin-right/Enabled",
-              "period": 0.1,
-              "data_type": "boolean"
-            }
-          },
-          {
-            "title": "last verdict",
-            "x": 1280,
-            "y": 0,
-            "width": 256,
-            "height": 128,
-            "type": "Text Display",
-            "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/orin-right/LastVerdict",
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/Orin-TopRight/LastVerdict",
               "period": 0.1,
               "data_type": "string",
               "show_submit_button": false
@@ -1402,7 +1375,7 @@
           {
             "title": "Quest",
             "x": 1024,
-            "y": 128,
+            "y": 0,
             "width": 256,
             "height": 128,
             "type": "Toggle Switch",
@@ -1415,7 +1388,7 @@
           {
             "title": "last verdict",
             "x": 1280,
-            "y": 128,
+            "y": 0,
             "width": 256,
             "height": 128,
             "type": "Text Display",
@@ -1444,14 +1417,14 @@
             }
           },
           {
-            "title": "Orin front",
+            "title": "Orin TopLeft",
             "x": 1280,
             "y": 256,
             "width": 256,
             "height": 128,
             "type": "Boolean Box",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Vision/orin-front/Connected",
+              "topic": "/AdvantageKit/RealOutputs/Vision/Orin-TopLeft/Connected",
               "period": 0.1,
               "data_type": "boolean",
               "true_color": 4283215696,
@@ -1461,14 +1434,14 @@
             }
           },
           {
-            "title": "Orin left",
+            "title": "Orin TopRight",
             "x": 1024,
             "y": 384,
             "width": 256,
             "height": 128,
             "type": "Boolean Box",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Vision/orin-left/Connected",
+              "topic": "/AdvantageKit/RealOutputs/Vision/Orin-TopRight/Connected",
               "period": 0.1,
               "data_type": "boolean",
               "true_color": 4283215696,
@@ -1478,14 +1451,14 @@
             }
           },
           {
-            "title": "Orin right",
+            "title": "Jetson",
             "x": 1280,
             "y": 384,
             "width": 256,
             "height": 128,
             "type": "Boolean Box",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Vision/orin-right/Connected",
+              "topic": "/AdvantageKit/RealOutputs/Vision/Jetson/Connected",
               "period": 0.1,
               "data_type": "boolean",
               "true_color": 4283215696,

@@ -35,8 +35,8 @@ import org.wpilib.vision.apriltag.AprilTagFieldLayout;
  * <p>One PhotonLib vision system holds every AprilTag camera on the robot -- the Limelights as well
  * as the Orin's cameras -- each with its own mount and camera properties, all looking at the 2026
  * field from the simulated <em>truth</em> pose (see {@code Swerve.SimErrors}). The Orin cameras are
- * read exactly as on the robot, by {@link PhotonIO} over NetworkTables. The Limelights are read by
- * {@link LimelightSimIO}, which turns the same PhotonLib results into what a Limelight reports:
+ * read exactly as on the robot, by {@link PhotonOrinIO} over NetworkTables. The Limelights are read
+ * by {@link LimelightSimIO}, which turns the same PhotonLib results into what a Limelight reports:
  *
  * <ul>
  *   <li><b>MegaTag1</b> -- the multi-tag (or single-tag) solve, heading included.

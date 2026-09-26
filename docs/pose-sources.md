@@ -117,7 +117,7 @@ frame; shadow error is the mean over the run.
 | LL-Right/MT1 | 1864 | 1351 | 0.001 | 0.006 | Criteria not Met, High Ambiguity, Rotation Speed |
 | LL-Right/MT2 | 1864 | 1568 | 0.010 | 0.018 | High Ambiguity, Rotation Speed, Target Size |
 | Quest | 2985 | 2819 | 0.101 | 0.082 | Not Reset, Recent Reset |
-| orin-front | 2607 | 2425 | 0.004 | 0.010 | Rotation Speed, Out of Field |
+| orin-front (now Orin-TopLeft) | 2607 | 2425 | 0.004 | 0.010 | Rotation Speed, Out of Field |
 | orin-left | 1127 | 1016 | 0.020 | 0.009 | Rotation Speed |
 | orin-right | 2538 | 2431 | 0.001 | 0.008 | Rotation Speed |
 

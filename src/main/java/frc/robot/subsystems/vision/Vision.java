@@ -134,23 +134,58 @@ public class Vision implements Subsystem {
         /** Table the SystemCore vision stack reads robot orientation from, for MegaTag2. */
         @Getter final String systemCoreSharedTable = "limelightshared";
 
-        // -- Orin / PhotonVision (CALIBRATE: placeholders until mounted) --------
+        // -- Orin / PhotonVision on the Jetson (issue #10) ------------------------
 
-        /** Camera names in the PhotonVision UI, and their mounts (x fwd, y left, z up). */
-        @Getter final String[] orinCameraNames = {"orin-front", "orin-left", "orin-right"};
+        /**
+         * Camera names in PhotonVision. The Jetson names each camera after the USB port it is
+         * plugged into: TopLeft = 2.1, TopRight = 2.3, BottomLeft = 2.2, BottomRight = 2.4.
+         */
+        @Getter
+        final String[] orinCameraNames = {"TopLeft", "TopRight", "BottomLeft", "BottomRight"};
 
+        /**
+         * Which cameras are plugged in. Only these raise camera alerts; the others still run, so
+         * plugging one in needs no code change beyond this flag.
+         */
+        @Getter final boolean[] orinCameraInstalled = {true, true, false, false};
+
+        /**
+         * Camera mounts, robot frame (x fwd, y left, z up; negative pitch tilts up). CALIBRATE:
+         * placeholders. Height, pitch and roll can be read off the Jetson's mount estimate ({@code
+         * Vision/Orin/<camera>/Mount/*}) with the robot on the field and 2+ tags in view.
+         */
         @Getter
         final Transform3d[] orinRobotToCamera = {
             new Transform3d(
-                    new Translation3d(0.30, 0.0, 0.25),
-                    new Rotation3d(0, Units.degreesToRadians(-15), 0)),
+                    new Translation3d(0.30, 0.15, 0.25),
+                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(20))),
             new Transform3d(
-                    new Translation3d(0.0, 0.30, 0.25),
-                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(90))),
+                    new Translation3d(0.30, -0.15, 0.25),
+                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(-20))),
             new Transform3d(
-                    new Translation3d(0.0, -0.30, 0.25),
-                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(-90)))
+                    new Translation3d(-0.30, 0.15, 0.25),
+                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(160))),
+            new Transform3d(
+                    new Translation3d(-0.30, -0.15, 0.25),
+                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(-160)))
         };
+
+        /** Per-camera std-dev multiplier (6328's camera factor); 1 until logs say otherwise. */
+        @Getter final double[] orinCameraFactors = {1.0, 1.0, 1.0, 1.0};
+
+        /** The Jetson's image size, for the image-edge std-dev scaling. */
+        @Getter final int orinImageWidth = 1280;
+
+        @Getter final int orinImageHeight = 800;
+
+        /**
+         * Tags every Orin camera should ignore at this event (a tag mounted wrong), until changed
+         * on the dashboard at {@code /Vision/Orin/ExcludedTags}.
+         */
+        @Getter final int[] orinExcludedTags = {};
+
+        /** Whether the Jetson is on the robot; its alerts are off without it. */
+        @Getter final boolean jetsonInstalled = true;
 
         // -- QuestNav (CALIBRATE: placeholder until mounted) --------------------
 
@@ -222,6 +257,8 @@ public class Vision implements Subsystem {
     @Getter private final List<PoseSource> scMt1Sources = new ArrayList<>();
     @Getter private final List<PoseSource> scMt2Sources = new ArrayList<>();
     @Getter private final List<PoseSource> orinSources = new ArrayList<>();
+    @Getter private Jetson jetson;
+    private double autoStartSeconds = Double.NaN;
     @Getter private PoseSource questSource;
     @Getter private final List<PoseSource> allSources = new ArrayList<>();
 
@@ -280,7 +317,8 @@ public class Vision implements Subsystem {
         this.config = config;
         this.swerve = swerve;
         this.fusion = swerve.getPoseFusion();
-        tagLayout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded);
+        // Must match the Jetson's layout (2026 Rebuilt AndyMark) and the event field (#10, sec. 5).
+        tagLayout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltAndymark);
 
         boolean sim = Constants.currentMode == Constants.Mode.SIM;
         boolean replay = Constants.currentMode == Constants.Mode.REPLAY;
@@ -298,27 +336,48 @@ public class Vision implements Subsystem {
             addLimelight(llConfig, false, scMt1Sources, scMt2Sources, sim, replay);
         }
 
-        // Orin cameras.
+        // Orin cameras. The source is derived: in replay the camera IO is NONE and the logged raw
+        // results are solved again.
+        List<Jetson.Camera> jetsonCameras = new ArrayList<>();
         for (int i = 0; i < config.orinCameraNames.length; i++) {
             String name = config.orinCameraNames[i];
             Transform3d mount = config.orinRobotToCamera[i];
-            PoseSourceIO io;
+            OrinCameraIO cameraIo;
             if (replay) {
-                io = PoseSourceIO.NONE;
+                cameraIo = OrinCameraIO.NONE;
             } else {
                 if (sim) {
                     simVision.addCamera(name, SimVision.thriftiestCam(), mount);
                 }
-                io = new PhotonIO(name, mount, tagLayout);
+                cameraIo = new PhotonOrinIO(name);
             }
+            OrinPoseSourceIO io =
+                    new OrinPoseSourceIO(
+                            name,
+                            cameraIo,
+                            new OrinSolver(
+                                    mount,
+                                    tagLayout,
+                                    config.orinCameraFactors[i],
+                                    config.orinImageWidth,
+                                    config.orinImageHeight),
+                            () -> jetson == null ? java.util.Set.of() : jetson.getExcludedTags(),
+                            this::orinHeadingAt);
+            jetsonCameras.add(new Jetson.Camera(name, io, mount, config.orinCameraInstalled[i]));
             orinSources.add(
                     new PoseSource(
-                            shortName(name),
+                            "Orin-" + name,
                             io,
-                            VisionGates.aprilTagGates(),
-                            VisionGates.PHOTON_MODEL,
+                            VisionGates.orinGates(this::secondsSinceAutoStart),
+                            VisionGates.ORIN_MODEL,
                             false));
         }
+        jetson =
+                new Jetson(
+                        replay ? JetsonIO.NONE : new JetsonNTIO(),
+                        jetsonCameras,
+                        config.orinExcludedTags,
+                        config.jetsonInstalled && Constants.hasHardware() && !sim);
 
         // QuestNav.
         PoseSourceIO questIo;
@@ -351,9 +410,7 @@ public class Vision implements Subsystem {
         for (int i = 0; i < scMt1Sources.size(); i++) {
             addCameraAlert(List.of(scMt1Sources.get(i), scMt2Sources.get(i)), false);
         }
-        for (PoseSource s : orinSources) {
-            addCameraAlert(List.of(s), false);
-        }
+        // (The Orin cameras' alerts are in Jetson.)
         addCameraAlert(List.of(questSource), false);
 
         if (!replay) {
@@ -433,6 +490,18 @@ public class Vision implements Subsystem {
         return config.getName();
     }
 
+    /** The fused heading at a capture time for the Orin solver, or null before it is seeded. */
+    private Rotation2d orinHeadingAt(double timestampSeconds) {
+        return poseHeadingSeeded ? headingAt(timestampSeconds) : null;
+    }
+
+    /** Seconds since auto started, or infinity outside auto. From replayed robot state. */
+    private double secondsSinceAutoStart() {
+        return Double.isNaN(autoStartSeconds)
+                ? Double.POSITIVE_INFINITY
+                : Timer.getTimestamp() - autoStartSeconds;
+    }
+
     /** The fused heading at a capture time: what a Limelight was told the robot's yaw was. */
     private Rotation2d headingAt(double timestampSeconds) {
         return fusion.sampleAt(timestampSeconds).orElse(fusion.getPose()).getRotation();
@@ -510,7 +579,15 @@ public class Vision implements Subsystem {
             ll.invalidate();
         }
 
-        // 1. Read every device.
+        boolean auto = Util.autoMode.getAsBoolean() && !disabled;
+        if (auto && Double.isNaN(autoStartSeconds)) {
+            autoStartSeconds = now;
+        } else if (!auto) {
+            autoStartSeconds = Double.NaN;
+        }
+
+        // 1. Read every device (the Jetson first: the Orin solves use its excluded-tag list).
+        jetson.updateInputs();
         for (PoseSource s : allSources) {
             s.update();
         }
@@ -569,6 +646,8 @@ public class Vision implements Subsystem {
         }
         pushHeadingToLimelights();
         resetQuestAfterSeed();
+        jetson.periodic(
+                context.linearSpeed() < 0.05 && Math.abs(context.robotVelocity().omega) < 0.05);
 
         logStatus(disabled, useMt2);
         swerve.afterVision();

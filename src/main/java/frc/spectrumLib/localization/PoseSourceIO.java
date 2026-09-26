@@ -18,4 +18,13 @@ public interface PoseSourceIO {
      * @param inputs the inputs to overwrite
      */
     void updateInputs(PoseSourceInputs inputs);
+
+    /**
+     * Whether this IO computes its observations from inputs it logs itself, rather than reading a
+     * device. A derived IO runs in replay too (over its own replayed inputs), so {@link PoseSource}
+     * records its observations as outputs instead of restoring them from the log.
+     */
+    default boolean derived() {
+        return false;
+    }
 }

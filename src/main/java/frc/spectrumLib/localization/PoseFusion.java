@@ -47,6 +47,11 @@ public class PoseFusion {
     private final SwerveDriveOdometry odometry;
     private final Map<String, SwerveDrivePoseEstimator> shadows = new LinkedHashMap<>();
 
+    /** Vision goes into every estimator through these, so arrival order cannot drop a frame. */
+    private final OrderedVisionUpdates fusedVision;
+
+    private final Map<String, OrderedVisionUpdates> shadowVision = new LinkedHashMap<>();
+
     /** Per-source log keys, built once at registration (they were concatenated every loop). */
     private record Keys(
             String fusedThisLoop,
@@ -88,6 +93,7 @@ public class PoseFusion {
         this.lastGyro = gyro;
         this.lastPositions = copy(positions);
         this.fused = newEstimator(odometryStdDevs, Pose2d.kZero);
+        this.fusedVision = new OrderedVisionUpdates(fused);
         this.odometry = new SwerveDriveOdometry(kinematics, gyro, positions, Pose2d.kZero);
         this.odometryStdDevs = odometryStdDevs;
     }
@@ -141,8 +147,16 @@ public class PoseFusion {
                 n -> {
                     SwerveDrivePoseEstimator e = newEstimator(odometryStdDevs, getPose());
                     e.updateWithTime(lastSampleTime, lastGyro, lastPositions);
+                    shadowVision.put(n, new OrderedVisionUpdates(e));
                     return e;
                 });
+    }
+
+    private void clearVisionHistory() {
+        fusedVision.clear();
+        for (OrderedVisionUpdates v : shadowVision.values()) {
+            v.clear();
+        }
     }
 
     /**
@@ -187,6 +201,7 @@ public class PoseFusion {
             haveOdometry = true;
             fused.resetPosition(gyro, positions, fused.getEstimatedPosition());
             odometry.resetPosition(gyro, positions, odometry.getPose());
+            clearVisionHistory();
             for (SwerveDrivePoseEstimator shadow : shadows.values()) {
                 shadow.resetPosition(gyro, positions, shadow.getEstimatedPosition());
             }
@@ -242,9 +257,10 @@ public class PoseFusion {
                             r.stdDevs().xyMeters(),
                             r.stdDevs().xyMeters(),
                             r.stdDevs().thetaRadians());
-            shadowFor(name).addVisionMeasurement(measured, t, std);
+            shadowFor(name);
+            shadowVision.get(name).add(measured, t, std, lastSampleTime);
             if (fuse) {
-                fused.addVisionMeasurement(measured, t, std);
+                fusedVision.add(measured, t, std, lastSampleTime);
             }
         }
         if (k != null) {
@@ -267,9 +283,9 @@ public class PoseFusion {
      */
     public void seed(Pose2d pose, double timestampSeconds, double xyStd, double thetaStd) {
         var std = VecBuilder.fill(xyStd, xyStd, thetaStd);
-        fused.addVisionMeasurement(pose, timestampSeconds, std);
-        for (SwerveDrivePoseEstimator shadow : shadows.values()) {
-            shadow.addVisionMeasurement(pose, timestampSeconds, std);
+        fusedVision.add(pose, timestampSeconds, std, lastSampleTime);
+        for (OrderedVisionUpdates shadow : shadowVision.values()) {
+            shadow.add(pose, timestampSeconds, std, lastSampleTime);
         }
     }
 
@@ -281,6 +297,7 @@ public class PoseFusion {
     public void resetPose(Pose2d pose) {
         fused.resetPosition(lastGyro, lastPositions, pose);
         odometry.resetPosition(lastGyro, lastPositions, pose);
+        clearVisionHistory();
         for (SwerveDrivePoseEstimator shadow : shadows.values()) {
             shadow.resetPosition(lastGyro, lastPositions, pose);
         }
@@ -321,6 +338,7 @@ public class PoseFusion {
         Pose2d fusedPose = getPose();
         Logger.recordOutput(PREFIX + "FusedPose", fusedPose);
         Logger.recordOutput(PREFIX + "OdometryPose", getOdometryPose());
+        Logger.recordOutput(PREFIX + "OutOfOrderReapplied", fusedVision.reapplied());
         for (var e : shadows.entrySet()) {
             Keys k = keys.get(e.getKey());
             if (k == null) {

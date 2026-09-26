@@ -124,7 +124,9 @@ pre_match = [
     field(0, 1, 7, 3),
     chooser("Auto Chooser", "/SmartDashboard/Auto Chooser", 0, 4),
     chooser("Hub Model", "/SmartDashboard/Hub Model Chooser", 0, 5, 4),
-    big("Super State", out("SuperStructure/CurrentSuperState"), 4, 5, 3),
+    # Force Blue/Red when the DS reports the wrong (or no) alliance; Auto follows the DS. See
+    # AllianceSource. Super State, here before, is on the Match tab.
+    chooser("Alliance Override", "/SmartDashboard/Alliance Override", 4, 5, 3),
     alerts(7, 0, 4, 2),
     light("Pose Seed Confirmed", out("Vision/PoseSeedConfirmed"), 11, 0, 3),
     text("Start Pose Err (m)", out("Auton/StartPoseErrorMeters"), 11, 1, 2),
@@ -153,7 +155,8 @@ match = [
     match_time("Shift Time", out("Match Data/TimeLeftInShift"), 0, 3, 3, 2),
     battery(3, 3, 4),
     match_time("Match Time", out("Match Data/MatchTime"), 3, 4, 4, 1),
-    big("Super State", out("SuperStructure/CurrentSuperState"), 0, 5, 7),
+    big("Super State", out("SuperStructure/CurrentSuperState"), 0, 5, 4),
+    big("Alliance", out("Alliance/Display"), 4, 5, 3),
     alerts(7, 0, 4, 2),
     light("Pose Seed Confirmed", out("Vision/PoseSeedConfirmed"), 11, 0, 3),
     text("Vision Age (s)", out("Vision/SecondsSinceFusedEstimate"), 11, 1, 3),

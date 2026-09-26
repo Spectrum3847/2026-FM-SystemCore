@@ -49,6 +49,7 @@ import frc.spectrumLib.telemetry.LogStorage;
 import frc.spectrumLib.telemetry.SystemLoadMonitor;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.telemetry.Telemetry.PrintPriority;
+import frc.spectrumLib.util.AllianceSource;
 import frc.spectrumLib.util.BackgroundSampler;
 import frc.spectrumLib.util.CrashTracker;
 import frc.spectrumLib.util.Util;
@@ -68,7 +69,6 @@ import org.wpilib.command2.Command;
 import org.wpilib.command2.CommandScheduler;
 import org.wpilib.command2.Commands;
 import org.wpilib.driverstation.Alert.Level;
-import org.wpilib.driverstation.Alliance;
 import org.wpilib.driverstation.MatchState;
 import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.geometry.Pose2d;
@@ -194,6 +194,10 @@ public class Robot extends SpectrumRobot {
                                     return status;
                                 });
             }
+
+            // The Alliance Override chooser and alliance alerts: every alliance decision goes
+            // through AllianceSource.
+            AllianceSource.init();
 
             pilot = new Pilot(config.pilot);
             operator = new Operator(config.operator);
@@ -533,6 +537,7 @@ public class Robot extends SpectrumRobot {
         Telemetry.periodic();
         Alert.periodic();
         LogStorage.periodic();
+        AllianceSource.periodic();
         systemLoad.periodic();
 
         // Latched here rather than in the mode inits so every mode is covered by the same check.
@@ -720,8 +725,7 @@ public class Robot extends SpectrumRobot {
 
         // The alliance belongs in the reload key, not just the auto name: the red flip is applied
         // in the reload branch below.
-        String selectionKey =
-                fullAutoName + "|" + MatchState.getAlliance().map(Enum::name).orElse("NONE");
+        String selectionKey = fullAutoName + "|" + AllianceSource.get().name();
 
         if (fullAutoName.equals("Do Nothing")) {
             field2d.getObject("Auto Routine").setPoses(new ArrayList<>());
@@ -754,9 +758,10 @@ public class Robot extends SpectrumRobot {
                     Telemetry.print("Could not load path planner paths");
                 }
 
-                // Flip the paths if on red alliance
-                Optional<Alliance> alliance = MatchState.getAlliance();
-                if (alliance.isPresent() && alliance.get() == Alliance.RED) {
+                // Flip the paths if on red alliance: the same AllianceSource answer PathPlanner's
+                // shouldFlip gives (Swerve), so the preview and start pose match the auto that
+                // runs.
+                if (AllianceSource.isRed()) {
                     pathPlannerPaths =
                             pathPlannerPaths.stream()
                                     .map(PathPlannerPath::flipPath)

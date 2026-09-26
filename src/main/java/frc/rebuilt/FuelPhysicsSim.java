@@ -2413,6 +2413,15 @@ public class FuelPhysicsSim {
         return totalIntaked;
     }
 
+    /**
+     * Puts fuel in the robot's hopper without driving over it, for scripted shooting runs.
+     *
+     * @param count how much fuel the hopper should hold, capped at its size
+     */
+    public void setHopperCount(int count) {
+        totalIntaked = Math.max(0, Math.min(hopperSize, count));
+    }
+
     public double getLastLaunchSpeed() {
         return lastLaunchSpeed;
     }

@@ -540,14 +540,26 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                 setControl(idleRequest);
                 break;
             case PILOT_AIM_AT_TARGET:
+                // Teleop aiming and every auto launch (Auton.launch() runs LAUNCH_WITH_SQUEEZE,
+                // which lands here), so both get the feedforward.
                 var params = ShotCalculator.getInstance().getParameters();
                 ChassisVelocities joystick = calculateSpeedsBasedOnJoystickInputs();
                 aimTarget = params.driveAngle();
+                double aimFeedforward = AimFeedforward.of(params.driveAngularVelocity());
                 setControl(
                         driveAtAngleRequest
                                 .withVelocityX(joystick.vx)
                                 .withVelocityY(joystick.vy)
-                                .withTargetDirection(aimTarget));
+                                .withTargetDirection(aimTarget)
+                                .withTargetRateFeedforward(aimFeedforward));
+                Telemetry.log(
+                        "Swerve/Aim/TargetRateFeedforward",
+                        Units.radiansToDegrees(aimFeedforward),
+                        "deg/s");
+                Telemetry.log(
+                        "Swerve/Aim/HeadingErrorDeg",
+                        Units.radiansToDegrees(getAimHeadingErrorRadians()),
+                        "degrees");
                 break;
             case TELEOP_DRIVE:
                 setControl(fieldCentricDrive.withVelocity(calculateSpeedsBasedOnJoystickInputs()));
@@ -827,6 +839,24 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
 
     public void setWantedState(WantedState state) {
         this.wantedState = state;
+    }
+
+    /**
+     * Fused heading minus the heading the aim request is holding, wrapped to (-pi, pi]. Read from
+     * the fused pose, so it replays.
+     *
+     * @return the heading error in radians, or NaN when the drivetrain is not aiming
+     */
+    public double getAimHeadingErrorRadians() {
+        if (systemState != SystemState.PILOT_AIM_AT_TARGET) {
+            return Double.NaN;
+        }
+        return getRotation().minus(aimTarget).getRadians();
+    }
+
+    /** Whether the drivetrain is holding a heading on the shot solution this loop. */
+    public boolean isAiming() {
+        return systemState == SystemState.PILOT_AIM_AT_TARGET;
     }
 
     public boolean isAtDesiredRotation() {

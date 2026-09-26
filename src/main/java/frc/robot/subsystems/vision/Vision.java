@@ -774,11 +774,8 @@ public class Vision implements Subsystem {
         Telemetry.logDash("Vision/SeedConfirmProgress", (long) seedConfirmStreak);
         Telemetry.logDash("Vision/ChassisSource", useMt2 ? "MT2" : "MT1");
         Telemetry.logDash("Vision/GrossHeadingCorrections", (long) grossHeadingCorrections);
-        double sinceFused =
-                Double.isNaN(lastFusedSeconds)
-                        ? Double.POSITIVE_INFINITY
-                        : Timer.getTimestamp() - lastFusedSeconds;
-        Telemetry.logDash("Vision/SecondsSinceFusedEstimate", Math.min(sinceFused, 999.0));
+        Telemetry.logDash(
+                "Vision/SecondsSinceFusedEstimate", Math.min(secondsSinceFusedEstimate(), 999.0));
         if (Telemetry.slowLogThisLoop()) {
             // One connected light per camera for the Pre-Match tab.
             for (int i = 0; i < mt1Sources.size(); i++) {
@@ -811,6 +808,17 @@ public class Vision implements Subsystem {
     // =========================================================================
     // Queries & commands kept from 2026
     // =========================================================================
+
+    /**
+     * Seconds since a vision measurement last moved the fused pose; infinite before the first one.
+     * How long the pose has been running on odometry alone. From logged inputs and the replayed
+     * clock, so logic may read it.
+     */
+    public double secondsSinceFusedEstimate() {
+        return Double.isNaN(lastFusedSeconds)
+                ? Double.POSITIVE_INFINITY
+                : Timer.getTimestamp() - lastFusedSeconds;
+    }
 
     /** Whether any Limelight produced an accepted estimate this loop. */
     public boolean hasAccuratePose() {

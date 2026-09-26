@@ -43,17 +43,9 @@ public class RobotSim {
             new Mechanism2d(
                     Units.inchesToMeters(leftViewWidth), Units.inchesToMeters(leftViewHeight));
 
+    /** Fuel leaves the simulated robot while the shot gate is feeding, in any launch state. */
     public static Trigger simLaunching() {
-        return new Trigger(
-                () ->
-                        Utils.isSimulation()
-                                && (Robot.getSuperStructure().getCurrentSuperState()
-                                                == CurrentSuperState.LAUNCH_WITH_SQUEEZE
-                                        || Robot.getSuperStructure().getCurrentSuperState()
-                                                == CurrentSuperState.LAUNCH_WITHOUT_SQUEEZE
-                                        || Robot.getSuperStructure().getCurrentSuperState()
-                                                == CurrentSuperState
-                                                        .LAUNCH_WITH_SQUEEZE_WITH_NO_DELAY));
+        return new Trigger(() -> Utils.isSimulation() && Robot.getSuperStructure().isFeeding());
     }
 
     @Getter private static double simRobotWidth = Units.inchesToMeters(33);
@@ -159,15 +151,22 @@ public class RobotSim {
                 intakeYMax,
                 () ->
                         Robot.getSuperStructure().getCurrentSuperState()
-                                == CurrentSuperState.INTAKE_FUEL);
+                                        == CurrentSuperState.INTAKE_FUEL
+                                || Robot.getSuperStructure().getCurrentSuperState()
+                                        == CurrentSuperState.AUTON_INTAKE_FUEL);
     }
 
     private Command createSimBallLaunch(double laneOffset) {
         return Commands.runOnce(
                 () -> {
-                    var params = ShotCalculator.getInstance().getParameters();
-                    double launchSpeed = params.exitSpeedMs();
-                    double launchAngle = Math.toRadians(90 - params.hoodAngle());
+                    // What the shot asked the flywheel and hood for, as an ideal mechanism would
+                    // deliver it: the sim flywheel runs 124 RPM fast (kS with no friction), and
+                    // that would be a sim artifact in every shot.
+                    double launchSpeed =
+                            ShotCalculator.exitSpeedForFlywheelRpm(
+                                    Robot.getLauncher().getShotTargetRPM());
+                    double launchAngle =
+                            Math.toRadians(90 - Robot.getHood().getShotTargetDegrees());
                     double launchYaw =
                             Robot.getSwerve().getRobotPose().getRotation().getRadians()
                                     + Math.toRadians(180);

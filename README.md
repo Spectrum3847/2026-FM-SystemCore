@@ -55,6 +55,16 @@ Or run one of FM's PathPlanner autos (any name from the Auto Chooser), e.g.:
 FM_SIM_SCRIPT="auto:TBTB Left" ./gradlew simulateJava -PnoSimGui
 ```
 
+Or the scripted shooting run: aim and launch standing, then aim and launch while strafing, with
+fuel put in the hopper before each launch (it exercises everything under [Shooting](#shooting)):
+
+```bash
+FM_SIM_SCRIPT=shoot ./gradlew simulateJava -PnoSimGui
+```
+
+Add `FM_SIM_EXIT=1` to any scripted run to have the program close its log and exit when the script
+ends, so the run is one command.
+
 All 32 autos and 26 paths from 2026 `main` are in `src/main/deploy/pathplanner`, unchanged. The Auto
 Chooser is now an AdvantageKit `LoggedDashboardChooser` (same dashboard key), so the selected auto
 is logged and replays.
@@ -171,6 +181,124 @@ odometry alone drifts to ~0.16 m while the fused pose averages ~0.014 m error. M
 tracks come out slightly worse than MegaTag1's, because MegaTag2 inherits the simulated gyro drift
 through the heading the robot pushes to the camera — exactly the kind of finding the testbed exists
 to surface, and worth checking on the real robot.
+
+## Shooting
+
+### Aim feedforward
+
+While aiming (`PILOT_AIM_AT_TARGET`: pilot X, every RT launch, and every auto `launch()`), the
+heading request now gets a feedforward: how fast the bearing to the hub is turning, `-v_tangential
+/ distance` (581's form), in rad/s counter-clockwise, clamped to +/-2 rad/s (2910's clamp). The
+heading PID alone only turns once it has fallen behind. In the `shoot` sim, strafing past the hub
+at about 1 m/s from 2.5 m, the heading error went from a steady 4-5 deg to about 1 deg.
+
+`ShotCalculator` used to differentiate its own drive angle for this, in rotations per second (2 pi
+too small; nothing read it). Fixed to rad/s and used, that made the aim oscillate (6-9 deg mean
+error): it differentiates the shoot-on-move yaw offset too, and that follows the measured velocity,
+which the turning itself disturbs. Logged as `Swerve/Aim/TargetRateFeedforward` (deg/s) and
+`Swerve/Aim/HeadingErrorDeg`.
+
+### Shot readiness gate (drivers: this changes how RT feels)
+
+**FM on 2026 `main` fed the moment RT was pulled**, whether or not the flywheel was up to speed,
+the hood had arrived or the robot had finished turning to the hub. Now the indexers hold the fuel
+(tower stopped, bed slow-indexing as when intaking) until the shot is ready, then feed at full
+speed. Drivers should practise with it: the first ball can come a few tenths later than they are
+used to, and pre-spinning with X (track target) before RT takes most of that away. Logic in
+[ShotGate](src/main/java/frc/robot/subsystems/ShotGate.java), from the offseason bot's feed gate
+(dcb88dc, 067af02, ddd564a) with the drivetrain's heading in place of its turret.
+
+| | Start a volley | Keep feeding |
+|---|---|---|
+| Flywheel | within 150 RPM of target (`Launcher.onTargetToleranceRPM`) | above 75% of target |
+| Hood | within 1 deg, and moving under 20 deg/s | within 3 deg |
+| Heading (while the drivetrain aims) | within `atan((hub radius - ball) / distance)` (4499), 2-10 deg; 10 deg for feed shots (9470) | twice the start tolerance |
+| Range | distance inside the model's fit, only while vision is under 3 s old | not checked |
+| All of it | held for 0.04 s | |
+
+- **Timeout**: held for 1.0 s in a launch state, it feeds anyway for the rest of that launch, so a
+  stuck sensor or an unreachable target can delay a shot by a second but never stop one. This is
+  what keeps autos safe (their `launch()` window is 2.5 s).
+- **Bypass**: **operator Y** (without LB; LB+Y is still the intake reset) feeds while held.
+- Leaving the launch state resets it: the next volley re-earns the start window.
+
+On the dashboard (Match and Shooting tabs): `Shot/Ready` (also lit while tracking with X, before
+RT) and `Shot/BlockedReason`: `None`, `NoShot`, `FlywheelNotReady`, `HoodNotReady`, `NotAimed`,
+`InvalidShot` or `Settling`. Also logged: `Shot/Feeding`, `Shot/FeedReason`
+(`Ready`/`Override`/`Timeout`/`Held`), the errors against each target, and running counts.
+`tools/wpilog_summary.py` prints each launch, how long it was held and by what.
+
+In the sim the flywheel runs 124 RPM over target (kS 20 A against no friction, kP 10 A/rps), which
+is why the flywheel tolerance is 150 and not the unused 100; the hood overshoots on Motion Magic,
+which is why its speed is checked. **CALIBRATE all of it from the first practice log**
+(`Shot/FlywheelErrorRPM`, `Shot/HoodErrorDeg`, `Shot/HeadingErrorDeg`, `Shot/SecondsHeld`).
+
+### Set shots (fixed shots for when the pose is gone)
+
+From the offseason bot (463c465, fa1376b), without its turret and without its hub-face shot (FM
+cannot make it). Park at a known spot, point the **back** of the robot (FM's launcher side) at the
+hub, and hold the chord: the hood and flywheel go to FM's own hub model evaluated at that spot's
+range standing still, with the operator's hood trim, and the gate feeds once flywheel and hood are
+there. Nothing reads the pose and the aim is not checked: as on the offseason bot, **the driver
+aims by parking**, with translation slowed to the launch states' 10%. Everything is in
+`ShotCalculator.SetShot` (spots per alliance from `Field`, rotated about the field centre for red).
+
+| Chord (pilot, teleop) | Spot (blue; red is rotated) | Heading | Range | Hood / RPM (no-ceiling model, trim -2) |
+|---|---|---|---|---|
+| **LB + A** | Tower: intake against the tower's field-facing wall on its centreline, (1.525, 3.746) m | 185.3 deg: square to the wall, then about 5 deg counter-clockwise | 3.11 m | 14.7 deg / 2074 RPM |
+| **LB + X** | Left trench: in the lane, just clear of the trench on the alliance side, (3.609, 7.430) m | 106.7 deg | 3.54 m | 16.4 deg / 2129 RPM |
+| **LB + B** | Right trench: the mirror, (3.609, 0.639) m | -106.7 deg | 3.54 m | 16.4 deg / 2129 RPM |
+
+Hood and RPM follow the Hub Model chooser and the hood trim live; the table is the default model.
+`Shot/SetShotHeadingErrorDeg` logs the fused heading against the spot's (information only).
+**CALIBRATE** before relying on them: FM's bumper-to-centre (`FM_HALF_LENGTH_METERS`, 0.42 m from
+PathPlanner's 0.84 m frame), and where the tower's centreline really is (`TOWER_CENTRE_Y_METERS`:
+the offseason code says it follows tag 31, FM's `Field` says the field centreline; the range barely
+changes, the heading does). In the `shoot` sim: tower 5 of 8, each trench 7-8 of 8.
+
+### Shot log
+
+One row per volley under `ShotLog/`, written on the loop the gate opens the feed: distance, radial
+and tangential velocity, hood and RPM target and actual, heading error and tolerance, the gate's
+reason (and what an override or timeout bypassed), how long it waited, pose trust
+(`SecondsSinceFusedEstimate`, seed confirmed), set shot or calculated, alliance, mode and match
+time; an end row gives the volley's length and its flywheel dips (roughly, balls; calibrate first).
+From the offseason bot's shot record (eb2d86e). Schema: [docs/shot-log.md](docs/shot-log.md).
+
+```bash
+python tools/shot_log.py logs/akit_XXXX.wpilog > shots.csv
+```
+
+### Bindings
+
+Pilot (port 0):
+
+| Input | Does |
+|---|---|
+| RT | Launch (squeeze after 1 s); RT + LT launch without squeeze; LT released with RT held, launch with no delay. All behind the shot gate |
+| LT | Intake; LT + LB eject |
+| X (without LB) | Track target: aim and spin up, no feed |
+| A (without LB) | Unjam |
+| **LB + A / LB + X / LB + B** | **Set shot: tower / left trench / right trench** |
+| Select | Force home |
+| LB + D-pad | Reorient forward / left / back / right |
+| A / B, disabled | Coast / brake the intake extension and hood |
+
+Operator (port 1):
+
+| Input | Does |
+|---|---|
+| **Y (without LB)** | **Hold to feed regardless of the shot gate** |
+| LB + X | Re-origin the QuestNav on the robot pose |
+| LB + Y | Intake extension: reset position to max |
+| Select | Force home |
+| D-pad up / down | Hood trim +/- 0.1 deg |
+| D-pad left / right | Aim trim +/- 1 deg |
+| A / B, disabled | Coast / brake |
+
+Release order on the chords: let go of the face button first (or both together). Letting go of LB
+first with X or A still held starts track target or unjam for the rest of the press, as on the
+offseason bot.
 
 ## Loop rate, logging and the dashboard
 

@@ -73,12 +73,15 @@ public class Hood extends Mechanism {
         HOME,
         STOPPED,
         AIM_AT_TARGET,
+        /** The selected set shot's angle, off the hub model at the spot's range. */
+        SET_SHOT,
     }
 
     public enum SystemState {
         HOME,
         STOPPED,
         AIM_AT_TARGET,
+        SET_SHOT,
     }
 
     private WantedState wantedState = WantedState.HOME;
@@ -93,11 +96,20 @@ public class Hood extends Mechanism {
             case HOME -> SystemState.HOME;
             case STOPPED -> SystemState.STOPPED;
             case AIM_AT_TARGET -> SystemState.AIM_AT_TARGET;
+            case SET_SHOT -> SystemState.SET_SHOT;
         };
     }
 
+    /**
+     * Hood angle the current shot wants this loop, degrees; NaN when the hood is not on a shot.
+     * Computed from logged inputs, so the shot gate that compares it with {@link
+     * #getPositionDegrees()} replays.
+     */
+    @Getter private double shotTargetDegrees = Double.NaN;
+
     private void applyStates() {
         double wantedDegrees = 9;
+        shotTargetDegrees = Double.NaN;
         switch (systemState) {
             case HOME:
                 wantedDegrees = 9.0;
@@ -108,6 +120,11 @@ public class Hood extends Mechanism {
             case AIM_AT_TARGET:
                 var params = ShotCalculator.getInstance().getParameters();
                 wantedDegrees = params.hoodAngle();
+                shotTargetDegrees = wantedDegrees;
+                break;
+            case SET_SHOT:
+                wantedDegrees = ShotCalculator.getSetShotHoodDegrees();
+                shotTargetDegrees = wantedDegrees;
                 break;
         }
         final double finalWantedDegrees = wantedDegrees;

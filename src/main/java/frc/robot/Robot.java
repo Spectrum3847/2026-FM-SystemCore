@@ -41,6 +41,7 @@ import frc.spectrumLib.framework.RobotLoop;
 import frc.spectrumLib.framework.SpectrumRobot;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.hardware.CanConfigBudget;
+import frc.spectrumLib.hardware.CanConfigRetry;
 import frc.spectrumLib.hardware.Rio;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.BatteryLogger;
@@ -177,14 +178,18 @@ public class Robot extends SpectrumRobot {
                 // No CANivore at all (not plugged in, or canivore-usb not installed on the
                 // SystemCore): do not spend a minute timing out every device on it.
                 CanConfigBudget.exhaust("CANivore '" + CanBuses.CANIVORE + "' not found");
-            } else if (Constants.currentMode == Constants.Mode.REAL && noCanTraffic()) {
-                // Buses up but nothing talking on any of them (a bench controller, or every
-                // device unpowered): the same minute of timeouts, so the same shortcut.
-                CanConfigBudget.exhaust("no CAN traffic on any bus");
             }
+            // Nothing talking on the drivetrain bus (a bench controller, or every device
+            // unpowered) is decided in the Swerve constructor, once its devices exist and have
+            // been configured: see Swerve.anyDeviceAnswering(). Before that a bus with devices on
+            // it may still read zero utilization. Either shortcut only spends the boot budget;
+            // CanConfigRetry keeps retrying every config that did not apply.
             if (Constants.hasHardware()) {
+                // Its own thread, not the /proc sampler's: a getStatus() that hangs must not
+                // freeze the CPU and memory telemetry too (and the stale check below catches it).
                 canStatus =
                         BackgroundSampler.every(
+                                "CanStatusSampler",
                                 1.0,
                                 () -> {
                                     var status =
@@ -254,6 +259,10 @@ public class Robot extends SpectrumRobot {
             ShotCalculator.getInstance();
             if (Constants.hasHardware()) {
                 WebServer.start(5800, Filesystem.getDeployDirectory().getPath());
+                // Every device now exists and has had its boot attempts; from here on configs
+                // that did not apply, and devices that reset, are retried off the main thread.
+                // Started before the main thread goes real-time, so it does not inherit that.
+                CanConfigRetry.INSTANCE.start();
             }
 
             if (Constants.currentMode == Constants.Mode.REAL) {
@@ -299,7 +308,8 @@ public class Robot extends SpectrumRobot {
         org.wpilib.system.Threads.setCurrentThreadPriority(priority);
         int now = org.wpilib.system.Threads.getCurrentThreadPriority();
         boolean ok = now == priority;
-        Logger.recordMetadata("MainThreadPriority", Integer.toString(now));
+        // An output, not metadata: AdvantageKit ignores recordMetadata after Logger.start().
+        Telemetry.log("System/MainThreadPriority", now);
         Telemetry.print(
                 "Main thread real-time priority "
                         + priority
@@ -591,38 +601,28 @@ public class Robot extends SpectrumRobot {
         }
     }
 
-    /**
-     * Whether every bus reads zero utilization twice, 0.3 s apart. Any powered Phoenix device
-     * broadcasts status frames continuously, so a bus with devices on it is never at zero.
-     */
-    private static boolean noCanTraffic() {
-        for (int attempt = 0; attempt < 2; attempt++) {
-            try {
-                Thread.sleep(300); // wall clock: the robot clock is frozen during init
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return false;
-            }
-            for (CANBus bus : canBuses.values()) {
-                if (bus.getStatus().BusUtilization > 0) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
     /** Time of the last CAN bus status log. */
     private double lastCanStatusSeconds = Double.NEGATIVE_INFINITY;
 
     /**
-     * Every bus's status by log label, read once a second on {@link BackgroundSampler}'s thread:
-     * {@code getStatus()} can block for up to a millisecond, which on the real-time main thread is
-     * a late loop. Null off the robot.
+     * Every bus's status by log label, read once a second on its own {@link BackgroundSampler}
+     * thread: {@code getStatus()} can block for up to a millisecond, which on the real-time main
+     * thread is a late loop. Null off the robot.
      */
     private static BackgroundSampler.Latest<java.util.Map<String, CANBusStatus>> canStatus;
 
     private long lastCanStatusSequence = 0;
+
+    /**
+     * Seconds without a new status sample after which every bus is logged as not OK. The sampler
+     * reads once a second, so three missed reads.
+     */
+    private static final double CAN_STATUS_STALE_SECONDS = 3.0;
+
+    /** When the status sample last advanced, or NaN before the first check. */
+    private double lastCanStatusAdvanceSeconds = Double.NaN;
+
+    private final Alert canStatusStaleAlert = new Alert("", Level.HIGH);
 
     /** Logs CAN bus health once a second, plus the match identity, which the 2026 logs lacked. */
     private void logCanBusStatus() {
@@ -632,10 +632,20 @@ public class Robot extends SpectrumRobot {
         }
         lastCanStatusSeconds = now;
 
-        if (canStatus != null && canStatus.sequence() != lastCanStatusSequence) {
-            lastCanStatusSequence = canStatus.sequence();
-            canStatus.get().forEach(this::logOneCanBus);
+        if (canStatus != null) {
+            if (Double.isNaN(lastCanStatusAdvanceSeconds)) {
+                lastCanStatusAdvanceSeconds = now;
+            }
+            if (canStatus.sequence() != lastCanStatusSequence) {
+                lastCanStatusSequence = canStatus.sequence();
+                lastCanStatusAdvanceSeconds = now;
+                canStatus.get().forEach(this::logOneCanBus);
+            }
+            logCanStatusIfStale(now - lastCanStatusAdvanceSeconds);
         }
+
+        // Per-device config status and not-applied alerts (CanConfigRetry).
+        CanConfigRetry.INSTANCE.periodic();
 
         Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds());
         Telemetry.log("CANConfig/FailedCalls", CanConfigBudget.getFailedCalls());
@@ -653,6 +663,35 @@ public class Robot extends SpectrumRobot {
             Telemetry.log(
                     "SystemStats/BrownoutVoltage", RobotController.getBrownoutVoltage(), "volts");
         }
+    }
+
+    /**
+     * Marks every bus not OK once the status sampler has stopped delivering.
+     *
+     * <p>Bus health is logged only when a new sample lands, and the log (and Elastic) keep the last
+     * value. If {@code getStatus()} hangs -- plausible exactly when a CANivore is misbehaving --
+     * the sampler thread stops, and every {@code StatusOK} light stays green for the rest of the
+     * match while nothing is being checked. After {@link #CAN_STATUS_STALE_SECONDS} without a
+     * sample each bus is logged as {@code StatusOK=false} with a stale status string, and an alert
+     * says the bus health is unknown.
+     *
+     * @param ageSeconds seconds since the last new sample
+     */
+    private void logCanStatusIfStale(double ageSeconds) {
+        boolean stale = ageSeconds > CAN_STATUS_STALE_SECONDS;
+        if (stale) {
+            String status = String.format("STALE: no status sample for %.0f s", ageSeconds);
+            for (String label : canBuses.keySet()) {
+                Telemetry.log(label + "/Status", status);
+                Telemetry.logDash(label + "/StatusOK", false);
+            }
+            canStatusStaleAlert.setText(
+                    String.format(
+                            "CAN bus status not read for %.0f s (sampler stalled) -- bus health"
+                                    + " unknown",
+                            ageSeconds));
+        }
+        canStatusStaleAlert.set(stale);
     }
 
     /**

@@ -155,10 +155,27 @@
             }
           },
           {
-            "title": "Drive CAN 1",
+            "title": "CAN0 Intake",
             "x": 896,
             "y": 256,
-            "width": 256,
+            "width": 128,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN0/StatusOK",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "CAN1 Drive",
+            "x": 1024,
+            "y": 256,
+            "width": 128,
             "height": 128,
             "type": "Boolean Box",
             "properties": {
@@ -172,14 +189,31 @@
             }
           },
           {
-            "title": "SystemCore CAN 0",
+            "title": "CAN2 Shooter",
             "x": 1152,
             "y": 256,
-            "width": 256,
+            "width": 128,
             "height": 128,
             "type": "Boolean Box",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN0/StatusOK",
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN2/StatusOK",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "CAN3 Mech",
+            "x": 1280,
+            "y": 256,
+            "width": 128,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN3/StatusOK",
               "period": 0.1,
               "data_type": "boolean",
               "true_color": 4283215696,
@@ -1689,21 +1723,59 @@
             }
           },
           {
-            "title": "Drive CAN 1 Bus (%)",
+            "title": "CAN0 Intake %",
             "x": 0,
             "y": 512,
-            "width": 512,
+            "width": 128,
             "height": 128,
-            "type": "Number Bar",
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN0/BusUtilization",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "CAN1 Drive %",
+            "x": 128,
+            "y": 512,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
             "properties": {
               "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/BusUtilization",
               "period": 0.1,
               "data_type": "double",
-              "min_value": 0,
-              "max_value": 100,
-              "divisions": 5,
-              "inverted": false,
-              "orientation": "horizontal"
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "CAN2 Shooter %",
+            "x": 256,
+            "y": 512,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN2/BusUtilization",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "CAN3 Mech %",
+            "x": 384,
+            "y": 512,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN3/BusUtilization",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
             }
           },
           {
@@ -2142,21 +2214,59 @@
             }
           },
           {
-            "title": "Drive CAN 1 Bus (%)",
+            "title": "CAN0 Intake %",
             "x": 896,
             "y": 256,
-            "width": 512,
+            "width": 128,
             "height": 128,
-            "type": "Number Bar",
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN0/BusUtilization",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "CAN1 Drive %",
+            "x": 1024,
+            "y": 256,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
             "properties": {
               "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/BusUtilization",
               "period": 0.1,
               "data_type": "double",
-              "min_value": 0,
-              "max_value": 100,
-              "divisions": 5,
-              "inverted": false,
-              "orientation": "horizontal"
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "CAN2 Shooter %",
+            "x": 1152,
+            "y": 256,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN2/BusUtilization",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "CAN3 Mech %",
+            "x": 1280,
+            "y": 256,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN3/BusUtilization",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
             }
           },
           {
@@ -2174,24 +2284,10 @@
             }
           },
           {
-            "title": "Drive CAN 1",
+            "title": "CAN0 Intake",
             "x": 896,
             "y": 384,
-            "width": 256,
-            "height": 128,
-            "type": "Text Display",
-            "properties": {
-              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/Status",
-              "period": 0.1,
-              "data_type": "string",
-              "show_submit_button": false
-            }
-          },
-          {
-            "title": "SC CAN 0",
-            "x": 1152,
-            "y": 384,
-            "width": 256,
+            "width": 128,
             "height": 128,
             "type": "Text Display",
             "properties": {
@@ -2202,16 +2298,72 @@
             }
           },
           {
+            "title": "CAN1 Drive",
+            "x": 1024,
+            "y": 384,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/Status",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "CAN2 Shooter",
+            "x": 1152,
+            "y": 384,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN2/Status",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "CAN3 Mech",
+            "x": 1280,
+            "y": 384,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN3/Status",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
             "title": "CAN Failed Configs",
             "x": 1408,
             "y": 384,
-            "width": 384,
+            "width": 256,
             "height": 128,
             "type": "Text Display",
             "properties": {
               "topic": "/AdvantageKit/RealOutputs/CANConfig/FailedCalls",
               "period": 0.1,
               "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Not Applied",
+            "x": 1664,
+            "y": 384,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/CANConfig/NotAppliedCount",
+              "period": 0.1,
+              "data_type": "int",
               "show_submit_button": false
             }
           },

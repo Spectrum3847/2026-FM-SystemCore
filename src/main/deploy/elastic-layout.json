@@ -1,0 +1,2277 @@
+{
+  "version": 1,
+  "grid_size": 128,
+  "tabs": [
+    {
+      "name": "Pre-Match",
+      "grid_layout": {
+        "layouts": [],
+        "containers": [
+          {
+            "title": "FMSInfo",
+            "x": 0,
+            "y": 0,
+            "width": 512,
+            "height": 128,
+            "type": "FMSInfo",
+            "properties": {
+              "topic": "/FMSInfo",
+              "period": 0.1
+            }
+          },
+          {
+            "title": "Battery",
+            "x": 512,
+            "y": 0,
+            "width": 384,
+            "height": 128,
+            "type": "Voltage View",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/BatteryLogger/BatteryVoltage",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 6,
+              "max_value": 13,
+              "divisions": 8,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "Field2d",
+            "x": 0,
+            "y": 128,
+            "width": 896,
+            "height": 384,
+            "type": "Field",
+            "properties": {
+              "topic": "/SmartDashboard/Field2d",
+              "period": 0.1,
+              "field_game": "Rebuilt",
+              "robot_width": 0.85,
+              "robot_length": 0.85,
+              "show_other_objects": true,
+              "show_trajectories": true,
+              "field_rotation": 0,
+              "robot_color": 4294198070,
+              "trajectory_color": 4294967295,
+              "show_robot_outside_widget": true
+            }
+          },
+          {
+            "title": "Auto Chooser",
+            "x": 0,
+            "y": 512,
+            "width": 896,
+            "height": 128,
+            "type": "Split Button Chooser",
+            "properties": {
+              "topic": "/SmartDashboard/Auto Chooser",
+              "period": 0.1,
+              "sort_options": false
+            }
+          },
+          {
+            "title": "Hub Model",
+            "x": 0,
+            "y": 640,
+            "width": 512,
+            "height": 128,
+            "type": "Split Button Chooser",
+            "properties": {
+              "topic": "/SmartDashboard/Hub Model Chooser",
+              "period": 0.1,
+              "sort_options": false
+            }
+          },
+          {
+            "title": "Super State",
+            "x": 512,
+            "y": 640,
+            "width": 384,
+            "height": 128,
+            "type": "Large Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SuperStructure/CurrentSuperState",
+              "period": 0.1,
+              "data_type": "string"
+            }
+          },
+          {
+            "title": "Alerts",
+            "x": 896,
+            "y": 0,
+            "width": 512,
+            "height": 256,
+            "type": "Alerts",
+            "properties": {
+              "topic": "/SmartDashboard/Alerts",
+              "period": 0.1
+            }
+          },
+          {
+            "title": "Pose Seed Confirmed",
+            "x": 1408,
+            "y": 0,
+            "width": 384,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/PoseSeedConfirmed",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Start Pose Err (m)",
+            "x": 1408,
+            "y": 128,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Auton/StartPoseErrorMeters",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Hdg Err",
+            "x": 1664,
+            "y": 128,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Auton/StartHeadingErrorDeg",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Drive CAN 1",
+            "x": 896,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/StatusOK",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "SystemCore CAN 0",
+            "x": 1152,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN0/StatusOK",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "CAN Config Budget Spent",
+            "x": 1408,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/CANConfig/BudgetExhausted",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4294198070,
+              "false_color": 4283215696,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Vision Age",
+            "x": 1664,
+            "y": 256,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/SecondsSinceFusedEstimate",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "LL Back",
+            "x": 896,
+            "y": 384,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/LL-Back/Connected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "LL Left",
+            "x": 1152,
+            "y": 384,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/LL-Left/Connected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "LL Right",
+            "x": 1408,
+            "y": 384,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/LL-Right/Connected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Auto File",
+            "x": 1664,
+            "y": 384,
+            "width": 128,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Auton/AutoFileFound",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Hood",
+            "x": 896,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Hood/MotorConnected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Launcher",
+            "x": 1152,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Launcher/MotorConnected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Fuel Intake",
+            "x": 1408,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/FuelIntake/MotorConnected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Auto Warm",
+            "x": 1664,
+            "y": 512,
+            "width": 128,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Auton Warmed Up",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Indexer Bed",
+            "x": 896,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/IndexerBed/MotorConnected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Indexer Tower",
+            "x": 1152,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/IndexerTower/MotorConnected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Intake Ext L",
+            "x": 1408,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/IntakeExtension/MotorConnected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Ext R",
+            "x": 1664,
+            "y": 640,
+            "width": 128,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/IntakeExtensionRight/MotorConnected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Match",
+      "grid_layout": {
+        "layouts": [],
+        "containers": [
+          {
+            "title": "Field2d",
+            "x": 0,
+            "y": 0,
+            "width": 896,
+            "height": 384,
+            "type": "Field",
+            "properties": {
+              "topic": "/SmartDashboard/Field2d",
+              "period": 0.1,
+              "field_game": "Rebuilt",
+              "robot_width": 0.85,
+              "robot_length": 0.85,
+              "show_other_objects": true,
+              "show_trajectories": true,
+              "field_rotation": 0,
+              "robot_color": 4294198070,
+              "trajectory_color": 4294967295,
+              "show_robot_outside_widget": true
+            }
+          },
+          {
+            "title": "Shift Time",
+            "x": 0,
+            "y": 384,
+            "width": 384,
+            "height": 256,
+            "type": "Match Time",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Match Data/TimeLeftInShift",
+              "period": 0.1,
+              "data_type": "double",
+              "time_display_mode": "Minutes and Seconds",
+              "red_start_time": 20,
+              "yellow_start_time": 30
+            }
+          },
+          {
+            "title": "Battery",
+            "x": 384,
+            "y": 384,
+            "width": 512,
+            "height": 128,
+            "type": "Voltage View",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/BatteryLogger/BatteryVoltage",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 6,
+              "max_value": 13,
+              "divisions": 8,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "Match Time",
+            "x": 384,
+            "y": 512,
+            "width": 512,
+            "height": 128,
+            "type": "Match Time",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Match Data/MatchTime",
+              "period": 0.1,
+              "data_type": "double",
+              "time_display_mode": "Minutes and Seconds",
+              "red_start_time": 20,
+              "yellow_start_time": 30
+            }
+          },
+          {
+            "title": "Super State",
+            "x": 0,
+            "y": 640,
+            "width": 896,
+            "height": 128,
+            "type": "Large Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SuperStructure/CurrentSuperState",
+              "period": 0.1,
+              "data_type": "string"
+            }
+          },
+          {
+            "title": "Alerts",
+            "x": 896,
+            "y": 0,
+            "width": 512,
+            "height": 256,
+            "type": "Alerts",
+            "properties": {
+              "topic": "/SmartDashboard/Alerts",
+              "period": 0.1
+            }
+          },
+          {
+            "title": "Pose Seed Confirmed",
+            "x": 1408,
+            "y": 0,
+            "width": 384,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/PoseSeedConfirmed",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Vision Age (s)",
+            "x": 1408,
+            "y": 128,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/SecondsSinceFusedEstimate",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Distance (m)",
+            "x": 896,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/DistanceMeters",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Launcher RPM",
+            "x": 1152,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Launcher/RPM",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Hood (deg)",
+            "x": 1408,
+            "y": 256,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Hood/PositionDegrees",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Swerve State",
+            "x": 896,
+            "y": 384,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Swerve/SystemState",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Intake State",
+            "x": 1280,
+            "y": 384,
+            "width": 512,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/FuelIntake/SystemState",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Hood Trim (deg)",
+            "x": 896,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/HoodAngleOffsetDegrees",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Aim Trim (deg)",
+            "x": 1152,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/DriveAngleOffsetDegrees",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Intake Extension (rot)",
+            "x": 1408,
+            "y": 512,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/IntakeExtension/Position",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Shot Ready",
+            "x": 896,
+            "y": 640,
+            "width": 384,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Shot/Ready",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Shot Blocked By",
+            "x": 1280,
+            "y": 640,
+            "width": 512,
+            "height": 128,
+            "type": "Large Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Shot/BlockedReason",
+              "period": 0.1,
+              "data_type": "string"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Shooting",
+      "grid_layout": {
+        "layouts": [],
+        "containers": [
+          {
+            "title": "Launcher RPM",
+            "x": 0,
+            "y": 0,
+            "width": 896,
+            "height": 384,
+            "type": "Graph",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Launcher/RPM",
+              "period": 0.05,
+              "data_type": "double",
+              "time_displayed": 20,
+              "min_value": 0,
+              "max_value": 6000,
+              "color": 4294951936,
+              "line_width": 2
+            }
+          },
+          {
+            "title": "Hood Position (deg)",
+            "x": 0,
+            "y": 384,
+            "width": 896,
+            "height": 256,
+            "type": "Graph",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Hood/PositionDegrees",
+              "period": 0.05,
+              "data_type": "double",
+              "time_displayed": 20,
+              "min_value": 0,
+              "max_value": 60,
+              "color": 4283215696,
+              "line_width": 2
+            }
+          },
+          {
+            "title": "Launcher Current (A)",
+            "x": 0,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Launcher/StatorCurrent",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Hood Current (A)",
+            "x": 256,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Hood/StatorCurrent",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Feed Reason",
+            "x": 512,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Shot/FeedReason",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Shots",
+            "x": 768,
+            "y": 640,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotLog/Index",
+              "period": 0.1,
+              "data_type": "int",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Distance (m)",
+            "x": 896,
+            "y": 0,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/DistanceMeters",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Wanted Flywheel RPM",
+            "x": 896,
+            "y": 128,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/FlywheelSpeedRPM",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Wanted Hood (deg)",
+            "x": 896,
+            "y": 256,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/HoodAngleDeg",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Wanted Heading (deg)",
+            "x": 896,
+            "y": 384,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/DriveAngleDeg",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Time Of Flight (s)",
+            "x": 896,
+            "y": 512,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/TimeOfFlight",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Exit Speed (m/s)",
+            "x": 896,
+            "y": 640,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/ExitSpeedMs",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Feed Shot",
+            "x": 1280,
+            "y": 0,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/FeedShot",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Hood Trim (deg)",
+            "x": 1536,
+            "y": 0,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/HoodAngleOffsetDegrees",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Aim Trim (deg)",
+            "x": 1280,
+            "y": 128,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/DriveAngleOffsetDegrees",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Yaw Offset (deg)",
+            "x": 1536,
+            "y": 128,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/YawOffsetDeg",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Shot Blocked By",
+            "x": 1280,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Large Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Shot/BlockedReason",
+              "period": 0.1,
+              "data_type": "string"
+            }
+          },
+          {
+            "title": "Set Shot",
+            "x": 1536,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Large Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/SetShot",
+              "period": 0.1,
+              "data_type": "string"
+            }
+          },
+          {
+            "title": "Hub Model",
+            "x": 1280,
+            "y": 384,
+            "width": 512,
+            "height": 128,
+            "type": "Split Button Chooser",
+            "properties": {
+              "topic": "/SmartDashboard/Hub Model Chooser",
+              "period": 0.1,
+              "sort_options": false
+            }
+          },
+          {
+            "title": "Shot Ready",
+            "x": 1280,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Shot/Ready",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Super State",
+            "x": 1536,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Large Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SuperStructure/CurrentSuperState",
+              "period": 0.1,
+              "data_type": "string"
+            }
+          },
+          {
+            "title": "Launcher Temp (C)",
+            "x": 1280,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Launcher/Temp",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Hood Temp (C)",
+            "x": 1536,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Hood/Temp",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Localization",
+      "grid_layout": {
+        "layouts": [],
+        "containers": [
+          {
+            "title": "LL-Back/MT1",
+            "x": 0,
+            "y": 0,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Localization/Sources/LL-Back/MT1/Enabled",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "last verdict",
+            "x": 256,
+            "y": 0,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/LL-Back/MT1/LastVerdict",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "LL-Back/MT2",
+            "x": 0,
+            "y": 128,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Localization/Sources/LL-Back/MT2/Enabled",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "last verdict",
+            "x": 256,
+            "y": 128,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/LL-Back/MT2/LastVerdict",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "LL-Left/MT1",
+            "x": 0,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Localization/Sources/LL-Left/MT1/Enabled",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "last verdict",
+            "x": 256,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/LL-Left/MT1/LastVerdict",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "LL-Left/MT2",
+            "x": 0,
+            "y": 384,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Localization/Sources/LL-Left/MT2/Enabled",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "last verdict",
+            "x": 256,
+            "y": 384,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/LL-Left/MT2/LastVerdict",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "LL-Right/MT1",
+            "x": 0,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Localization/Sources/LL-Right/MT1/Enabled",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "last verdict",
+            "x": 256,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/LL-Right/MT1/LastVerdict",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "LL-Right/MT2",
+            "x": 0,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Localization/Sources/LL-Right/MT2/Enabled",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "last verdict",
+            "x": 256,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/LL-Right/MT2/LastVerdict",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "SC0/MT1",
+            "x": 512,
+            "y": 0,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Localization/Sources/SC0/MT1/Enabled",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "last verdict",
+            "x": 768,
+            "y": 0,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/SC0/MT1/LastVerdict",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "SC0/MT2",
+            "x": 512,
+            "y": 128,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Localization/Sources/SC0/MT2/Enabled",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "last verdict",
+            "x": 768,
+            "y": 128,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/SC0/MT2/LastVerdict",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "SC1/MT1",
+            "x": 512,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Localization/Sources/SC1/MT1/Enabled",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "last verdict",
+            "x": 768,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/SC1/MT1/LastVerdict",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "SC1/MT2",
+            "x": 512,
+            "y": 384,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Localization/Sources/SC1/MT2/Enabled",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "last verdict",
+            "x": 768,
+            "y": 384,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/SC1/MT2/LastVerdict",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "orin-front",
+            "x": 512,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Localization/Sources/orin-front/Enabled",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "last verdict",
+            "x": 768,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/orin-front/LastVerdict",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "orin-left",
+            "x": 512,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Localization/Sources/orin-left/Enabled",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "last verdict",
+            "x": 768,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/orin-left/LastVerdict",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "orin-right",
+            "x": 1024,
+            "y": 0,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Localization/Sources/orin-right/Enabled",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "last verdict",
+            "x": 1280,
+            "y": 0,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/orin-right/LastVerdict",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Quest",
+            "x": 1024,
+            "y": 128,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Localization/Sources/Quest/Enabled",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "last verdict",
+            "x": 1280,
+            "y": 128,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/Quest/LastVerdict",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Quest",
+            "x": 1024,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/Quest/Connected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Orin front",
+            "x": 1280,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/orin-front/Connected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Orin left",
+            "x": 1024,
+            "y": 384,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/orin-left/Connected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Orin right",
+            "x": 1280,
+            "y": 384,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/orin-right/Connected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "LL Back",
+            "x": 1024,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/LL-Back/Connected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "LL Left",
+            "x": 1280,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/LL-Left/Connected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "LL Right",
+            "x": 1024,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/LL-Right/Connected",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Gross Heading Fixes",
+            "x": 1280,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/GrossHeadingCorrections",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Seed Confirmed",
+            "x": 1536,
+            "y": 0,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/PoseSeedConfirmed",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Use MT2 After Seed",
+            "x": 1536,
+            "y": 128,
+            "width": 256,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/Vision/ChassisUseMT2",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "LLs Fusing",
+            "x": 1536,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/ChassisSource",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Vision Age (s)",
+            "x": 1536,
+            "y": 384,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/SecondsSinceFusedEstimate",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Seed Progress",
+            "x": 1536,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Vision/SeedConfirmProgress",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Super State",
+            "x": 1536,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Large Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SuperStructure/CurrentSuperState",
+              "period": 0.1,
+              "data_type": "string"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Power",
+      "grid_layout": {
+        "layouts": [],
+        "containers": [
+          {
+            "title": "Battery Voltage",
+            "x": 0,
+            "y": 0,
+            "width": 896,
+            "height": 256,
+            "type": "Graph",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/BatteryLogger/BatteryVoltage",
+              "period": 0.05,
+              "data_type": "double",
+              "time_displayed": 20,
+              "min_value": 6,
+              "max_value": 13,
+              "color": 4294951936,
+              "line_width": 2
+            }
+          },
+          {
+            "title": "Total Supply Current (A)",
+            "x": 0,
+            "y": 256,
+            "width": 896,
+            "height": 256,
+            "type": "Graph",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/BatteryLogger/Current",
+              "period": 0.05,
+              "data_type": "double",
+              "time_displayed": 20,
+              "min_value": 0,
+              "max_value": 300,
+              "color": 4294198070,
+              "line_width": 2
+            }
+          },
+          {
+            "title": "Drive CAN 1 Bus (%)",
+            "x": 0,
+            "y": 512,
+            "width": 512,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/BusUtilization",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 100,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "Energy Used (Wh)",
+            "x": 512,
+            "y": 512,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/BatteryLogger/Energy",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Browned Out",
+            "x": 0,
+            "y": 640,
+            "width": 384,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemStats/BrownedOut",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4294198070,
+              "false_color": 4283215696,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "IndexerTower (A)",
+            "x": 384,
+            "y": 640,
+            "width": 512,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/BatteryLogger/Current/Mechanisms/IndexerTower",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 120,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "Launcher (A)",
+            "x": 896,
+            "y": 0,
+            "width": 512,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/BatteryLogger/Current/Mechanisms/Launcher",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 120,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "Hood (A)",
+            "x": 896,
+            "y": 128,
+            "width": 512,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/BatteryLogger/Current/Mechanisms/Hood",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 120,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "Intake (A)",
+            "x": 896,
+            "y": 256,
+            "width": 512,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/BatteryLogger/Current/Mechanisms/Intake",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 120,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "IntakeExtension (A)",
+            "x": 896,
+            "y": 384,
+            "width": 512,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/BatteryLogger/Current/Mechanisms/IntakeExtension",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 120,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "IndexerBed (A)",
+            "x": 896,
+            "y": 512,
+            "width": 512,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/BatteryLogger/Current/Mechanisms/IndexerBed",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 120,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "SwerveDrive (A)",
+            "x": 896,
+            "y": 640,
+            "width": 512,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/BatteryLogger/Current/Mechanisms/SwerveDrive",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 120,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "Launcher Top Right (A)",
+            "x": 1408,
+            "y": 0,
+            "width": 384,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Followers/Launcher Top Right/SupplyCurrent",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 80,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "Launcher Bottom Left (A)",
+            "x": 1408,
+            "y": 128,
+            "width": 384,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Followers/Launcher Bottom Left/SupplyCurrent",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 80,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "Launcher Bottom Right (A)",
+            "x": 1408,
+            "y": 256,
+            "width": 384,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Followers/Launcher Bottom Right/SupplyCurrent",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 80,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "Intake Right (A)",
+            "x": 1408,
+            "y": 384,
+            "width": 384,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Followers/Intake Right/SupplyCurrent",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 80,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "IndexerBed Follower 1 (A)",
+            "x": 1408,
+            "y": 512,
+            "width": 384,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Followers/IndexerBed Follower 1/SupplyCurrent",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 80,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "IndexerTower Follower (A)",
+            "x": 1408,
+            "y": 640,
+            "width": 384,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Followers/IndexerTower Follower/SupplyCurrent",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 80,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Diagnostics",
+      "grid_layout": {
+        "layouts": [],
+        "containers": [
+          {
+            "title": "Loop Time (s, budget 0.010)",
+            "x": 0,
+            "y": 0,
+            "width": 896,
+            "height": 256,
+            "type": "Graph",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Scheduler/robotPeriodic",
+              "period": 0.05,
+              "data_type": "double",
+              "time_displayed": 20,
+              "min_value": 0,
+              "max_value": 0.02,
+              "color": 4294951936,
+              "line_width": 2
+            }
+          },
+          {
+            "title": "Loop Mean (ms)",
+            "x": 0,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/System/Loop/MeanPeriodMs",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Loops Over Budget (%)",
+            "x": 256,
+            "y": 256,
+            "width": 384,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/System/Loop/OverrunPercent",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 100,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "Loop Max (ms)",
+            "x": 640,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/System/Loop/MaxPeriodMs",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Controller CPU (%)",
+            "x": 0,
+            "y": 384,
+            "width": 896,
+            "height": 256,
+            "type": "Graph",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/System/CpuPercent",
+              "period": 0.05,
+              "data_type": "double",
+              "time_displayed": 20,
+              "min_value": 0,
+              "max_value": 100,
+              "color": 4294198070,
+              "line_width": 2
+            }
+          },
+          {
+            "title": "Program CPU (%)",
+            "x": 0,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/System/ProcessPercent",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Main Thread (%)",
+            "x": 256,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/System/MainThreadPercent",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "GC (ms/s)",
+            "x": 512,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/System/Gc/MsPerSecond",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Heap MB",
+            "x": 768,
+            "y": 640,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/System/HeapUsedMB",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Alerts",
+            "x": 896,
+            "y": 0,
+            "width": 512,
+            "height": 256,
+            "type": "Alerts",
+            "properties": {
+              "topic": "/SmartDashboard/Alerts",
+              "period": 0.1
+            }
+          },
+          {
+            "title": "Scheduler",
+            "x": 1408,
+            "y": 0,
+            "width": 384,
+            "height": 256,
+            "type": "Scheduler",
+            "properties": {
+              "topic": "/SmartDashboard/Scheduler",
+              "period": 0.1
+            }
+          },
+          {
+            "title": "Drive CAN 1 Bus (%)",
+            "x": 896,
+            "y": 256,
+            "width": 512,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/BusUtilization",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 100,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "CAN Config Spent (s)",
+            "x": 1408,
+            "y": 256,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/CANConfig/BudgetSpentSeconds",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Drive CAN 1",
+            "x": 896,
+            "y": 384,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/Status",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "SC CAN 0",
+            "x": 1152,
+            "y": 384,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN0/Status",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "CAN Failed Configs",
+            "x": 1408,
+            "y": 384,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/CANConfig/FailedCalls",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Mirror All Logs To NT",
+            "x": 896,
+            "y": 512,
+            "width": 512,
+            "height": 128,
+            "type": "Toggle Switch",
+            "properties": {
+              "topic": "/SmartDashboard/Telemetry/MirrorLogsToNT",
+              "period": 0.1,
+              "data_type": "boolean"
+            }
+          },
+          {
+            "title": "Mem Avail (MB)",
+            "x": 1408,
+            "y": 512,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/System/MemAvailableMB",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Git SHA",
+            "x": 896,
+            "y": 640,
+            "width": 512,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealMetadata/GitSHA",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Git Dirty",
+            "x": 1408,
+            "y": 640,
+            "width": 384,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealMetadata/GitDirty",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

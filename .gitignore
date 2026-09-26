@@ -190,3 +190,6 @@ compile_commands.json
 src/main/java/frc/robot/BuildConstants.java
 # AdvantageKit replay output
 *_sim.wpilog
+
+# Python
+__pycache__/

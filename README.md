@@ -36,7 +36,8 @@ Build, format (Spotless, AOSP style) and run the tests:
 ./gradlew build
 ```
 
-Run the simulator with the sim GUI (connect the 2027 Driver Station, or use the GUI's DS controls):
+Run the simulator with the sim GUI (use the GUI's DS controls; an Xbox controller dragged onto
+Joystick 0 with "Map gamepad" on reads correctly, see [Controllers](#controllers-and-the-driver-station)):
 
 ```bash
 ./gradlew simulateJava
@@ -94,7 +95,8 @@ The 2026 code lives in [Spectrum3847/2026-Spectrum](https://github.com/Spectrum3
 
 - **API**: everything moved from `edu.wpi.first.*` to the 2027 `org.wpilib.*` packages
   (`DriverStation` split into `MatchState`/`RobotState`/`DriverStationErrors`, `ChassisSpeeds` →
-  `ChassisVelocities`, gamepads → `CommandGamepad` face buttons, test mode → *utility* mode, …).
+  `ChassisVelocities`, test mode → *utility* mode, …). Gamepads read raw indices through a
+  Driver Station layout table, see [Controllers](#controllers-and-the-driver-station).
 - **CAN** ([CanBuses.java](src/main/java/frc/spectrumLib/hardware/CanBuses.java)): one switch,
   `CanBuses.USE_CANIVORE`, picks the wiring. **This branch sets it to `false`: no CANivore, only the
   SystemCore's native CAN FD ports.**
@@ -342,6 +344,88 @@ offseason bot.
   python tools/make_elastic_layout.py
   ```
 
+## Controllers and the Driver Station
+
+The October event runs the 2026 FMS, so FM is driven from the **2026 NI FRC Driver Station**. The
+2027 WPILib DS is "not supported on any current FIRST FMS"
+([FirstDriverStation-Public](https://github.com/wpilibsuite/FirstDriverStation-Public); the
+[SystemcoreTesting](https://github.com/wpilibsuite/SystemcoreTesting) README table rates the NI
+DS compatible with images 10-13 on alpha-5/6).
+
+The two Driver Stations send an Xbox controller's data in different orders, and nothing between
+the DS and robot code reorders it. So WPILib 2027's `Gamepad` / `CommandGamepad`, which this port
+used first, reads the wrong controls on the NI DS:
+
+| Control | NI DS (index) | 2027 DS / `Gamepad` (index) | What `CommandGamepad` read on the NI DS |
+|---|---|---|---|
+| A B X Y | 0 1 2 3 | 0 1 2 3 | right |
+| LB, RB | 4, 5 | 9, 10 | RS, nothing |
+| Back, Start | 6, 7 | 4, 6 | LB, Back |
+| LS, RS | 8, 9 | 7, 8 | Start, LS |
+| D-pad | POV 0 | buttons 11-14 | left and right only (the port also read the POV), no up or down |
+| LX, LY | axes 0, 1 | 0, 1 | right |
+| RX, RY | axes 4, 5 | 2, 3 | LT, RT |
+| LT, RT | axes 2, 3 (0 to 1) | 4, 5 | RX, RY |
+
+[GamepadLayout](src/main/java/frc/spectrumLib/gamepads/GamepadLayout.java) holds both tables, and
+[Gamepad](src/main/java/frc/spectrumLib/gamepads/Gamepad.java) reads raw indices through one of
+them. Pilot and Operator bindings did not change. The layout is picked by `Gamepad.Config.mapping`:
+
+- **`NI_DS`** is the default, and is what the event needs.
+- **`WPILIB_DS`** is for driving from the 2027 DS.
+- **`AUTO`** guesses from what the DS says the controller has: button 14 present means the 2027
+  layout, and a POV with no button 14 means the NI layout. If it can't tell, it keeps the last
+  layout it recognised, starting from NI. It is off by default, because the guess is ours and not
+  documented anywhere.
+
+Whatever the mapping, the same guess raises a warning alert when the controller looks like the
+other layout ("Pilot controller looks like the WPILIB_DS layout, but is read as NI_DS").
+
+**Checked against sources:**
+- The SystemCore HAL copies MrcCommDaemon's joystick arrays without reordering them
+  (allwpilib `v2027.0.0-alpha-6`, `hal/src/main/native/systemcore/FIRSTDriverStation.cpp`).
+- WPILib ships `NiDs*` controller classes because "the old DS doesn't have the same mappings as a
+  new DS" ([allwpilib#8376](https://github.com/wpilibsuite/allwpilib/pull/8376)), and because
+  "FRC teams need the old classes" until the new DS works with the FMS
+  ([SystemcoreTesting#322](https://github.com/wpilibsuite/SystemcoreTesting/issues/322)).
+- The NI table is alpha-6's `NiDsXboxController`, checked by
+  [GamepadLayoutTest](src/test/java/frc/spectrumLib/gamepads/GamepadLayoutTest.java).
+- Team 10183 hit this at an event on alpha-6 with the NI DS. They moved to raw axes 2/3/4 and
+  raw button 6 for Back
+  ([Summer-Scorcher](https://github.com/arip613/Summer-Scorcher/blob/main/src/main/java/frc/robot/Robot.java)).
+- AdvantageKit logs and replays each joystick's name, type, and available buttons, axes and POVs,
+  so the mapping and the `AUTO` guess replay.
+- The sim GUI's "Map gamepad" (Windows) produces the NI order too.
+
+**Not verified; needs the bench test below:**
+- MrcCommDaemon is closed source, so the NI order on alpha-6 / image alpha13 rests on the sources
+  above rather than on a run on our robot.
+- What the NI DS reports as available buttons and POVs (and so whether `AUTO` guesses right).
+- Trigger range and rumble through the NI DS.
+- Team 302's note that `CommandGamepad` "should work with both" contradicts all of the above and
+  was not tested.
+
+### Bench test (NI DS, about 5 minutes)
+
+1. Plug an Xbox controller into the laptop running the **2026 NI Driver Station**. Put it on USB
+   slot 0, then 1 for the operator. Connect to the robot. The robot can stay disabled.
+2. Open Elastic or AdvantageScope on `/AdvantageKit/RealOutputs/Gamepads/Pilot/` (or
+   `./gradlew ntDump -Phost=172.26.0.1 -Pprefix=/AdvantageKit/RealOutputs/Gamepads`).
+3. Check `Mapping` = `NI_DS`, `Layout` = `NI_DS`, `DetectedLayout`, `Name` and
+   `Raw/ButtonsAvailable` (expect 1023 = 10 buttons), and `Raw/POV` = `CENTER`. Write down
+   `DetectedLayout`: it tells us whether `AUTO` would work.
+4. Press each control in turn: A, B, X, Y, LB, RB, LT, RT, Back, Start, LS, RS, D-pad up, down,
+   left, right. **`Pressed` must name exactly that control.** `Raw/Buttons` shows the bit, and
+   `Raw/POV` the D-pad.
+5. Move each stick to its limits and pull each trigger:
+   - `LeftX` / `RightX` go +1 to the right.
+   - `LeftY` / `RightY` go −1 when pushed up.
+   - `LeftTrigger` / `RightTrigger` go 0 to +1.
+   - The `Raw/Axis0-5` values show where each one really arrives.
+6. Repeat on the operator controller (`Gamepads/Operator/`).
+7. If anything is off, the `Raw/*` values give the real indices. Fix the `NI_DS` row in
+   `GamepadLayout` (and the test) and redeploy.
+
 ## Hardware notes (SystemCore bench unit, 2026-09-22)
 
 Deployed to the bench SystemCore (no CAN devices, two cameras):
@@ -402,7 +486,8 @@ Windows path.
       headset's QuestNav version ([QuestNavProtocol](src/main/java/frc/robot/subsystems/vision/QuestNavProtocol.java)).
 - [ ] **SystemCore camera mounts** (`VisionConfig.systemCoreCameras`) — placeholders.
 - [ ] **Rio.java**: add the SystemCore's serial so it selects `FM2026` by identity (it defaults to FM anyway).
-- [ ] **Driver Station 2027 alpha** and a SystemCore image that matches WPILib alpha-6.
+- [ ] **2026 NI Driver Station** (the event's FMS needs it) and a SystemCore image that matches
+      WPILib alpha-6. Run the [controller bench test](#bench-test-ni-ds-about-5-minutes) on it.
 
 ## Known gaps
 

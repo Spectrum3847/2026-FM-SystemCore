@@ -2,16 +2,16 @@ package frc.robot;
 
 import frc.rebuilt.Field;
 import frc.rebuilt.ShotCalculator;
+import frc.spectrumLib.gamepads.GamepadLayout;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
-import org.wpilib.driverstation.Gamepad;
 import org.wpilib.hardware.hal.AllianceStationID;
 import org.wpilib.hardware.hal.RobotMode;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.simulation.DriverStationSim;
-import org.wpilib.simulation.GamepadSim;
+import org.wpilib.simulation.GenericHIDSim;
 import org.wpilib.system.Timer;
 
 /**
@@ -61,7 +61,14 @@ public final class SimScript {
     /** Seconds the auto script runs autonomous for, after 6 s disabled. */
     private static final double AUTO_SECONDS = 20.0;
 
-    private static GamepadSim pilot;
+    private static GenericHIDSim pilot;
+
+    /**
+     * The layout the pilot's controller is read in, so the script's stick moves land on the axes
+     * the code reads (the NI DS order by default, see {@link frc.spectrumLib.gamepads.Gamepad}).
+     */
+    private static GamepadLayout pilotLayout;
+
     private static double start = Double.NaN;
 
     // Step columns. Stick up is negative Y; the buttons are 1 for held.
@@ -194,11 +201,11 @@ public final class SimScript {
         double now = Timer.getTimestamp();
         if (Double.isNaN(start)) {
             start = now;
-            pilot = new GamepadSim(0);
+            pilot = new GenericHIDSim(0);
+            pilotLayout = Robot.getPilot().getLayout();
+            pilotLayout.simulateController(pilot);
             DriverStationSim.setJoystickIsGamepad(0, true);
-            DriverStationSim.setJoystickName(0, "SimScript Pilot");
-            DriverStationSim.setJoystickAxesAvailable(0, 0x3F); // bitmask: axes 0-5
-            DriverStationSim.setJoystickButtonsAvailable(0, 0xFFFFFFFFL);
+            DriverStationSim.setJoystickName(0, "SimScript Pilot (" + pilotLayout + ")");
             DriverStationSim.setDsAttached(true);
             DriverStationSim.setAllianceStationId(AllianceStationID.BLUE_1);
             DriverStationSim.setRobotMode(RobotMode.TELEOPERATED);
@@ -242,14 +249,14 @@ public final class SimScript {
             }
         }
         DriverStationSim.setEnabled(enabled);
-        pilot.setAxis(Gamepad.Axis.LEFT_Y, step[LEFT_Y]);
-        pilot.setAxis(Gamepad.Axis.LEFT_X, step[LEFT_X]);
-        pilot.setAxis(Gamepad.Axis.RIGHT_X, step[RIGHT_X]);
-        pilot.setAxis(Gamepad.Axis.RIGHT_TRIGGER, column(step, RT));
-        pilot.setButton(Gamepad.Button.WEST_FACE, column(step, X) > 0.5);
-        pilot.setButton(Gamepad.Button.LEFT_BUMPER, column(step, LB) > 0.5);
-        pilot.setButton(Gamepad.Button.SOUTH_FACE, column(step, A) > 0.5);
-        pilot.setButton(Gamepad.Button.EAST_FACE, column(step, B) > 0.5);
+        pilot.setRawAxis(pilotLayout.leftY, step[LEFT_Y]);
+        pilot.setRawAxis(pilotLayout.leftX, step[LEFT_X]);
+        pilot.setRawAxis(pilotLayout.rightX, step[RIGHT_X]);
+        pilot.setRawAxis(pilotLayout.rightTrigger, column(step, RT));
+        pilot.setRawButton(pilotLayout.x, column(step, X) > 0.5);
+        pilot.setRawButton(pilotLayout.leftBumper, column(step, LB) > 0.5);
+        pilot.setRawButton(pilotLayout.a, column(step, A) > 0.5);
+        pilot.setRawButton(pilotLayout.b, column(step, B) > 0.5);
         pilot.notifyNewData();
         // Known limitation: a simulated DS change made mid-loop reaches AdvantageKit's HAL snapshot
         // one loop before WPILib's Driver Station cache, so replaying a *scripted* run enables one

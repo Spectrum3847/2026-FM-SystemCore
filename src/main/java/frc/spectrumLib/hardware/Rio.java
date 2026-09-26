@@ -24,7 +24,7 @@ public enum Rio {
     // 2026 Robots
     PHOTON2026("032B4BB3", true),
     PM_2026("0329AD07", true),
-    FM_2026("", true),
+    FM_2026("FB0687C7EC47BDC4", true), // SystemCore (device-tree serial), 2026-09-23
     OM_2026("", true),
 
     // 2025 Robots
@@ -41,7 +41,11 @@ public enum Rio {
 
     static {
         for (Rio i : Rio.values()) {
-            IDs.put(i.serialNumber, i);
+            // Unfilled serials are "" for several entries; mapping "" would make the last of them
+            // (SIM) the identity of every controller whose serial could not be read.
+            if (i.serialNumber != null && !i.serialNumber.isEmpty()) {
+                IDs.put(i.serialNumber, i);
+            }
         }
     }
 
@@ -49,8 +53,16 @@ public enum Rio {
     private static final Alert rioIdUnknown = new Alert("UNKNOWN RIO: ", Level.HIGH);
     private static final Alert rio1alert = new Alert("RIO 1.0", Level.MEDIUM);
 
+    /** The serial number read at boot ("" off the robot), for the log's metadata. */
+    private static String readSerial = "";
+
     /** The {@link Rio} constant that matches the hardware running this code. */
     public static final Rio id = checkID();
+
+    /** The controller serial number read at boot; "" in simulation. */
+    public static String serial() {
+        return readSerial;
+    }
 
     /** CANivore bus selector that chooses the first CANivore found on the system. */
     public static final String CANIVORE = CanBuses.CANIVORE;
@@ -73,6 +85,33 @@ public enum Rio {
     }
 
     /** Checks the id. */
+    /**
+     * The controller's serial number from the Linux device tree.
+     *
+     * <p>On WPILib 2027 alpha-6 and alpha-7, {@code RobotController.getSerialNumber()} returns ""
+     * on SystemCore: the HAL reads a {@code serialnum} environment variable that the robot service
+     * does not set (wpilibsuite/SystemcoreTesting #38). The device tree has the SoC's serial.
+     */
+    private static String deviceTreeSerial() {
+        for (String path :
+                new String[] {
+                    "/sys/firmware/devicetree/base/serial-number", "/proc/device-tree/serial-number"
+                }) {
+            try {
+                String s =
+                        java.nio.file.Files.readString(java.nio.file.Path.of(path))
+                                .replace(String.valueOf((char) 0), "")
+                                .trim();
+                if (!s.isEmpty()) {
+                    return s.toUpperCase();
+                }
+            } catch (java.io.IOException | RuntimeException e) {
+                // not present on this controller
+            }
+        }
+        return "";
+    }
+
     private static Rio checkID() {
         rioIdAlert.set(false);
         rioIdUnknown.set(false);
@@ -82,9 +121,13 @@ public enum Rio {
             // SEGVs because it does the wrong
             // thing with JNIs, so don't do that.
             serialNumber = RobotController.getSerialNumber();
+            if (serialNumber == null || serialNumber.isEmpty()) {
+                serialNumber = deviceTreeSerial();
+            }
+            readSerial = serialNumber;
             Telemetry.print("RIO SERIAL: " + serialNumber);
         } else {
-            serialNumber = "";
+            return SIM;
         }
 
         if (IDs.containsKey(serialNumber)) {

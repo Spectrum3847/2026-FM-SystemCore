@@ -177,6 +177,22 @@ to surface, and worth checking on the real robot.
 - **100 Hz.** `Constants.LOOP_PERIOD_SECONDS = 0.01` (FM ran 50 Hz on the roboRIO). Anything that
   was "every N loops" is now `RobotLoop.everySeconds(...)`, so slow-tier logging stays at 10 Hz / 1 Hz
   whatever the period.
+- **The main thread is real-time** (`Constants.MAIN_THREAD_RT_PRIORITY = 1`, set at the end of
+  robot init, real robot only). SystemCore's cores are ~85% busy with its own camera servers and
+  services, and a normal-priority loop waits behind them. Bench unit, 2026-09-23, 1 s samples: the
+  worst loop per sample went from 11–46 ms to about 10.2 ms (one sample in 20 hit 15 ms), and late
+  loops (over 12.5 ms) from 1.7% to 0.1%. System CPU stays ~88%.
+  - **Why 1 and not higher:** Phoenix's CAN threads run at real-time 1–3 on SystemCore, and 1 is
+    the lowest real-time level. The 2026 offseason bot ran its main thread at 99 on the roboRIO
+    and starved Phoenix's frame dispatch ("CAN message is stale", `WaitForAll -1003`), and that
+    was reverted (2026-Spectrum `704030d`). Priority 15 measured the same here as 1, so there is
+    nothing to gain by outranking Phoenix.
+  - **Before the event:** with the swerve powered, watch for stale-signal warnings and check
+    `Swerve/FailedDaqs`.
+  - **Inheritance:** threads the main thread starts afterwards inherit the priority (AdvantageKit's
+    radio logger does). `System/TopThreads` marks real-time threads `[rt N]`, and
+    `./gradlew deployrobotLogsystemcore -ProbotLog -ProbotThreads --info` lists them all.
+  - **To turn it off:** set the constant to 0.
 - **The log gets everything; NetworkTables gets the dashboard.** [DashboardReceiver](src/main/java/frc/spectrumLib/telemetry/DashboardReceiver.java)
   sits in front of AdvantageKit's NT publisher and passes only dashboard keys (`Telemetry.logDash`
   keys, plus every key [elastic-layout.json](src/main/deploy/elastic-layout.json) reads) at 50 Hz (every 20 ms, as before). The sim mirrors everything by default.

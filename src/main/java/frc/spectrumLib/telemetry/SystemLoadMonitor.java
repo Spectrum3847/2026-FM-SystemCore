@@ -291,12 +291,15 @@ public class SystemLoadMonitor {
                 String[] f = stat.substring(close + 2).split(" ");
                 // After "(comm) ": state is f[0], utime f[11], stime f[12].
                 long ticks = Long.parseLong(f[11]) + Long.parseLong(f[12]);
+                // rt_priority and policy: fields 40 and 41 of stat, 37 and 38 after "(comm) ".
+                int rtPriority = Integer.parseInt(f[37]);
+                String rt = rtPriority > 0 ? " [rt " + rtPriority + "]" : "";
                 String key = task.getName() + ":" + name;
                 now.put(key, ticks);
                 Long before = lastTaskTicks.get(key);
                 if (before != null) {
                     // Native threads that never set a name inherit "java"; keep them apart.
-                    names.add(name.equals("java") ? "java/" + task.getName() : name);
+                    names.add((name.equals("java") ? "java/" + task.getName() : name) + rt);
                     pcts.add(100.0 * (ticks - before) / TICKS_PER_SECOND / (wallNanos / 1e9));
                 }
             } catch (IOException | RuntimeException e) {

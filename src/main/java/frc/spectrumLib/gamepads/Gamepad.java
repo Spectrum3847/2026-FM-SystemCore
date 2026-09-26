@@ -2,6 +2,7 @@ package frc.spectrumLib.gamepads;
 
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
+import frc.spectrumLib.util.AllianceSource;
 import frc.spectrumLib.util.ExpCurve;
 import frc.spectrumLib.util.Util;
 import java.util.Optional;
@@ -14,10 +15,8 @@ import org.wpilib.command2.Commands;
 import org.wpilib.command2.InstantCommand;
 import org.wpilib.command2.Subsystem;
 import org.wpilib.command2.button.Trigger;
-import org.wpilib.driverstation.Alliance;
 import org.wpilib.driverstation.GenericHID;
 import org.wpilib.driverstation.GenericHID.RumbleType;
-import org.wpilib.driverstation.MatchState;
 import org.wpilib.driverstation.POVDirection;
 import org.wpilib.math.geometry.Rotation2d;
 
@@ -706,7 +705,7 @@ public abstract class Gamepad implements Subsystem {
      */
     public double chooseCardinalDirections() {
         // hotfix
-        if (MatchState.getAlliance().orElse(Alliance.BLUE) == Alliance.BLUE) {
+        if (AllianceSource.isBlue()) {
             return getRedAllianceStickCardinals();
         }
         return getBlueAllianceStickCardinals();

@@ -64,12 +64,29 @@ public final class VisionGates {
     public static final double MAX_ESTIMATE_AGE_SECONDS = 1.0;
 
     /**
+     * Estimates captured more than this (seconds) after now are rejected. A capture time in the
+     * future is a clock or conversion fault, and the pose estimator does not reject it: it stores
+     * the correction under the future time, where every later frame's out-of-order handling treats
+     * it as the newest measurement. The margin covers the loop's own timestamp being read at the
+     * start of the loop.
+     */
+    public static final double MAX_FUTURE_SECONDS = 0.05;
+
+    /**
      * Variance used to effectively ignore a measurement dimension -- here, the heading of every
      * estimate fused while enabled, so the gyro owns heading during a match.
      */
     public static final double LARGE_VARIANCE = 999999.0;
 
     // ── Gates ───────────────────────────────────────────────────────────────
+
+    /**
+     * Rejects a capture time more than {@link #MAX_FUTURE_SECONDS} ahead of now; for every chain.
+     */
+    public static final Gate FUTURE_TIMESTAMP_GATE =
+            Gate.rejectIf(
+                    "Future Timestamp Rejection",
+                    (o, c) -> o.timestampSeconds() - c.nowSeconds() > MAX_FUTURE_SECONDS);
 
     /** The shared AprilTag chain, for Limelight MegaTag1/2 and PhotonVision. */
     public static List<Gate> aprilTagGates() {
@@ -103,8 +120,8 @@ public final class VisionGates {
                         (o, c) -> Math.abs(o.pose().getZ()) > MAX_Z_ERROR_METERS),
                 Gate.rejectIf(
                         "Stale Estimate Rejection",
-                        (o, c) ->
-                                c.nowSeconds() - o.timestampSeconds() > MAX_ESTIMATE_AGE_SECONDS));
+                        (o, c) -> c.nowSeconds() - o.timestampSeconds() > MAX_ESTIMATE_AGE_SECONDS),
+                FUTURE_TIMESTAMP_GATE);
     }
 
     // ── Trust models ────────────────────────────────────────────────────────

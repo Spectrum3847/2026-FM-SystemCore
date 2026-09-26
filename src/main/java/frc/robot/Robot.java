@@ -372,7 +372,11 @@ public class Robot extends SpectrumRobot {
                 // A USB stick if one is inserted (AdvantageKit's default /U/logs), otherwise the
                 // SystemCore's own storage. Without a stick /U/logs cannot be opened and the
                 // match is not logged at all.
-                Logger.addDataReceiver(new WPILOGWriter(LogStorage.chooseFolder()));
+                String logFolder = LogStorage.chooseFolder();
+                // Old logs are trimmed here, before Logger.start() opens this boot's log, so the
+                // cleanup cannot delete it (the clock can boot behind the old logs' times).
+                LogStorage.cleanUpAtBoot();
+                Logger.addDataReceiver(new WPILOGWriter(logFolder));
                 Logger.recordMetadata("LogFolder", LogStorage.folder());
                 // Dashboard keys to NT at ~50 Hz; the log file keeps everything, every cycle.
                 Logger.addDataReceiver(new DashboardReceiver(new NT4Publisher(), ntEveryN()));

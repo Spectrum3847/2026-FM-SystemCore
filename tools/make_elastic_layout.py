@@ -110,13 +110,85 @@ SOURCES = ["LL-Back/MT1", "LL-Back/MT2", "LL-Left/MT1", "LL-Left/MT2", "LL-Right
            "LL-Right/MT2", "SC0/MT1", "SC0/MT2", "SC1/MT1", "SC1/MT2", "orin-front",
            "orin-left", "orin-right", "Quest"]
 
-# The main CAN bus follows CanBuses.USE_CANIVORE: the CANivore, or else the drivetrain's SystemCore
-# port (the busiest one). Rerun this script after flipping it.
+# The CAN buses follow CanBuses.java: which buses are in use (CanBuses.inUse()) depends on
+# USE_CANIVORE, so rerun this script after flipping it. The main bus is the CANivore, or else the
+# drivetrain's SystemCore port (the busiest one).
 _canbuses = open(os.path.join(os.path.dirname(__file__), "..", "src", "main", "java", "frc",
                               "spectrumLib", "hardware", "CanBuses.java"), encoding="utf-8").read()
 USE_CANIVORE = re.search(r"USE_CANIVORE = (true|false);", _canbuses).group(1) == "true"
-MAIN_BUS, MAIN_BUS_LABEL = ("CANivore", "CANivore") if USE_CANIVORE else ("SystemCoreCAN1",
-                                                                          "Drive CAN 1")
+
+# What each group is called on the dashboard, by its CanBuses constant.
+_GROUP_TITLES = {"RIO_CANBUS": "Intake", "DRIVETRAIN": "Drive", "SHOOTER": "Shooter",
+                 "MECHANISMS": "Mech"}
+
+
+def _bus_constants():
+    """The String constants of CanBuses.java, evaluated for the current USE_CANIVORE."""
+    exprs = dict(re.findall(r"public static final String (\w+)\s*=\s*([^;]+);", _canbuses))
+    values = {}
+
+    def value(expr):
+        expr = " ".join(expr.split())
+        m = re.fullmatch(r"USE_CANIVORE \? (.+?) : (.+)", expr)
+        if m:
+            return value(m.group(1) if USE_CANIVORE else m.group(2))
+        total = ""
+        for part in expr.split("+"):
+            part = part.strip()
+            total += part[1:-1] if part.startswith('"') else resolve(part)
+        return total
+
+    def resolve(name):
+        if name not in values:
+            values[name] = value(exprs[name])
+        return values[name]
+
+    for name in exprs:
+        resolve(name)
+    return values
+
+
+def can_buses_in_use():
+    """[(label, title)] in CanBuses.inUse() order: labels are the keys bus health is logged under."""
+    consts = _bus_constants()
+    prefix = consts["SYSTEMCORE_PREFIX"]
+    buses = [("CANivore", "CANivore")] if USE_CANIVORE else []
+    for group in ["RIO_CANBUS", "DRIVETRAIN", "SHOOTER", "MECHANISMS"]:
+        name = consts[group]
+        if name.startswith(prefix):
+            port = name[len(prefix):]
+            label = "SystemCoreCAN" + port
+            for i, (existing, title) in enumerate(buses):
+                if existing == label:
+                    buses[i] = (label, title + "/" + _GROUP_TITLES[group])
+                    break
+            else:
+                buses.append((label, "CAN" + port + " " + _GROUP_TITLES[group]))
+    return buses
+
+
+CAN_BUSES = can_buses_in_use()
+MAIN_BUS = "CANivore" if USE_CANIVORE else "SystemCoreCAN" + _bus_constants()["DRIVETRAIN"][-1]
+MAIN_BUS_LABEL = next(title for label, title in CAN_BUSES if label == MAIN_BUS)
+
+
+def per_bus(make, c, r, cells):
+    """One widget per bus in use, side by side in `cells` cells of row `r` from column `c`.
+
+    make(label, title, c, r, w) builds one. Fails loudly if the buses no longer fit, rather than
+    overlapping the next widget.
+    """
+    w = cells // len(CAN_BUSES)
+    assert w >= 1, f"{len(CAN_BUSES)} CAN buses do not fit in {cells} cells"
+    return [make(label, title, c + i * w, r, w) for i, (label, title) in enumerate(CAN_BUSES)]
+
+
+def bus_utilization(label, title, c, r, w):
+    """A bar when there is room for one, else the number."""
+    topic = out(label + "/BusUtilization")
+    if w >= 2:
+        return bar(title + " (%)", topic, c, r, 0, 100, w)
+    return text(title + " %", topic, c, r, w)
 
 pre_match = [
     widget("FMSInfo", "FMSInfo", 0, 0, 4, 1, topic="/FMSInfo", period=0.1),
@@ -131,8 +203,8 @@ pre_match = [
     light("Pose Seed Confirmed", out("Vision/PoseSeedConfirmed"), 11, 0, 3),
     text("Start Pose Err (m)", out("Auton/StartPoseErrorMeters"), 11, 1, 2),
     text("Hdg Err", out("Auton/StartHeadingErrorDeg"), 13, 1, 1),
-    light(MAIN_BUS_LABEL, out(MAIN_BUS + "/StatusOK"), 7, 2),
-    light("SystemCore CAN 0", out("SystemCoreCAN0/StatusOK"), 9, 2),
+    *per_bus(lambda label, title, c, r, w: light(title, out(label + "/StatusOK"), c, r, w), 7, 2,
+             4),
     light("CAN Config Budget Spent", out("CANConfig/BudgetExhausted"), 11, 2,
           good_when_true=False),
     text("Vision Age", out("Vision/SecondsSinceFusedEstimate"), 13, 2, 1),
@@ -230,7 +302,7 @@ power = [
     graph("Battery Voltage", out("BatteryLogger/BatteryVoltage"), 0, 0, 7, 2, 6, 13),
     graph("Total Supply Current (A)", out("BatteryLogger/Current"), 0, 2, 7, 2, 0, 300,
           4294198070),
-    bar(MAIN_BUS_LABEL + " Bus (%)", out(MAIN_BUS + "/BusUtilization"), 0, 4, 0, 100, 4),
+    *per_bus(bus_utilization, 0, 4, 4),
     text("Energy Used (Wh)", out("BatteryLogger/Energy"), 4, 4, 3),
     light("Browned Out", out("SystemStats/BrownedOut"), 0, 5, 3, good_when_true=False),
     bar("IndexerTower (A)", out("BatteryLogger/Current/Mechanisms/IndexerTower"), 3, 5, 0, 120, 4),
@@ -254,11 +326,12 @@ diagnostics = [
     text("Heap MB", out("System/HeapUsedMB"), 6, 5, 1),
     alerts(7, 0, 4, 2),
     widget("Scheduler", "Scheduler", 11, 0, 3, 2, topic="/SmartDashboard/Scheduler", period=0.1),
-    bar(MAIN_BUS_LABEL + " Bus (%)", out(MAIN_BUS + "/BusUtilization"), 7, 2, 0, 100, 4),
+    *per_bus(bus_utilization, 7, 2, 4),
     text("CAN Config Spent (s)", out("CANConfig/BudgetSpentSeconds"), 11, 2, 3),
-    text(MAIN_BUS_LABEL, out(MAIN_BUS + "/Status"), 7, 3, 2, data_type="string"),
-    text("SC CAN 0", out("SystemCoreCAN0/Status"), 9, 3, 2, data_type="string"),
-    text("CAN Failed Configs", out("CANConfig/FailedCalls"), 11, 3, 3),
+    *per_bus(lambda label, title, c, r, w: text(title, out(label + "/Status"), c, r, w,
+                                                data_type="string"), 7, 3, 4),
+    text("CAN Failed Configs", out("CANConfig/FailedCalls"), 11, 3, 2),
+    text("Not Applied", out("CANConfig/NotAppliedCount"), 13, 3, 1, data_type="int"),
     toggle("Mirror All Logs To NT", "/SmartDashboard/Telemetry/MirrorLogsToNT", 7, 4, 4),
     text("Mem Avail (MB)", out("System/MemAvailableMB"), 11, 4, 3),
     text("Git SHA", meta("GitSHA"), 7, 5, 4, data_type="string"),

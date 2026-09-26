@@ -339,20 +339,24 @@ public class PoseFusion {
         Logger.recordOutput(PREFIX + "FusedPose", fusedPose);
         Logger.recordOutput(PREFIX + "OdometryPose", getOdometryPose());
         Logger.recordOutput(PREFIX + "OutOfOrderReapplied", fusedVision.reapplied());
-        for (var e : shadows.entrySet()) {
-            Keys k = keys.get(e.getKey());
-            if (k == null) {
-                continue;
-            }
-            Pose2d shadowPose = e.getValue().getEstimatedPosition();
-            Logger.recordOutput(k.shadowPose(), shadowPose);
-            Logger.recordOutput(
-                    k.shadowDistance(),
-                    shadowPose.getTranslation().getDistance(fusedPose.getTranslation()));
-            if (truth.isPresent()) {
+        // Shadow tracks at the 10 Hz tier: they were a fifth of the log at 100 Hz, and every value
+        // here is computed from logged inputs, so replay regenerates them at any rate wanted.
+        if (frc.spectrumLib.telemetry.Telemetry.slowLogThisLoop()) {
+            for (var e : shadows.entrySet()) {
+                Keys k = keys.get(e.getKey());
+                if (k == null) {
+                    continue;
+                }
+                Pose2d shadowPose = e.getValue().getEstimatedPosition();
+                Logger.recordOutput(k.shadowPose(), shadowPose);
                 Logger.recordOutput(
-                        k.shadowTruthError(),
-                        shadowPose.getTranslation().getDistance(truth.get().getTranslation()));
+                        k.shadowDistance(),
+                        shadowPose.getTranslation().getDistance(fusedPose.getTranslation()));
+                if (truth.isPresent()) {
+                    Logger.recordOutput(
+                            k.shadowTruthError(),
+                            shadowPose.getTranslation().getDistance(truth.get().getTranslation()));
+                }
             }
         }
         if (truth.isPresent()) {

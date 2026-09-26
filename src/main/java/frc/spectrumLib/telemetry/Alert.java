@@ -40,6 +40,13 @@ public class Alert extends org.wpilib.driverstation.Alert {
     private static StringPublisher type;
 
     /**
+     * Set when any alert turns on or off or changes text; {@link #periodic()} rebuilds and
+     * publishes only then. Most loops nothing changes, and rebuilding three sorted arrays and
+     * publishing them to NetworkTables every loop was work for nothing.
+     */
+    private static volatile boolean dirty = true;
+
+    /**
      * Creates an alert in the default group.
      *
      * @param text the text shown while active
@@ -71,18 +78,25 @@ public class Alert extends org.wpilib.driverstation.Alert {
         if (on && !active) {
             activeSinceSeconds = Timer.getTimestamp();
         }
+        if (on != active) {
+            dirty = true;
+        }
         active = on;
         super.set(on);
     }
 
     @Override
     public void setText(String newText) {
+        if (active && !newText.equals(text)) {
+            dirty = true;
+        }
         text = newText;
         super.setText(newText);
     }
 
     @Override
     public void close() {
+        dirty = true;
         ALL.remove(this);
         super.close();
     }
@@ -102,8 +116,14 @@ public class Alert extends org.wpilib.driverstation.Alert {
         return out;
     }
 
-    /** Logs the active alerts and republishes them for Elastic. Call once per loop. */
+    /**
+     * Logs the active alerts and republishes them for Elastic when they change. Call every loop.
+     */
     public static void periodic() {
+        if (!dirty) {
+            return; // the log keeps the last value; NetworkTables keeps the last one published
+        }
+        dirty = false;
         String[] e = active(Level.HIGH);
         String[] w = active(Level.MEDIUM);
         String[] i = active(Level.LOW);

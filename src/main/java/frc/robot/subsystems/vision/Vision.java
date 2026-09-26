@@ -574,13 +574,13 @@ public class Vision implements Subsystem {
         swerve.afterVision();
     }
 
+    /** When a measurement last moved the fused pose; NaN until one has. */
+    private double lastFusedSeconds = Double.NaN;
+
     /**
      * Applies a source's results. The shadow always gets them; the fused pose only when the source
      * is enabled and {@code policyAllows}. Logs which it was.
      */
-    /** When a measurement last moved the fused pose; NaN until one has. */
-    private double lastFusedSeconds = Double.NaN;
-
     private void applyWithPolicy(PoseSource source, boolean policyAllows) {
         boolean fuse = policyAllows && source.isEnabled();
         source.logPolicy(policyAllows);
@@ -849,7 +849,16 @@ public class Vision implements Subsystem {
         }
     }
 
-    /** MegaTag2 needs the robot's heading every loop. One NetworkTables flush for all cameras. */
+    private long orientationPushes = 0;
+
+    /**
+     * MegaTag2 needs the robot's heading every loop: it is written every loop, and one
+     * NetworkTables flush for all cameras sends it straight away every other loop, i.e. at 50 Hz --
+     * the rate FM's 2026 code flushed at on the roboRIO. A flush makes the NT server send to every
+     * client, so at 100 Hz it was twice the traffic for a heading the cameras' own IMUs (IMU mode
+     * 1) already bridge between updates. The loops in between still go out at NT's normal update
+     * rate.
+     */
     private void pushHeadingToLimelights() {
         if (!Constants.hasHardware() || simVision != null) {
             return;
@@ -861,7 +870,9 @@ public class Vision implements Subsystem {
         }
         LimelightHelpers.SetRobotOrientation_NoFlush(
                 config.systemCoreSharedTable, yaw, yawRate, 0, 0, 0, 0);
-        NetworkTableInstance.getDefault().flush();
+        if ((orientationPushes++ & 1) == 0) {
+            NetworkTableInstance.getDefault().flush();
+        }
     }
 
     /** Whether the seed was confirmed as of last loop, to catch the moment it becomes confirmed. */

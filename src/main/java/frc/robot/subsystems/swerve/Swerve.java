@@ -424,10 +424,9 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         Telemetry.log("Swerve/CurrentCommand", getCurrentCommandName());
         Telemetry.log("Swerve/TeleopVelocityCoefficient", getTeleopVelocityCoefficient());
         Telemetry.log("Swerve/RotationVelocityCoefficient", getRotationVelocityCoefficient());
-        Telemetry.log("Swerve/State/Pose", getRobotPose());
-        Telemetry.log("Swerve/State/TargetStates", inputs.moduleTargets);
-        Telemetry.log("Swerve/State/MeasuredStates", inputs.moduleVelocities);
-        Telemetry.log("Swerve/State/MeasuredSpeeds", inputs.robotVelocity);
+        // (Pose, module targets/velocities and chassis speed are not re-logged here: they are
+        // Localization/FusedPose and the Swerve inputs ModuleTargets, ModuleVelocities and
+        // RobotVelocity already.)
         Telemetry.log("Swerve/OdometrySamplesThisLoop", inputs.odometryTimestamps.length);
         if (Constants.hasHardware()) {
             logBatteryUsage();

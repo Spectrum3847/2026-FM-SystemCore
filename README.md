@@ -455,6 +455,33 @@ other layout ("Pilot controller looks like the WPILIB_DS layout, but is read as 
   capture frame by frame in the camera's web UI or Limelight's Rewind Viewer. The SystemCore's
   own cameras are skipped, since their storage is the robot's internal disk.
 
+### Keeping work off the loop
+
+- **Slow reads run on a background thread** ([BackgroundSampler](src/main/java/frc/spectrumLib/util/BackgroundSampler.java)):
+  one low-priority daemon thread does them, and the loop picks up the latest result. That covers
+  the once-a-second `/proc` reads (CPU, memory, this program's threads) and both CAN buses'
+  `getStatus()`, which can block for up to 1 ms. Start any new sampler during robot init, before
+  the main thread goes real-time.
+- **Boot on a dead bus:** if every CAN bus reads zero utilization twice, 0.3 s apart, the CAN
+  config budget is spent at once. The robot then skips a minute of device timeouts, as it already
+  did for a missing CANivore. The 0.1 s pauses between subsystem constructors are gone.
+- **Log size.** In the scripted sim, localization was 84% of the log. Now:
+  - Shadow tracks are logged at 10 Hz.
+  - Each pose source's `Kind` is one number, not an array, and `Tracking` is written only when
+    some frame wasn't tracking. AdvantageKit writes only changes, and those arrays changed every
+    frame.
+  - `Swerve/State/*` duplicated `Localization/FusedPose` and the swerve inputs, so it's gone.
+  - Replay regenerates every output at any rate, and old logs still replay.
+- **NetworkTables:**
+  - The dashboard filter walks AdvantageKit's table without copying it (~1,100 entries every
+    10 ms before).
+  - The Limelight heading is flushed at 50 Hz instead of every loop.
+  - Alerts are rebuilt and published only when one changes.
+- **SystemCore cameras:** Limelight's `throttle_set` has no effect on SystemCore's built-in camera
+  stack on image 13. The camera kept processing ~81 fps at a throttle of 50. To cut their CPU,
+  lower the resolution or frame rate in each camera's pipeline in the SystemCore web UI, or unplug
+  cameras you aren't testing. Image 14 (alpha-7) adds per-port camera disable.
+
 ## Hardware notes (SystemCore bench unit, 2026-09-22)
 
 Deployed to the bench SystemCore (no CAN devices, two cameras):

@@ -460,6 +460,7 @@ public class Vision implements Subsystem {
                         "Stale Estimate Rejection",
                         (o, c) ->
                                 c.nowSeconds() - o.timestampSeconds() > config.questMaxAgeSeconds),
+                VisionGates.FUTURE_TIMESTAMP_GATE,
                 Gate.rejectIf(
                         "Out of Field Rejection",
                         (o, c) -> frc.rebuilt.FieldHelpers.poseOutOfField(o.pose2d())),
@@ -530,11 +531,15 @@ public class Vision implements Subsystem {
             s.process(context);
         }
 
-        // 3. Seed (disabled, or enabled with nothing seeded yet) and fuse (enabled).
+        // 3. Seed (disabled, or enabled with nothing seeded yet; the gross-heading net while
+        // enabled) and fuse (enabled). Seeding comes first so the frame it used can be left out of
+        // the fusing below.
+        seededThisLoop = null;
         if (disabled) {
             seedWhileDisabled();
         } else {
             seedWhileEnabled(context);
+            checkGrossHeadingError(context);
         }
         boolean llWindow =
                 !disabled
@@ -559,10 +564,6 @@ public class Vision implements Subsystem {
         }
         applyWithPolicy(questSource, !disabled);
 
-        if (!disabled) {
-            checkGrossHeadingError(context);
-        }
-
         // 4. Keep the Limelights and the Quest aligned with the fused pose.
         if (Constants.currentMode != Constants.Mode.REPLAY) {
             sendCameraSettings(now);
@@ -584,15 +585,52 @@ public class Vision implements Subsystem {
     private void applyWithPolicy(PoseSource source, boolean policyAllows) {
         boolean fuse = policyAllows && source.isEnabled();
         source.logPolicy(policyAllows);
+        List<PoseSource.Result> results = withoutSeedFrame(source.getResults());
         if (fuse) {
-            for (PoseSource.Result r : source.getResults()) {
+            for (PoseSource.Result r : results) {
                 if (r.accepted()) {
                     lastFusedSeconds = Timer.getTimestamp();
                     break;
                 }
             }
         }
-        fusion.apply(source, source.getResults(), fuse);
+        fusion.apply(source, results, fuse);
+    }
+
+    /**
+     * The frame a seed used this loop, or {@code null}. It has already gone into every track, as
+     * the seed, so fusing it again as an ordinary measurement would count its translation twice.
+     */
+    private PoseObservation seededThisLoop = null;
+
+    /** Seeds every track from {@code o} and remembers it as this loop's seed frame. */
+    private void seedFrom(PoseObservation o) {
+        fusion.seed(
+                o.pose2d(),
+                o.timestampSeconds(),
+                config.seedXyStdDev,
+                Units.degreesToRadians(config.seedThetaStdDevDeg));
+        seededThisLoop = o;
+    }
+
+    /**
+     * {@code results} with this loop's seed frame, if it is among them, marked as not fused ("Used
+     * as Seed"). It stays in the list so its disagreement with the fused pose is still logged with
+     * the rest.
+     */
+    private List<PoseSource.Result> withoutSeedFrame(List<PoseSource.Result> results) {
+        if (seededThisLoop == null) {
+            return results;
+        }
+        for (int i = 0; i < results.size(); i++) {
+            PoseSource.Result r = results.get(i);
+            if (r.accepted() && r.observation() == seededThisLoop) {
+                List<PoseSource.Result> out = new ArrayList<>(results);
+                out.set(i, new PoseSource.Result(r.observation(), "Used as Seed", r.stdDevs()));
+                return out;
+            }
+        }
+        return results;
     }
 
     // =========================================================================
@@ -661,11 +699,7 @@ public class Vision implements Subsystem {
             return;
         }
         PoseObservation o = best.observation();
-        fusion.seed(
-                o.pose2d(),
-                o.timestampSeconds(),
-                config.seedXyStdDev,
-                Units.degreesToRadians(config.seedThetaStdDevDeg));
+        seedFrom(o);
         poseHeadingSeeded = true;
         trackSeedConfirmation(o);
     }
@@ -708,11 +742,7 @@ public class Vision implements Subsystem {
             if (!slow || !o.multiTag()) {
                 return;
             }
-            fusion.seed(
-                    o.pose2d(),
-                    o.timestampSeconds(),
-                    config.seedXyStdDev,
-                    Units.degreesToRadians(config.seedThetaStdDevDeg));
+            seedFrom(o);
             poseHeadingSeeded = true;
             enabledSeedCount++;
             resetQuestToRobotPose();
@@ -805,11 +835,7 @@ public class Vision implements Subsystem {
         if (Double.isNaN(grossHeadingSince)) {
             grossHeadingSince = c.nowSeconds();
         } else if (c.nowSeconds() - grossHeadingSince >= config.grossHeadingHoldSeconds) {
-            fusion.seed(
-                    o.pose2d(),
-                    o.timestampSeconds(),
-                    config.seedXyStdDev,
-                    Units.degreesToRadians(config.seedThetaStdDevDeg));
+            seedFrom(o);
             grossHeadingCorrections++;
             grossHeadingSince = Double.NaN;
             resetQuestToRobotPose();
@@ -826,10 +852,17 @@ public class Vision implements Subsystem {
 
     /**
      * How often the settings the robot owns (IMU mode, and the mount poses when {@link
-     * VisionConfig#pushLimelightMounts} is on) are re-sent. A Limelight that boots after the robot,
-     * or reboots mid-match, comes back in IMU mode 0 and on whatever mount was last saved to it; in
-     * mode 0 its MegaTag2 poses are garbage, and FM fuses MegaTag2 once the seed is confirmed.
-     * Offseason 71dc7a7.
+     * VisionConfig#pushLimelightMounts} is on) are re-sent. Offseason 71dc7a7.
+     *
+     * <p>FM uses IMU mode 1: MegaTag2 takes its yaw from {@code SetRobotOrientation} (as in mode 0,
+     * "external yaw only", which is standard MegaTag2 and works fine), and the Limelight 4 also
+     * seeds its internal IMU from that yaw. A camera left in mode 0 would still produce usable
+     * MegaTag2 poses from the pushed heading; mode 1 only matters for the internal IMU.
+     *
+     * <p>The resend is belt-and-braces and most likely a no-op: NetworkTables does not transmit a
+     * write of an unchanged value, and a Limelight that boots after the robot or reboots mid-match
+     * gets the current values when it resubscribes anyway. It is kept only because it costs one NT
+     * write per camera every two seconds.
      */
     private static final double SETTINGS_RESEND_PERIOD_SECS = 2.0;
 
@@ -852,12 +885,19 @@ public class Vision implements Subsystem {
     private long orientationPushes = 0;
 
     /**
-     * MegaTag2 needs the robot's heading every loop: it is written every loop, and one
-     * NetworkTables flush for all cameras sends it straight away every other loop, i.e. at 50 Hz --
-     * the rate FM's 2026 code flushed at on the roboRIO. A flush makes the NT server send to every
-     * client, so at 100 Hz it was twice the traffic for a heading the cameras' own IMUs (IMU mode
-     * 1) already bridge between updates. The loops in between still go out at NT's normal update
-     * rate.
+     * Yaw rate (rad/s) above which the heading is flushed every loop rather than every other loop.
+     */
+    private static final double HEADING_FLUSH_EVERY_LOOP_RAD_PER_SEC = 0.5;
+
+    /**
+     * MegaTag2 solves each frame with the last external yaw the camera received -- the cameras' own
+     * IMUs do not fill in between updates -- so a stale heading is heading error, and while turning
+     * it becomes MegaTag2 translation error. The heading is written every loop, and a NetworkTables
+     * flush sends it straight away: every loop (100 Hz) while the robot turns faster than {@link
+     * #HEADING_FLUSH_EVERY_LOOP_RAD_PER_SEC}, where a 10 ms older heading matters, and every other
+     * loop (50 Hz, the rate FM's 2026 code flushed at) otherwise, where the heading barely changes
+     * and a flush -- which makes the NT server send to every client -- would mostly be traffic.
+     * Unflushed loops still go out at NT's normal update rate.
      */
     private void pushHeadingToLimelights() {
         if (!Constants.hasHardware() || simVision != null) {
@@ -870,9 +910,12 @@ public class Vision implements Subsystem {
         }
         LimelightHelpers.SetRobotOrientation_NoFlush(
                 config.systemCoreSharedTable, yaw, yawRate, 0, 0, 0, 0);
-        if ((orientationPushes++ & 1) == 0) {
+        boolean turning =
+                Math.abs(swerve.getYawRateRadPerSec()) > HEADING_FLUSH_EVERY_LOOP_RAD_PER_SEC;
+        if (turning || (orientationPushes & 1) == 0) {
             NetworkTableInstance.getDefault().flush();
         }
+        orientationPushes++;
     }
 
     /** Whether the seed was confirmed as of last loop, to catch the moment it becomes confirmed. */

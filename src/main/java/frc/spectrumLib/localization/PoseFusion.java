@@ -276,6 +276,10 @@ public class PoseFusion {
      * Adds one measurement straight to the fused pose and every shadow. For seeding: the one event
      * every track should share.
      *
+     * <p>It goes through the same ordered buffers as camera measurements, so when an older frame
+     * arrives later and newer measurements are re-applied, the seed is re-applied with them, in its
+     * place among any other measurements at the same capture time.
+     *
      * @param pose measured pose
      * @param timestampSeconds capture time
      * @param xyStd translation std-dev, metres

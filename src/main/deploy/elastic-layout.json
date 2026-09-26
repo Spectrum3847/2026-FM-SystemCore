@@ -85,16 +85,16 @@
             }
           },
           {
-            "title": "Super State",
+            "title": "Alliance Override",
             "x": 512,
             "y": 640,
             "width": 384,
             "height": 128,
-            "type": "Large Text Display",
+            "type": "Split Button Chooser",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/SuperStructure/CurrentSuperState",
+              "topic": "/SmartDashboard/Alliance Override",
               "period": 0.1,
-              "data_type": "string"
+              "sort_options": false
             }
           },
           {
@@ -506,11 +506,24 @@
             "title": "Super State",
             "x": 0,
             "y": 640,
-            "width": 896,
+            "width": 512,
             "height": 128,
             "type": "Large Text Display",
             "properties": {
               "topic": "/AdvantageKit/RealOutputs/SuperStructure/CurrentSuperState",
+              "period": 0.1,
+              "data_type": "string"
+            }
+          },
+          {
+            "title": "Alliance",
+            "x": 512,
+            "y": 640,
+            "width": 384,
+            "height": 128,
+            "type": "Large Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Alliance/Display",
               "period": 0.1,
               "data_type": "string"
             }

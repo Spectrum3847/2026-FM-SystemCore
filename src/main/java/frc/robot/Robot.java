@@ -49,6 +49,7 @@ import frc.spectrumLib.telemetry.LogStorage;
 import frc.spectrumLib.telemetry.SystemLoadMonitor;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.telemetry.Telemetry.PrintPriority;
+import frc.spectrumLib.util.AllianceSource;
 import frc.spectrumLib.util.BackgroundSampler;
 import frc.spectrumLib.util.CrashTracker;
 import frc.spectrumLib.util.Util;
@@ -68,7 +69,6 @@ import org.wpilib.command2.Command;
 import org.wpilib.command2.CommandScheduler;
 import org.wpilib.command2.Commands;
 import org.wpilib.driverstation.Alert.Level;
-import org.wpilib.driverstation.Alliance;
 import org.wpilib.driverstation.MatchState;
 import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.geometry.Pose2d;
@@ -194,6 +194,10 @@ public class Robot extends SpectrumRobot {
                                     return status;
                                 });
             }
+
+            // The Alliance Override chooser and alliance alerts: every alliance decision goes
+            // through AllianceSource.
+            AllianceSource.init();
 
             pilot = new Pilot(config.pilot);
             operator = new Operator(config.operator);
@@ -368,7 +372,11 @@ public class Robot extends SpectrumRobot {
                 // A USB stick if one is inserted (AdvantageKit's default /U/logs), otherwise the
                 // SystemCore's own storage. Without a stick /U/logs cannot be opened and the
                 // match is not logged at all.
-                Logger.addDataReceiver(new WPILOGWriter(LogStorage.chooseFolder()));
+                String logFolder = LogStorage.chooseFolder();
+                // Old logs are trimmed here, before Logger.start() opens this boot's log, so the
+                // cleanup cannot delete it (the clock can boot behind the old logs' times).
+                LogStorage.cleanUpAtBoot();
+                Logger.addDataReceiver(new WPILOGWriter(logFolder));
                 Logger.recordMetadata("LogFolder", LogStorage.folder());
                 // Dashboard keys to NT at ~50 Hz; the log file keeps everything, every cycle.
                 Logger.addDataReceiver(new DashboardReceiver(new NT4Publisher(), ntEveryN()));
@@ -454,18 +462,17 @@ public class Robot extends SpectrumRobot {
 
         // Fixed shots: park at the spot, point the back at the hub, hold the chord. Hood and
         // flywheel from the spot's range, fed once they are there; no pose read, no aim checked.
-        // See ShotCalculator.SetShot. Bound before the bare X and A below so that letting go of LB
-        // first lands in what the buttons now say (track target, unjam), not IDLE.
+        // See ShotCalculator.SetShot. The chords, bare X (track target) and bare A (unjam) are one
+        // function of the buttons held (Pilot.faceChord / FaceChord): only one is true at a time,
+        // so only rising edges are bound, and IDLE only when all of them are let go. Separate
+        // onFalse bindings raced here: LB pressed with X held asked for the set shot and then,
+        // from X's "X and not LB" trigger falling, IDLE.
         pilot.setShotTower_LB_A.onTrue(superStructure.setShotCommand(SetShot.TOWER));
         pilot.setShotLeftTrench_LB_X.onTrue(superStructure.setShotCommand(SetShot.LEFT_TRENCH));
         pilot.setShotRightTrench_LB_B.onTrue(superStructure.setShotCommand(SetShot.RIGHT_TRENCH));
-        pilot.anySetShot.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
-
         pilot.trackTarget_X.onTrue(superStructure.setStateCommand(WantedSuperState.TRACK_TARGET));
-        pilot.trackTarget_X.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
-
         pilot.unjam_A.onTrue(superStructure.setStateCommand(WantedSuperState.UNJAM));
-        pilot.unjam_A.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
+        pilot.anyFaceChord.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
 
         pilot.selectButton.onTrue(superStructure.setStateCommand(WantedSuperState.FORCE_HOME));
         pilot.selectButton.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
@@ -533,6 +540,7 @@ public class Robot extends SpectrumRobot {
         Telemetry.periodic();
         Alert.periodic();
         LogStorage.periodic();
+        AllianceSource.periodic();
         systemLoad.periodic();
 
         // Latched here rather than in the mode inits so every mode is covered by the same check.
@@ -720,8 +728,7 @@ public class Robot extends SpectrumRobot {
 
         // The alliance belongs in the reload key, not just the auto name: the red flip is applied
         // in the reload branch below.
-        String selectionKey =
-                fullAutoName + "|" + MatchState.getAlliance().map(Enum::name).orElse("NONE");
+        String selectionKey = fullAutoName + "|" + AllianceSource.get().name();
 
         if (fullAutoName.equals("Do Nothing")) {
             field2d.getObject("Auto Routine").setPoses(new ArrayList<>());
@@ -754,9 +761,10 @@ public class Robot extends SpectrumRobot {
                     Telemetry.print("Could not load path planner paths");
                 }
 
-                // Flip the paths if on red alliance
-                Optional<Alliance> alliance = MatchState.getAlliance();
-                if (alliance.isPresent() && alliance.get() == Alliance.RED) {
+                // Flip the paths if on red alliance: the same AllianceSource answer PathPlanner's
+                // shouldFlip gives (Swerve), so the preview and start pose match the auto that
+                // runs.
+                if (AllianceSource.isRed()) {
                     pathPlannerPaths =
                             pathPlannerPaths.stream()
                                     .map(PathPlannerPath::flipPath)

@@ -29,6 +29,7 @@ import frc.spectrumLib.hardware.CanConfigBudget;
 import frc.spectrumLib.localization.PoseFusion;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
+import frc.spectrumLib.util.AllianceSource;
 import frc.spectrumLib.util.Util;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -40,9 +41,7 @@ import org.wpilib.command2.Command;
 import org.wpilib.command2.Subsystem;
 import org.wpilib.command2.button.Trigger;
 import org.wpilib.driverstation.Alert.Level;
-import org.wpilib.driverstation.Alliance;
 import org.wpilib.driverstation.DriverStationErrors;
-import org.wpilib.driverstation.MatchState;
 import org.wpilib.hardware.hal.HALUtil;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rectangle2d;
@@ -570,11 +569,8 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
     }
 
     private ChassisVelocities calculateSpeedsBasedOnJoystickInputs() {
-        Optional<Alliance> alliance = MatchState.getAlliance();
-        if (alliance.isEmpty()) {
-            return new ChassisVelocities(0, 0, 0);
-        }
-        boolean blue = alliance.get() == Alliance.BLUE;
+        // Never empty: blue until the DS reports an alliance (the robot used to sit still here).
+        boolean blue = AllianceSource.isBlue();
 
         double xMagnitude = Robot.getPilot().getDriveFwdPositive();
         double yMagnitude = Robot.getPilot().getDriveLeftPositive();
@@ -918,7 +914,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                     new PPHolonomicDriveController(
                             new PIDConstants(4, 0, 0), new PIDConstants(3, 0, 0)),
                     ppConfig,
-                    () -> MatchState.getAlliance().orElse(Alliance.BLUE) == Alliance.RED,
+                    AllianceSource::isRed,
                     this);
         } catch (Exception ex) {
             DriverStationErrors.reportError(

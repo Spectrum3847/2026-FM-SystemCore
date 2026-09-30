@@ -35,8 +35,10 @@ import org.wpilib.math.linalg.VecBuilder;
  * regenerated in AdvantageKit replay, and a gate or std-dev change can be tested against a real
  * match without the robot.
  *
- * <p>Decisions carried over from the 2026 handoff: fusion stays WPILib's estimator (971's EKF was
- * evaluated and rejected), and it runs where the drivetrain loop runs -- on SystemCore.
+ * <p>Fusion runs where the drivetrain loop runs -- on SystemCore. The fused track is WPILib's
+ * estimator for now; an EKF with per-tag measurements is to run alongside it as a second fused
+ * track, and the robot drives on whichever the logs show is better (docs/pose-sources.md, "EKF
+ * alongside WPILib").
  */
 public class PoseFusion {
 

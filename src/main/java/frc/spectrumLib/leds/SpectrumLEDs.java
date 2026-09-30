@@ -19,7 +19,7 @@ import com.ctre.phoenix6.signals.LarsonBounceValue;
 import com.ctre.phoenix6.signals.LossOfSignalBehaviorValue;
 import com.ctre.phoenix6.signals.RGBWColor;
 import com.ctre.phoenix6.signals.StripTypeValue;
-import frc.spectrumLib.hardware.CanConfigBudget;
+import frc.spectrumLib.hardware.CanConfigRetry;
 import java.util.function.DoubleSupplier;
 import lombok.Getter;
 import lombok.Setter;
@@ -281,8 +281,15 @@ public class SpectrumLEDs implements Subsystem {
                                             .withBrightnessScalar(config.getBrightness())
                                             .withLossOfSignalBehavior(
                                                     config.getLossOfSignalBehavior()));
-            CanConfigBudget.run(
+            // Retried at boot, then in the background until it applies. No alert: a CANdle on
+            // its flash config still lights, and the LEDs are not worth a HIGH alert.
+            CanConfigRetry.INSTANCE.applyAtBoot(
                     "CANdle " + config.getDeviceId(),
+                    candle,
+                    config.getDeviceId(),
+                    config.getCanBus().getName(),
+                    CanConfigRetry.CONFIG,
+                    false,
                     timeout -> candle.getConfigurator().apply(candleConfig, timeout));
         }
 

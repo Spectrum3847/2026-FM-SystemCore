@@ -10,6 +10,7 @@ import frc.robot.subsystems.intakeExtension.IntakeExtension;
 import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.swerve.Swerve;
 import frc.spectrumLib.telemetry.Telemetry;
+import frc.spectrumLib.util.AllianceSource;
 import frc.spectrumLib.util.Util;
 import java.util.function.BooleanSupplier;
 import lombok.Getter;
@@ -261,7 +262,7 @@ public class SuperStructure extends SubsystemBase {
                     new ShotLog.Shot(
                             now,
                             MatchState.getMatchTime(),
-                            MatchState.getAlliance().map(Enum::name).orElse("NONE"),
+                            AllianceSource.get().name(),
                             RobotState.isAutonomous(),
                             currentSuperState.toString(),
                             shotDecision,

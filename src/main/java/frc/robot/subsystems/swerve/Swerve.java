@@ -29,6 +29,7 @@ import frc.spectrumLib.hardware.CanConfigBudget;
 import frc.spectrumLib.localization.PoseFusion;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
+import frc.spectrumLib.util.AllianceSource;
 import frc.spectrumLib.util.Util;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -40,9 +41,7 @@ import org.wpilib.command2.Command;
 import org.wpilib.command2.Subsystem;
 import org.wpilib.command2.button.Trigger;
 import org.wpilib.driverstation.Alert.Level;
-import org.wpilib.driverstation.Alliance;
 import org.wpilib.driverstation.DriverStationErrors;
-import org.wpilib.driverstation.MatchState;
 import org.wpilib.hardware.hal.HALUtil;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rectangle2d;
@@ -229,6 +228,14 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
 
         this.register();
 
+        // The dead-bus shortcut (see CanConfigBudget): decided here, from whether the thirteen
+        // devices CTRE just configured are actually talking, not from bus utilization before any
+        // device existed, which Phoenix may well report as zero on a healthy native port.
+        if (Constants.currentMode == Constants.Mode.REAL && !anyDeviceAnswering()) {
+            CanConfigBudget.exhaust(
+                    "no drivetrain device answering on '" + config.getCanBus().getName() + "'");
+        }
+
         // Eight motors' worth of per-signal config calls, and only an optimisation: on a dead bus
         // it is boot latency for nothing, so it is skipped once the CAN config budget is spent.
         if (!CanConfigBudget.exhausted()) {
@@ -267,6 +274,52 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         }
 
         Telemetry.print(getName() + " Subsystem Initialized");
+    }
+
+    /** How long boot waits for any drivetrain device to show up before calling the bus dead. */
+    private static final double DEVICE_ANSWER_WAIT_SECONDS = 1.0;
+
+    /**
+     * Whether any drivetrain device (motor, CANcoder or Pigeon) is broadcasting, waiting up to
+     * {@link #DEVICE_ANSWER_WAIT_SECONDS} for one.
+     *
+     * <p>This replaces the pre-construction check that every bus read zero utilization. That check
+     * was only ever tried on a bench SystemCore with nothing wired, and nothing says Phoenix
+     * reports utilization on a native port before a device is registered on it; if it reads zero
+     * there, the old check would have spent the config budget on a healthy robot. Here the devices
+     * exist and CTRE has just finished configuring them, so a live bus has frames from all thirteen
+     * and one answering is proof enough. {@code isConnected()} only reads the age of the latest
+     * frame; it sends nothing.
+     *
+     * @return true as soon as one device is connected; false if none is within the wait
+     */
+    private boolean anyDeviceAnswering() {
+        java.util.List<com.ctre.phoenix6.hardware.ParentDevice> devices =
+                new java.util.ArrayList<>();
+        devices.add(getPigeon2());
+        for (var module : getModules()) {
+            devices.add(module.getDriveMotor());
+            devices.add(module.getSteerMotor());
+            devices.add(module.getEncoder());
+        }
+        // Wall clock: the robot clock is frozen during init.
+        long deadline = System.nanoTime() + (long) (DEVICE_ANSWER_WAIT_SECONDS * 1e9);
+        while (true) {
+            for (var device : devices) {
+                if (device.isConnected()) {
+                    return true;
+                }
+            }
+            if (System.nanoTime() >= deadline) {
+                return false;
+            }
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return true; // do not shortcut on a guess
+            }
+        }
     }
 
     // --------------------------------------------------------------------------------
@@ -570,11 +623,8 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
     }
 
     private ChassisVelocities calculateSpeedsBasedOnJoystickInputs() {
-        Optional<Alliance> alliance = MatchState.getAlliance();
-        if (alliance.isEmpty()) {
-            return new ChassisVelocities(0, 0, 0);
-        }
-        boolean blue = alliance.get() == Alliance.BLUE;
+        // Never empty: blue until the DS reports an alliance (the robot used to sit still here).
+        boolean blue = AllianceSource.isBlue();
 
         double xMagnitude = Robot.getPilot().getDriveFwdPositive();
         double yMagnitude = Robot.getPilot().getDriveLeftPositive();
@@ -918,7 +968,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                     new PPHolonomicDriveController(
                             new PIDConstants(4, 0, 0), new PIDConstants(3, 0, 0)),
                     ppConfig,
-                    () -> MatchState.getAlliance().orElse(Alliance.BLUE) == Alliance.RED,
+                    AllianceSource::isRed,
                     this);
         } catch (Exception ex) {
             DriverStationErrors.reportError(

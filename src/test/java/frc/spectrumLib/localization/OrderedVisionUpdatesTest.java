@@ -2,6 +2,7 @@ package frc.spectrumLib.localization;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 import org.wpilib.math.estimator.SwerveDrivePoseEstimator;
@@ -94,5 +95,61 @@ class OrderedVisionUpdatesTest {
         // Newest odometry now 2.5 s: the 0.8 s frame is outside the 1.5 s buffer and not redone.
         v.add(EARLY, 0.4, STD, 2.5);
         assertEquals(0, v.reapplied());
+    }
+
+    private static final double TINY = 1e-4;
+    private static final double HUGE = 999999.0;
+
+    @Test
+    void seedSurvivesAnOutOfOrderRedo() {
+        // Vision seeds with a MegaTag1 frame, and the same frame at the same time is fused as an
+        // ordinary camera measurement whose heading is ignored. An older frame arriving afterwards
+        // forces a redo, which must re-apply the seed too, not just the camera frame.
+        Pose2d seeded = new Pose2d(0.8, 0.0, Rotation2d.fromDegrees(30));
+        var e = driving();
+        var v = new OrderedVisionUpdates(e);
+        v.add(seeded, 0.8, VecBuilder.fill(TINY, TINY, TINY), 1.0);
+        v.add(seeded, 0.8, VecBuilder.fill(0.5, 0.5, HUGE), 1.0);
+        double before = e.getEstimatedPosition().getRotation().getDegrees();
+        assertEquals(30, before, 0.1);
+
+        v.add(new Pose2d(0.75, 0.0, Rotation2d.kZero), 0.75, VecBuilder.fill(0.5, 0.5, HUGE), 1.0);
+        assertEquals(2, v.reapplied());
+        assertEquals(before, e.getEstimatedPosition().getRotation().getDegrees(), 0.01);
+    }
+
+    @Test
+    void sameTimestampRedoMatchesInOrder() {
+        // Two measurements sharing a timestamp are re-applied in the order they were added.
+        Pose2d a = new Pose2d(0.9, 0.2, Rotation2d.fromDegrees(10));
+        Pose2d b = new Pose2d(0.7, -0.2, Rotation2d.fromDegrees(-5));
+        var inOrder = driving();
+        var inOrderV = new OrderedVisionUpdates(inOrder);
+        inOrderV.add(EARLY, 0.4, STD, 1.0);
+        inOrderV.add(a, 0.8, STD, 1.0);
+        inOrderV.add(b, 0.8, STD, 1.0);
+
+        var late = driving();
+        var lateV = new OrderedVisionUpdates(late);
+        lateV.add(a, 0.8, STD, 1.0);
+        lateV.add(b, 0.8, STD, 1.0);
+        lateV.add(EARLY, 0.4, STD, 1.0);
+
+        Pose2d x = inOrder.getEstimatedPosition();
+        Pose2d y = late.getEstimatedPosition();
+        assertEquals(x.getX(), y.getX(), 1e-9);
+        assertEquals(x.getY(), y.getY(), 1e-9);
+        assertEquals(x.getRotation().getRadians(), y.getRotation().getRadians(), 1e-9);
+    }
+
+    @Test
+    void boundedWhenOdometryStops() {
+        var e = driving();
+        var v = new OrderedVisionUpdates(e);
+        // Odometry stuck at 1.0 s while frames keep arriving: nothing ages out by time.
+        for (int i = 0; i < OrderedVisionUpdates.MAX_TIMESTAMPS + 500; i++) {
+            v.add(LATE, 1.0 + i * 0.01, STD, 1.0);
+        }
+        assertTrue(v.size() <= OrderedVisionUpdates.MAX_TIMESTAMPS);
     }
 }

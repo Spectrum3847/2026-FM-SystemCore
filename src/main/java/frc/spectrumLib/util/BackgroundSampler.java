@@ -1,5 +1,7 @@
 package frc.spectrumLib.util;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -20,20 +22,24 @@ import java.util.function.Supplier;
 public final class BackgroundSampler {
     private BackgroundSampler() {}
 
-    private static ScheduledExecutorService executor;
+    /** Default thread name, shared by every sampler that does not ask for its own. */
+    private static final String DEFAULT_THREAD = "BackgroundSampler";
 
-    private static synchronized ScheduledExecutorService executor() {
-        if (executor == null) {
-            executor =
-                    Executors.newSingleThreadScheduledExecutor(
-                            runnable -> {
-                                Thread t = new Thread(runnable, "BackgroundSampler");
-                                t.setDaemon(true);
-                                t.setPriority(Thread.MIN_PRIORITY);
-                                return t;
-                            });
-        }
-        return executor;
+    /** One single-thread executor per thread name. */
+    private static final Map<String, ScheduledExecutorService> executors =
+            new ConcurrentHashMap<>();
+
+    private static ScheduledExecutorService executor(String threadName) {
+        return executors.computeIfAbsent(
+                threadName,
+                name ->
+                        Executors.newSingleThreadScheduledExecutor(
+                                runnable -> {
+                                    Thread t = new Thread(runnable, name);
+                                    t.setDaemon(true);
+                                    t.setPriority(Thread.MIN_PRIORITY);
+                                    return t;
+                                }));
     }
 
     /**
@@ -69,9 +75,23 @@ public final class BackgroundSampler {
      * @return where each result lands
      */
     public static <T> Latest<T> every(double periodSeconds, Supplier<T> read) {
+        return every(DEFAULT_THREAD, periodSeconds, read);
+    }
+
+    /**
+     * Runs {@code read} every {@code periodSeconds} on a thread of its own name, so a read that can
+     * hang (a CAN bus status call) cannot stall the samplers on the shared thread, nor they it.
+     * Samplers given the same name share that thread.
+     *
+     * @param threadName the sampler thread to run on
+     * @param periodSeconds time between reads
+     * @param read the read; exceptions are swallowed so one bad read cannot stop the thread
+     * @return where each result lands
+     */
+    public static <T> Latest<T> every(String threadName, double periodSeconds, Supplier<T> read) {
         Latest<T> latest = new Latest<>();
         long periodMs = Math.max(1, (long) (periodSeconds * 1000));
-        executor()
+        executor(threadName)
                 .scheduleWithFixedDelay(
                         () -> {
                             try {

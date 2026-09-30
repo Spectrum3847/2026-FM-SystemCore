@@ -26,6 +26,7 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 import frc.robot.Robot;
 import frc.spectrumLib.framework.RobotLoop;
 import frc.spectrumLib.hardware.CanConfigBudget;
+import frc.spectrumLib.hardware.CanConfigRetry;
 import frc.spectrumLib.hardware.TalonFXFactory;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
@@ -107,6 +108,12 @@ public abstract class Mechanism implements Subsystem {
     /** FPGA time of the previous follower check, for integrating the mismatch. */
     private double followerCheckLastSeconds = 0;
 
+    /**
+     * The leader's config entry, whose status becomes {@link MotorInputs#configApplied}. Null when
+     * unattached.
+     */
+    private CanConfigRetry.Entry configEntry;
+
     /** The last closed-loop position setpoint (in rotations) sent to the motor. */
     private double target = 0;
 
@@ -176,11 +183,13 @@ public abstract class Mechanism implements Subsystem {
 
     /**
      * Rate for the output signals (duty cycle, motor voltage, torque current) of a leader that has
-     * followers. A follower mirrors its leader from the leader's status frames, so CTRE requires
-     * these to stay enabled on such a leader; 50 Hz is the rate the followers have run on all
-     * season, kept as is.
+     * followers. A follower acts on its leader's broadcast of these frames -- that broadcast is the
+     * follower's setpoint -- so their rate is the follower's control rate. 250 Hz is what 2026 ran
+     * all season; the port briefly had it at 50 Hz, which left the launcher's three followers (and
+     * the indexers' and the intake's) up to 20 ms behind their leader. Only the few leaders with
+     * followers pay for it.
      */
-    private static final double FOLLOWED_LEADER_OUTPUT_HZ = 50;
+    private static final double FOLLOWED_LEADER_OUTPUT_HZ = 250;
 
     /**
      * Rate for signals nothing controls on: currents and voltage, the output signals of a leader
@@ -217,9 +226,13 @@ public abstract class Mechanism implements Subsystem {
         inputsKey = "Mechanisms/" + config.getName();
 
         if (isAttached()) {
-            motor = TalonFXFactory.createConfigTalon(config.id, config.talonConfig);
+            motor =
+                    TalonFXFactory.createConfigTalon(
+                            config.getName(), config.id, config.talonConfig);
+            configEntry = CanConfigRetry.INSTANCE.find(motor, CanConfigRetry.CONFIG);
             boolean hasFollowers = config.followerConfigs.length > 0;
             configureStatusSignals(
+                    config.getName(),
                     motor,
                     hasFollowers ? SignalRole.FOLLOWED_LEADER : SignalRole.LEADER,
                     config.fastOutputLogging);
@@ -230,10 +243,15 @@ public abstract class Mechanism implements Subsystem {
             for (int i = 0; i < config.followerConfigs.length; i++) {
                 followerMotors[i] =
                         TalonFXFactory.createPermanentFollowerTalon(
+                                config.followerConfigs[i].getName(),
                                 config.followerConfigs[i].id,
                                 motor,
                                 config.followerConfigs[i].opposeLeader);
-                configureStatusSignals(followerMotors[i], SignalRole.FOLLOWER, false);
+                configureStatusSignals(
+                        config.followerConfigs[i].getName(),
+                        followerMotors[i],
+                        SignalRole.FOLLOWER,
+                        false);
                 followerSupplySignals[i] = followerMotors[i].getSupplyCurrent(false);
                 followerCurrentKeys[i] =
                         "Followers/" + config.followerConfigs[i].getName() + "/SupplyCurrent";
@@ -302,39 +320,66 @@ public abstract class Mechanism implements Subsystem {
     /**
      * Sets the status frame rates this mechanism relies on and disables everything else. A
      * follower's frames cost the same bandwidth as the leader's, so it gets the diagnostic rate for
-     * everything; a leader that has followers keeps the output frames they mirror; a leader whose
-     * feedforward is fit from logs ({@link Config#isFastOutputLogging()}) publishes its output at
-     * the control rate so the logged voltage lines up with the logged velocity.
+     * everything; a leader that has followers publishes the output frames they act on at {@link
+     * #FOLLOWED_LEADER_OUTPUT_HZ}; a leader whose feedforward is fit from logs ({@link
+     * Config#isFastOutputLogging()}) publishes its output at least at the control rate so the
+     * logged voltage lines up with the logged velocity.
      *
+     * <p>Registered with {@link CanConfigRetry} as the motor's {@link CanConfigRetry#SIGNALS}
+     * entry: tried once at boot, retried in the background if that fails, and re-sent if the motor
+     * resets (signal rates, unlike the config, are not kept in flash). Once the boot budget is
+     * spent it is not tried at boot at all -- on a dead bus that is several timeouts per motor for
+     * rates nobody will receive -- but deferred to the retry thread, so a bus that comes up later
+     * still gets its rates and its bus optimisation.
+     *
+     * @param name the motor's name, for log keys
      * @param talon the motor to configure
      * @param role the motor's job, which decides which frames need to be fast
      * @param fastOutput {@code true} to publish the output frames at the control rate
      */
-    private static void configureStatusSignals(TalonFX talon, SignalRole role, boolean fastOutput) {
-        // Each call below blocks until the device acks or times out. On a bus that is known to be
-        // dead that is several timeouts per motor for rates nobody will receive.
-        if (CanConfigBudget.exhausted()) {
-            return;
-        }
+    private static void configureStatusSignals(
+            String name, TalonFX talon, SignalRole role, boolean fastOutput) {
         double controlHz = role == SignalRole.FOLLOWER ? DIAGNOSTIC_SIGNAL_HZ : CONTROL_SIGNAL_HZ;
         double outputHz =
-                fastOutput
-                        ? CONTROL_SIGNAL_HZ
-                        : role == SignalRole.FOLLOWED_LEADER
-                                ? FOLLOWED_LEADER_OUTPUT_HZ
-                                : DIAGNOSTIC_SIGNAL_HZ;
-        BaseStatusSignal.setUpdateFrequencyForAll(
-                controlHz, talon.getPosition(), talon.getVelocity());
-        BaseStatusSignal.setUpdateFrequencyForAll(
-                outputHz, talon.getDutyCycle(), talon.getMotorVoltage(), talon.getTorqueCurrent());
-        BaseStatusSignal.setUpdateFrequencyForAll(
-                DIAGNOSTIC_SIGNAL_HZ, talon.getStatorCurrent(), talon.getSupplyCurrent());
-        talon.getDeviceTemp().setUpdateFrequency(TEMPERATURE_SIGNAL_HZ);
-        // A long run of per-signal config calls, and only ever an optimisation. On a dead
-        // bus it is pure boot latency, so it is the first thing dropped once the budget is
-        // spent.
-        if (!CanConfigBudget.exhausted()) {
-            talon.optimizeBusUtilization();
+                role == SignalRole.FOLLOWED_LEADER
+                        ? FOLLOWED_LEADER_OUTPUT_HZ
+                        : fastOutput ? CONTROL_SIGNAL_HZ : DIAGNOSTIC_SIGNAL_HZ;
+        // getX(false): the device's shared signal objects without refreshing them, because this
+        // may run on the retry thread while the main thread refreshes the same objects. Setting a
+        // rate only hands the signal's handle to Phoenix; it does not touch the cached value.
+        BaseStatusSignal position = talon.getPosition(false);
+        BaseStatusSignal velocity = talon.getVelocity(false);
+        BaseStatusSignal dutyCycle = talon.getDutyCycle(false);
+        BaseStatusSignal motorVoltage = talon.getMotorVoltage(false);
+        BaseStatusSignal torqueCurrent = talon.getTorqueCurrent(false);
+        BaseStatusSignal statorCurrent = talon.getStatorCurrent(false);
+        BaseStatusSignal supplyCurrent = talon.getSupplyCurrent(false);
+        BaseStatusSignal deviceTemp = talon.getDeviceTemp(false);
+        java.util.function.DoubleFunction<StatusCode> apply =
+                timeout -> {
+                    StatusCode[] results = {
+                        BaseStatusSignal.setUpdateFrequencyForAll(controlHz, position, velocity),
+                        BaseStatusSignal.setUpdateFrequencyForAll(
+                                outputHz, dutyCycle, motorVoltage, torqueCurrent),
+                        BaseStatusSignal.setUpdateFrequencyForAll(
+                                DIAGNOSTIC_SIGNAL_HZ, statorCurrent, supplyCurrent),
+                        deviceTemp.setUpdateFrequency(TEMPERATURE_SIGNAL_HZ, timeout),
+                        talon.optimizeBusUtilization()
+                    };
+                    for (StatusCode result : results) {
+                        if (!result.isOK()) {
+                            return result;
+                        }
+                    }
+                    return StatusCode.OK;
+                };
+        String bus = talon.getNetwork().getName();
+        if (CanConfigBudget.exhausted()) {
+            CanConfigRetry.INSTANCE.defer(
+                    name, talon, talon.getDeviceID(), bus, CanConfigRetry.SIGNALS, false, apply);
+        } else {
+            CanConfigRetry.INSTANCE.applyAtBoot(
+                    name, talon, talon.getDeviceID(), bus, CanConfigRetry.SIGNALS, false, 1, apply);
         }
     }
 
@@ -811,6 +856,7 @@ public abstract class Mechanism implements Subsystem {
         }
         inputs.followerSupplyCurrentAmps = followerAmps;
         inputs.followerConnected = followerOk;
+        inputs.configApplied = configEntry == null || configEntry.isApplied();
         // Records the readings on the robot; overwrites them from the log in replay.
         Logger.processInputs(inputsKey, inputs);
     }
@@ -1207,6 +1253,50 @@ public abstract class Mechanism implements Subsystem {
     // ── Motor Control (Protected) ──────────────────────────────────────────────
 
     /**
+     * Whether the leader's config is known to be on the motor, as this loop's input. See {@link
+     * MotorInputs#configApplied}.
+     *
+     * @return true when attached and the config has applied, or when unattached
+     */
+    public boolean isConfigApplied() {
+        if (!isAttached()) {
+            return true;
+        }
+        refreshSignalsOncePerLoop();
+        return inputs.configApplied;
+    }
+
+    /**
+     * Holds a soft-limited position mechanism neutral while its config has not reached the motor.
+     *
+     * <p>A position setpoint means something only in the config's frame: its sensor ratio, its
+     * direction and, for anything that can hit a hard stop, its soft limits. A motor on its factory
+     * config has a 1:1 ratio, the default direction and no soft limits, so Motion Magic toward a
+     * setpoint in mechanism rotations drives the hood (or the intake extension) the wrong way, the
+     * wrong distance, into the end of its travel. Staying neutral until {@link CanConfigRetry} gets
+     * the config on is the only safe answer; the not-applied alert says why the mechanism is limp.
+     * Velocity mechanisms keep running: a flywheel on a stale config is slow, not dangerous, and a
+     * match without the launcher is lost anyway.
+     *
+     * <p>The decision reads {@link MotorInputs#configApplied}, a logged input, so replay makes it
+     * the same way; the setpoint itself is still recorded in {@code target}, so the mechanism's
+     * logic is unchanged either way.
+     *
+     * @return true if the output was held neutral and the caller must not send its request
+     */
+    private boolean holdNeutralUntilConfigured() {
+        var limits = config.talonConfig.SoftwareLimitSwitch;
+        if (!limits.ForwardSoftLimitEnable && !limits.ReverseSoftLimitEnable) {
+            return false;
+        }
+        if (isConfigApplied()) {
+            return false;
+        }
+        motor.stopMotor();
+        return true;
+    }
+
+    /**
      * Immediately applies new supply and stator current limits to the motor configuration.
      *
      * @param supplyLimit the new supply current limit in amps
@@ -1319,6 +1409,9 @@ public abstract class Mechanism implements Subsystem {
     protected void setPosition(DoubleSupplier rotations) {
         if (isAttached()) {
             target = rotations.getAsDouble();
+            if (holdNeutralUntilConfigured()) {
+                return;
+            }
             PositionVoltage output = config.positionControl.withPosition(target).withVelocity(0);
             motor.setControl(output);
         }
@@ -1335,6 +1428,9 @@ public abstract class Mechanism implements Subsystem {
     protected void setPositionWithVelocity(DoubleSupplier rotations, DoubleSupplier velocityRPS) {
         if (isAttached()) {
             target = rotations.getAsDouble();
+            if (holdNeutralUntilConfigured()) {
+                return;
+            }
             PositionVoltage output =
                     config.positionControl
                             .withPosition(target)
@@ -1352,6 +1448,9 @@ public abstract class Mechanism implements Subsystem {
     protected void setMMPositionFoc(DoubleSupplier rotations) {
         if (isAttached()) {
             target = rotations.getAsDouble();
+            if (holdNeutralUntilConfigured()) {
+                return;
+            }
             MotionMagicTorqueCurrentFOC mm = config.mmPositionFOC.withPosition(target);
             motor.setControl(mm);
         }
@@ -1370,6 +1469,9 @@ public abstract class Mechanism implements Subsystem {
             DoubleSupplier rotations, DoubleSupplier velocityRPS) {
         if (isAttached()) {
             target = rotations.getAsDouble();
+            if (holdNeutralUntilConfigured()) {
+                return;
+            }
             PositionTorqueCurrentFOC req =
                     config.positionTorqueFOC
                             .withPosition(target)
@@ -1394,6 +1496,9 @@ public abstract class Mechanism implements Subsystem {
             DoubleSupplier jerk) {
         if (isAttached()) {
             target = rotations.getAsDouble();
+            if (holdNeutralUntilConfigured()) {
+                return;
+            }
             DynamicMotionMagicTorqueCurrentFOC mm =
                     config.dynamicMMPositionFOC
                             .withPosition(target)
@@ -1420,6 +1525,9 @@ public abstract class Mechanism implements Subsystem {
             DoubleSupplier jerk) {
         if (isAttached()) {
             target = rotations.getAsDouble();
+            if (holdNeutralUntilConfigured()) {
+                return;
+            }
             DynamicMotionMagicVoltage mm =
                     config.dynamicMotionMagicVoltage
                             .withPosition(target)
@@ -1449,6 +1557,9 @@ public abstract class Mechanism implements Subsystem {
     protected void setMMPosition(DoubleSupplier rotations, int slot) {
         if (isAttached()) {
             target = rotations.getAsDouble();
+            if (holdNeutralUntilConfigured()) {
+                return;
+            }
             MotionMagicVoltage mm =
                     config.mmPositionVoltageSlot.withSlot(slot).withPosition(target);
             motor.setControl(mm);
@@ -1582,7 +1693,7 @@ public abstract class Mechanism implements Subsystem {
 
     /**
      * Applies new supply and stator current limits if the requested values differ from the
-     * currently configured limits. The update is retried up to 10 times on failure.
+     * currently configured limits. The update is retried in the background until it applies.
      *
      * @param supplyLimit the new supply current limit in amps
      * @param statorLimit the new stator current limit in amps
@@ -1596,23 +1707,9 @@ public abstract class Mechanism implements Subsystem {
                 config.configStatorCurrentLimit(Math.abs(statorLimit.getAsDouble()), true);
                 config.configForwardTorqueCurrentLimit(Math.abs(statorLimit.getAsDouble()));
                 config.configReverseTorqueCurrentLimit(-1 * Math.abs(statorLimit.getAsDouble()));
-                int attempts = CanConfigBudget.maxAttempts();
-                for (int i = 0; i < attempts; i++) {
-                    StatusCode result =
-                            CanConfigBudget.run(
-                                    config.getName(),
-                                    timeout ->
-                                            motor.getConfigurator()
-                                                    .apply(config.talonConfig, timeout));
-                    if (!result.isOK()) {
-                        System.out.println(
-                                "Could not apply config changes to "
-                                        + config.getName()
-                                        + "\'s motor ");
-                    } else {
-                        break;
-                    }
-                }
+                // Retried in the background until it applies, instead of up to ten blocking
+                // attempts on the main loop.
+                config.applyTalonConfig(motor);
             }
         }
     }
@@ -1903,19 +2000,15 @@ public abstract class Mechanism implements Subsystem {
         // ── Config Helpers ────────────────────────────────────────────────────
 
         /**
-         * Applies the current {@link TalonFXConfiguration} to the given motor and reports a warning
-         * to the DriverStation if the apply fails.
+         * Applies the current {@link TalonFXConfiguration} to the given motor. A snapshot is handed
+         * to {@link CanConfigRetry}'s background thread, which applies it within a tenth of a
+         * second and retries until it succeeds (raising the mechanism's not-applied alert
+         * meanwhile), so this never blocks the main loop on a slow or absent device.
          *
          * @param talon the TalonFX motor to configure
          */
         public void applyTalonConfig(TalonFX talon) {
-            StatusCode result =
-                    CanConfigBudget.run(
-                            name, timeout -> talon.getConfigurator().apply(talonConfig, timeout));
-            if (!result.isOK()) {
-                DriverStationErrors.reportWarning(
-                        "Could not apply config changes to " + name + "\'s motor ", false);
-            }
+            TalonFXFactory.requestConfig(name, talon, talonConfig);
         }
 
         /**

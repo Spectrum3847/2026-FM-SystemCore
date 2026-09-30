@@ -1,9 +1,8 @@
 package frc.rebuilt;
 
+import frc.spectrumLib.util.AllianceSource;
 import lombok.Getter;
 import org.wpilib.command2.button.Trigger;
-import org.wpilib.driverstation.Alliance;
-import org.wpilib.driverstation.MatchState;
 import org.wpilib.math.geometry.*;
 import org.wpilib.math.util.Units;
 
@@ -224,9 +223,12 @@ public class Field {
     @Getter public static final Translation3d blueHubCenter = BlueHub.topCenter;
     @Getter public static final Translation3d redHubCenter = BlueToRed(BlueHub.topCenter);
 
-    /** Returns {@code true} if the robot is on the blue alliance. */
+    /**
+     * Returns {@code true} if the robot is on the blue alliance, as {@link AllianceSource} resolves
+     * it (override, DS, last known, or blue by default).
+     */
     public static boolean isBlue() {
-        return MatchState.getAlliance().orElse(Alliance.BLUE).equals(Alliance.BLUE);
+        return AllianceSource.isBlue();
     }
 
     /** Returns {@code true} if the robot is on the red alliance. */

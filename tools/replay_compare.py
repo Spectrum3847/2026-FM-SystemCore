@@ -18,7 +18,9 @@ DEFAULT_KEYS = [
     "Localization/FusedPose",
     "Localization/OdometryPose",
     "Localization/Shadow/LL-Back/MT1/Pose",
-    "Localization/Shadow/orin-front/Pose",
+    "Localization/Shadow/Orin-TopLeft/Pose",
+    "Localization/Sources/Orin-TopLeft/Observations/Poses",
+    "Localization/Sources/Orin-TopLeft/Verdicts",
     "Localization/Shadow/Quest/Pose",
     "Vision/ChassisSource",
     "Swerve/SystemState",
@@ -44,8 +46,21 @@ def value_at(series, t):
 
 
 def distance(a, b):
-    if isinstance(a, tuple) and isinstance(b, tuple) and len(a) == 3:
+    """Translation distance for poses (2-D or 3-D), worst element for arrays, else 0/1."""
+    if a is None or b is None:
+        return 0.0 if a is None and b is None else 1.0
+    if isinstance(a, list) and isinstance(b, list):
+        if len(a) != len(b):
+            return 1.0
+        return max((distance(x, y) for x, y in zip(a, b)), default=0.0)
+    if isinstance(a, tuple) and isinstance(b, tuple) and len(a) == len(b) == 3:
         return math.hypot(a[0] - b[0], a[1] - b[1])
+    if isinstance(a, tuple) and isinstance(b, tuple) and len(a) == len(b) == 7:
+        return math.dist(a[:3], b[:3])
+    if isinstance(a, float) and isinstance(b, float) and math.isnan(a) and math.isnan(b):
+        return 0.0
+    if isinstance(a, tuple) and isinstance(b, tuple) and len(a) == len(b):
+        return max((distance(x, y) for x, y in zip(a, b)), default=0.0)
     return 0.0 if a == b else 1.0
 
 
@@ -59,6 +74,9 @@ def main():
         replay = sampled(records, types, "/ReplayOutputs/" + key)
         if not real or not replay:
             print(f"{key}: missing ({len(real)} real, {len(replay)} replay)")
+            continue
+        if all(v is None for _, v in real):
+            print(f"{key}: can't decode type {types['/RealOutputs/' + key]}, not compared")
             continue
         worst = 0.0
         worst_t = None

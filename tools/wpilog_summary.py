@@ -92,6 +92,10 @@ def _decode(typ, payload):
         return struct.unpack("<3d", payload)
     if typ == "struct:Pose2d[]":
         return [struct.unpack_from("<3d", payload, i) for i in range(0, len(payload), 24)]
+    if typ == "struct:Pose3d":
+        return struct.unpack("<7d", payload)  # x, y, z, qw, qx, qy, qz
+    if typ == "struct:Pose3d[]":
+        return [struct.unpack_from("<7d", payload, i) for i in range(0, len(payload), 56)]
     return None
 
 

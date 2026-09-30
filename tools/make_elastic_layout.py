@@ -107,8 +107,8 @@ MECHANISMS = ["Hood", "Launcher", "FuelIntake", "IndexerBed", "IndexerTower",
               "IntakeExtension", "IntakeExtensionRight"]
 
 SOURCES = ["LL-Back/MT1", "LL-Back/MT2", "LL-Left/MT1", "LL-Left/MT2", "LL-Right/MT1",
-           "LL-Right/MT2", "SC0/MT1", "SC0/MT2", "SC1/MT1", "SC1/MT2", "orin-front",
-           "orin-left", "orin-right", "Quest"]
+           "LL-Right/MT2", "SC0/MT1", "SC0/MT2", "SC1/MT1", "SC1/MT2", "Orin-TopLeft",
+           "Orin-TopRight", "Quest"]
 
 # The main CAN bus follows CanBuses.USE_CANIVORE: the CANivore, or else the drivetrain's SystemCore
 # port (the busiest one). Rerun this script after flipping it.
@@ -208,9 +208,9 @@ for i, s in enumerate(SOURCES):
     ]
 localization += [
     light("Quest", out("Vision/Quest/Connected"), 8, 2),
-    light("Orin front", out("Vision/orin-front/Connected"), 10, 2),
-    light("Orin left", out("Vision/orin-left/Connected"), 8, 3),
-    light("Orin right", out("Vision/orin-right/Connected"), 10, 3),
+    light("Orin TopLeft", out("Vision/Orin-TopLeft/Connected"), 10, 2),
+    light("Orin TopRight", out("Vision/Orin-TopRight/Connected"), 8, 3),
+    light("Jetson", out("Vision/Jetson/Connected"), 10, 3),
     light("LL Back", out("Vision/LL-Back/Connected"), 8, 4),
     light("LL Left", out("Vision/LL-Left/Connected"), 10, 4),
     light("LL Right", out("Vision/LL-Right/Connected"), 8, 5),

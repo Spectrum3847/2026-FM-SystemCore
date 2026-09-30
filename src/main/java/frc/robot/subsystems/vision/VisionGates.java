@@ -103,8 +103,131 @@ public final class VisionGates {
                         (o, c) -> Math.abs(o.pose().getZ()) > MAX_Z_ERROR_METERS),
                 Gate.rejectIf(
                         "Stale Estimate Rejection",
+                        (o, c) -> c.nowSeconds() - o.timestampSeconds() > MAX_ESTIMATE_AGE_SECONDS),
+                ROBOT_TILT_GATE);
+    }
+
+    /**
+     * Robot tilt (degrees, from the Pigeon) above which sources that assume a level robot are
+     * rejected: Limelight MegaTag2 and the Orin's gyro and tx/ty sources take only the yaw, so on a
+     * bump their camera is not where they think it is.
+     */
+    public static final double MAX_ROBOT_TILT_DEGREES = 5.0;
+
+    /** Rejects frames while the robot is tilted, for sources that assume it is level. */
+    public static final Gate ROBOT_TILT_GATE =
+            Gate.rejectIf(
+                    "Robot Tilted Rejection",
+                    (o, c) ->
+                            (o.kind() == Kind.LIMELIGHT_MT2
+                                            || o.kind() == Kind.PHOTON_GYRO
+                                            || o.kind() == Kind.PHOTON_TXTY)
+                                    && c.robotTiltDegrees() > MAX_ROBOT_TILT_DEGREES);
+
+    // ── Orin (Jetson + PhotonVision) extra gates, issue #10 section 8b ─────────
+
+    /**
+     * A single-tag frame is kept only when its best PnP candidate's reprojection error is under
+     * this fraction of the other's. PhotonLib's ambiguity is best error / alternate error. (6328)
+     */
+    public static final double ORIN_MAX_SINGLE_TAG_AMBIGUITY = 0.4;
+
+    /** Solved robot height must be within this range (metres). (6328) */
+    public static final double ORIN_MIN_Z_METERS = -0.5;
+
+    public static final double ORIN_MAX_Z_METERS = 1.0;
+
+    /** Single tags further than this (metres) are dropped. (AOS uses about 5 m) */
+    public static final double ORIN_MAX_SINGLE_TAG_DISTANCE_METERS = 5.0;
+
+    /**
+     * Once the heading is seeded, a solve whose heading is further than this from the fused heading
+     * is a bad solve (AOS). Matches the gross-heading correction's threshold, which sits clear of
+     * two-tag heading noise.
+     */
+    public static final double ORIN_MAX_HEADING_ERROR_DEG = 20.0;
+
+    /** Vision is ignored for this long after auto starts. (6328) */
+    public static final double ORIN_AUTO_START_IGNORE_SECONDS = 2.0;
+
+    /**
+     * The Orin's chain: the shared AprilTag gates, then 6328's and AOS's extra rejections. Each has
+     * its own reason, so {@code RejectionCounts} shows why frames were dropped.
+     *
+     * @param secondsSinceAutoStart seconds since auto started, or infinity outside auto
+     */
+    public static List<Gate> orinGates(java.util.function.DoubleSupplier secondsSinceAutoStart) {
+        List<Gate> gates = new java.util.ArrayList<>(aprilTagGates());
+        gates.add(
+                Gate.rejectIf(
+                        "Single-Tag Ambiguity Rejection",
                         (o, c) ->
-                                c.nowSeconds() - o.timestampSeconds() > MAX_ESTIMATE_AGE_SECONDS));
+                                o.tagCount() == 1
+                                        && !Double.isNaN(o.maxAmbiguity())
+                                        && o.maxAmbiguity() >= ORIN_MAX_SINGLE_TAG_AMBIGUITY));
+        gates.add(
+                Gate.rejectIf(
+                        "Z Range Rejection",
+                        (o, c) ->
+                                o.pose().getZ() < ORIN_MIN_Z_METERS
+                                        || o.pose().getZ() > ORIN_MAX_Z_METERS));
+        gates.add(
+                Gate.rejectIf(
+                        "Single-Tag Distance Rejection",
+                        (o, c) ->
+                                o.tagCount() == 1
+                                        && o.avgTagDistanceMeters()
+                                                > ORIN_MAX_SINGLE_TAG_DISTANCE_METERS));
+        gates.add(
+                Gate.rejectIf(
+                        "Heading vs Gyro Rejection",
+                        (o, c) ->
+                                c.headingSeeded()
+                                        && Math.abs(
+                                                        o.pose2d()
+                                                                .getRotation()
+                                                                .minus(c.fusedPose().getRotation())
+                                                                .getDegrees())
+                                                > ORIN_MAX_HEADING_ERROR_DEG));
+        gates.add(
+                Gate.rejectIf(
+                        "Auto Start Rejection",
+                        (o, c) ->
+                                secondsSinceAutoStart.getAsDouble()
+                                        < ORIN_AUTO_START_IGNORE_SECONDS));
+        return List.copyOf(gates);
+    }
+
+    /**
+     * Gates for the Orin's gyro-based sources ({@link OrinGyroSourceIO}): the shared AprilTag
+     * gates, the z range, single-tag distance and start-of-auto gates. No ambiguity or heading
+     * gate: the heading is the robot's own.
+     *
+     * @param secondsSinceAutoStart seconds since auto started, or infinity outside auto
+     */
+    public static List<Gate> orinGyroGates(
+            java.util.function.DoubleSupplier secondsSinceAutoStart) {
+        List<Gate> gates = new java.util.ArrayList<>(aprilTagGates());
+        gates.add(
+                Gate.rejectIf(
+                        "Z Range Rejection",
+                        (o, c) ->
+                                o.pose().getZ() < ORIN_MIN_Z_METERS
+                                        || o.pose().getZ() > ORIN_MAX_Z_METERS));
+        gates.add(
+                Gate.rejectIf(
+                        "Single-Tag Distance Rejection",
+                        (o, c) ->
+                                o.tagCount() == 1
+                                        && o.avgTagDistanceMeters()
+                                                > ORIN_MAX_SINGLE_TAG_DISTANCE_METERS));
+        gates.add(
+                Gate.rejectIf(
+                        "Auto Start Rejection",
+                        (o, c) ->
+                                secondsSinceAutoStart.getAsDouble()
+                                        < ORIN_AUTO_START_IGNORE_SECONDS));
+        return List.copyOf(gates);
     }
 
     // ── Trust models ────────────────────────────────────────────────────────
@@ -142,18 +265,23 @@ public final class VisionGates {
             };
 
     /**
-     * PhotonVision on the Orin: distance-squared over tag count, the AdvantageKit vision template's
-     * model, until the Orin has logs of its own to fit against. Heading is left to the gyro, as for
-     * the Limelights.
+     * The Orin: 6328's model (issue #10, 8b). xy = 0.01 * d^2 / n^2, where d is the mean
+     * camera-to-tag distance of the tags in the solve and n their count, times the observation's
+     * {@link PoseObservation#stdDevScale} (the camera's factor and the image-edge scale from {@link
+     * OrinSolver}). A starting point: retune with replay.
+     *
+     * <p>6328 also fuses multi-tag heading (theta = 0.03 * d^2 / n^2). Here heading is left to the
+     * gyro, as for every other source, until the Orin's heading has logs behind it.
      */
-    public static final StdDevModel PHOTON_MODEL =
+    public static final StdDevModel ORIN_MODEL =
             (o, c) -> {
                 double d = Double.isNaN(o.avgTagDistanceMeters()) ? 3.0 : o.avgTagDistanceMeters();
-                double xy = 0.02 * d * d / Math.max(1, o.tagCount());
+                double n = Math.max(1, o.tagCount());
+                double xy = 0.01 * d * d / (n * n) * o.stdDevScale();
                 return new StdDevs(
-                        Math.max(xy, 0.02),
+                        Math.max(xy, 0.005),
                         Units.degreesToRadians(LARGE_VARIANCE),
-                        o.multiTag() ? "Photon multi-tag" : "Photon single-tag");
+                        o.multiTag() ? "Orin multi-tag" : "Orin single-tag");
             };
 
     /**

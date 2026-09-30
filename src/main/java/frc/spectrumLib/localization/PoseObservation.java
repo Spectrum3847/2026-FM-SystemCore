@@ -23,6 +23,8 @@ import org.wpilib.math.geometry.Pose3d;
  * @param targetSizePercent Limelight target area as a percentage of the image, or {@code NaN}
  * @param maxAmbiguity largest single-tag ambiguity in the solve (0..1), or {@code NaN}
  * @param tracking VIO tracking flag; {@code true} for sources that have no such notion
+ * @param stdDevScale multiplier the source's trust model applies to its std-devs, e.g. the Orin's
+ *     image-edge and per-camera factors; 1 for sources without one
  */
 public record PoseObservation(
         String source,
@@ -33,7 +35,32 @@ public record PoseObservation(
         double avgTagDistanceMeters,
         double targetSizePercent,
         double maxAmbiguity,
-        boolean tracking) {
+        boolean tracking,
+        double stdDevScale) {
+
+    /** An observation with no std-dev scaling. */
+    public PoseObservation(
+            String source,
+            Kind kind,
+            double timestampSeconds,
+            Pose3d pose,
+            int tagCount,
+            double avgTagDistanceMeters,
+            double targetSizePercent,
+            double maxAmbiguity,
+            boolean tracking) {
+        this(
+                source,
+                kind,
+                timestampSeconds,
+                pose,
+                tagCount,
+                avgTagDistanceMeters,
+                targetSizePercent,
+                maxAmbiguity,
+                tracking,
+                1.0);
+    }
 
     /** What produced an observation. */
     public enum Kind {
@@ -44,7 +71,11 @@ public record PoseObservation(
         /** PhotonVision multi-tag (or lowest-ambiguity single-tag) solve. */
         PHOTON,
         /** Meta Quest inside-out tracking via QuestNav. */
-        QUESTNAV
+        QUESTNAV,
+        /** PhotonVision tags solved on the robot with the heading held to the gyro. */
+        PHOTON_GYRO,
+        /** One tag's angles and distance plus the gyro heading (6328's tx/ty estimate). */
+        PHOTON_TXTY
     }
 
     /** The pose flattened to the field plane. */

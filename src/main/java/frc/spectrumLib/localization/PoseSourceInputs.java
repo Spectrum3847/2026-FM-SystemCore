@@ -2,6 +2,7 @@ package frc.spectrumLib.localization;
 
 import frc.spectrumLib.localization.PoseObservation.Kind;
 import org.littletonrobotics.junction.LogTable;
+import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
 import org.wpilib.math.geometry.Pose3d;
 
@@ -47,6 +48,9 @@ public class PoseSourceInputs implements LoggableInputs {
     public double[] maxAmbiguities = EMPTY_DOUBLE;
     public boolean[] tracking = EMPTY_BOOLEAN;
 
+    /** Per-observation {@link PoseObservation#stdDevScale}; logged only when some entry isn't 1. */
+    public double[] stdDevScales = EMPTY_DOUBLE;
+
     /** Every tag id seen this loop, for display. */
     public int[] tagIds = new int[0];
 
@@ -66,6 +70,7 @@ public class PoseSourceInputs implements LoggableInputs {
             targetSizes = EMPTY_DOUBLE;
             maxAmbiguities = EMPTY_DOUBLE;
             tracking = EMPTY_BOOLEAN;
+            stdDevScales = EMPTY_DOUBLE;
             return;
         }
         timestamps = new double[n];
@@ -75,6 +80,7 @@ public class PoseSourceInputs implements LoggableInputs {
         targetSizes = new double[n];
         maxAmbiguities = new double[n];
         tracking = new boolean[n];
+        stdDevScales = new double[n];
     }
 
     /** Writes observation {@code i}. */
@@ -87,6 +93,7 @@ public class PoseSourceInputs implements LoggableInputs {
         targetSizes[i] = o.targetSizePercent();
         maxAmbiguities[i] = o.maxAmbiguity();
         tracking[i] = o.tracking();
+        stdDevScales[i] = o.stdDevScale();
     }
 
     /** Number of observations. */
@@ -105,7 +112,8 @@ public class PoseSourceInputs implements LoggableInputs {
                 avgTagDistances[i],
                 targetSizes[i],
                 maxAmbiguities[i],
-                tracking[i]);
+                tracking[i],
+                stdDevScales[i]);
     }
 
     @Override
@@ -123,6 +131,7 @@ public class PoseSourceInputs implements LoggableInputs {
             allTracking &= t;
         }
         table.put("Tracking", allTracking ? EMPTY_BOOLEAN : tracking);
+        table.put("StdDevScales", allOnes(stdDevScales) ? EMPTY_DOUBLE : stdDevScales);
         table.put("TagIds", tagIds);
         table.put("Health", health);
     }
@@ -144,7 +153,38 @@ public class PoseSourceInputs implements LoggableInputs {
             tracking = new boolean[timestamps.length];
             java.util.Arrays.fill(tracking, true);
         }
+        stdDevScales = table.get("StdDevScales", EMPTY_DOUBLE);
+        if (stdDevScales.length != timestamps.length) {
+            // Written empty when every scale was 1, and absent from older logs.
+            stdDevScales = new double[timestamps.length];
+            java.util.Arrays.fill(stdDevScales, 1.0);
+        }
         tagIds = table.get("TagIds", tagIds);
         health = table.get("Health", health);
+    }
+
+    private static boolean allOnes(double[] values) {
+        for (double v : values) {
+            if (v != 1.0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Records these observations as AdvantageKit <em>outputs</em> under {@code prefix}, for a
+     * source whose observations are computed from other logged inputs (see {@link
+     * PoseSourceIO#derived()}). In replay they are recomputed, not read back.
+     */
+    public void recordAsOutputs(String prefix) {
+        Logger.recordOutput(prefix + "/Connected", connected);
+        Logger.recordOutput(prefix + "/Timestamps", timestamps);
+        Logger.recordOutput(prefix + "/Poses", poses);
+        Logger.recordOutput(prefix + "/TagCounts", tagCounts);
+        Logger.recordOutput(prefix + "/AvgTagDistances", avgTagDistances);
+        Logger.recordOutput(prefix + "/MaxAmbiguities", maxAmbiguities);
+        Logger.recordOutput(prefix + "/StdDevScales", stdDevScales);
+        Logger.recordOutput(prefix + "/TagIds", tagIds);
     }
 }

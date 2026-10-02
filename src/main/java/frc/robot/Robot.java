@@ -44,6 +44,7 @@ import frc.spectrumLib.hardware.CanConfigBudget;
 import frc.spectrumLib.hardware.Rio;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.BatteryLogger;
+import frc.spectrumLib.telemetry.DSLogReceiver;
 import frc.spectrumLib.telemetry.DashboardReceiver;
 import frc.spectrumLib.telemetry.LogStorage;
 import frc.spectrumLib.telemetry.SystemLoadMonitor;
@@ -254,6 +255,11 @@ public class Robot extends SpectrumRobot {
             ShotCalculator.getInstance();
             if (Constants.hasHardware()) {
                 WebServer.start(5800, Filesystem.getDeployDirectory().getPath());
+            }
+            // Drop box for the DS laptop's .dslog/.dsevents on port 5806 (docs/ds-log-receiver.md).
+            // Its own low-priority thread; never stops robot init.
+            if (Constants.currentMode == Constants.Mode.REAL) {
+                DSLogReceiver.start();
             }
 
             if (Constants.currentMode == Constants.Mode.REAL) {
@@ -534,6 +540,7 @@ public class Robot extends SpectrumRobot {
         Alert.periodic();
         LogStorage.periodic();
         systemLoad.periodic();
+        DSLogReceiver.periodic(RobotState.isEnabled());
 
         // Latched here rather than in the mode inits so every mode is covered by the same check.
         // Never cleared: a disable does not un-run an auto.

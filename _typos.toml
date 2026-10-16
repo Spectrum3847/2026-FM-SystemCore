@@ -1,0 +1,8 @@
+[default.extend-words]
+# Quest "re-origin" is a domain term.
+origined = "origined"
+origining = "origining"
+
+[default]
+# grep patterns in build.gradle match partial words on purpose.
+extend-ignore-re = ['grep -E \\".*\\"']

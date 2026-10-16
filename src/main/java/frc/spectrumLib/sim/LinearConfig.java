@@ -36,7 +36,7 @@ public class LinearConfig {
      * Angle of the linear stage in the Mechanism2d canvas (degrees; 0 = horizontal, 90 = vertical,
      * CCW positive).
      */
-    @Getter private double angle = 90; // O is horizontal, 90 is vertical, CCW is positive
+    @Getter private double angle = 90; // 0 is horizontal, 90 is vertical, counterclockwise
 
     /** Color of the moving stage ligament in the Mechanism2d canvas. */
     @Getter private Color8Bit color = new Color8Bit(Color.PURPLE);
@@ -96,12 +96,6 @@ public class LinearConfig {
         this.drumRadius = drumRadius;
     }
 
-    /**
-     * Sets the number of motors driving this linear stage.
-     *
-     * @param numMotors number of Kraken X60 motors
-     * @return this config for chaining
-     */
     /** True when the sim geometry travels opposite the motor's positive direction. */
     @Getter private boolean reversedLinkage = false;
 

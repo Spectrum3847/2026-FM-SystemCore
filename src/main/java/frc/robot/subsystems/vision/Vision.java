@@ -117,9 +117,9 @@ public class Vision implements Subsystem {
         //
         // The SystemCore image runs the Limelight vision stack for cameras plugged into it,
         // publishing them as limelightsc0/1/2 and reading MegaTag2 orientation from
-        // limelightshared. It only ever connects to 127.0.0.1:5810 -- which, with FM's code
-        // running on the SystemCore, is this program (see Spectrum3847/SystemCoreVision; the
-        // NT bridge that repo provides is only needed when a roboRIO is the controller).
+        // limelightshared. It only ever connects to 127.0.0.1:5810. With FM's code running on the
+        // SystemCore, that address is this program (see Spectrum3847/SystemCoreVision; the NT
+        // bridge that repo provides is only needed when a roboRIO is the controller).
 
         @Getter
         final LimelightConfig[] systemCoreCameras = {
@@ -181,9 +181,8 @@ public class Vision implements Subsystem {
         /**
          * Consecutive seeding frames in which the best Limelight must have seeded the pose from two
          * or more tags, with its heading holding within {@link #seedConfirmSpreadDeg}, before the
-         * seed counts as confirmed. About a second at Limelight frame rates. (2026 counted loops
-         * and re-read the same frame each loop; frames are now reported once, so this counts frames
-         * and loops without a new frame neither extend nor break the run.)
+         * seed counts as confirmed. About a second at Limelight frame rates. This counts frames,
+         * not loops: a loop with no new frame neither extends nor breaks the run.
          */
         @Getter final int seedConfirmLoops = 50;
 
@@ -685,7 +684,7 @@ public class Vision implements Subsystem {
      * <p>Seeding takes the first multi-tag MegaTag1 solve from the best Limelight while the robot
      * is slow enough for the gross-heading net ({@link VisionConfig#grossHeadingMaxLinearSpeed},
      * {@link VisionConfig#grossHeadingMaxOmega}). Single-tag headings are where the large MegaTag1
-     * heading errors come from, and a wrong seed while enabled aims wrong with confidence.
+     * heading errors come from, and a wrong seed taken while enabled gives confident, wrong aims.
      * Confirmation (which lets the chassis cameras move on to MegaTag2) is stricter than the
      * disabled version: each counted frame's heading must also agree with the fused heading.
      */
@@ -853,11 +852,11 @@ public class Vision implements Subsystem {
 
     /**
      * MegaTag2 needs the robot's heading every loop: it is written every loop, and one
-     * NetworkTables flush for all cameras sends it straight away every other loop, i.e. at 50 Hz --
+     * NetworkTables flush for all cameras sends it straight away every other loop, i.e. at 50 Hz,
      * the rate FM's 2026 code flushed at on the roboRIO. A flush makes the NT server send to every
-     * client, so at 100 Hz it was twice the traffic for a heading the cameras' own IMUs (IMU mode
-     * 1) already bridge between updates. The loops in between still go out at NT's normal update
-     * rate.
+     * client, so flushing every loop (100 Hz) would double the traffic for a heading the cameras'
+     * own IMUs (IMU mode 1) already bridge between updates. The loops in between still go out at
+     * NT's normal update rate.
      */
     private void pushHeadingToLimelights() {
         if (!Constants.hasHardware() || simVision != null) {
@@ -996,7 +995,7 @@ public class Vision implements Subsystem {
     }
 
     /**
-     * Saves the last 165 s (the most a Limelight keeps) of each of FM's Limelights' rewind buffer:
+     * Saves the last 165 s (the most a Limelight keeps) of the rewind buffer of each FM Limelight:
      * video plus every frame's results, reviewable frame by frame afterwards. Rewind is a Limelight
      * 4 feature; the camera writes the capture to its own storage and manages that space itself.
      *

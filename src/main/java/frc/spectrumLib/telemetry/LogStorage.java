@@ -15,7 +15,7 @@ import org.wpilib.driverstation.Alert.Level;
 /**
  * Where the robot's logs go on SystemCore, and keeping them from filling its storage.
  *
- * <p>A full internal disk is the SystemCore failure other teams have hit at events: a robot that
+ * <p>A full internal disk is a SystemCore failure other teams have hit at events: a robot that
  * rebooted mid-match with an empty log, another that lost control with 50 MB left, deploys that
  * deleted the robot program (wpilibsuite/SystemcoreTesting #210, #211, #156). Every log goes to
  * internal storage when no USB stick is in, and nothing else ever deletes them; the bench unit had

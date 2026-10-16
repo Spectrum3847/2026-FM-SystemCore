@@ -12,9 +12,9 @@ import org.wpilib.system.RobotController;
  * Identifies the specific RoboRIO that is running, keyed by its serial number. Used to select
  * robot-specific configurations at startup.
  *
- * <p>Serial numbers are printed on the label on the back of the RoboRIO — prefix with a leading
- * zero if needed. Keep entries in lexical order. Note that the serial number may change after
- * reflashing the RoboRIO.
+ * <p>Serial numbers are printed on the label on the back of the RoboRIO. Prefix with a leading zero
+ * if needed. Keep entries in lexical order. The serial number may change after reflashing the
+ * RoboRIO.
  *
  * <p>Based on:
  * https://github.com/Team100/all24/blob/2a109b28467cfddcafb93c7fc85ef60b56a628a2/lib/src/main/java/org/team100/lib/config/Identity.java
@@ -84,7 +84,6 @@ public enum Rio {
         this.isRio2 = isRio2;
     }
 
-    /** Checks the id. */
     /**
      * The controller's serial number from the Linux device tree.
      *
@@ -117,9 +116,7 @@ public enum Rio {
         rioIdUnknown.set(false);
         String serialNumber = "";
         if (RobotBase.isReal()) {
-            // Calling getSerialNumber in a vscode unit test
-            // SEGVs because it does the wrong
-            // thing with JNIs, so don't do that.
+            // getSerialNumber segfaults in a VS Code unit test because it misuses JNI.
             serialNumber = RobotController.getSerialNumber();
             if (serialNumber == null || serialNumber.isEmpty()) {
                 serialNumber = deviceTreeSerial();

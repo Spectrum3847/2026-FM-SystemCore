@@ -8,7 +8,7 @@ package frc.spectrumLib.framework;
  * wants a slower cadence uses {@link #every(int)}. Both are a long compare, so they are safe to
  * call from tight per-loop paths such as status-signal reads.
  *
- * <p>Main robot thread only. The count is not touched in unit tests, so once-per-loop caches there
+ * <p>Main robot thread only. The count never advances in unit tests, so once-per-loop caches there
  * refresh exactly once.
  */
 public final class RobotLoop {
@@ -48,9 +48,8 @@ public final class RobotLoop {
     }
 
     /**
-     * Returns {@code true} about once every {@code seconds}, whatever the loop rate. The 2026 code
-     * counted loops and assumed 20 ms; this keeps its "every fifth loop = 10 Hz" meaning at any
-     * rate.
+     * Returns {@code true} about once every {@code seconds}, whatever the loop rate. Use it instead
+     * of counting loops, so a slow-tier rate such as 10 Hz holds when the loop period changes.
      *
      * @param seconds interval between {@code true} results
      * @return whether this loop is one to run the periodic work on
@@ -61,7 +60,7 @@ public final class RobotLoop {
 
     /**
      * Returns {@code true} on every {@code n}th loop, so a 20 ms loop with {@code n = 5} is 10 Hz.
-     * All callers in the same loop agree, which keeps related values on the same records.
+     * All callers in the same loop agree, so related values are logged in the same cycle.
      *
      * @param n loops between {@code true} results; values below 1 mean every loop
      * @return whether this is a loop on which the periodic work should run

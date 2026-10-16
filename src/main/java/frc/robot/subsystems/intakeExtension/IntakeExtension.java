@@ -122,7 +122,7 @@ public class IntakeExtension extends Mechanism {
     }
 
     // ================================================================================
-    // Right Axis — independent, closed-loop, mirror-mounted
+    // Right Axis. Independent, closed-loop, mirror-mounted.
     // ================================================================================
 
     /**
@@ -332,7 +332,7 @@ public class IntakeExtension extends Mechanism {
     /**
      * Commands both axes to the same position.
      *
-     * @param percent target as a percentage of max rotations (0–100)
+     * @param percent target as a percentage of max rotations (0 to 100)
      * @param slow whether to use the slow (dynamic Motion Magic voltage) profile
      */
     private void commandBoth(double percent, boolean slow) {
@@ -368,9 +368,9 @@ public class IntakeExtension extends Mechanism {
     /**
      * Drives each side independently into the fully-extended hard stop, re-zeroing that side's
      * encoder at {@code maxRotations} once it stalls. A tooth skip corrupts the motor encoder, so
-     * the hard stop is the only reliable position truth; homing uses a soft-limit-bypassing voltage
-     * so it can reach the physical stop even when the (stale) encoder thinks the soft limit is
-     * already reached.
+     * the hard stop is the only reliable position reference. Homing uses a soft-limit-bypassing
+     * voltage so it can reach the physical stop even when the (stale) encoder thinks the soft limit
+     * is already reached.
      */
     private void applyHoming() {
         // Re-arm on entry to the HOMING state.
@@ -419,7 +419,7 @@ public class IntakeExtension extends Mechanism {
                 right.stopAxis();
             }
         } else {
-            rightHomed = true; // no right axis attached → nothing to resync
+            rightHomed = true; // No right axis attached, so nothing to resync.
         }
     }
 
@@ -498,7 +498,7 @@ public class IntakeExtension extends Mechanism {
         }
     }
 
-    // Simulation steps itself on spectrumLib SimLoop (200 Hz) since the offseason port.
+    // Simulation steps itself on spectrumLib SimLoop (200 Hz).
 
     class IntakeExtensionSim extends LinearSim {
         public IntakeExtensionSim(Mechanism2d mech, TalonFX intakeExtensionMotorSim) {

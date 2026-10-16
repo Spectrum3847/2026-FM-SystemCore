@@ -69,7 +69,7 @@ public class SpectrumCANcoder {
                             "CANcoder " + CANcoderID,
                             timeout ->
                                     canCoder.getConfigurator().apply(canCoderConfigs, timeout)))) {
-                // Modify configuration to use remote CANcoder fused
+                // Point the motor's feedback at this CANcoder.
                 modifyMotorConfig(motor, mechConfig);
             }
         }

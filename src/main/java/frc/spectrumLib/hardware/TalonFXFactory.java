@@ -25,7 +25,7 @@ public class TalonFXFactory {
     private static double neutralDeadband = 0.04;
     private static double supplyCurrentLimit = 40;
 
-    /** Utility class — not instantiable. */
+    /** Utility class, not instantiable. */
     private TalonFXFactory() {}
 
     /**
@@ -62,10 +62,10 @@ public class TalonFXFactory {
      *
      * @param followerId Device ID of the follower.
      * @param leaderTalonFX The leader TalonFX to follow.
-     * @param motorAlignment Set to Aligned for motor invert to match the leader's configured Invert
-     *     - which is typical when leader and follower are mechanically linked and spin in the same
-     *     direction. Set to Opposed for motor invert to oppose the leader's configured Invert -
-     *     this is typical where the leader and follower mechanically spin in opposite directions.
+     * @param motorAlignment Aligned makes the motor invert match the leader's configured Invert.
+     *     That is typical when leader and follower are mechanically linked and spin in the same
+     *     direction. Opposed makes it oppose the leader's Invert, which is typical when they spin
+     *     in opposite directions.
      */
     public static TalonFX createPermanentFollowerTalon(
             CanDeviceId followerId, TalonFX leaderTalonFX, MotorAlignmentValue motorAlignment) {
@@ -133,7 +133,7 @@ public class TalonFXFactory {
     /** Creates the talon. */
     private static TalonFX createTalon(CanDeviceId id) {
         TalonFX talon = new TalonFX(id.getDeviceNumber(), CanBuses.forName(id.getBus()));
-        // Blocking, and worthless on a bus with nothing on it.
+        // Blocks, and does nothing useful on a bus with no devices.
         if (!CanConfigBudget.exhausted()) {
             talon.clearStickyFaults();
         }

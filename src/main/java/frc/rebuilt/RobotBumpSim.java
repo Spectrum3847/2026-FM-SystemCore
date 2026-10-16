@@ -17,13 +17,13 @@ import org.wpilib.math.geometry.Translation3d;
 import org.wpilib.math.kinematics.ChassisVelocities;
 
 /**
- * RobotBumpSim — standalone robot-bump physics simulation for MapleSim.
+ * RobotBumpSim is a standalone robot-bump physics simulation for MapleSim.
  *
  * <h2>What this class does</h2>
  *
  * <p>Simulates the robot's 3D pose (Z height, pitch, and roll) as it drives over the raised bumps
  * on the 2026 FRC REBUILT field. It also implements a frictionless-slide model that prevents the
- * robot from "ghosting" through a bump when it lacks the speed to crest it.
+ * robot from passing through a bump when it lacks the speed to crest it.
  *
  * <h2>How it works</h2>
  *
@@ -69,12 +69,12 @@ import org.wpilib.math.kinematics.ChassisVelocities;
  * <h2>Tunable constants</h2>
  *
  * <ul>
- *   <li>{@link #WHEEL_RADIUS} — effective contact radius of a wheel against the ramp surface
+ *   <li>{@link #WHEEL_RADIUS}: effective contact radius of a wheel against the ramp surface
  *       (metres). Increase this to make the robot appear to "float" higher above the bump.
- *   <li>{@link #CHASSIS_HEIGHT} — offset from the average module-contact Z to the robot body
- *       origin. Set to your chassis clearance height if you want a visually accurate robot body Z.
- *   <li>{@link #BUMP_COR} — coefficient of restitution for vertical collisions with the bump. 0 =
- *       perfectly inelastic (no bounce), 1 = perfectly elastic.
+ *   <li>{@link #CHASSIS_HEIGHT}: offset from the average module-contact Z to the robot body origin.
+ *       Set to your chassis clearance height if you want a visually accurate robot body Z.
+ *   <li>{@link #BUMP_COR}: coefficient of restitution for vertical collisions with the bump. 0 is
+ *       perfectly inelastic (no bounce), 1 is perfectly elastic.
  * </ul>
  *
  * <h2>Field geometry</h2>
@@ -109,20 +109,20 @@ public class RobotBumpSim {
      * ramp face, the minimum field-Y at which this segment is present, and the ramp Z at that X.
      * The companion {@link #BUMP_LINE_ENDS} array stores the end point including the maximum Y.
      *
-     * <p>Indices 0–3 are the Blue-side bump (near X ≈ 3.96–5.18 m); indices 4–7 are the Red-side
-     * bump (near X ≈ FIELD_LENGTH−5.18 – FIELD_LENGTH−3.96 m).
+     * <p>Indices 0 to 3 are the Blue-side bump (near X ≈ 3.96 to 5.18 m); indices 4 to 7 are the
+     * Red-side bump (near X ≈ FIELD_LENGTH−5.18 to FIELD_LENGTH−3.96 m).
      */
     static final Translation3d[] BUMP_LINE_STARTS = {
-        // Blue bump — ascending faces (Z rises from 0 → 0.165 m)
+        // Blue bump, ascending faces (Z rises from 0 to 0.165 m)
         new Translation3d(3.96, 1.57, 0),
         new Translation3d(3.96, FIELD_WIDTH / 2 + 0.60, 0),
-        // Blue bump — descending faces (Z falls from 0.165 → 0 m)
+        // Blue bump, descending faces (Z falls from 0.165 to 0 m)
         new Translation3d(4.61, 1.57, 0.165),
         new Translation3d(4.61, FIELD_WIDTH / 2 + 0.60, 0.165),
-        // Red bump — ascending faces
+        // Red bump, ascending faces
         new Translation3d(FIELD_LENGTH - 5.18, 1.57, 0),
         new Translation3d(FIELD_LENGTH - 5.18, FIELD_WIDTH / 2 + 0.60, 0),
-        // Red bump — descending faces
+        // Red bump, descending faces
         new Translation3d(FIELD_LENGTH - 4.61, 1.57, 0.165),
         new Translation3d(FIELD_LENGTH - 4.61, FIELD_WIDTH / 2 + 0.60, 0.165),
     };
@@ -134,16 +134,16 @@ public class RobotBumpSim {
      * ramp face, the maximum field-Y at which this segment is present, and the ramp Z at that X.
      */
     static final Translation3d[] BUMP_LINE_ENDS = {
-        // Blue bump — ascending faces
+        // Blue bump, ascending faces
         new Translation3d(4.61, FIELD_WIDTH / 2 - 0.60, 0.165),
         new Translation3d(4.61, FIELD_WIDTH - 1.57, 0.165),
-        // Blue bump — descending faces
+        // Blue bump, descending faces
         new Translation3d(5.18, FIELD_WIDTH / 2 - 0.60, 0),
         new Translation3d(5.18, FIELD_WIDTH - 1.57, 0),
-        // Red bump — ascending faces
+        // Red bump, ascending faces
         new Translation3d(FIELD_LENGTH - 4.61, FIELD_WIDTH / 2 - 0.60, 0.165),
         new Translation3d(FIELD_LENGTH - 4.61, FIELD_WIDTH - 1.57, 0.165),
-        // Red bump — descending faces
+        // Red bump, descending faces
         new Translation3d(FIELD_LENGTH - 3.96, FIELD_WIDTH / 2 - 0.60, 0),
         new Translation3d(FIELD_LENGTH - 3.96, FIELD_WIDTH - 1.57, 0),
     };
@@ -155,7 +155,7 @@ public class RobotBumpSim {
     private static final int BUMP_LINE_LAST = BUMP_LINE_STARTS.length - 1;
 
     // -------------------------------------------------------------------------
-    // Tunable physics constants — adjust for your robot
+    // Tunable physics constants, adjust for your robot
     // -------------------------------------------------------------------------
 
     /** Effective wheel contact radius against the bump surface (metres). */
@@ -165,8 +165,8 @@ public class RobotBumpSim {
     private static final double CHASSIS_HEIGHT = 0.0;
 
     /**
-     * Coefficient of restitution for vertical (Z) robot-bump collisions. 0 = perfectly inelastic
-     * (no bounce), 1 = perfectly elastic.
+     * Coefficient of restitution for vertical (Z) robot-bump collisions. 0 is perfectly inelastic
+     * (no bounce), 1 is perfectly elastic.
      */
     private static final double BUMP_COR = 0.15;
 
@@ -288,9 +288,9 @@ public class RobotBumpSim {
         double dt = PERIOD / subticks;
 
         // contactFactor reduces effective gravity deceleration for diagonal crossings.
-        //   yaw = 0°  -> |cos(0)|    = 1.0  -> full deceleration (straight-on, hardest to cross)
-        //   yaw = 45° -> |cos(90°)|  = 0.71 -> reduced deceleration (diagonal, easier)
-        //   yaw = 90° -> |cos(180°)| = 1.0  -> full deceleration (sideways approach also hard)
+        //   yaw = 0°: |cos(0)| = 1.0, full deceleration (straight-on, hardest to cross)
+        //   yaw = 45°: |cos(90°)| = 0, no deceleration (diagonal, easiest)
+        //   yaw = 90°: |cos(180°)| = 1.0, full deceleration (sideways approach also hard)
         double contactFactor = Math.abs(Math.cos(2 * robotPose2d.getRotation().getRadians()));
 
         // Y positions of each module (MapleSim-owned, constant for the whole period)
@@ -355,7 +355,7 @@ public class RobotBumpSim {
                     }
                 }
                 if (allFlat) {
-                    // Robot has backed out or crossed — MapleSim reclaims X
+                    // Robot has backed out or crossed. MapleSim reclaims X
                     onRamp = false;
                 } else {
                     // Briefly airborne after cresting the peak: keep sliding under simXVel
@@ -382,10 +382,10 @@ public class RobotBumpSim {
      *   a_X = -g * normalX * normalZ
      * </pre>
      *
-     * Ascending face (normalX &lt; 0, normalZ &gt; 0): a_X &lt; 0 — gravity pulls robot back.<br>
-     * Descending face (normalX &gt; 0, normalZ &gt; 0): a_X &gt; 0 — gravity helps robot forward.
+     * Ascending face (normalX &lt; 0, normalZ &gt; 0): a_X &lt; 0. Gravity pulls robot back.<br>
+     * Descending face (normalX &gt; 0, normalZ &gt; 0): a_X &gt; 0. Gravity helps robot forward.
      *
-     * @param moduleIdx Index of the module (0–3).
+     * @param moduleIdx Index of the module (0 to 3).
      * @param worldX Module's world-X position (metres).
      * @param worldY Module's world-Y position (metres).
      * @param currentXVel The robot's current field-X velocity (simXVel when on ramp, else vx).
@@ -418,8 +418,8 @@ public class RobotBumpSim {
         double dist = pos2d.getDistance(projected);
         if (dist > WHEEL_RADIUS) return Double.NaN; // not intersecting
 
-        // Outward normal in XZ: lineVec = (deltaX, deltaZ) -> normal = (-deltaZ, deltaX) /
-        // |lineVec|
+        // Outward normal in XZ: normal = (-deltaZ, deltaX) / |lineVec|, with
+        // lineVec = (deltaX, deltaZ).
         double normalX = -lineVec.getY() / lineVec.getNorm();
         double normalZ = lineVec.getX() / lineVec.getNorm();
 
@@ -433,11 +433,9 @@ public class RobotBumpSim {
         }
 
         // Gravity-along-ramp X acceleration (frictionless surface, no drive force contribution).
-        // GRAVITY.getZ() = -9.81 m/s².
-        //   Ascending face: normalX < 0, normalZ > 0
-        //     -> a_X = -(-9.81) * (negative) * (positive) < 0  -- decelerates +X travel
-        //   Descending face: normalX > 0, normalZ > 0
-        //     -> a_X = -(-9.81) * (positive) * (positive) > 0  -- accelerates +X travel
+        // GRAVITY.getZ() is -9.81 m/s².
+        //   Ascending face (normalX < 0, normalZ > 0): a_X < 0, decelerates +X travel.
+        //   Descending face (normalX > 0, normalZ > 0): a_X > 0, accelerates +X travel.
         return -GRAVITY.getZ() * normalX * normalZ;
     }
 
@@ -454,10 +452,10 @@ public class RobotBumpSim {
         double rightZ = (moduleZPos[1] + moduleZPos[3]) / 2.0;
         double centerZ = (frontZ + backZ) / 2.0 + CHASSIS_HEIGHT;
 
-        // Pitch: positive -> nose up (front higher than back)
+        // Pitch: positive means nose up (front higher than back)
         // Negated because WPILib Rotation3d pitch positive = nose-down (right-hand rule)
         double pitch = -Math.atan2(frontZ - backZ, frontBackDist);
-        // Roll: positive -> left side higher than right side
+        // Roll: positive means left side higher than right side
         double roll = Math.atan2(leftZ - rightZ, leftRightDist);
 
         // X: use frictionless sim position on ramp, else follow MapleSim

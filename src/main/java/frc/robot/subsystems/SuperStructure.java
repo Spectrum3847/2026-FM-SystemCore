@@ -128,11 +128,10 @@ public class SuperStructure extends SubsystemBase {
 
     // -- Shot readiness gate ------------------------------------------------------
     //
-    // FM on 2026 main fed the moment RT was pulled, whether or not the flywheel was up to speed,
-    // the
-    // hood had arrived or the robot had finished turning to the hub. Now the indexers hold fuel
-    // short of the flywheel until ShotGate says the shot is ready, and time out to feeding anyway
-    // after a second, so the gate can delay a shot but never stop one. Operator Y bypasses it.
+    // On 2026 main, FM fed the moment RT was pulled, whether or not the flywheel was up to speed,
+    // the hood had arrived, or the robot had finished turning to the hub. Now the indexers hold
+    // fuel short of the flywheel until ShotGate says the shot is ready. After a second it feeds
+    // anyway, so the gate can delay a shot but never stop one. Operator Y bypasses it.
 
     private final ShotGate shotGate;
 
@@ -461,12 +460,12 @@ public class SuperStructure extends SubsystemBase {
      * on the robot can detect. This state asks nothing: the hood and flywheel go to the pair of
      * numbers the spot's range works out to, and the driver aims by parking, as on the offseason
      * bot. The drivetrain stays in teleop drive at the launch states' slowed translation, so the
-     * driver can square up; heading is theirs. Deliberately not a drive-to-pose or a held heading:
-     * a pose good enough to drive to is a pose good enough to aim with, and this is for not having
-     * one.
+     * driver can square up; heading is theirs. Not a drive-to-pose or a held heading: a pose good
+     * enough to drive to is good enough to aim with, and this state is for when there is no such
+     * pose.
      *
-     * <p>Otherwise it is RT's launch (intake running, squeeze after a second) behind the shot gate
-     * with flywheel and hood voting and aim and range not.
+     * <p>Otherwise it is RT's launch (intake running, squeeze after a second) behind the shot gate,
+     * with the flywheel and hood checks voting, and aim and range not.
      */
     private void setShot() {
         swerve.setWantedState(Swerve.WantedState.TELEOP_DRIVE);
@@ -594,7 +593,7 @@ public class SuperStructure extends SubsystemBase {
                 .ignoringDisable(true);
     }
 
-    // Allocation-free boolean checks — use these in per-loop code (e.g. ShotCalculator).
+    // Allocation-free boolean checks. Use these in per-loop code (e.g. ShotCalculator).
     public boolean isRobotInNeutralZone() {
         return swerve.isInNeutralZone();
     }
@@ -611,7 +610,7 @@ public class SuperStructure extends SubsystemBase {
         return !isRobotInFeedZone();
     }
 
-    // Trigger factories — use these for binding-time composition only.
+    // Trigger factories. Use these for binding-time composition only.
     public Trigger robotInNeutralZone() {
         return new Trigger(this::isRobotInNeutralZone);
     }

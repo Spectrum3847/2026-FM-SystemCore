@@ -6,7 +6,7 @@ import org.wpilib.command2.button.RobotModeTriggers;
 import org.wpilib.command2.button.Trigger;
 import org.wpilib.driverstation.RobotState;
 
-/** From 254 lib imported from 1678-2024 Contains basic functions that are used often. */
+/** Basic helpers imported from the 254 lib (1678-2024). */
 public class Util {
 
     /** Small value used for floating-point equality comparisons. */

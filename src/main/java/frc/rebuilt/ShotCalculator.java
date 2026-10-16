@@ -24,7 +24,7 @@ public class ShotCalculator {
 
     private static ShotCalculator instance;
 
-    /** Robot-centre to launcher offset. Zero = launcher is at robot centre. */
+    /** Offset from robot centre to launcher. Zero means the launcher is at the robot centre. */
     private static final Transform2d robotToLauncher = Transform2d.kZero;
 
     public static ShotCalculator getInstance() {
@@ -110,8 +110,8 @@ public class ShotCalculator {
 
     /**
      * Global exit-speed scale factor. Adjust post-characterization to correct for ball compression,
-     * wear, or temperature without re-fitting the polynomial. 1.0 = no scaling. Applied to both the
-     * hub and feed models.
+     * wear, or temperature without re-fitting the polynomial. 1.0 means no scaling. Applied to both
+     * the hub and feed models.
      */
     private static final double MPS_FACTOR = 0.8;
 
@@ -160,7 +160,7 @@ public class ShotCalculator {
             double[] speedCoeffs,
             double[] angleCoeffs) {}
 
-    /** Hub-shot model — used when the robot is in a scoring zone. */
+    /** Hub-shot model, used when the robot is in a scoring zone. */
     private static final PolyModel NO_CEILING_HUB_MODEL =
             new PolyModel(
                     "No Ceiling Hub Model",
@@ -197,7 +197,7 @@ public class ShotCalculator {
                         /* v³   */ -1.4532157984e+0
                     });
 
-    /** 3 meter ceiling hub model - used when the robot is testing at home */
+    /** 3 meter ceiling hub model, used when the robot is testing at home. */
     private static final PolyModel CEILING_3M_HUB_MODEL =
             new PolyModel(
                     "3 Meter Ceiling Hub Model",
@@ -234,7 +234,7 @@ public class ShotCalculator {
                         /* v³   */ -5.4437632941e-1
                     });
 
-    /** Feed-shot model — used when the robot is in a feed zone. */
+    /** Feed-shot model, used when the robot is in a feed zone. */
     private static final PolyModel FEED_MODEL =
             new PolyModel(
                     "Feed Model",
@@ -317,10 +317,10 @@ public class ShotCalculator {
 
     /**
      * The fixed shots, one per parking spot, from the offseason bot's set shots (463c465, fa1376b)
-     * less its hub-face shot, which FM cannot make. Each is a place to park, blue alliance, the
-     * robot centre and the heading that points the launcher (FM's back) at the hub centre; on red
-     * the spot is the same one rotated about the field centre. The hood and flywheel are not stored
-     * here: they are FM's selected hub model evaluated at the spot's range at a standstill ({@link
+     * less its hub-face shot, which FM cannot make. Spots are for blue. Each gives where to park
+     * the robot centre, and the heading that points the launcher (FM's back) at the hub centre. Red
+     * rotates the spot about the field centre. The hood and flywheel are not stored here: they are
+     * FM's selected hub model evaluated at the spot's range at a standstill ({@link
      * #setShotSolution}), so a set shot follows the shot map, and the operator's hood trim, without
      * anyone retyping numbers.
      *
@@ -432,7 +432,7 @@ public class ShotCalculator {
     }
 
     // =========================================================================
-    // State — Velocity Derivative Filters
+    // State: velocity derivative filters
     // =========================================================================
 
     /** Robot loop period, for the ~100 ms filter windows below. */
@@ -569,7 +569,7 @@ public class ShotCalculator {
         lastHoodAngle = rawHoodAngle;
         double hoodAngle = Math.max(rawHoodAngle + HOOD_ANGLE_OFFSET, 9);
 
-        // ── Flywheel speed: exit speed (m/s) → RPM ───────────────────────────
+        // ── Flywheel speed: exit speed (m/s) to RPM ───────────────────────────
         double flywheelSpeed = exitSpeedMs * RPM_PER_MPS;
 
         // ── Validity ──────────────────────────────────────────────────────────
@@ -620,12 +620,11 @@ public class ShotCalculator {
      * driveAngle} is that bearing plus a constant half turn plus the shoot-on-move yaw offset,
      * which barely moves at a steady velocity, so this is very nearly the rate it turns at.
      *
-     * <p>Until 2026-09 this was a numerical derivative of {@code driveAngle} itself, in rotations
-     * per second (2 pi too small; nothing read it yet). Fixed to rad/s and handed to the heading
-     * request it made the aim oscillate in simulation (mean heading error 6-9 deg strafing at 1
-     * m/s, against a steady 4-5 deg lag with no feedforward): differentiating {@code driveAngle}
-     * also differentiates the yaw offset, which follows the measured velocity, which the rotation
-     * itself disturbs. The analytic rate has no derivative in it to amplify that.
+     * <p>This is the analytic rate, not a numerical derivative of {@code driveAngle}.
+     * Differentiating {@code driveAngle} also differentiates the yaw offset, which follows the
+     * measured velocity, which the rotation itself disturbs. In simulation that made the aim
+     * oscillate (mean heading error 6 to 9 deg strafing at 1 m/s, against a steady 4 to 5 deg lag
+     * with no feedforward). The analytic rate has no derivative to amplify that.
      *
      * @param launcherToTarget field-relative vector from the launcher to the goal, metres
      * @param launcherVx field-relative launcher velocity, x, m/s
@@ -655,7 +654,7 @@ public class ShotCalculator {
     }
 
     // =========================================================================
-    // Private — Polynomial Solver
+    // Private: polynomial solver
     // =========================================================================
 
     /**
@@ -663,8 +662,8 @@ public class ShotCalculator {
      *
      * <p>Each pass evaluates the polynomial at the current virtual aim point, estimates
      * time-of-flight from horizontal kinematics, shifts the aim point by how far the launcher moves
-     * during that flight, and repeats until TOF converges. Terminates in ≤ 5 iterations (typically
-     * 2–3).
+     * during that flight, and repeats until TOF converges. Takes at most 5 iterations (typically 2
+     * to 3).
      *
      * @param model the polynomial model (hub or feed) to evaluate against
      * @param distance horizontal distance to goal centre (metres)
@@ -673,17 +672,17 @@ public class ShotCalculator {
      * @param tangentialVelocity launcher velocity perpendicular to goal line (m/s)
      * @return {@code double[]} with indices:
      *     <ul>
-     *       <li>0 — exit speed (m/s), scaled by {@link #MPS_FACTOR}
-     *       <li>1 — launch angle (degrees), raw polynomial value
-     *       <li>2 — yaw offset (degrees); add to static bearing before firing
-     *       <li>3 — converged virtual aim distance (metres)
-     *       <li>4 — converged time of flight (seconds)
+     *       <li>0: exit speed (m/s), scaled by {@link #MPS_FACTOR}
+     *       <li>1: launch angle (degrees), raw polynomial value
+     *       <li>2: yaw offset (degrees); add to static bearing before firing
+     *       <li>3: converged virtual aim distance (metres)
+     *       <li>4: converged time of flight (seconds)
      *     </ul>
      */
     private static double[] solveVirtualTarget(
             PolyModel model, double distance, double radialVelocity, double tangentialVelocity) {
-        double vdx = distance; // virtual aim point — radial component (m)
-        double vdz = 0.0; // virtual aim point — lateral component (m)
+        double vdx = distance; // virtual aim point, radial component (m)
+        double vdz = 0.0; // virtual aim point, lateral component (m)
         double tof = 0.0;
 
         for (int iter = 0; iter < 5; iter++) {
@@ -723,9 +722,9 @@ public class ShotCalculator {
 
     /**
      * Evaluates the given polynomial surface at (distance, radialVel). Inputs are clamped to the
-     * model's fitted data range. Returns raw polynomial output — callers are responsible for
-     * applying {@link #MPS_FACTOR} to the exit speed and {@code HOOD_ANGLE_OFFSET} to the launch
-     * angle.
+     * model's fitted data range. Returns raw polynomial output. Callers apply {@link #MPS_FACTOR}
+     * to the exit speed, and command the hood at {@code max(90 - launchAngle + HOOD_ANGLE_OFFSET,
+     * 9)} degrees.
      *
      * @param model the polynomial model (hub or feed) to evaluate
      * @param distance horizontal distance to the aim point (metres)

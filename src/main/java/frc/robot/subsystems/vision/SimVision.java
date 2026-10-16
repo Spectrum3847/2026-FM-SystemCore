@@ -32,21 +32,23 @@ import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 /**
  * Simulated cameras for every pose source, on PhotonLib's {@link VisionSystemSim}.
  *
- * <p>One PhotonLib vision system holds every AprilTag camera on the robot -- the Limelights as well
- * as the Orin's cameras -- each with its own mount and camera properties, all looking at the 2026
- * field from the simulated <em>truth</em> pose (see {@code Swerve.SimErrors}). The Orin cameras are
- * read exactly as on the robot, by {@link PhotonIO} over NetworkTables. The Limelights are read by
- * {@link LimelightSimIO}, which turns the same PhotonLib results into what a Limelight reports:
+ * <p>One PhotonLib vision system holds every AprilTag camera on the robot, the Limelights as well
+ * as the Orin's cameras, each with its own mount and camera properties. All of them look at the
+ * 2026 field from the simulated <em>truth</em> pose (see {@code Swerve.SimErrors}). The Orin
+ * cameras are read exactly as on the robot, by {@link PhotonIO} over NetworkTables. The Limelights
+ * are read by {@link LimelightSimIO}, which turns the same PhotonLib results into what a Limelight
+ * reports:
  *
  * <ul>
- *   <li><b>MegaTag1</b> -- the multi-tag (or single-tag) solve, heading included.
- *   <li><b>MegaTag2</b> -- translation solved from each tag with the heading the robot pushed,
- *       which is how MegaTag2 works and why it inherits gyro drift.
- *   <li><b>Target size</b> -- the largest target's area, as {@code ta}.
+ *   <li><b>MegaTag1</b> uses the multi-tag (or single-tag) solve, heading included.
+ *   <li><b>MegaTag2</b> solves translation from each tag with the heading the robot pushed, which
+ *       is how MegaTag2 works and why it inherits gyro drift.
+ *   <li><b>Target size</b> reports the largest target's area, as {@code ta}.
  * </ul>
  *
  * <p>The QuestNav is {@link QuestSimIO}: truth plus a slow random-walk drift, in a field frame that
- * only lines up once the robot has sent a pose reset -- the two things a VIO source gets wrong.
+ * only lines up once the robot has sent a pose reset. Those are the two things a VIO source gets
+ * wrong.
  */
 public class SimVision {
     private final VisionSystemSim system = new VisionSystemSim("fm");

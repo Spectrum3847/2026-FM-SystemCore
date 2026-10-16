@@ -4,8 +4,8 @@ package frc.spectrumLib.util;
 // Based on Code from FRC# 2363
 
 /**
- * This class and its subclasses remap controller stick inputs according to specifics provided of
- * multiple classes of curves.
+ * This class and its subclasses remap controller stick inputs. Each subclass implements one kind of
+ * curve.
  *
  * <p>This is the superclass of several types of curves. It contains most of the code that is used
  * for all types of curves (Linear, Exponential, Spline, and Step).
@@ -36,8 +36,7 @@ public abstract class Curve {
 
     /**
      * Returns the value of <code>input</code> mapped to create a deadband of width <code>deadzone
-     * </code> in the center of the curve and squishes the rest of the curve to the outside
-     * proportionally.
+     * </code> in the center of the curve. The rest of the curve is scaled outward proportionally.
      *
      * @param input the input value to be mapped
      * @return mapped value

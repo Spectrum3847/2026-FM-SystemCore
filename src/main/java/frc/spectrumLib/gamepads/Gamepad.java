@@ -262,11 +262,12 @@ public abstract class Gamepad implements Subsystem {
         @Getter @Setter double triggersScalar = 1.0;
 
         /**
-         * Which Driver Station's controller layout to read. {@link Mapping#WPILIB_DS}: on FM
-         * (2026-10-16) the pilot's Xbox controller reported 15 buttons and no POV, with the
-         * triggers on axes 4 and 5. That is the 2027 layout, not the NI one.
+         * Which Driver Station's controller layout to read. {@link Mapping#NI_DS}: the event's FMS
+         * runs the 2026 NI DS. Bench testing on 2026-10-16 used the 2027 WPILib DS, which sends the
+         * 2027 layout (15 buttons, no POV, triggers on axes 4 and 5); switch to {@link
+         * Mapping#WPILIB_DS} when driving from that DS.
          */
-        @Getter @Setter Mapping mapping = Mapping.WPILIB_DS;
+        @Getter @Setter Mapping mapping = Mapping.NI_DS;
 
         /**
          * Creates a gamepad configuration for the given port.

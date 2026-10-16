@@ -3,6 +3,7 @@ package frc.robot.subsystems.intakeExtension;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfigurator;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.NeutralModeValue;
 import frc.robot.Constants;
 import frc.robot.RobotSim;
 import frc.spectrumLib.hardware.CanBuses;
@@ -12,6 +13,7 @@ import frc.spectrumLib.sim.LinearSim;
 import frc.spectrumLib.telemetry.Telemetry;
 import lombok.Getter;
 import org.wpilib.command2.Command;
+import org.wpilib.command2.Commands;
 import org.wpilib.command2.InstantCommand;
 import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.util.Units;
@@ -236,6 +238,15 @@ public class IntakeExtension extends Mechanism {
             stop();
         }
 
+        /** Writes only the neutral mode, so it is quick enough to run as the robot enables. */
+        public void writeNeutralMode(boolean brake, double timeoutSecs) {
+            if (isAttached()) {
+                rightConfig.configNeutralBrakeMode(brake);
+                motor.configNeutralMode(
+                        brake ? NeutralModeValue.Brake : NeutralModeValue.Coast, timeoutSecs);
+            }
+        }
+
         @Override
         public void periodic() {
             logBatteryUsage();
@@ -297,6 +308,34 @@ public class IntakeExtension extends Mechanism {
     public void setBrakeMode(boolean isInBrake) {
         super.setBrakeMode(isInBrake);
         if (right.isAttached()) right.setBrakeMode(isInBrake);
+    }
+
+    /**
+     * Wait for each neutral-mode write at most this long. Writing only the neutral mode, not the
+     * whole Talon config, keeps the switch to brake at enable from stalling the first loops.
+     */
+    private static final double NEUTRAL_MODE_TIMEOUT_SECS = 0.05;
+
+    /**
+     * Coast while disabled, so the extension can be pushed in or out by hand; brake when enabled,
+     * which the full-extend hold relies on. Bound to the robot's mode changes in Robot.
+     *
+     * @param brake true for brake, false for coast
+     * @return a command that writes the neutral mode to both axes, also while disabled
+     */
+    public Command neutralModeCommand(boolean brake) {
+        return Commands.runOnce(
+                        () -> {
+                            if (isAttached()) {
+                                config.configNeutralBrakeMode(brake);
+                                motor.configNeutralMode(
+                                        brake ? NeutralModeValue.Brake : NeutralModeValue.Coast,
+                                        NEUTRAL_MODE_TIMEOUT_SECS);
+                            }
+                            right.writeNeutralMode(brake, NEUTRAL_MODE_TIMEOUT_SECS);
+                        })
+                .ignoringDisable(true)
+                .withName(brake ? "IntakeExtension.brake" : "IntakeExtension.coast");
     }
 
     // ---- State Machine ----

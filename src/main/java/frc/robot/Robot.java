@@ -503,6 +503,12 @@ public class Robot extends SpectrumRobot {
         operator.dPadRight.onTrue(ShotCalculator.decreaseDriveAngleOffset());
         operator.dPadLeft.onTrue(ShotCalculator.increaseDriveAngleOffset());
 
+        // Intake extension coasts while disabled, so it can be pushed in or out by hand, and brakes
+        // again when teleop or auto starts: the full-extend hold relies on brake mode.
+        Util.disabled.onTrue(intakeExtension.neutralModeCommand(false));
+        Util.teleop.onTrue(intakeExtension.neutralModeCommand(true));
+        Util.autoMode.onTrue(intakeExtension.neutralModeCommand(true));
+
         // Reset hub shift timer when enabling
         Util.teleop.onTrue(Commands.runOnce(ShiftHelpers::initialize));
         Util.autoMode.onTrue(Commands.runOnce(ShiftHelpers::initialize));

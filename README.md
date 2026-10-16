@@ -361,12 +361,8 @@ the NI DS:
 | LS, RS | 8, 9 | 7, 8 | Start, LS |
 | D-pad | POV 0 | buttons 11-14 | left and right only (the port also read the POV), no up or down |
 | LX, LY | axes 0, 1 | 0, 1 | right |
-| RX, RY | axes 3, 5 | 2, 3 | LT, RX |
-| LT, RT | axes 2, 4 (0 to 1) | 4, 5 | RT, RY |
-
-On FM the NI DS sends right X on axis 3 and the right trigger on axis 4. `NiDsXboxController` has
-them the other way round, which made the turn stick launch and the launch trigger turn
-(2026-10-16). `GamepadLayout.NI_DS` uses what FM sends.
+| RX, RY | axes 4, 5 | 2, 3 | LT, RT |
+| LT, RT | axes 2, 3 (0 to 1) | 4, 5 | RX, RY |
 
 [GamepadLayout](src/main/java/frc/spectrumLib/gamepads/GamepadLayout.java) holds both tables, and
 [Gamepad](src/main/java/frc/spectrumLib/gamepads/Gamepad.java) reads raw indices through one of

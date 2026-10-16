@@ -107,6 +107,8 @@ class GamepadLayoutTest {
     void detectsEachLayoutFromWhatTheControllerHas() {
         // NI DS Xbox pad: 10 buttons, 6 axes, 1 POV.
         assertEquals(Optional.of(GamepadLayout.NI_DS), GamepadLayout.detect(0x3FF, 0x1, 0x3F));
+        // FM's 2026 NI DS (2026-10-16): 16 buttons and a POV.
+        assertEquals(Optional.of(GamepadLayout.NI_DS), GamepadLayout.detect(0xFFFF, 0x1, 0x3F));
         // Sim GUI, Xbox pad on Windows: 10 buttons + the hat as buttons 10-13, and the hat.
         assertEquals(Optional.of(GamepadLayout.NI_DS), GamepadLayout.detect(0x3FFF, 0x1, 0x3F));
         // 2027 DS (SDL): the D-pad as buttons 11-14, no POV.

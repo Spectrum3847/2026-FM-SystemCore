@@ -20,11 +20,7 @@ public class Launcher extends Mechanism {
     public static class LauncherConfig extends Config {
 
         /* Launcher config values */
-        /*
-         * 50 A supply per motor (was 80): in Qual 1 at TXMAN1 (2026-10-16) the four motors sat at
-         * 80 A each, about 300 A, for 0.3 to 0.5 s on every spin-up, the largest single draw, and
-         * the battery fell to 7 V when that overlapped driving. Spin-up gets a little slower.
-         */
+        // Spin-up is the largest draw; limited to keep the battery up while driving.
         @Getter private final double supplyCurrentLimit = 50;
         @Getter private final double statorCurrentLimit = 180;
         @Getter private final double lowerSupplyCurrentLimit = 50;

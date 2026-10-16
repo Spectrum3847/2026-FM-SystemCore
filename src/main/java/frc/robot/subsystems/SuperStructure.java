@@ -35,10 +35,7 @@ public class SuperStructure extends SubsystemBase {
     private static final double REGULAR_TELEOP_TRANSLATION_COEFFICIENT = 1.0;
     private static final double SHOOTING_TELEOP_TRANSLATION_COEFFICIENT = 0.1;
 
-    /**
-     * Driving while tracking the target (pilot X), when the flywheel spins up. In Qual 1 the worst
-     * battery dips (400 to 460 A total) were spin-up with swerve drive still at 100 to 120 A.
-     */
+    /** Slower while tracking, so driving and flywheel spin-up don't overlap at full draw. */
     private static final double TRACKING_TELEOP_TRANSLATION_COEFFICIENT = 0.5;
 
     public enum WantedSuperState {

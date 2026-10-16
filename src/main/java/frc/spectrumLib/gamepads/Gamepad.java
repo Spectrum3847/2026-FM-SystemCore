@@ -263,9 +263,7 @@ public abstract class Gamepad implements Subsystem {
 
         /**
          * Which Driver Station's controller layout to read. {@link Mapping#NI_DS}: the event's FMS
-         * runs the 2026 NI DS. Bench testing on 2026-10-16 used the 2027 WPILib DS, which sends the
-         * 2027 layout (15 buttons, no POV, triggers on axes 4 and 5); switch to {@link
-         * Mapping#WPILIB_DS} when driving from that DS.
+         * runs the 2026 NI DS. Use {@link Mapping#WPILIB_DS} when driving from the 2027 DS.
          */
         @Getter @Setter Mapping mapping = Mapping.NI_DS;
 

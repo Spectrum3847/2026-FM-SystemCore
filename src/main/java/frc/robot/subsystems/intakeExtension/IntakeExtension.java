@@ -84,11 +84,8 @@ public class IntakeExtension extends Mechanism {
         @Getter private final double homingTimeoutSecs = 3.0;
 
         /*
-         * Full extend drives out, then stops pushing (from the offseason bot). Once both sides have
-         * been still for the steady time, at the target or stalled short of it, the motors stop
-         * pushing and a StaticBrake request holds the extension (its neutral mode is coast). On FM the left side stops about 0.1 to 0.2
-         * rot short of the right and sat at its 40 A stator limit for as long as the intake was
-         * out (2026-10-16 log). 1 rot is about 3 in of travel (0.955 in drum).
+         * Full extend stops pushing once both sides are still, so a side that stops short of the
+         * other does not sit at its stator limit. 1 rot is about 3 in of travel.
          */
         @Getter private final double extendSteadySecs = 0.3;
 
@@ -98,16 +95,9 @@ public class IntakeExtension extends Mechanism {
         /** While holding, pushed back in by this much (about 2 in) drives out again. */
         @Getter private final double extendReextendRotations = 0.67;
 
-        /*
-         * Out-point relearn, at the same stall. The encoders are not zeroed when the code starts,
-         * so zero is wherever the motors powered on. If that was with the intake out, the first
-         * full extend cannot move, and the stop is taken as max.
-         */
-
         /**
-         * Relearn only when the extension moved less than this since the extend began. A jam or a
-         * tooth skip part way out moves first and then stalls, and taking that as max would be
-         * wrong; RESYNC is the fix for those.
+         * Out-point relearn only when the extend moved less than this: a power-on with the intake
+         * out cannot move, while a jam part way out moves first (RESYNC handles those).
          */
         @Getter private final double relearnMaxTravelRotations = 0.25;
 
@@ -141,9 +131,8 @@ public class IntakeExtension extends Mechanism {
             configReverseTorqueCurrentLimit(statorCurrentLimit);
             configForwardSoftLimit(maxRotations, true);
             configReverseSoftLimit(minRotations, true);
-            // Always coast, so the extension can be moved by hand while disabled. When enabled the
-            // code holds it with a StaticBrake request instead (holdBoth): writing the neutral mode
-            // at enable timed out on the CANivore (RxTimeout, 2026-10-16).
+            // Coast so it moves by hand while disabled; enabled, StaticBrake holds it. Switching
+            // the neutral mode at enable timed out on the CANivore.
             configNeutralBrakeMode(false);
             configClockwise_Positive();
         }
@@ -193,7 +182,7 @@ public class IntakeExtension extends Mechanism {
                 configReverseTorqueCurrentLimit(left.getStatorCurrentLimit());
                 configForwardSoftLimit(left.getMaxRotations(), true);
                 configReverseSoftLimit(left.getMinRotations(), true);
-                configNeutralBrakeMode(false); // coast from boot, like the left axis
+                configNeutralBrakeMode(false);
                 configCounterClockwise_Positive();
             }
         }
@@ -240,7 +229,7 @@ public class IntakeExtension extends Mechanism {
             stop();
         }
 
-        /** Brakes the axis whatever its neutral mode, which is coast. */
+        /** Brakes the axis; its neutral mode is coast. */
         public void holdAxis() {
             if (isAttached()) {
                 motor.setControl(staticBrake);
@@ -272,11 +261,8 @@ public class IntakeExtension extends Mechanism {
         this.config = config;
         this.right = new IntakeExtensionRight(config);
 
-        // No encoder zeroing here, as on the offseason bot. The TalonFX keeps counting across
-        // robot-code restarts, so zeroing in the constructor threw the position away on every
-        // deploy: deployed with the intake out, retract did nothing and extend drove into the
-        // stop. Zero is wherever the extension was at motor power-on. If that was with the
-        // intake out, the first full extend relearns the out point (applyFullExtend).
+        // No encoder zeroing: the TalonFX keeps its position across code restarts. If it powered
+        // on with the intake out, the first full extend relearns the out point.
 
         simulationInit();
         Telemetry.print(getName() + " Subsystem Initialized");
@@ -420,25 +406,18 @@ public class IntakeExtension extends Mechanism {
     private int outPointRelearns = 0;
 
     /**
-     * Drives both sides out until they have been still for the steady time, then stops pushing and
-     * holds it with StaticBrake. If the extension is pushed back in while holding, it drives out
-     * again.
-     *
-     * <p>At that stall, if the extend barely moved, both sides read the same place and it is short
-     * of the target, the out stop is taken as max. That is a power-on (or a motor restart) with the
-     * intake out. A jam or tooth skip part way out moves first and then stalls; RESYNC is the fix
-     * for those.
+     * Drives out until both sides are still, then holds. A stall short of the target that barely
+     * moved, with both sides agreeing, means the motors powered on with the intake out, so the stop
+     * is taken as max.
      */
     private void applyFullExtend() {
-        // The sim models only the left axis; its right axis has no physics and wanders, so it
-        // counts only off the sim (on the robot, and in a replay of a robot log).
+        // The sim has no right-axis physics.
         boolean useRight = right.isAttached() && Constants.currentMode != Constants.Mode.SIM;
         double leftPos = getPositionRotations();
         double rightPos = useRight ? right.getPositionRotations() : leftPos;
         double position = (leftPos + rightPos) / 2.0;
 
-        // Disabled, the motors are off and every extend looks like a stall. Start the extend over
-        // when the robot is enabled.
+        // Disabled, every extend looks like a stall.
         if (previousSystemState != SystemState.FULL_EXTEND || !RobotState.isEnabled()) {
             extendPhase = ExtendPhase.DRIVING;
             extendStartRotations = position;
@@ -482,7 +461,6 @@ public class IntakeExtension extends Mechanism {
                     Telemetry.print("IntakeExtension: out point relearned at the stop");
                     position = config.getMaxRotations();
                 }
-                // At the target or stalled short of it: stop pushing.
                 extendPhase = ExtendPhase.HOLDING;
                 holdStartRotations = position;
                 holdBoth();
@@ -500,7 +478,7 @@ public class IntakeExtension extends Mechanism {
         }
     }
 
-    /** Brakes both axes in place. Their neutral mode is coast, so this is what holds them. */
+    /** Brakes both axes; their neutral mode is coast. */
     private void holdBoth() {
         if (isAttached()) {
             motor.setControl(staticBrake);

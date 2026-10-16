@@ -129,12 +129,9 @@ public enum GamepadLayout {
      * Guesses which Driver Station layout a connected controller's data is in, from what the DS
      * says the controller has (logged by AdvantageKit, so this replays). Empty when it can't tell.
      *
-     * <p>This is inferred, not documented: an NI DS Xbox controller has a POV for the D-pad, so a
-     * controller with a POV is taken as {@link #NI_DS}, whatever its button count (FM's NI DS
-     * reported 16 buttons); the 2027 layout carries the D-pad as buttons 11-14 and has no POV, so a
-     * controller with button 14 and no POV is taken as {@link #WPILIB_DS}. Anything else (a
-     * controller that is not an Xbox pad, nothing plugged in) is unknown. Check it with the bench
-     * test in the README before trusting {@code AUTO}.
+     * <p>This is inferred, not documented: a POV means {@link #NI_DS} (whatever the button count);
+     * button 14 with no POV means {@link #WPILIB_DS}, whose D-pad is buttons 11-14. Anything else
+     * is unknown. Check it with the bench test in the README before trusting {@code AUTO}.
      *
      * @param hid the controller
      * @return the layout its data looks like, if it is recognisable
@@ -157,8 +154,7 @@ public enum GamepadLayout {
         if (!sixAxes) {
             return Optional.empty();
         }
-        // POV first: the 2026 NI DS on FM reported 16 buttons and a POV (2026-10-16), so button 14
-        // alone does not mean the 2027 layout. The 2027 DS reported 15 buttons and no POV.
+        // POV first: the NI DS can report button 14 too.
         if ((povsAvailable & 1) != 0) {
             return Optional.of(NI_DS);
         }

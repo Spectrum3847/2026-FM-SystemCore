@@ -369,8 +369,7 @@ the NI DS:
 them. Pilot and Operator bindings did not change. The layout is picked by `Gamepad.Config.mapping`:
 
 - **`NI_DS`** is the default, and is what the event needs (the FMS runs the 2026 NI DS).
-- **`WPILIB_DS`** is for driving from the 2027 DS. Bench testing on 2026-10-16 used that DS: the
-  controller reported 15 buttons, no POV and the triggers on axes 4 and 5.
+- **`WPILIB_DS`** is for driving from the 2027 DS.
 - **`AUTO`** guesses from what the DS says the controller has: button 14 present means the 2027
   layout, and a POV with no button 14 means the NI layout. If it can't tell, it keeps the last
   layout it recognised, starting from NI. It is off by default, because the guess is ours and not

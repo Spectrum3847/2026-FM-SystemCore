@@ -146,7 +146,7 @@ public class Robot extends SpectrumRobot {
         /*
          * Phoenix otherwise starts writing .hoot signal logs for every CAN device a second after
          * the first enable. Nobody replays them, and on 2026-09-05 they were a large share of the
-         * roboRIO's SD card. AdvantageKit's log is the record now. SignalLogger.start() still works
+         * roboRIO's SD card. AdvantageKit's log is the record. SignalLogger.start() still works
          * for a deliberate capture.
          */
         SignalLogger.enableAutoLogging(false);
@@ -411,27 +411,27 @@ public class Robot extends SpectrumRobot {
     }
 
     public void configureBindings() {
-        // LT alone → intake fuel; do nothing if RT is already held (RT+LT handled below)
+        // LT alone intakes fuel. Does nothing if RT is already held (RT+LT is handled below).
         pilot.LT.onTrue(
                 Commands.either(
                         superStructure.setStateCommand(WantedSuperState.INTAKE_FUEL),
                         Commands.none(),
                         pilot.RT.negate()));
 
-        // RT alone → launch; do nothing if LT is already held (RT+LT handled below)
+        // RT alone launches. Does nothing if LT is already held (RT+LT is handled below).
         pilot.RT.onTrue(
                 Commands.either(
                         superStructure.setStateCommand(WantedSuperState.LAUNCH_WITH_SQUEEZE),
                         Commands.none(),
                         pilot.LT.negate()));
 
-        // RT + LT both held → launch (intake stays extended; resolves to LAUNCH_WITHOUT_SQUEEZE)
+        // RT and LT both held: launch, intake stays extended (LAUNCH_WITHOUT_SQUEEZE).
         pilot.RT
                 .and(pilot.LT)
                 .onTrue(superStructure.setStateCommand(WantedSuperState.LAUNCH_WITHOUT_SQUEEZE));
 
-        // LT released while RT still held → launch (no delay; resolves to
-        // LAUNCH_WITH_SQUEEZE_WITH_NO_DELAY)
+        // LT released while RT is still held launches with no delay, as
+        // LAUNCH_WITH_SQUEEZE_WITH_NO_DELAY.
         pilot.LT.onFalse(
                 Commands.either(
                         superStructure.setStateCommand(
@@ -439,14 +439,14 @@ public class Robot extends SpectrumRobot {
                         Commands.none(),
                         pilot.RT));
 
-        // RT released while LT still held → resume intaking
+        // RT released while LT is still held resumes intaking.
         pilot.RT.onFalse(
                 Commands.either(
                         superStructure.setStateCommand(WantedSuperState.INTAKE_FUEL),
                         Commands.none(),
                         pilot.LT));
 
-        // Both released → idle
+        // Both released goes idle.
         pilot.RT.or(pilot.LT).onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
 
         pilot.LT.and(pilot.LB).onTrue(superStructure.setStateCommand(WantedSuperState.EJECT));
@@ -673,7 +673,7 @@ public class Robot extends SpectrumRobot {
     public void disabledInit() {
         Telemetry.print("### Disabled Init Starting ### ");
 
-        // Offseason: honoured only before the first enable -- see mayPlaceAtAutoStart().
+        // Offseason: honoured only before the first enable. See mayPlaceAtAutoStart().
         placeAtAutoStart = true;
 
         if (!autonWarmedUp) {

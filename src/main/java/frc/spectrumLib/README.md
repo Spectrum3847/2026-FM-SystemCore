@@ -1,6 +1,6 @@
 # SpectrumLib
 
-Reusable robot library shared across Spectrum teams (3847, 8515, Flash, etc.). Contains framework abstractions, hardware wrappers, telemetry utilities, and simulation helpers designed to carry forward year-to-year.
+Robot library shared across Spectrum teams (3847, 8515, Flash). It has framework base classes, hardware wrappers, telemetry, and simulation helpers, and is reused from season to season.
 
 ---
 

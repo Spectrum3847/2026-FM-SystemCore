@@ -9,14 +9,14 @@ import org.wpilib.driverstation.Alert.Level;
  * A cap on how long boot may spend on CAN device configuration that is not working.
  *
  * <p>Every Phoenix configuration call blocks until the device answers or the timeout expires. That
- * is invisible when the bus is healthy and quadratic in frustration when it is not: each of the
- * roughly two dozen CANivore devices is configured with several such calls, plus retry loops on top
- * of them, and every one of those waits out its full timeout against a device that is not there.
+ * is invisible when the bus is healthy. When it is not, the cost multiplies: each of the roughly
+ * two dozen CANivore devices is configured with several such calls, plus retry loops on top, and
+ * every one of those waits out its full timeout against a device that is not there.
  *
  * <p>In the 2026-09-19 Chezy practice match the CANivore bus went down mid-match on a cut wire. The
  * roboRIO was restarted from the Driver Station and the code looked like it never came back: robot
  * init took <b>64.0 s</b> against 16.9 s in the match before it, and the rio then sat at 93-99% CPU
- * with 58-77% of loops over 25 ms. It had in fact come back -- it was just unusable, and the match
+ * with 58-77% of loops over 25 ms. It had in fact come back. It was just unusable, and the match
  * was over before anyone could tell the difference.
  *
  * <p>This class bounds that. Callers run their configuration through {@link #run} and consult
@@ -79,7 +79,7 @@ public final class CanConfigBudget {
     }
 
     /**
-     * Attempts to retry, given how many attempts a caller should make for one configuration.
+     * Number of attempts a caller should make for one configuration.
      *
      * @return {@link #MAX_ATTEMPTS} while the budget holds, otherwise 1
      */
@@ -99,8 +99,8 @@ public final class CanConfigBudget {
      * @return the status the call returned
      */
     public static StatusCode run(String name, DoubleFunction<StatusCode> call) {
-        // Wall clock, not Timer: AdvantageKit pins the robot clock to the cycle timestamp so replay
-        // is deterministic, and during robot init that clock does not move at all -- every
+        // Wall clock, not Timer. AdvantageKit pins the robot clock to the cycle timestamp so
+        // replay is deterministic, and during robot init that clock does not move at all. Every
         // failed call was charged 0 s and the budget never tripped (found on the SystemCore
         // bench, 2026-09-22: a 60 s boot with no CAN devices attached).
         long start = System.nanoTime();

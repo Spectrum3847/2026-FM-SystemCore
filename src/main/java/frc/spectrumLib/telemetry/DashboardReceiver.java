@@ -10,15 +10,15 @@ import org.littletonrobotics.junction.LogTable.LogValue;
  * Feeds AdvantageKit's NetworkTables publisher only what a dashboard needs, at a dashboard's rate.
  *
  * <p>The 2026 offseason code stopped mirroring the whole log to NetworkTables because on the
- * roboRIO it was a full-time job for one of the two cores. On SystemCore the publisher runs on
- * AdvantageKit's receiver thread, not the robot loop, but the controller shares its CPU with the
+ * roboRIO that took one of the two cores full time. On SystemCore the publisher runs on
+ * AdvantageKit's receiver thread, not the robot loop. The controller still shares its CPU with the
  * Limelight vision servers, so the same rule applies:
  *
  * <ul>
  *   <li>Only dashboard keys ({@link Telemetry#isDashboardKey}: every {@code logDash} key and every
  *       key the Elastic layout reads), plus metadata. Inputs never go.
- *   <li>Everything, while the {@value Telemetry#NT_MIRROR_SWITCH_KEY} switch is on (never with the
- *       FMS attached) -- for a live AdvantageScope session on the bench.
+ *   <li>Everything, while the {@value Telemetry#NT_MIRROR_SWITCH_KEY} switch is on. This is for a
+ *       live AdvantageScope session on the bench, and the switch is ignored with the FMS attached.
  *   <li>One table every {@code n} cycles. Skipped cycles are merged, not dropped: an output is only
  *       in the table of the cycle that recorded it, so a value logged once a second would otherwise
  *       never reach the dashboard whenever its cycle was a skipped one.

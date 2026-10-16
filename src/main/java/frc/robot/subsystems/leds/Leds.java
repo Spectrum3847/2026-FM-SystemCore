@@ -23,7 +23,7 @@ public class Leds extends SpectrumLEDs {
     // Hardware configuration
     // -------------------------------------------------------------------------
 
-    /** Number of external LEDs attached to the CANdle output (indices 8–27 on the device). */
+    /** Number of external LEDs attached to the CANdle output (indices 8 to 27 on the device). */
     public static final int NUM_LEDS = 20;
 
     /**

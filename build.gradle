@@ -79,7 +79,7 @@ dependencies {
     nativeRelease wpi.java.vendor.jniRelease(wpi.platforms.desktop)
     simulationRelease wpi.sim.enableRelease()
 
-    // LimelightHelpers parses Limelight JSON with Jackson; WPILib 2027 no longer ships it.
+    // LimelightHelpers parses Limelight JSON with Jackson; WPILib 2027 does not ship it.
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.19.2'
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
@@ -236,7 +236,7 @@ tasks.register('ntDump', JavaExec) {
 }
 
 // Prints the robot program's console output since boot from the SystemCore (filtered to the
-// interesting lines), then restarts the program -- GradleRIO stops it before any artifact runs:
+// interesting lines), then restarts the program. GradleRIO stops it before any artifact runs:
 //   ./gradlew deployrobotLogsystemcore -ProbotLog --info
 // Uses the deploy connection, so it needs nothing beyond what ./gradlew deploy needs.
 // -ProbotLogAll prints the last 300 lines unfiltered instead; -ProbotThreads runs

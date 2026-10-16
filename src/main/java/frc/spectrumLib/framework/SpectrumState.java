@@ -59,8 +59,8 @@ public class SpectrumState extends Trigger {
     }
 
     /**
-     * Create a command that will set the state to true while the command is running Then it will
-     * set to false once it is cancelled
+     * Create a command that sets the state to true while it runs, then to false when it is
+     * cancelled.
      *
      * @return the command
      */
@@ -195,7 +195,7 @@ public class SpectrumState extends Trigger {
      * @return A boolean supplier to poll the event's condition
      */
     private static BooleanSupplier pollCondition(String name) {
-        // Ensure there is a condition in the map for this name
+        // Unseen names start as false.
         if (!stateConditions.containsKey(name)) {
             stateConditions.put(name, false);
         }

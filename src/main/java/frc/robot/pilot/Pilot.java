@@ -48,7 +48,7 @@ public class Pilot extends Gamepad {
     public final Trigger anySetShot =
             setShotTower_LB_A.or(setShotLeftTrench_LB_X).or(setShotRightTrench_LB_B);
 
-    /* Bare face buttons, gated so the chords above own an LB-held press */
+    /* Bare face buttons, gated so an LB-held press goes to the chords above */
     public final Trigger trackTarget_X = XButton.and(LB.negate());
     public final Trigger unjam_A = AButton.and(LB.negate());
 

@@ -10,8 +10,8 @@ import org.wpilib.math.geometry.Pose2d;
  * ShotCalc/Shot/*}), extended with the gate's view and the pose's trust. Schema and how to read it:
  * docs/shot-log.md; {@code tools/shot_log.py} turns a log into a CSV.
  *
- * <p>The row is written on the rising edge of the feed, the first loop fuel is allowed into the
- * flywheel and so the last one on which the aim was still a prediction. When the feed closes, an
+ * <p>The row is written on the rising edge of the feed: the first loop fuel is allowed into the
+ * flywheel, and so the last loop on which the aim is still a prediction. When the feed closes, an
  * end row under {@code ShotLog/End/} gives the volley's length and how many flywheel dips (roughly,
  * balls) it saw.
  *
@@ -140,8 +140,8 @@ public final class ShotLog {
      * hysteresis that stops one slow recovery counting twice.
      *
      * <p>CALIBRATE: {@link #DIP_RPM} is a guess until a real volley's {@code Launcher/RPM} has been
-     * looked at; the sim flywheel does not feel the fuel, so it never dips there. If counts do not
-     * match the balls on video, change the threshold before trusting {@code End/FlywheelDips}.
+     * looked at. The sim flywheel does not model fuel loading, so it never dips there. If counts do
+     * not match the balls on video, change the threshold before trusting {@code End/FlywheelDips}.
      */
     static final class DipCounter {
         /** How far below target counts as a ball, RPM. */

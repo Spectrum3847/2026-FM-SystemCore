@@ -16,7 +16,7 @@ Fits above the Driver Station: 14 columns by 6 rows (1792 x 768), the size the o
 layout settled on after its last two rows turned out to be hidden behind the DS window along the
 bottom of the same screen ("Fit the dashboard above the Driver Station", 2026-09-05). The check at
 the bottom asserts every widget is inside that grid and that none overlap, so nothing can drift
-back below the fold. To use a seventh row, change ROWS -- nothing else.
+back below the fold. To use a seventh row, change ROWS and nothing else.
 """
 
 import json

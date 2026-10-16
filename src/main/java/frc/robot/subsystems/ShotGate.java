@@ -93,7 +93,7 @@ public final class ShotGate {
          * <ul>
          *   <li>Flywheel: {@code Launcher.onTargetToleranceRPM} (150 RPM; see there).
          *   <li>Keep feeding above 75% of target (offseason; its bench spin-up held inside the
-         *       window during bursts, so this only has to ride the per-ball dip).
+         *       window during bursts, so this only has to absorb the per-ball dip).
          *   <li>Hood 1 deg to start, 3 to keep. The offseason bot started at 0.5; FM's hood moves
          *       on Motion Magic toward a target that moves with distance while shooting on the
          *       move, and the model moves about 0.5 deg per 15 cm, so 1 deg is about 30 cm of
@@ -157,9 +157,9 @@ public final class ShotGate {
      *     tracking, before the trigger is pulled)
      * @param feed fuel may go into the flywheel this loop
      * @param reason why it may or may not
-     * @param blocker what is holding the feed ({@link Blocker#NONE} while a volley is open); fed by
-     *     the override or the timeout, what those are bypassing; not launching, what would hold a
-     *     volley that started now
+     * @param blocker what is holding the feed ({@link Blocker#NONE} while a volley is open). When
+     *     the override or timeout feeds, this is what they bypass. Not launching, this is what
+     *     would hold a volley that started now
      * @param secondsHeld how long this launch has been held so far, 0 while feeding
      */
     public record Decision(
@@ -195,7 +195,7 @@ public final class ShotGate {
      * angle at which a ball's edge reaches the rim, for hub shots; a flat 10 deg for feed shots,
      * whose target is a patch of floor (9470 uses 10 deg for feed shots against 2.5 for the hub).
      * Clamped to 2 to 10 deg so a very long shot is not held to an angle the heading PID cannot
-     * settle to and a very close one is not waved through at any heading.
+     * settle to, and a very close one is not accepted at any heading.
      *
      * @param distanceMeters distance to the aim point
      * @param feedShot a feed (passing) shot rather than a hub shot
@@ -296,8 +296,8 @@ public final class ShotGate {
             reason = FeedReason.HELD;
         }
         boolean feed = reason != FeedReason.HELD;
-        // Fed by the override or the timeout, the blocker still says what is not ready, so the log
-        // shows what was bypassed.
+        // When the override or timeout feeds, the blocker still names what is not ready, so the
+        // log shows what was bypassed.
         Blocker blocker;
         if (reason == FeedReason.READY) {
             blocker = Blocker.NONE;

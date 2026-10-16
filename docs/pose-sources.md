@@ -1,12 +1,12 @@
 # Pose sources: design
 
-The point of this repo, beyond getting FM onto SystemCore, is to take in robot-pose estimates from
-several independent sources, gate each one on its own terms, and log every one of them well enough
-to compare offline. The deliverable is **the comparison, not the fusion**: which source do we trust,
-when, and how do we know.
+Besides getting FM onto SystemCore, this repo takes robot-pose estimates from several independent
+sources, gates each one with its own rules, and logs each one well enough to compare offline. The
+goal is **the comparison, not the fusion**: which source to trust, when, and what log evidence
+shows it.
 
-This follows the handoff brief (`HANDOFF-fm-pose-sources.md`, 2026-09); its decisions stand, except
-that fusion is now two estimators compared side by side:
+This follows the handoff brief (`HANDOFF-fm-pose-sources.md`, 2026-09); its decisions hold, except
+that fusion is two estimators compared side by side:
 
 - Fusion runs WPILib's `SwerveDrivePoseEstimator` **and** an EKF alongside it, both fed the same
   odometry samples and gated measurements. The robot drives on whichever one the logs show gives
@@ -35,7 +35,7 @@ In [`frc.robot.subsystems.vision`](../src/main/java/frc/robot/subsystems/vision)
 |---|---|
 | `Vision` | Builds every source, runs them each loop, applies the fusion policy, seeds the pose while disabled, runs the gross-heading safety net, pushes heading to the Limelights, re-origins the Quest. |
 | `VisionGates` | The AprilTag gate chain and the Limelight / Photon / Quest trust models, with the 2026 rationale. |
-| `LimelightIO` | One Limelight's MegaTag1 **or** MegaTag2 — each Limelight is two sources. |
+| `LimelightIO` | One Limelight's MegaTag1 **or** MegaTag2. Each Limelight is two sources. |
 | `PhotonIO` | One PhotonVision camera (multi-tag solve if present, else best single tag). |
 | `QuestNavIO` + `QuestNavProtocol` | QuestNav over NT4 raw protobuf (QuestNavLib has no 2027 build). |
 | `SimVision` | PhotonLib `VisionSystemSim` for every AprilTag camera, Limelight emulation on top of it, and a drifting simulated Quest. |
@@ -68,7 +68,7 @@ X" tracks. Seeds and explicit resets are applied to every track so they start to
 
 The WPILib estimator takes each camera frame as one whole robot pose with fixed odometry trust. An
 EKF (the approach FRC 971 / 1868 run in AOS) can do better in two places, so it runs as a second
-fused track and earns the robot's pose only if the logs agree:
+fused track. The robot drives on it only if the logs show it is better:
 
 - **Per-tag measurements.** Each tag in a frame is its own correction: the bearing to the tag's
   centre and the distance to it, from PhotonLib's per-target yaw/pitch and camera-to-target
@@ -109,7 +109,7 @@ AprilTag sources (Limelight MT1/MT2, SystemCore cameras, Orin), from 2026 `main`
 | Height | \|z\| > 0.75 m | the robot cannot leave the floor |
 | Stale Estimate | older than 1.0 s | the estimator silently drops these otherwise |
 
-QuestNav — a VIO source, so different failure modes entirely:
+QuestNav is a VIO source, so its failure modes are different:
 
 | Gate | Why |
 |---|---|
@@ -127,7 +127,7 @@ QuestNav — a VIO source, so different failure modes entirely:
 - All chassis Limelights fuse, not only the best one (offseason).
 - MegaTag1 until the disabled seed is **confirmed** (≥ 2 tags, heading holding within 3° for about a
   second of frames), MegaTag2 after (offseason; switchable at `Vision/ChassisUseMT2`).
-- Heading is never fused while enabled (huge heading std-dev): the gyro owns heading. It is set by
+- Heading is never fused while enabled (huge heading std-dev), so heading comes from the gyro. It is set by
   the disabled seed and by the gross-heading net (≥ 20° disagreement, stationary, for 1 s).
 - Orin, SystemCore cameras and Quest fuse whenever enabled and the robot is enabled; they start
   disabled.
@@ -160,15 +160,15 @@ Things this already shows, to check on the real robot:
 
 - MegaTag2's shadows are a little worse than MegaTag1's in sim, because MT2 inherits the gyro drift
   through the heading the robot pushes. Real Pigeon drift is smaller than the sim's.
-- The simulated Quest is only as good as its drift model (1 cm/√s random walk) — its real behaviour
-  is the unknown the Quest is on the robot to measure.
+- The simulated Quest is only as good as its drift model (1 cm/√s random walk). Its real behaviour
+  is what the Quest is on the robot to measure.
 - PhotonLib's simulated per-tag ambiguity runs high (0.4–0.9 stationary), so "High Ambiguity" is
   overrepresented in sim. Do not tune that gate from sim.
 
 ## Adding a source
 
 1. Write a `PoseSourceIO` that fills `PoseSourceInputs` from the device (and, for sim, one that
-   generates frames — `SimVision` has the patterns).
+   generates frames, following the patterns in `SimVision`).
 2. Pick or write its gate chain and a `StdDevModel` (in `VisionGates`).
 3. Construct a `PoseSource` in `Vision`, add it to `allSources` and to a fusion-policy loop.
-4. It is logged, shadowed and toggleable automatically.
+4. `PoseSource` logs it, gives it a shadow track and a dashboard switch.

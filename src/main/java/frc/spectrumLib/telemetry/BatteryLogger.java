@@ -22,12 +22,11 @@ import org.wpilib.system.Timer;
  * The set of channel names is small and fixed after the first loop.
  *
  * <p>Current is published at 10 Hz ({@link Telemetry#slowLogThisLoop()}) and power and energy at
- * {@link #SLOW_LOG_PERIOD_SECONDS}, because this class was the single largest producer of log
- * records on the robot and the loop period tracks that volume almost linearly. In the 2026-09-05
- * 18:38 log it accounted for 32.3 of the 94 records written per loop -- a third of everything --
- * while the loop ran at 33 Hz with a median period of 27.4 ms. Current is the channel worth
- * watching live; power is current times pack voltage and energy is its integral, so neither needs
- * 50 Hz to stay useful.
+ * {@link #SLOW_LOG_PERIOD_SECONDS}. This class produced the most log records on the robot, and the
+ * loop period grows almost linearly with log volume. In the 2026-09-05 18:38 log it accounted for
+ * 32.3 of the 94 records written per loop, a third of everything, while the loop ran at 33 Hz with
+ * a median period of 27.4 ms. Current is the channel worth watching live. Power is current times
+ * pack voltage and energy is its integral, so neither needs 50 Hz to stay useful.
  */
 public class BatteryLogger {
 
@@ -42,9 +41,9 @@ public class BatteryLogger {
     /**
      * Ceiling on one integration step, in seconds.
      *
-     * <p>Bounds what a stall or a pause between enables can bank into the energy total. Normal
-     * loops are far below it; anything above it is not time the mechanisms actually spent drawing
-     * the current we just sampled.
+     * <p>Bounds how much a stall or a pause between enables can add to the energy total. Normal
+     * loops are far below it. Anything above it is not time the mechanisms spent drawing the
+     * current we just sampled.
      */
     private static final double MAX_INTEGRATION_SECONDS = 0.25;
 
@@ -68,8 +67,8 @@ public class BatteryLogger {
     /** Estimated current drawn by the RoboRIO itself, in amps. */
     @Setter private double rioCurrent = 0.0;
 
-    // One-element arrays, not Doubles: dozens of channels are updated every loop, and boxing each
-    // update was a steady stream of garbage.
+    // One-element arrays, not Doubles: dozens of channels update every loop, and boxing each
+    // update created garbage on every loop.
     private final Map<String, double[]> subsystemCurrents = new HashMap<>();
     private final Map<String, double[]> subsystemEnergies = new HashMap<>();
 
@@ -119,8 +118,8 @@ public class BatteryLogger {
      * totals. The {@code key} may use "/" or "-" as separators; parent keys are automatically
      * aggregated.
      *
-     * <p>Power and energy are no longer derived here. Both are computed from these currents in
-     * {@link #logPower()}, which knows this loop's pack voltage and its true elapsed time.
+     * <p>Power and energy are computed from these currents in {@link #logPower()}, which knows this
+     * loop's pack voltage and its true elapsed time.
      *
      * @param key Hierarchical name for the current consumer (e.g. {@code "Drive/FrontLeft"})
      * @param amps One or more current readings in amps; absolute values are summed
@@ -158,9 +157,9 @@ public class BatteryLogger {
             double now = Timer.getTimestamp();
 
             /*
-             * Integrate over the loop that actually elapsed rather than an assumed 20 ms. The
-             * assumption was costing us: the 2026-09-05 logs ran a 20.2 to 27.4 ms median period,
-             * so every energy total that day was under-reported by roughly a fifth to a third.
+             * Integrate over the time that actually elapsed, not an assumed 20 ms. The 2026-09-05
+             * logs had a 20.2 to 27.4 ms median period, so a fixed 20 ms step under-reported every
+             * energy total that day by roughly a fifth to a third.
              */
             double elapsed =
                     Double.isNaN(lastIntegrationSeconds)
@@ -184,8 +183,8 @@ public class BatteryLogger {
                 lastSlowLogSeconds = now;
             }
 
-            // Currents at 10 Hz; total current, pack voltage, energy and the per-mechanism currents
-            // are on the Driver Station dashboard and in the robot app, hence logDash.
+            // Currents run at 10 Hz. Total current, pack voltage, energy, and per-mechanism
+            // currents feed the Driver Station dashboard and the robot app, so they use logDash.
             boolean logCurrent = Telemetry.slowLogThisLoop();
             if (logCurrent) {
                 Telemetry.logDash("BatteryLogger/Current", totalCurrent, "amps");
@@ -224,7 +223,7 @@ public class BatteryLogger {
                 }
             }
 
-            // Reset the current total, before next loop
+            // Reset for the next loop.
             totalCurrent = 0.0;
         }
     }

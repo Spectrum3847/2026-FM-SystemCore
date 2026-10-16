@@ -289,7 +289,7 @@ public class RobotBumpSim {
 
         // contactFactor reduces effective gravity deceleration for diagonal crossings.
         //   yaw = 0°: |cos(0)| = 1.0, full deceleration (straight-on, hardest to cross)
-        //   yaw = 45°: |cos(90°)| = 0.71, reduced deceleration (diagonal, easier)
+        //   yaw = 45°: |cos(90°)| = 0, no deceleration (diagonal, easiest)
         //   yaw = 90°: |cos(180°)| = 1.0, full deceleration (sideways approach also hard)
         double contactFactor = Math.abs(Math.cos(2 * robotPose2d.getRotation().getRadians()));
 

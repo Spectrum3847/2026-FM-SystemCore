@@ -723,7 +723,8 @@ public class ShotCalculator {
     /**
      * Evaluates the given polynomial surface at (distance, radialVel). Inputs are clamped to the
      * model's fitted data range. Returns raw polynomial output. Callers apply {@link #MPS_FACTOR}
-     * to the exit speed and {@code HOOD_ANGLE_OFFSET} to the launch angle.
+     * to the exit speed, and command the hood at {@code max(90 - launchAngle + HOOD_ANGLE_OFFSET,
+     * 9)} degrees.
      *
      * @param model the polynomial model (hub or feed) to evaluate
      * @param distance horizontal distance to the aim point (metres)

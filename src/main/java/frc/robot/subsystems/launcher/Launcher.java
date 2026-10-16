@@ -32,15 +32,6 @@ public class Launcher extends Mechanism {
         @Getter private final double velocityKv = 0;
         @Getter private final double velocityKs = 20;
 
-        /**
-         * Flywheel error inside which a volley may start (the shot gate, {@code ShotGate}). 100
-         * cannot be met in the sim: velocity TorqueCurrentFOC with kS 20 A and kP 10 A/rps settles
-         * 2 rps (120 RPM) off target wherever friction does not cancel kS, and the sim sits 124 RPM
-         * fast. 9470 uses 150 for feed shots, the offseason bot 200. CALIBRATE: tighten once {@code
-         * Shot/FlywheelErrorRPM} from the real robot shows its steady-state error.
-         */
-        @Getter private final double onTargetToleranceRPM = 150;
-
         /* Sim Configs */
         @Getter private final double launcherX = Units.inchesToMeters(62.5);
         @Getter private final double launcherY = Units.inchesToMeters(60);

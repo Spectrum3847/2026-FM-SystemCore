@@ -94,9 +94,7 @@ public class SuperStructure extends SubsystemBase {
         this.indexerBed = indexerBed;
         this.launcher = launcher;
         this.hood = hood;
-        this.shotGate =
-                new ShotGate(
-                        ShotGate.Tolerances.fm(launcher.getConfig().getOnTargetToleranceRPM()));
+        this.shotGate = new ShotGate(ShotGate.Tolerances.fm());
     }
 
     private final Timer intakeSqueezeTimer = new Timer();
@@ -216,7 +214,7 @@ public class SuperStructure extends SubsystemBase {
         double sinceVision = Robot.getVision().secondsSinceFusedEstimate();
         // The set shot is the deliberate exception to range (and to aim: the drivetrain is not
         // aiming, so checkAim is false): it exists for when there is no pose to compute them from,
-        // and the driver has taken responsibility for parking. Flywheel and hood still vote.
+        // and the driver has taken responsibility for parking. The hood still votes.
         boolean poseTrusted = sinceVision <= POSE_TRUST_TIMEOUT_SECONDS;
         boolean feedShot = params != null && isRobotInFeedZone();
         double aimTolerance =
@@ -235,7 +233,6 @@ public class SuperStructure extends SubsystemBase {
                                 launching,
                                 override,
                                 Timer.getTimestamp(),
-                                launcher.getVelocityRPM(),
                                 shotTargetRpm,
                                 hood.getPositionDegrees(),
                                 hood.getVelocityRPM() * 6.0, // mechanism RPM to deg/s

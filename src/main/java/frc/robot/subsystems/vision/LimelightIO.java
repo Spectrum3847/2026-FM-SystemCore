@@ -24,8 +24,8 @@ import org.wpilib.math.geometry.Rotation3d;
  * same camera frame read again, and is skipped. Fusing the same frame twice would overweight it.
  *
  * <p>MegaTag2 only publishes a 2-D pose, so its observation carries the same frame's MegaTag1
- * height, roll and pitch, as the offseason code did. The tilt and height gates then see a knocked
- * camera or bad solve whichever algorithm is being fused.
+ * height, roll and pitch, as the offseason code did. That way the tilt and height gates see a
+ * knocked camera or bad solve whichever algorithm is being fused.
  */
 public class LimelightIO implements PoseSourceIO {
     private final Limelight limelight;

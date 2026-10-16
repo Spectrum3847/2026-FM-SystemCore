@@ -48,8 +48,8 @@ public final class RobotLoop {
     }
 
     /**
-     * Returns {@code true} about once every {@code seconds}, whatever the loop rate. Converts the
-     * interval to a loop count using the loop period.
+     * Returns {@code true} about once every {@code seconds}, whatever the loop rate. Use it instead
+     * of counting loops, so a slow-tier rate such as 10 Hz holds when the loop period changes.
      *
      * @param seconds interval between {@code true} results
      * @return whether this loop is one to run the periodic work on

@@ -503,12 +503,6 @@ public class Robot extends SpectrumRobot {
         operator.dPadRight.onTrue(ShotCalculator.decreaseDriveAngleOffset());
         operator.dPadLeft.onTrue(ShotCalculator.increaseDriveAngleOffset());
 
-        // Intake extension coasts while disabled, so it can be pushed in or out by hand, and brakes
-        // again when teleop or auto starts: the full-extend hold relies on brake mode.
-        Util.disabled.onTrue(intakeExtension.neutralModeCommand(false));
-        Util.teleop.onTrue(intakeExtension.neutralModeCommand(true));
-        Util.autoMode.onTrue(intakeExtension.neutralModeCommand(true));
-
         // Reset hub shift timer when enabling
         Util.teleop.onTrue(Commands.runOnce(ShiftHelpers::initialize));
         Util.autoMode.onTrue(Commands.runOnce(ShiftHelpers::initialize));
@@ -678,6 +672,11 @@ public class Robot extends SpectrumRobot {
     @Override
     public void disabledInit() {
         Telemetry.print("### Disabled Init Starting ### ");
+
+        // Intake extension coasts while disabled, so it can be pushed in or out by hand. Here and
+        // not on a disabled trigger: the robot boots disabled, so a trigger's edge never fires
+        // then.
+        intakeExtension.setNeutralBrake(false);
 
         // Offseason: honoured only before the first enable. See mayPlaceAtAutoStart().
         placeAtAutoStart = true;
@@ -929,6 +928,7 @@ public class Robot extends SpectrumRobot {
     @Override
     public void autonomousInit() {
         Telemetry.print("@@@ Auton Init @@@ ");
+        intakeExtension.setNeutralBrake(true); // the full-extend hold relies on brake
         String runningAuto = auton.getAutonomousCommand().getName();
         Telemetry.log("Auton/RunningAuto", runningAuto);
         if (robotSim != null) {
@@ -962,6 +962,7 @@ public class Robot extends SpectrumRobot {
     public void teleopInit() {
         try {
             Telemetry.print("!!! Teleop Init Starting !!! ");
+            intakeExtension.setNeutralBrake(true); // the full-extend hold relies on brake
             superStructure.setWantedSuperState(WantedSuperState.IDLE);
             field2d.getObject("Auto Routine").setPoses(new ArrayList<>()); // clears auto visualizer
             Telemetry.print("!!! Teleop Init Complete !!! ");
@@ -986,6 +987,7 @@ public class Robot extends SpectrumRobot {
     @Override
     public void utilityInit() {
         Telemetry.print("~~~ Utility Init ~~~ ");
+        intakeExtension.setNeutralBrake(true);
     }
 
     @Override

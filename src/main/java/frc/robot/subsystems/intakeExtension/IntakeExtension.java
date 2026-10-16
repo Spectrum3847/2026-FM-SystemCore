@@ -13,7 +13,6 @@ import frc.spectrumLib.sim.LinearSim;
 import frc.spectrumLib.telemetry.Telemetry;
 import lombok.Getter;
 import org.wpilib.command2.Command;
-import org.wpilib.command2.Commands;
 import org.wpilib.command2.InstantCommand;
 import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.util.Units;
@@ -242,8 +241,13 @@ public class IntakeExtension extends Mechanism {
         public void writeNeutralMode(boolean brake, double timeoutSecs) {
             if (isAttached()) {
                 rightConfig.configNeutralBrakeMode(brake);
-                motor.configNeutralMode(
-                        brake ? NeutralModeValue.Brake : NeutralModeValue.Coast, timeoutSecs);
+                var status =
+                        motor.configNeutralMode(
+                                brake ? NeutralModeValue.Brake : NeutralModeValue.Coast,
+                                timeoutSecs);
+                if (!status.isOK()) {
+                    Telemetry.print("IntakeExtensionRight: neutral mode write failed: " + status);
+                }
             }
         }
 
@@ -318,24 +322,23 @@ public class IntakeExtension extends Mechanism {
 
     /**
      * Coast while disabled, so the extension can be pushed in or out by hand; brake when enabled,
-     * which the full-extend hold relies on. Bound to the robot's mode changes in Robot.
+     * which the full-extend hold relies on. Called from Robot's disabledInit (which also runs at
+     * boot) and the enabled modes' init.
      *
      * @param brake true for brake, false for coast
-     * @return a command that writes the neutral mode to both axes, also while disabled
      */
-    public Command neutralModeCommand(boolean brake) {
-        return Commands.runOnce(
-                        () -> {
-                            if (isAttached()) {
-                                config.configNeutralBrakeMode(brake);
-                                motor.configNeutralMode(
-                                        brake ? NeutralModeValue.Brake : NeutralModeValue.Coast,
-                                        NEUTRAL_MODE_TIMEOUT_SECS);
-                            }
-                            right.writeNeutralMode(brake, NEUTRAL_MODE_TIMEOUT_SECS);
-                        })
-                .ignoringDisable(true)
-                .withName(brake ? "IntakeExtension.brake" : "IntakeExtension.coast");
+    public void setNeutralBrake(boolean brake) {
+        if (isAttached()) {
+            config.configNeutralBrakeMode(brake);
+            var status =
+                    motor.configNeutralMode(
+                            brake ? NeutralModeValue.Brake : NeutralModeValue.Coast,
+                            NEUTRAL_MODE_TIMEOUT_SECS);
+            if (!status.isOK()) {
+                Telemetry.print("IntakeExtension: neutral mode write failed: " + status);
+            }
+        }
+        right.writeNeutralMode(brake, NEUTRAL_MODE_TIMEOUT_SECS);
     }
 
     // ---- State Machine ----

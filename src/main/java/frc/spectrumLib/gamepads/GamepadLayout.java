@@ -15,9 +15,11 @@ import org.wpilib.simulation.GenericHIDSim;
  *
  * <ul>
  *   <li>{@link #NI_DS}: the 2026 NI FRC Driver Station, the one the 2026 FMS supports. The legacy
- *       XInput order: A B X Y LB RB Back Start LS RS = buttons 0-9; axes LX LY LT RT RX RY = 0-5;
- *       the D-pad is POV 0. The same as WPILib alpha-6's {@code NiDsXboxController}. The sim GUI's
- *       "Map gamepad" also produces this order for an Xbox controller on Windows.
+ *       XInput order: A B X Y LB RB Back Start LS RS = buttons 0-9; axes LX LY LT RX RT RY = 0-5;
+ *       the D-pad is POV 0. The same as WPILib alpha-6's {@code NiDsXboxController}, except that
+ *       right X and the right trigger are swapped. {@code NiDsXboxController} has right X on 4 and
+ *       the right trigger on 3. On FM that made the turn stick launch and the launch trigger turn
+ *       (2026-10-16).
  *   <li>{@link #WPILIB_DS}: the 2027 WPILib Driver Station (SDL gamepad order). Buttons south east
  *       west north back guide start LS RS LB RB = 0-10, the D-pad as buttons 11-14; axes LX LY RX
  *       RY LT RT = 0-5. Taken from WPILib's {@link org.wpilib.driverstation.Gamepad}.
@@ -25,7 +27,8 @@ import org.wpilib.simulation.GenericHIDSim;
  */
 public enum GamepadLayout {
     // Literal indices: the NiDs* classes are due to be removed from WPILib before 2027 kickoff
-    // (allwpilib #9406). GamepadLayoutTest checks these against alpha-6's NiDsXboxController.
+    // (allwpilib #9406). GamepadLayoutTest checks these against alpha-6's NiDsXboxController,
+    // with right X and the right trigger swapped.
     NI_DS(
             0, // A
             1, // B
@@ -40,10 +43,10 @@ public enum GamepadLayout {
             -1, // D-pad: POV 0 (NO_BUTTON)
             -1, -1, -1, 0, // left X
             1, // left Y
-            4, // right X
+            3, // right X (NiDsXboxController: 4)
             5, // right Y
             2, // left trigger
-            3), // right trigger
+            4), // right trigger (NiDsXboxController: 3)
     WPILIB_DS(
             org.wpilib.driverstation.Gamepad.Button.SOUTH_FACE.value,
             org.wpilib.driverstation.Gamepad.Button.EAST_FACE.value,

@@ -83,16 +83,25 @@ public class IntakeExtension extends Mechanism {
         @Getter private final double homingTimeoutSecs = 3.0;
 
         /*
-         * Out-point relearn on full extend (from the offseason bot). The encoders are not zeroed
-         * when the code starts, so zero is wherever the motors powered on. If that was with the
-         * intake out, a full extend pushes on the out stop without moving. Once both sides have
-         * been that still for the steady time, the stop is taken as max. 1 rot is about 3 in of
-         * travel (0.955 in drum).
+         * Full extend drives out, then stops pushing (from the offseason bot). Once both sides have
+         * been still for the steady time, at the target or stalled short of it, the motors go to
+         * neutral and brake mode holds the extension. On FM the left side stops about 0.1 to 0.2
+         * rot short of the right and sat at its 40 A stator limit for as long as the intake was
+         * out (2026-10-16 log). 1 rot is about 3 in of travel (0.955 in drum).
          */
         @Getter private final double extendSteadySecs = 0.3;
 
         @Getter private final double extendSteadyMaxRPM = 18;
         @Getter private final double extendAtTargetToleranceRotations = 0.08;
+
+        /** While holding, pushed back in by this much (about 2 in) drives out again. */
+        @Getter private final double extendReextendRotations = 0.67;
+
+        /*
+         * Out-point relearn, at the same stall. The encoders are not zeroed when the code starts,
+         * so zero is wherever the motors powered on. If that was with the intake out, the first
+         * full extend cannot move, and the stop is taken as max.
+         */
 
         /**
          * Relearn only when the extension moved less than this since the extend began. A jam or a
@@ -254,7 +263,7 @@ public class IntakeExtension extends Mechanism {
         // robot-code restarts, so zeroing in the constructor threw the position away on every
         // deploy: deployed with the intake out, retract did nothing and extend drove into the
         // stop. Zero is wherever the extension was at motor power-on. If that was with the
-        // intake out, the first full extend relearns the out point (relearnOutPointIfStalled).
+        // intake out, the first full extend relearns the out point (applyFullExtend).
 
         simulationInit();
         Telemetry.print(getName() + " Subsystem Initialized");
@@ -339,8 +348,7 @@ public class IntakeExtension extends Mechanism {
     private void applyStates() {
         switch (systemState) {
             case FULL_EXTEND:
-                commandBoth(100, false);
-                relearnOutPointIfStalled();
+                applyFullExtend();
                 break;
             case FULL_RETRACT:
                 commandBoth(0, false);
@@ -385,19 +393,30 @@ public class IntakeExtension extends Mechanism {
         }
     }
 
-    // ---- Out-point relearn ----
+    // ---- Full extend: drive out, then stop pushing ----
 
+    private enum ExtendPhase {
+        DRIVING,
+        HOLDING
+    }
+
+    private ExtendPhase extendPhase = ExtendPhase.DRIVING;
     private final Timer extendSteadyTimer = new Timer();
     private boolean extendSteadyTiming = false;
     private double extendStartRotations = 0;
+    private double holdStartRotations = 0;
     private int outPointRelearns = 0;
 
     /**
-     * Takes the out stop as max when a full extend cannot move: both sides still for the steady
-     * time, short of the target, having travelled almost nothing since the extend began, and
-     * reading the same place. That is a power-on (or a motor restart) with the intake out.
+     * Drives both sides out until they have been still for the steady time, then stops pushing and
+     * lets brake mode hold. If the extension is pushed back in while holding, it drives out again.
+     *
+     * <p>At that stall, if the extend barely moved, both sides read the same place and it is short
+     * of the target, the out stop is taken as max. That is a power-on (or a motor restart) with the
+     * intake out. A jam or tooth skip part way out moves first and then stalls; RESYNC is the fix
+     * for those.
      */
-    private void relearnOutPointIfStalled() {
+    private void applyFullExtend() {
         // The sim models only the left axis; its right axis has no physics and wanders, so it
         // counts only off the sim (on the robot, and in a replay of a robot log).
         boolean useRight = right.isAttached() && Constants.currentMode != Constants.Mode.SIM;
@@ -408,9 +427,9 @@ public class IntakeExtension extends Mechanism {
         // Disabled, the motors are off and every extend looks like a stall. Start the extend over
         // when the robot is enabled.
         if (previousSystemState != SystemState.FULL_EXTEND || !RobotState.isEnabled()) {
+            extendPhase = ExtendPhase.DRIVING;
             extendStartRotations = position;
             extendSteadyTiming = false;
-            return;
         }
 
         boolean still =
@@ -418,31 +437,59 @@ public class IntakeExtension extends Mechanism {
                         && (!useRight
                                 || Math.abs(right.getVelocityRPM())
                                         < config.getExtendSteadyMaxRPM());
-        if (!still) {
+        boolean steady = false;
+        if (still && RobotState.isEnabled()) {
+            if (!extendSteadyTiming) {
+                extendSteadyTiming = true;
+                extendSteadyTimer.restart();
+            }
+            steady = extendSteadyTimer.hasElapsed(config.getExtendSteadySecs());
+        } else {
             extendSteadyTiming = false;
-            return;
-        }
-        if (!extendSteadyTiming) {
-            extendSteadyTiming = true;
-            extendSteadyTimer.restart();
-        }
-        if (!extendSteadyTimer.hasElapsed(config.getExtendSteadySecs())) {
-            return;
         }
 
-        boolean atTarget =
-                position >= config.getMaxRotations() - config.getExtendAtTargetToleranceRotations();
-        boolean barelyMoved =
-                Math.abs(position - extendStartRotations) < config.getRelearnMaxTravelRotations();
-        boolean sidesAgree = Math.abs(leftPos - rightPos) <= config.getRelearnMaxSkewRotations();
-        if (!atTarget && barelyMoved && sidesAgree) {
-            resetCurrentPositionToMax();
-            outPointRelearns++;
-            Telemetry.print("IntakeExtension: out point relearned at the stop");
-            // Start over from the new frame so it is only taken once per stall.
-            extendStartRotations = config.getMaxRotations();
-            extendSteadyTiming = false;
+        switch (extendPhase) {
+            case DRIVING -> {
+                if (!steady) {
+                    commandBoth(100, false);
+                    return;
+                }
+                boolean atTarget =
+                        position
+                                >= config.getMaxRotations()
+                                        - config.getExtendAtTargetToleranceRotations();
+                boolean barelyMoved =
+                        Math.abs(position - extendStartRotations)
+                                < config.getRelearnMaxTravelRotations();
+                boolean sidesAgree =
+                        Math.abs(leftPos - rightPos) <= config.getRelearnMaxSkewRotations();
+                if (!atTarget && barelyMoved && sidesAgree) {
+                    resetCurrentPositionToMax();
+                    outPointRelearns++;
+                    Telemetry.print("IntakeExtension: out point relearned at the stop");
+                    position = config.getMaxRotations();
+                }
+                // At the target or stalled short of it: stop pushing.
+                extendPhase = ExtendPhase.HOLDING;
+                holdStartRotations = position;
+                stopBoth();
+            }
+            case HOLDING -> {
+                if (holdStartRotations - position >= config.getExtendReextendRotations()) {
+                    extendPhase = ExtendPhase.DRIVING;
+                    extendStartRotations = position;
+                    extendSteadyTiming = false;
+                    commandBoth(100, false);
+                } else {
+                    stopBoth();
+                }
+            }
         }
+    }
+
+    private void stopBoth() {
+        stop();
+        if (right.isAttached()) right.stopAxis();
     }
 
     // ---- Resync / stall homing ----
@@ -575,6 +622,7 @@ public class IntakeExtension extends Mechanism {
         Telemetry.log("IntakeExtension/LeftHomed", leftHomed);
         Telemetry.log("IntakeExtension/RightHomed", rightHomed);
         Telemetry.log("IntakeExtension/OutPointRelearns", outPointRelearns);
+        Telemetry.log("IntakeExtension/ExtendPhase", extendPhase.toString());
 
         previousSystemState = systemState;
     }

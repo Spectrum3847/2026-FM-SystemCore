@@ -201,11 +201,11 @@ public class Vision implements Subsystem {
         @Getter final double seedConfirmSpreadDeg = 3.0;
 
         /**
-         * Gross heading correction while enabled. 20 deg sits clear of two-tag MegaTag1 heading
-         * noise (15 deg tail) while staying far below the 90 and 180 deg boot-heading errors this
-         * exists to catch. See the offseason {@code Vision.VisionConfig} for the log evidence.
+         * Gross heading correction while enabled. 10 deg sits above the 5 to 8 deg that one
+         * camera's mount error can show. A single two-tag frame can read 15 deg off, so every
+         * multi-tag frame across the hold must be past the threshold.
          */
-        @Getter final double grossHeadingErrorDeg = 20.0;
+        @Getter final double grossHeadingErrorDeg = 10.0;
 
         @Getter final double grossHeadingHoldSeconds = 1.0;
         @Getter final double grossHeadingMaxLinearSpeed = 0.2; // m/s
@@ -538,7 +538,7 @@ public class Vision implements Subsystem {
 
         // 3. Seed (disabled, or enabled with nothing seeded yet) and fuse (enabled).
         if (disabled) {
-            seedWhileDisabled();
+            seedWhileDisabled(context);
         } else {
             seedWhileEnabled(context);
         }
@@ -624,16 +624,6 @@ public class Vision implements Subsystem {
         return best;
     }
 
-    /** Whether any Limelight reported a MegaTag1 frame this loop. */
-    private boolean anyMt1Frames() {
-        for (PoseSource s : mt1Sources) {
-            if (!s.getResults().isEmpty()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /** The best Limelight's latest accepted MegaTag1 result this loop, or {@code null}. */
     private PoseSource.Result bestAcceptedMt1() {
         int best = bestLimelightIndex();
@@ -654,19 +644,19 @@ public class Vision implements Subsystem {
      * MegaTag1 only. MegaTag2 is deliberately not used here: it depends on the heading we push to
      * the camera, which is the very thing seeding is trying to fix.
      */
-    private void seedWhileDisabled() {
+    private void seedWhileDisabled(GateContext c) {
         PoseSource.Result best = bestAcceptedMt1();
         if (best == null) {
-            // A loop with no new frame from any camera is not evidence either way (the cameras run
-            // slower than the loop, and each frame is reported once); a loop whose frames were all
-            // rejected breaks the run.
-            if (anyMt1Frames()) {
-                seedConfirmStreak = 0;
-                Telemetry.log("Vision/SeedConfirmBreak", "Best frame rejected");
-            }
             return;
         }
         PoseObservation o = best.observation();
+        // A robot rolling after auto, or a single tag, can seed a heading many degrees off.
+        boolean still =
+                c.linearSpeed() <= config.grossHeadingMaxLinearSpeed
+                        && Math.abs(c.robotVelocity().omega) <= config.grossHeadingMaxOmega;
+        if (!still || !o.multiTag()) {
+            return;
+        }
         fusion.seed(
                 o.pose2d(),
                 o.timestampSeconds(),
@@ -701,9 +691,6 @@ public class Vision implements Subsystem {
         }
         PoseSource.Result best = bestAcceptedMt1();
         if (best == null) {
-            if (poseHeadingSeeded && anyMt1Frames()) {
-                seedConfirmStreak = 0;
-            }
             return;
         }
         PoseObservation o = best.observation();
@@ -730,6 +717,9 @@ public class Vision implements Subsystem {
                     PrintPriority.HIGH);
             return;
         }
+        if (!o.multiTag()) {
+            return;
+        }
         double errorDeg =
                 o.pose2d().getRotation().minus(headingAt(o.timestampSeconds())).getDegrees();
         if (Math.abs(errorDeg) <= config.seedConfirmSpreadDeg) {
@@ -751,8 +741,6 @@ public class Vision implements Subsystem {
             return;
         }
         if (!o.multiTag()) {
-            seedConfirmStreak = 0;
-            Telemetry.log("Vision/SeedConfirmBreak", "Single tag");
             return;
         }
         Rotation2d heading = o.pose2d().getRotation();
@@ -796,7 +784,11 @@ public class Vision implements Subsystem {
         boolean still =
                 c.linearSpeed() <= config.grossHeadingMaxLinearSpeed
                         && Math.abs(c.robotVelocity().omega) <= config.grossHeadingMaxOmega;
-        if (best == null || !best.observation().multiTag() || !still) {
+        // Loops without a new multi-tag frame are common and do not break the hold.
+        if (best == null || !best.observation().multiTag()) {
+            return;
+        }
+        if (!still) {
             grossHeadingSince = Double.NaN;
             return;
         }

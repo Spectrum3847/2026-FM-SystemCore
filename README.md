@@ -368,8 +368,9 @@ the NI DS:
 [Gamepad](src/main/java/frc/spectrumLib/gamepads/Gamepad.java) reads raw indices through one of
 them. Pilot and Operator bindings did not change. The layout is picked by `Gamepad.Config.mapping`:
 
-- **`NI_DS`** is the default, and is what the event needs.
-- **`WPILIB_DS`** is for driving from the 2027 DS.
+- **`WPILIB_DS`** is the default. On FM (2026-10-16) the pilot controller reported 15 buttons, no
+  POV and the triggers on axes 4 and 5, which is this layout.
+- **`NI_DS`** is the legacy NI order, for a DS that sends it.
 - **`AUTO`** guesses from what the DS says the controller has: button 14 present means the 2027
   layout, and a POV with no button 14 means the NI layout. If it can't tell, it keeps the last
   layout it recognised, starting from NI. It is off by default, because the guess is ours and not

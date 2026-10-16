@@ -112,6 +112,24 @@ public class LinearConfig {
     }
 
     /**
+     * Whether the physics model pulls the carriage toward {@code minHeight} with gravity. Leave on
+     * for a vertical elevator; turn off for a stage that slides horizontally, where nothing pulls
+     * it back.
+     */
+    @Getter private boolean simulateGravity = true;
+
+    /**
+     * Sets whether the physics model applies gravity to the carriage.
+     *
+     * @param simulateGravity false for a stage that travels horizontally
+     * @return this config, for chaining
+     */
+    public LinearConfig setSimulateGravity(boolean simulateGravity) {
+        this.simulateGravity = simulateGravity;
+        return this;
+    }
+
+    /**
      * Sets the number of motors.
      *
      * @param numMotors the number of motors

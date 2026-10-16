@@ -496,10 +496,21 @@ public class IntakeExtension extends Mechanism {
         if (isAttached()) {
             sim = new IntakeExtensionSim(RobotSim.leftView, motor);
         }
+        // The right axis gets no model yet: in sim it is the same device as the intake roller
+        // (both CAN id 5, and the sim does not keep SystemCore ports apart), so a second model
+        // would fight the roller's for that one motor.
     }
 
     // Simulation steps itself on spectrumLib SimLoop (200 Hz).
 
+    /**
+     * The left deploy axis in simulation. The deploy slides horizontally, so gravity is off and
+     * nothing pulls it back in when the motor stops.
+     *
+     * <p>The left motor is Clockwise_Positive, so the model runs mirrored ({@code
+     * setReversedLinkage(true)}). Without that the model is driven toward 0, sits on its bottom
+     * stop, and the axis never moves.
+     */
     class IntakeExtensionSim extends LinearSim {
         public IntakeExtensionSim(Mechanism2d mech, TalonFX intakeExtensionMotorSim) {
             super(
@@ -513,7 +524,10 @@ public class IntakeExtension extends Mechanism {
                             .setStaticLength(config.getStaticLength())
                             .setMaxHeight(config.getMaxExtensionHeight())
                             .setLineWidth(config.getLineWidth())
-                            .setColor(new Color8Bit(Color.LIGHT_GRAY)),
+                            .setColor(new Color8Bit(Color.LIGHT_GRAY))
+                            .setCarriageMass(config.getExtensionMass())
+                            .setSimulateGravity(false)
+                            .setReversedLinkage(true),
                     mech,
                     intakeExtensionMotorSim,
                     config.getName());

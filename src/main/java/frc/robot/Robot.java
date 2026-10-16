@@ -673,11 +673,6 @@ public class Robot extends SpectrumRobot {
     public void disabledInit() {
         Telemetry.print("### Disabled Init Starting ### ");
 
-        // Intake extension coasts while disabled, so it can be pushed in or out by hand. Here and
-        // not on a disabled trigger: the robot boots disabled, so a trigger's edge never fires
-        // then.
-        intakeExtension.setNeutralBrake(false);
-
         // Offseason: honoured only before the first enable. See mayPlaceAtAutoStart().
         placeAtAutoStart = true;
 
@@ -928,7 +923,6 @@ public class Robot extends SpectrumRobot {
     @Override
     public void autonomousInit() {
         Telemetry.print("@@@ Auton Init @@@ ");
-        intakeExtension.setNeutralBrake(true); // the full-extend hold relies on brake
         String runningAuto = auton.getAutonomousCommand().getName();
         Telemetry.log("Auton/RunningAuto", runningAuto);
         if (robotSim != null) {
@@ -962,7 +956,6 @@ public class Robot extends SpectrumRobot {
     public void teleopInit() {
         try {
             Telemetry.print("!!! Teleop Init Starting !!! ");
-            intakeExtension.setNeutralBrake(true); // the full-extend hold relies on brake
             superStructure.setWantedSuperState(WantedSuperState.IDLE);
             field2d.getObject("Auto Routine").setPoses(new ArrayList<>()); // clears auto visualizer
             Telemetry.print("!!! Teleop Init Complete !!! ");
@@ -987,7 +980,6 @@ public class Robot extends SpectrumRobot {
     @Override
     public void utilityInit() {
         Telemetry.print("~~~ Utility Init ~~~ ");
-        intakeExtension.setNeutralBrake(true);
     }
 
     @Override

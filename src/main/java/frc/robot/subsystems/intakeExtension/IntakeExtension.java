@@ -2,8 +2,8 @@ package frc.robot.subsystems.intakeExtension;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfigurator;
+import com.ctre.phoenix6.controls.StaticBrake;
 import com.ctre.phoenix6.hardware.TalonFX;
-import com.ctre.phoenix6.signals.NeutralModeValue;
 import frc.robot.Constants;
 import frc.robot.RobotSim;
 import frc.spectrumLib.hardware.CanBuses;
@@ -85,8 +85,8 @@ public class IntakeExtension extends Mechanism {
 
         /*
          * Full extend drives out, then stops pushing (from the offseason bot). Once both sides have
-         * been still for the steady time, at the target or stalled short of it, the motors go to
-         * neutral and brake mode holds the extension. On FM the left side stops about 0.1 to 0.2
+         * been still for the steady time, at the target or stalled short of it, the motors stop
+         * pushing and a StaticBrake request holds the extension (its neutral mode is coast). On FM the left side stops about 0.1 to 0.2
          * rot short of the right and sat at its 40 A stator limit for as long as the intake was
          * out (2026-10-16 log). 1 rot is about 3 in of travel (0.955 in drum).
          */
@@ -141,8 +141,9 @@ public class IntakeExtension extends Mechanism {
             configReverseTorqueCurrentLimit(statorCurrentLimit);
             configForwardSoftLimit(maxRotations, true);
             configReverseSoftLimit(minRotations, true);
-            // Coast from boot, so the extension can be moved by hand while disabled; brake is set
-            // when auto or teleop starts (setNeutralBrake).
+            // Always coast, so the extension can be moved by hand while disabled. When enabled the
+            // code holds it with a StaticBrake request instead (holdBoth): writing the neutral mode
+            // at enable timed out on the CANivore (RxTimeout, 2026-10-16).
             configNeutralBrakeMode(false);
             configClockwise_Positive();
         }
@@ -239,20 +240,14 @@ public class IntakeExtension extends Mechanism {
             stop();
         }
 
-        /**
-         * Writes only the neutral mode, so it is quick enough to run as the robot enables.
-         *
-         * @return whether the Talon confirmed it (always true when not attached)
-         */
-        public boolean writeNeutralMode(boolean brake, double timeoutSecs) {
-            if (!isAttached()) {
-                return true;
+        /** Brakes the axis whatever its neutral mode, which is coast. */
+        public void holdAxis() {
+            if (isAttached()) {
+                motor.setControl(staticBrake);
             }
-            rightConfig.configNeutralBrakeMode(brake);
-            return motor.configNeutralMode(
-                            brake ? NeutralModeValue.Brake : NeutralModeValue.Coast, timeoutSecs)
-                    .isOK();
         }
+
+        private final StaticBrake staticBrake = new StaticBrake();
 
         @Override
         public void periodic() {
@@ -317,82 +312,6 @@ public class IntakeExtension extends Mechanism {
         if (right.isAttached()) right.setBrakeMode(isInBrake);
     }
 
-    /*
-     * Neutral mode. Only the neutral mode is written, not the whole Talon config, so the switch to
-     * brake at enable does not stall the first loops. At boot the CANivore is busy configuring
-     * every device and a write can time out (RxTimeout on 2026-10-16), so an unconfirmed write is
-     * retried from periodic until both sides confirm it.
-     */
-    private static final double NEUTRAL_MODE_TIMEOUT_SECS = 0.05;
-    private static final double NEUTRAL_MODE_RETRY_TIMEOUT_SECS = 0.02;
-    private static final double NEUTRAL_MODE_RETRY_PERIOD_SECS = 0.25;
-    private static final int NEUTRAL_MODE_MAX_RETRIES = 20;
-
-    private boolean wantBrake = false;
-    private boolean leftNeutralPending = false;
-    private boolean rightNeutralPending = false;
-    private int neutralRetries = 0;
-    private double nextNeutralRetry = 0;
-
-    /**
-     * Coast while disabled, so the extension can be pushed in or out by hand; brake when enabled,
-     * which the full-extend hold relies on. Called from Robot's disabledInit (which also runs at
-     * boot) and the enabled modes' init.
-     *
-     * @param brake true for brake, false for coast
-     */
-    public void setNeutralBrake(boolean brake) {
-        wantBrake = brake;
-        leftNeutralPending = true;
-        rightNeutralPending = true;
-        neutralRetries = 0;
-        writeNeutralMode(NEUTRAL_MODE_TIMEOUT_SECS);
-        nextNeutralRetry = Timer.getTimestamp() + NEUTRAL_MODE_RETRY_PERIOD_SECS;
-    }
-
-    private void writeNeutralMode(double timeoutSecs) {
-        if (leftNeutralPending) {
-            if (isAttached()) {
-                config.configNeutralBrakeMode(wantBrake);
-                leftNeutralPending =
-                        !motor.configNeutralMode(
-                                        wantBrake ? NeutralModeValue.Brake : NeutralModeValue.Coast,
-                                        timeoutSecs)
-                                .isOK();
-            } else {
-                leftNeutralPending = false;
-            }
-        }
-        if (rightNeutralPending) {
-            rightNeutralPending = !right.writeNeutralMode(wantBrake, timeoutSecs);
-        }
-    }
-
-    private void retryNeutralMode() {
-        if (!leftNeutralPending && !rightNeutralPending) {
-            return;
-        }
-        if (Timer.getTimestamp() < nextNeutralRetry) {
-            return;
-        }
-        neutralRetries++;
-        writeNeutralMode(NEUTRAL_MODE_RETRY_TIMEOUT_SECS);
-        nextNeutralRetry = Timer.getTimestamp() + NEUTRAL_MODE_RETRY_PERIOD_SECS;
-        String mode = wantBrake ? "brake" : "coast";
-        if (!leftNeutralPending && !rightNeutralPending) {
-            Telemetry.print(
-                    "IntakeExtension: " + mode + " set after " + neutralRetries + " retries");
-        } else if (neutralRetries >= NEUTRAL_MODE_MAX_RETRIES) {
-            Telemetry.print(
-                    "IntakeExtension: could not set "
-                            + mode
-                            + (leftNeutralPending ? " (left)" : "")
-                            + (rightNeutralPending ? " (right)" : ""));
-            leftNeutralPending = false;
-            rightNeutralPending = false;
-        }
-    }
-
     // ---- State Machine ----
 
     public enum WantedState {
@@ -454,8 +373,7 @@ public class IntakeExtension extends Mechanism {
                 applyHoming();
                 break;
             case STOPPED:
-                stop();
-                if (right.isAttached()) right.stopAxis();
+                holdBoth();
                 return;
         }
     }
@@ -503,7 +421,8 @@ public class IntakeExtension extends Mechanism {
 
     /**
      * Drives both sides out until they have been still for the steady time, then stops pushing and
-     * lets brake mode hold. If the extension is pushed back in while holding, it drives out again.
+     * holds it with StaticBrake. If the extension is pushed back in while holding, it drives out
+     * again.
      *
      * <p>At that stall, if the extend barely moved, both sides read the same place and it is short
      * of the target, the out stop is taken as max. That is a power-on (or a motor restart) with the
@@ -566,7 +485,7 @@ public class IntakeExtension extends Mechanism {
                 // At the target or stalled short of it: stop pushing.
                 extendPhase = ExtendPhase.HOLDING;
                 holdStartRotations = position;
-                stopBoth();
+                holdBoth();
             }
             case HOLDING -> {
                 if (holdStartRotations - position >= config.getExtendReextendRotations()) {
@@ -575,16 +494,21 @@ public class IntakeExtension extends Mechanism {
                     extendSteadyTiming = false;
                     commandBoth(100, false);
                 } else {
-                    stopBoth();
+                    holdBoth();
                 }
             }
         }
     }
 
-    private void stopBoth() {
-        stop();
-        if (right.isAttached()) right.stopAxis();
+    /** Brakes both axes in place. Their neutral mode is coast, so this is what holds them. */
+    private void holdBoth() {
+        if (isAttached()) {
+            motor.setControl(staticBrake);
+        }
+        right.holdAxis();
     }
+
+    private final StaticBrake staticBrake = new StaticBrake();
 
     // ---- Resync / stall homing ----
 
@@ -702,7 +626,6 @@ public class IntakeExtension extends Mechanism {
 
     @Override
     public void periodic() {
-        retryNeutralMode();
         systemState = handleStateTransition();
         applyStates();
         logBatteryUsage();
@@ -718,9 +641,6 @@ public class IntakeExtension extends Mechanism {
         Telemetry.log("IntakeExtension/RightHomed", rightHomed);
         Telemetry.log("IntakeExtension/OutPointRelearns", outPointRelearns);
         Telemetry.log("IntakeExtension/ExtendPhase", extendPhase.toString());
-        Telemetry.log("IntakeExtension/NeutralBrake", wantBrake);
-        Telemetry.log(
-                "IntakeExtension/NeutralModePending", leftNeutralPending || rightNeutralPending);
 
         previousSystemState = systemState;
     }

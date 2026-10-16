@@ -1001,15 +1001,27 @@ public class Vision implements Subsystem {
         return false;
     }
 
+    /** End of auto: auto's 20 s plus a few seconds either side. */
+    public static final double AUTO_REWIND_SECONDS = 25;
+
     /**
-     * Saves the last 165 s (the most a Limelight keeps) of the rewind buffer of each FM Limelight:
-     * video plus every frame's results, reviewable frame by frame afterwards. Rewind is a Limelight
-     * 4 feature; the camera writes the capture to its own storage and manages that space itself.
+     * End of teleop: the most a Limelight keeps. Teleop's 140 s plus the gap after auto, so it also
+     * reaches back into the end of auto.
+     */
+    public static final double TELEOP_REWIND_SECONDS = 165;
+
+    /**
+     * Saves the last {@code seconds} of the rewind buffer of each FM Limelight: video plus every
+     * frame's results, reviewable frame by frame afterwards. Rewind is a Limelight 4 feature; the
+     * camera writes the capture to its own storage, which survives a power cycle (checked
+     * 2026-10-16), so the robot can be powered off after a match.
      *
      * <p>Not the SystemCore's own cameras: their "camera storage" is the robot controller's
      * internal disk, which {@link frc.spectrumLib.telemetry.LogStorage} is keeping free.
+     *
+     * @param seconds how much to save, at most 165
      */
-    public void triggerRewindCaptureForAllCameras() {
+    public void triggerRewindCaptureForAllCameras(double seconds) {
         if (!Constants.hasHardware() || simVision != null) {
             return;
         }
@@ -1017,7 +1029,7 @@ public class Vision implements Subsystem {
             if (limelight.getName().startsWith("limelightsc")) {
                 continue;
             }
-            LimelightHelpers.triggerRewindCapture(limelight.getName(), 165);
+            LimelightHelpers.triggerRewindCapture(limelight.getName(), seconds);
         }
     }
 

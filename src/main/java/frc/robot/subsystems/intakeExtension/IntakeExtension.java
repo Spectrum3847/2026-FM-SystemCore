@@ -141,7 +141,9 @@ public class IntakeExtension extends Mechanism {
             configReverseTorqueCurrentLimit(statorCurrentLimit);
             configForwardSoftLimit(maxRotations, true);
             configReverseSoftLimit(minRotations, true);
-            configNeutralBrakeMode(true);
+            // Coast from boot, so the extension can be moved by hand while disabled; brake is set
+            // when auto or teleop starts (setNeutralBrake).
+            configNeutralBrakeMode(false);
             configClockwise_Positive();
         }
 
@@ -190,7 +192,7 @@ public class IntakeExtension extends Mechanism {
                 configReverseTorqueCurrentLimit(left.getStatorCurrentLimit());
                 configForwardSoftLimit(left.getMaxRotations(), true);
                 configReverseSoftLimit(left.getMinRotations(), true);
-                configNeutralBrakeMode(true);
+                configNeutralBrakeMode(false); // coast from boot, like the left axis
                 configCounterClockwise_Positive();
             }
         }
@@ -237,18 +239,19 @@ public class IntakeExtension extends Mechanism {
             stop();
         }
 
-        /** Writes only the neutral mode, so it is quick enough to run as the robot enables. */
-        public void writeNeutralMode(boolean brake, double timeoutSecs) {
-            if (isAttached()) {
-                rightConfig.configNeutralBrakeMode(brake);
-                var status =
-                        motor.configNeutralMode(
-                                brake ? NeutralModeValue.Brake : NeutralModeValue.Coast,
-                                timeoutSecs);
-                if (!status.isOK()) {
-                    Telemetry.print("IntakeExtensionRight: neutral mode write failed: " + status);
-                }
+        /**
+         * Writes only the neutral mode, so it is quick enough to run as the robot enables.
+         *
+         * @return whether the Talon confirmed it (always true when not attached)
+         */
+        public boolean writeNeutralMode(boolean brake, double timeoutSecs) {
+            if (!isAttached()) {
+                return true;
             }
+            rightConfig.configNeutralBrakeMode(brake);
+            return motor.configNeutralMode(
+                            brake ? NeutralModeValue.Brake : NeutralModeValue.Coast, timeoutSecs)
+                    .isOK();
         }
 
         @Override
@@ -314,11 +317,22 @@ public class IntakeExtension extends Mechanism {
         if (right.isAttached()) right.setBrakeMode(isInBrake);
     }
 
-    /**
-     * Wait for each neutral-mode write at most this long. Writing only the neutral mode, not the
-     * whole Talon config, keeps the switch to brake at enable from stalling the first loops.
+    /*
+     * Neutral mode. Only the neutral mode is written, not the whole Talon config, so the switch to
+     * brake at enable does not stall the first loops. At boot the CANivore is busy configuring
+     * every device and a write can time out (RxTimeout on 2026-10-16), so an unconfirmed write is
+     * retried from periodic until both sides confirm it.
      */
     private static final double NEUTRAL_MODE_TIMEOUT_SECS = 0.05;
+    private static final double NEUTRAL_MODE_RETRY_TIMEOUT_SECS = 0.02;
+    private static final double NEUTRAL_MODE_RETRY_PERIOD_SECS = 0.25;
+    private static final int NEUTRAL_MODE_MAX_RETRIES = 20;
+
+    private boolean wantBrake = false;
+    private boolean leftNeutralPending = false;
+    private boolean rightNeutralPending = false;
+    private int neutralRetries = 0;
+    private double nextNeutralRetry = 0;
 
     /**
      * Coast while disabled, so the extension can be pushed in or out by hand; brake when enabled,
@@ -328,17 +342,55 @@ public class IntakeExtension extends Mechanism {
      * @param brake true for brake, false for coast
      */
     public void setNeutralBrake(boolean brake) {
-        if (isAttached()) {
-            config.configNeutralBrakeMode(brake);
-            var status =
-                    motor.configNeutralMode(
-                            brake ? NeutralModeValue.Brake : NeutralModeValue.Coast,
-                            NEUTRAL_MODE_TIMEOUT_SECS);
-            if (!status.isOK()) {
-                Telemetry.print("IntakeExtension: neutral mode write failed: " + status);
+        wantBrake = brake;
+        leftNeutralPending = true;
+        rightNeutralPending = true;
+        neutralRetries = 0;
+        writeNeutralMode(NEUTRAL_MODE_TIMEOUT_SECS);
+        nextNeutralRetry = Timer.getTimestamp() + NEUTRAL_MODE_RETRY_PERIOD_SECS;
+    }
+
+    private void writeNeutralMode(double timeoutSecs) {
+        if (leftNeutralPending) {
+            if (isAttached()) {
+                config.configNeutralBrakeMode(wantBrake);
+                leftNeutralPending =
+                        !motor.configNeutralMode(
+                                        wantBrake ? NeutralModeValue.Brake : NeutralModeValue.Coast,
+                                        timeoutSecs)
+                                .isOK();
+            } else {
+                leftNeutralPending = false;
             }
         }
-        right.writeNeutralMode(brake, NEUTRAL_MODE_TIMEOUT_SECS);
+        if (rightNeutralPending) {
+            rightNeutralPending = !right.writeNeutralMode(wantBrake, timeoutSecs);
+        }
+    }
+
+    private void retryNeutralMode() {
+        if (!leftNeutralPending && !rightNeutralPending) {
+            return;
+        }
+        if (Timer.getTimestamp() < nextNeutralRetry) {
+            return;
+        }
+        neutralRetries++;
+        writeNeutralMode(NEUTRAL_MODE_RETRY_TIMEOUT_SECS);
+        nextNeutralRetry = Timer.getTimestamp() + NEUTRAL_MODE_RETRY_PERIOD_SECS;
+        String mode = wantBrake ? "brake" : "coast";
+        if (!leftNeutralPending && !rightNeutralPending) {
+            Telemetry.print(
+                    "IntakeExtension: " + mode + " set after " + neutralRetries + " retries");
+        } else if (neutralRetries >= NEUTRAL_MODE_MAX_RETRIES) {
+            Telemetry.print(
+                    "IntakeExtension: could not set "
+                            + mode
+                            + (leftNeutralPending ? " (left)" : "")
+                            + (rightNeutralPending ? " (right)" : ""));
+            leftNeutralPending = false;
+            rightNeutralPending = false;
+        }
     }
 
     // ---- State Machine ----
@@ -650,6 +702,7 @@ public class IntakeExtension extends Mechanism {
 
     @Override
     public void periodic() {
+        retryNeutralMode();
         systemState = handleStateTransition();
         applyStates();
         logBatteryUsage();
@@ -665,6 +718,9 @@ public class IntakeExtension extends Mechanism {
         Telemetry.log("IntakeExtension/RightHomed", rightHomed);
         Telemetry.log("IntakeExtension/OutPointRelearns", outPointRelearns);
         Telemetry.log("IntakeExtension/ExtendPhase", extendPhase.toString());
+        Telemetry.log("IntakeExtension/NeutralBrake", wantBrake);
+        Telemetry.log(
+                "IntakeExtension/NeutralModePending", leftNeutralPending || rightNeutralPending);
 
         previousSystemState = systemState;
     }

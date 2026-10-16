@@ -3,6 +3,7 @@ package frc.robot.subsystems.intakeExtension;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfigurator;
 import com.ctre.phoenix6.hardware.TalonFX;
+import frc.robot.Constants;
 import frc.robot.RobotSim;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
@@ -12,6 +13,7 @@ import frc.spectrumLib.telemetry.Telemetry;
 import lombok.Getter;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.InstantCommand;
+import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.util.Units;
 import org.wpilib.smartdashboard.Mechanism2d;
 import org.wpilib.system.Timer;
@@ -79,6 +81,28 @@ public class IntakeExtension extends Mechanism {
         @Getter private final double homingMinTimeSecs = 0.3;
         @Getter private final double homingStallDebounceSecs = 0.15;
         @Getter private final double homingTimeoutSecs = 3.0;
+
+        /*
+         * Out-point relearn on full extend (from the offseason bot). The encoders are not zeroed
+         * when the code starts, so zero is wherever the motors powered on. If that was with the
+         * intake out, a full extend pushes on the out stop without moving. Once both sides have
+         * been that still for the steady time, the stop is taken as max. 1 rot is about 3 in of
+         * travel (0.955 in drum).
+         */
+        @Getter private final double extendSteadySecs = 0.3;
+
+        @Getter private final double extendSteadyMaxRPM = 18;
+        @Getter private final double extendAtTargetToleranceRotations = 0.08;
+
+        /**
+         * Relearn only when the extension moved less than this since the extend began. A jam or a
+         * tooth skip part way out moves first and then stalls, and taking that as max would be
+         * wrong; RESYNC is the fix for those.
+         */
+        @Getter private final double relearnMaxTravelRotations = 0.25;
+
+        /** Both sides must read within this of each other, or one is bound up short. */
+        @Getter private final double relearnMaxSkewRotations = 0.33;
 
         /* Sim Configs */
         @Getter private final double intakeX = Units.inchesToMeters(70);
@@ -226,7 +250,11 @@ public class IntakeExtension extends Mechanism {
         this.config = config;
         this.right = new IntakeExtensionRight(config);
 
-        setInitialPosition();
+        // No encoder zeroing here, as on the offseason bot. The TalonFX keeps counting across
+        // robot-code restarts, so zeroing in the constructor threw the position away on every
+        // deploy: deployed with the intake out, retract did nothing and extend drove into the
+        // stop. Zero is wherever the extension was at motor power-on. If that was with the
+        // intake out, the first full extend relearns the out point (relearnOutPointIfStalled).
 
         simulationInit();
         Telemetry.print(getName() + " Subsystem Initialized");
@@ -312,6 +340,7 @@ public class IntakeExtension extends Mechanism {
         switch (systemState) {
             case FULL_EXTEND:
                 commandBoth(100, false);
+                relearnOutPointIfStalled();
                 break;
             case FULL_RETRACT:
                 commandBoth(0, false);
@@ -353,6 +382,66 @@ public class IntakeExtension extends Mechanism {
         } else {
             setMMPosition(() -> rotations);
             if (right.isAttached()) right.goToRotations(rotations);
+        }
+    }
+
+    // ---- Out-point relearn ----
+
+    private final Timer extendSteadyTimer = new Timer();
+    private boolean extendSteadyTiming = false;
+    private double extendStartRotations = 0;
+    private int outPointRelearns = 0;
+
+    /**
+     * Takes the out stop as max when a full extend cannot move: both sides still for the steady
+     * time, short of the target, having travelled almost nothing since the extend began, and
+     * reading the same place. That is a power-on (or a motor restart) with the intake out.
+     */
+    private void relearnOutPointIfStalled() {
+        // The sim models only the left axis; its right axis has no physics and wanders, so it
+        // counts only off the sim (on the robot, and in a replay of a robot log).
+        boolean useRight = right.isAttached() && Constants.currentMode != Constants.Mode.SIM;
+        double leftPos = getPositionRotations();
+        double rightPos = useRight ? right.getPositionRotations() : leftPos;
+        double position = (leftPos + rightPos) / 2.0;
+
+        // Disabled, the motors are off and every extend looks like a stall. Start the extend over
+        // when the robot is enabled.
+        if (previousSystemState != SystemState.FULL_EXTEND || !RobotState.isEnabled()) {
+            extendStartRotations = position;
+            extendSteadyTiming = false;
+            return;
+        }
+
+        boolean still =
+                Math.abs(getVelocityRPM()) < config.getExtendSteadyMaxRPM()
+                        && (!useRight
+                                || Math.abs(right.getVelocityRPM())
+                                        < config.getExtendSteadyMaxRPM());
+        if (!still) {
+            extendSteadyTiming = false;
+            return;
+        }
+        if (!extendSteadyTiming) {
+            extendSteadyTiming = true;
+            extendSteadyTimer.restart();
+        }
+        if (!extendSteadyTimer.hasElapsed(config.getExtendSteadySecs())) {
+            return;
+        }
+
+        boolean atTarget =
+                position >= config.getMaxRotations() - config.getExtendAtTargetToleranceRotations();
+        boolean barelyMoved =
+                Math.abs(position - extendStartRotations) < config.getRelearnMaxTravelRotations();
+        boolean sidesAgree = Math.abs(leftPos - rightPos) <= config.getRelearnMaxSkewRotations();
+        if (!atTarget && barelyMoved && sidesAgree) {
+            resetCurrentPositionToMax();
+            outPointRelearns++;
+            Telemetry.print("IntakeExtension: out point relearned at the stop");
+            // Start over from the new frame so it is only taken once per stall.
+            extendStartRotations = config.getMaxRotations();
+            extendSteadyTiming = false;
         }
     }
 
@@ -485,6 +574,7 @@ public class IntakeExtension extends Mechanism {
         Telemetry.log("IntakeExtension/RPM", getVelocityRPM(), "RPM");
         Telemetry.log("IntakeExtension/LeftHomed", leftHomed);
         Telemetry.log("IntakeExtension/RightHomed", rightHomed);
+        Telemetry.log("IntakeExtension/OutPointRelearns", outPointRelearns);
 
         previousSystemState = systemState;
     }

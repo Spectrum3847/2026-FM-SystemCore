@@ -97,8 +97,8 @@ The 2026 code lives in [Spectrum3847/2026-Spectrum](https://github.com/Spectrum3
   `ChassisVelocities`, test mode → *utility* mode, …). Gamepads read raw indices through a
   Driver Station layout table, see [Controllers](#controllers-and-the-driver-station).
 - **CAN** ([CanBuses.java](src/main/java/frc/spectrumLib/hardware/CanBuses.java)): one switch,
-  `CanBuses.USE_CANIVORE`, picks the wiring. **This branch sets it to `false`: no CANivore, only the
-  SystemCore's native CAN FD ports.**
+  `CanBuses.USE_CANIVORE`, picks the wiring. **FM runs with it `true`: drivetrain, shooter and mechanisms on the
+  CANivore, only the intake rollers on `systemcore:0`.**
 
   | Port | Devices | With `USE_CANIVORE = true` |
   |---|---|---|

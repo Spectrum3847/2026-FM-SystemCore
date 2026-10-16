@@ -137,11 +137,10 @@ public class Vision implements Subsystem {
         // -- Orin / PhotonVision (CALIBRATE: placeholders until mounted) --------
 
         /**
-         * Whether the robot reads the Orin's cameras. Off for now: the Orin is not on FM's network
-         * yet, and PhotonLib reports a missing coprocessor every few seconds. The sim keeps its
-         * simulated Orin cameras either way.
+         * Whether the robot reads the Orin's cameras. They are logged but fuse only when enabled on
+         * the dashboard. Without the Orin, PhotonLib warns every few seconds.
          */
-        @Getter final boolean orinEnabled = false;
+        @Getter final boolean orinEnabled = true;
 
         /** Camera names in the PhotonVision UI, and their mounts (x fwd, y left, z up). */
         @Getter final String[] orinCameraNames = {"orin-front", "orin-left", "orin-right"};

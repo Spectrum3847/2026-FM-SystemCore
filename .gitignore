@@ -197,6 +197,8 @@ robotlogs/
 *.wpilog
 *.hoot
 *.mp4
+*.avi
+*.rwnd
 
 # Python
 __pycache__/

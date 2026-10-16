@@ -98,7 +98,7 @@ test {
 
 // Simulation configuration.
 //
-// The sim GUI is on by default so `./gradlew simulateJava` gives a driveable robot. AdvantageKit
+// The sim GUI is on by default so `./gradlew simulateJava` gives a drivable robot. AdvantageKit
 // replay requires every HAL sim extension to be off: run replay with
 // `./gradlew simulateJava -PnoSimGui` (see README), which turns the GUI off.
 wpi.sim.addGui().defaultEnabled = !project.hasProperty('noSimGui')
@@ -124,6 +124,17 @@ tasks.withType(JavaCompile) {
     options.compilerArgs.add '-XDstringConcat=inline'
     options.encoding = 'UTF-8'
     options.compilerArgs.addAll(['-Xmaxerrs', '3000'])
+}
+
+javadoc {
+    options.addStringOption('Xdoclint:none', '-quiet')
+    exclude '**/*.md'
+    options.setLinks([
+        "https://github.wpilib.org/allwpilib/docs/development/java",
+        "https://api.ctr-electronics.com/phoenix6/latest/java",
+        "https://docs.advantagekit.org/javadoc",
+        "https://docs.oracle.com/en/java/javase/25/docs/api"
+    ])
 }
 
 // Create version file

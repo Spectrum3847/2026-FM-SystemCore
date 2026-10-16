@@ -21,9 +21,9 @@ public class Launcher extends Mechanism {
 
         /* Launcher config values */
         // Spin-up is the largest draw; limited to keep the battery up while driving.
-        @Getter private final double supplyCurrentLimit = 50;
+        @Getter private final double supplyCurrentLimit = 60;
         @Getter private final double statorCurrentLimit = 180;
-        @Getter private final double lowerSupplyCurrentLimit = 50;
+        @Getter private final double lowerSupplyCurrentLimit = 60;
         @Getter private final double lowerSupplyCurrentTime = 0;
         @Getter private final double forwardTorqueCurrentLimit = statorCurrentLimit;
         @Getter private final double reverseTorqueCurrentLimit = 10;

@@ -95,10 +95,11 @@ class GamepadLayoutTest {
         assertEquals(NiDsXboxController.Button.kRightStick.value, l.rightStick);
         assertEquals(NiDsXboxController.Axis.kLeftX.value, l.leftX);
         assertEquals(NiDsXboxController.Axis.kLeftY.value, l.leftY);
-        assertEquals(NiDsXboxController.Axis.kRightX.value, l.rightX);
+        // Right X and the right trigger are swapped from NiDsXboxController, as seen on FM.
+        assertEquals(NiDsXboxController.Axis.kRightTrigger.value, l.rightX);
         assertEquals(NiDsXboxController.Axis.kRightY.value, l.rightY);
         assertEquals(NiDsXboxController.Axis.kLeftTrigger.value, l.leftTrigger);
-        assertEquals(NiDsXboxController.Axis.kRightTrigger.value, l.rightTrigger);
+        assertEquals(NiDsXboxController.Axis.kRightX.value, l.rightTrigger);
         assertTrue(l.dpadOnPov());
         assertFalse(GamepadLayout.WPILIB_DS.dpadOnPov());
     }
@@ -125,8 +126,8 @@ class GamepadLayoutTest {
         sim.setRawButton(4, true); // LB (2027: back)
         sim.setRawButton(6, true); // Back (2027: start)
         sim.setRawButton(9, true); // RS (2027: left bumper)
-        sim.setRawAxis(4, 0.7); // right X (2027: left trigger)
-        sim.setRawAxis(3, 0.9); // right trigger (2027: right Y)
+        sim.setRawAxis(3, 0.7); // right X (2027: right Y)
+        sim.setRawAxis(4, 0.9); // right trigger (2027: left trigger)
         sim.setRawAxis(1, -0.5); // left Y
         sim.setPOV(POVDirection.UP_LEFT);
         sim.notifyNewData();
@@ -144,7 +145,7 @@ class GamepadLayoutTest {
         sim.setRawButton(4, false);
         sim.setRawButton(6, false);
         sim.setRawButton(9, false);
-        sim.setRawAxis(3, 0.0);
+        sim.setRawAxis(4, 0.0);
         sim.setRawButton(0, true);
         sim.setRawButton(5, true);
         sim.setRawButton(7, true);
@@ -190,7 +191,7 @@ class GamepadLayoutTest {
         assertEquals(GamepadLayout.WPILIB_DS, pad.getLayout());
 
         GamepadLayout.NI_DS.simulateController(sim);
-        sim.setRawAxis(4, -0.3);
+        sim.setRawAxis(3, -0.3);
         sim.notifyNewData();
         pad.periodic();
         assertEquals(GamepadLayout.NI_DS, pad.getLayout());

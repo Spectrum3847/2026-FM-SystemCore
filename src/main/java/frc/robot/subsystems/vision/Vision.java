@@ -28,12 +28,14 @@ import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Subsystem;
 import org.wpilib.driverstation.Alert.Level;
+import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.geometry.Rotation3d;
 import org.wpilib.math.geometry.Transform3d;
 import org.wpilib.math.geometry.Translation3d;
 import org.wpilib.math.util.Units;
+import org.wpilib.networktables.BooleanPublisher;
 import org.wpilib.networktables.NetworkTableInstance;
 import org.wpilib.system.Timer;
 import org.wpilib.vision.apriltag.AprilTagFieldLayout;
@@ -497,10 +499,20 @@ public class Vision implements Subsystem {
     // Periodic
     // =========================================================================
 
+    /** Spectrum's Jetson records its cameras while this is true. */
+    private final BooleanPublisher jetsonRewindRecord =
+            NetworkTableInstance.getDefault()
+                    .getBooleanTopic("/photonvision/rewind/record")
+                    .publish();
+
     @Override
     public void periodic() {
         double now = Timer.getTimestamp();
         boolean disabled = Util.disabled.getAsBoolean();
+
+        boolean recordJetson = config.orinEnabled && !disabled && RobotState.isFMSAttached();
+        jetsonRewindRecord.set(recordJetson);
+        Telemetry.log("Vision/Jetson/Rewind/Record", recordJetson);
 
         if (simVision != null) {
             simVision.update();

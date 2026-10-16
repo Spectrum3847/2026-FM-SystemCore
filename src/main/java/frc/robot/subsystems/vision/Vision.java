@@ -143,13 +143,10 @@ public class Vision implements Subsystem {
         @Getter final boolean orinEnabled = true;
 
         /** Camera names in the PhotonVision UI, and their mounts (x fwd, y left, z up). */
-        @Getter final String[] orinCameraNames = {"orin-front", "orin-left", "orin-right"};
+        @Getter final String[] orinCameraNames = {"orin-left", "orin-right"};
 
         @Getter
         final Transform3d[] orinRobotToCamera = {
-            new Transform3d(
-                    new Translation3d(0.30, 0.0, 0.25),
-                    new Rotation3d(0, Units.degreesToRadians(-15), 0)),
             new Transform3d(
                     new Translation3d(0.0, 0.30, 0.25),
                     new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(90))),

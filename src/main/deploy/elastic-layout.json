@@ -1319,36 +1319,9 @@
             }
           },
           {
-            "title": "orin-front",
-            "x": 512,
-            "y": 512,
-            "width": 256,
-            "height": 128,
-            "type": "Toggle Switch",
-            "properties": {
-              "topic": "/Localization/Sources/orin-front/Enabled",
-              "period": 0.1,
-              "data_type": "boolean"
-            }
-          },
-          {
-            "title": "last verdict",
-            "x": 768,
-            "y": 512,
-            "width": 256,
-            "height": 128,
-            "type": "Text Display",
-            "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Localization/Sources/orin-front/LastVerdict",
-              "period": 0.1,
-              "data_type": "string",
-              "show_submit_button": false
-            }
-          },
-          {
             "title": "orin-left",
             "x": 512,
-            "y": 640,
+            "y": 512,
             "width": 256,
             "height": 128,
             "type": "Toggle Switch",
@@ -1361,7 +1334,7 @@
           {
             "title": "last verdict",
             "x": 768,
-            "y": 640,
+            "y": 512,
             "width": 256,
             "height": 128,
             "type": "Text Display",
@@ -1374,8 +1347,8 @@
           },
           {
             "title": "orin-right",
-            "x": 1024,
-            "y": 0,
+            "x": 512,
+            "y": 640,
             "width": 256,
             "height": 128,
             "type": "Toggle Switch",
@@ -1387,8 +1360,8 @@
           },
           {
             "title": "last verdict",
-            "x": 1280,
-            "y": 0,
+            "x": 768,
+            "y": 640,
             "width": 256,
             "height": 128,
             "type": "Text Display",
@@ -1402,7 +1375,7 @@
           {
             "title": "Quest",
             "x": 1024,
-            "y": 128,
+            "y": 0,
             "width": 256,
             "height": 128,
             "type": "Toggle Switch",
@@ -1415,7 +1388,7 @@
           {
             "title": "last verdict",
             "x": 1280,
-            "y": 128,
+            "y": 0,
             "width": 256,
             "height": 128,
             "type": "Text Display",
@@ -1435,23 +1408,6 @@
             "type": "Boolean Box",
             "properties": {
               "topic": "/AdvantageKit/RealOutputs/Vision/Quest/Connected",
-              "period": 0.1,
-              "data_type": "boolean",
-              "true_color": 4283215696,
-              "false_color": 4294198070,
-              "true_icon": "None",
-              "false_icon": "None"
-            }
-          },
-          {
-            "title": "Orin front",
-            "x": 1280,
-            "y": 256,
-            "width": 256,
-            "height": 128,
-            "type": "Boolean Box",
-            "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Vision/orin-front/Connected",
               "period": 0.1,
               "data_type": "boolean",
               "true_color": 4283215696,

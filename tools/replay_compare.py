@@ -18,7 +18,7 @@ DEFAULT_KEYS = [
     "Localization/FusedPose",
     "Localization/OdometryPose",
     "Localization/Shadow/LL-Back/MT1/Pose",
-    "Localization/Shadow/orin-front/Pose",
+    "Localization/Shadow/orin-left/Pose",
     "Localization/Shadow/Quest/Pose",
     "Vision/ChassisSource",
     "Swerve/SystemState",

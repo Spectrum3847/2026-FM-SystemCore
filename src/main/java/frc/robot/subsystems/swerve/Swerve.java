@@ -36,6 +36,7 @@ import java.util.function.Supplier;
 import lombok.Getter;
 import lombok.Setter;
 import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Subsystem;
 import org.wpilib.command2.button.Trigger;
@@ -172,10 +173,10 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
      * Scale wheel travel down while tilted (issue #10, 8g). The {@code Localization/OdometryPose}
      * track is never scaled, so replay can compare the two.
      */
-    private final org.littletonrobotics.junction.networktables.LoggedNetworkBoolean
-            tiltScaledOdometry =
-                    new org.littletonrobotics.junction.networktables.LoggedNetworkBoolean(
-                            "/Localization/TiltScaledOdometry", true);
+    private final LoggedNetworkBoolean tiltScaledOdometry =
+            new LoggedNetworkBoolean("/Localization/TiltScaledOdometry", true);
+
+    private double odometryScale = 1.0;
 
     /** Wheel distances as fed to the fused pose (tilt-scaled), and the raw ones last sample. */
     private final double[] scaledDistances = new double[4];
@@ -431,7 +432,9 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                 inputs.accelXG,
                 inputs.accelYG,
                 inputs.accelZG);
-        double scale = tiltScaledOdometry.get() ? tilt.odometryScale() : 1.0;
+        // A dropped Pigeon can hold a stale tilt and freeze the pose.
+        odometryScale =
+                tiltScaledOdometry.get() && inputs.gyroConnected ? tilt.odometryScale() : 1.0;
         // Wheels slip and lift on a bump; trust them less there.
         poseFusion
                 .getTagEkf()
@@ -444,7 +447,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                 if (!haveDistances) {
                     scaledDistances[m] = raw;
                 } else {
-                    scaledDistances[m] += (raw - lastRawDistances[m]) * scale;
+                    scaledDistances[m] += (raw - lastRawDistances[m]) * odometryScale;
                 }
                 lastRawDistances[m] = raw;
                 scratchPositions[m] = new SwerveModulePosition(raw, angle);
@@ -534,8 +537,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         Telemetry.log("Swerve/Tilt/ImpactG", tilt.impactG());
         Telemetry.log("Swerve/Tilt/Tilted", tilt.tilted());
         Telemetry.log("Swerve/Tilt/BumpedRecently", wasBumpedRecently());
-        Telemetry.log(
-                "Swerve/Tilt/OdometryScale", tiltScaledOdometry.get() ? tilt.odometryScale() : 1.0);
+        Telemetry.log("Swerve/Tilt/OdometryScale", odometryScale);
         if (Constants.hasHardware()) {
             logBatteryUsage();
             alignment.log();

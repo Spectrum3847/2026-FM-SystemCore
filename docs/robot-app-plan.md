@@ -1,6 +1,7 @@
 # FM Robot App on SystemCore
 
-Plan from 2026-09-24. Status: agreed direction, no code yet.
+Plan from 2026-09-24. Status: first cut in `src/main/deploy/app/`, read-only to the robot (see
+[What the first cut covers](#what-the-first-cut-covers)).
 
 ## Summary
 
@@ -259,21 +260,32 @@ The design removes the old causes: the app parses no Java and keeps no copies of
 
 Steps 1–5 are realistic before the October event; 6 and 7 can wait. Build on `port/fm-2027`; the Logs page needs `LogStorage` from PR #6. One feature per PR, per AGENTS.md.
 
-- [ ] **1. Trial run.** Convert Swerve Align to plain files in `src/main/deploy/app/`, served by the existing `WebServer`, with its keys from a minimal manifest. Confirm port 5800, phone access and cache headers.
+- [x] **1. Trial run.** Swerve Align is plain files in `src/main/deploy/app/`, served by the existing `WebServer`. Its NT prefix is still a constant in the page; the manifest replaces it in step 2. Port 5800 and phone access still need the bench.
 - [ ] **2. Manifest.** Build it from `Mechanism`, `SwerveAlignment`, `VisionConfig` and `LogStorage`. Publish on NT and log it once at startup.
 - [ ] **3. Tuning JSON.** `swerve.json`, `soft-limits.json`, `cameras.json`; the loader with overrides and the bad-file alert; NT commands; the effective tuning logged as an input. Turn on `pushLimelightMounts`.
 - [ ] **4. Laptop tasks.** `pullTuning` and the deploy check.
-- [ ] **5. Pit pages.** Soft Limits, Cameras (port), and Logs with downloads.
-- [ ] **6. Log pages.** Port Power and CAN, with SystemCore's native buses.
+- [ ] **5. Pit pages.** Soft Limits, Cameras (port), and Logs with downloads. Cameras is ported; Logs opens a file from the laptop but cannot list the robot's log folder yet.
+- [x] **6. Log pages.** Port Power and CAN, with SystemCore's native buses.
 - [ ] **7. Upkeep.** The CI check, the AGENTS.md rules, log sync to 2026-Robot-Logs, and the Pilot / Operator page.
+
+## What the first cut covers
+
+The pages in the table above, minus Soft Limits and Pilot / Operator, with these limits:
+
+- **Read-only to the robot.** No manifest, no tuning JSON, no NT commands, no `pullTuning`. Swerve Align and Cameras print the Java line to paste; Cameras can also save a mount or image setting to the camera's own flash.
+- **No robot facts in the app.** Mechanisms, CAN buses and cameras are found from the log or from NT announcements. Current limits are not logged, so Power shows no limit lines until the manifest carries them.
+- **Logs come from the laptop.** The Logs, Power and CAN pages open a `.wpilog` with a file picker.
+- **Tests** in `tools/app-test/` run with `node --test` in the CI `app` job. They include a check that every relative import and link resolves.
+
+Steps 2 to 4 and 7 remain.
 
 ## Check on the bench first
 
 None of these should change the plan, but each one could change a detail, so check them during step 1.
 
 - [ ] **Port 5800.** A [SystemCore teardown](https://dunkirk.sh/blog/frc-systemcore-image/) lists a built-in CAN sniffer on 5800. Confirm our `WebServer` really serves there (for example, Elastic loads its layout from the robot).
-- [ ] **`WebServer` behavior.** Does it send `Cache-Control: no-cache`? Does it list directories? The second decides how much robot code the Logs page needs.
-- [ ] **SystemCore cameras.** Do `limelightsc0/1` answer the same Limelight HTTP API on port 5807 as standalone Limelights?
+- [x] **`WebServer` behavior.** From the allwpilib source (`wpinet` `WebServer.cpp` and `HttpServerConnection.cpp`): every response sends `Cache-Control: no-store, no-cache`, so the `version.js` stamp is not needed. A directory serves its `index.html`, else an HTML listing, and `?format=json` returns the listing as JSON. The log folder is outside the deploy folder, so the Logs page still needs robot code to list it.
+- [ ] **SystemCore cameras.** Do `limelightsc0/1` answer the same Limelight HTTP API on port 5807 as standalone Limelights? The Cameras page assumes they do, at the robot's own address. A Limelight streams on 5800, the same port as our `WebServer`, so the built-in cameras' stream must be somewhere else.
 - [ ] **Joystick data.** Which topics on SystemCore's system NT server carry Driver Station joystick data, for the controller page.
 - [ ] **CPU headroom.** The README measured the bench unit at 80–90% busy, with SystemCore's own vision servers using about 55%. Watch loop time with a page open and a log download running (`-ProbotTop`).
 - [ ] **Log folder.** Where logs land with and without a USB stick, and whether the web server can read that folder.

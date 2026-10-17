@@ -85,6 +85,7 @@ public class Jetson {
     private double lastPipelineSendSeconds = Double.NEGATIVE_INFINITY;
     private double lastEnabledSeconds = Double.NEGATIVE_INFINITY;
     private boolean lastManualRecord = false;
+    private boolean lastFmsAttached = false;
     private boolean recordRequested = false;
     private double recordingMismatchSince = Double.NaN;
 
@@ -261,19 +262,22 @@ public class Jetson {
         if (enabled) {
             lastEnabledSeconds = now;
         }
-        if (RobotState.isFMSAttached()) {
+        boolean fmsAttached = RobotState.isFMSAttached();
+        if (fmsAttached) {
             String label = rewindLabel();
             recordRequested = now - lastEnabledSeconds < REWIND_TAIL_SECONDS;
             io.setRewind(recordRequested, label);
             Logger.recordOutput(PREFIX + "Rewind/Label", label);
         } else {
             boolean manual = manualRecord.get();
-            if (manual != lastManualRecord) {
+            // An FMS detach inside the tail would otherwise leave Rewind recording.
+            if (manual != lastManualRecord || lastFmsAttached) {
                 io.setRewind(manual, manualLabel.get());
             }
             lastManualRecord = manual;
             recordRequested = manual;
         }
+        lastFmsAttached = fmsAttached;
         Logger.recordOutput(PREFIX + "Rewind/RecordRequested", recordRequested);
     }
 

@@ -775,7 +775,7 @@ public class Vision implements Subsystem {
         if (Math.abs(medianDeg) < config.backHeadingErrorDeg) {
             return;
         }
-        fusion.seed(
+        fusion.seedFusedOnly(
                 new Pose2d(
                         fused.getTranslation(),
                         fused.getRotation().plus(Rotation2d.fromDegrees(medianDeg))),

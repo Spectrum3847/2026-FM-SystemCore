@@ -310,12 +310,25 @@ public class PoseFusion {
      * @param thetaStd heading std-dev, radians
      */
     public void seed(Pose2d pose, double timestampSeconds, double xyStd, double thetaStd) {
+        seedFusedOnly(pose, timestampSeconds, xyStd, thetaStd);
+        tagEkf.addPose(pose, timestampSeconds, xyStd, thetaStd);
+    }
+
+    /**
+     * Like {@link #seed} but leaves the tag EKF alone, for a pose built from the fused translation
+     * that would otherwise count odometry twice in the EKF.
+     *
+     * @param pose measured pose
+     * @param timestampSeconds capture time
+     * @param xyStd translation std-dev, metres
+     * @param thetaStd heading std-dev, radians
+     */
+    public void seedFusedOnly(Pose2d pose, double timestampSeconds, double xyStd, double thetaStd) {
         var std = VecBuilder.fill(xyStd, xyStd, thetaStd);
         fusedVision.add(pose, timestampSeconds, std, lastSampleTime);
         for (OrderedVisionUpdates shadow : shadowVision.values()) {
             shadow.add(pose, timestampSeconds, std, lastSampleTime);
         }
-        tagEkf.addPose(pose, timestampSeconds, xyStd, thetaStd);
     }
 
     /**

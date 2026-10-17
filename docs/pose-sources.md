@@ -133,7 +133,10 @@ QuestNav is a VIO source, so its failure modes are different:
 - MegaTag1 until the disabled seed is **confirmed** (≥ 2 tags, heading holding within 3° for about a
   second of frames), MegaTag2 after (offseason; switchable at `Vision/ChassisUseMT2`).
 - Heading is never fused while enabled (huge heading std-dev), so heading comes from the gyro. It is set by
-  the disabled seed and by the gross-heading net (≥ 20° disagreement, stationary, for 1 s).
+  the disabled seed, by the gross-heading net (≥ 10° disagreement, stationary, for 1 s), and by the
+  LL-Back correction: in the Limelight window, when the median LL-Back MT1 multi-tag heading error
+  over at least 0.25 s and 3 frames is ≥ 2°, the heading is re-seeded. It has no stillness
+  requirement and only moves the fused tracks, not the tag EKF.
 - Orin, SystemCore cameras and Quest fuse whenever enabled and the robot is enabled; they start
   disabled.
 - The Quest is re-origined onto the fused pose when the seed is confirmed, after a gross-heading

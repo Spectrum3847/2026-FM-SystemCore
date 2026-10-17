@@ -142,8 +142,7 @@ public final class VisionGates {
 
     /**
      * Once the heading is seeded, a solve whose heading is further than this from the fused heading
-     * is a bad solve (AOS). Matches the gross-heading correction's threshold, which sits clear of
-     * two-tag heading noise.
+     * is a bad solve (AOS). Sits clear of two-tag heading noise.
      */
     public static final double ORIN_MAX_HEADING_ERROR_DEG = 20.0;
 

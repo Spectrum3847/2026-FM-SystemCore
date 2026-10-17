@@ -12,8 +12,8 @@ import(path : "onshape/std/common.fs", version : "2625.0");
 // WPILib convention), the FeatureScript console (copy-paste Java and Limelight lines) and the
 // feature's info message.
 //
-// Limelight UI: forward, right, up; pitch positive up; yaw positive clockwise seen from above
-// (checked against FM's flashed mounts and their logged poses at TXMAN1).
+// Limelight UI: forward, right, up; pitch positive up; yaw positive counter-clockwise seen
+// from above, as in Vision's Limelight configs.
 
 annotation { "Feature Type Name" : "Camera Pose",
         "Feature Type Description" : "Camera lens poses relative to the robot center on the floor, as WPILib Transform3d and Limelight UI values." }
@@ -89,7 +89,7 @@ export const cameraPose = defineFeature(function(context is Context, id is Id, d
             const yawD = fmt(yaw / degree);
 
             println(n ~ " WPILib: new Transform3d(new Translation3d(" ~ xm ~ ", " ~ ym ~ ", " ~ zm ~ "), new Rotation3d(Units.degreesToRadians(" ~ rollD ~ "), Units.degreesToRadians(" ~ pitchD ~ "), Units.degreesToRadians(" ~ yawD ~ ")))");
-            println(n ~ " Limelight UI: forward " ~ xm ~ " m, right " ~ fmt(-y / meter) ~ " m, up " ~ zm ~ " m, roll " ~ rollD ~ ", pitch " ~ fmt(-pitch / degree) ~ ", yaw " ~ fmt(-yaw / degree));
+            println(n ~ " Limelight UI: forward " ~ xm ~ " m, right " ~ fmt(-y / meter) ~ " m, up " ~ zm ~ " m, roll " ~ rollD ~ ", pitch " ~ fmt(-pitch / degree) ~ ", yaw " ~ yawD);
             if (abs(pitch / degree) > 85)
                 println(n ~ ": pitch is near 90 deg, so roll and yaw are not well defined.");
 

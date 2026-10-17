@@ -136,7 +136,7 @@ Sources (names are the log paths under `Localization/Sources/`):
 | `LL-Back/MT1`, `LL-Left/MT1`, `LL-Right/MT1` | FM's Limelights, MegaTag1 | yes, until the seed is confirmed |
 | `LL-Back/MT2`, `LL-Left/MT2`, `LL-Right/MT2` | FM's Limelights, MegaTag2 | yes, once the seed is confirmed |
 | `SC0/MT1`, `SC0/MT2`, `SC1/…` | cameras plugged into the SystemCore (its built-in Limelight stack) | no |
-| `Orin-Left`, `Orin-Right` | Jetson Orin + PhotonVision (`orin-left`, `orin-right`) | yes |
+| `Orin-Left`, `Orin-Right` | Jetson Orin + PhotonVision (`orin-left`, `orin-right`) | no |
 | `Quest` | Meta Quest + QuestNav | no |
 
 **Every source runs all the time.** "Fuses" only decides whether its accepted measurements move the

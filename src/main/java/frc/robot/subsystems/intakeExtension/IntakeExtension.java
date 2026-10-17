@@ -404,11 +404,13 @@ public class IntakeExtension extends Mechanism {
     private double extendStartRotations = 0;
     private double holdStartRotations = 0;
     private int outPointRelearns = 0;
+    // A power-on with the intake out is only possible before the first extend settles.
+    private boolean outPointKnown = false;
 
     /**
-     * Drives out until both sides are still, then holds. A stall short of the target that barely
-     * moved, with both sides agreeing, means the motors powered on with the intake out, so the stop
-     * is taken as max.
+     * Drives out until both sides are still, then holds. On the first extend after boot, a stall
+     * short of the target that barely moved, with both sides agreeing, means the motors powered on
+     * with the intake out, so the stop is taken as max.
      */
     private void applyFullExtend() {
         // The sim has no right-axis physics.
@@ -455,12 +457,13 @@ public class IntakeExtension extends Mechanism {
                                 < config.getRelearnMaxTravelRotations();
                 boolean sidesAgree =
                         Math.abs(leftPos - rightPos) <= config.getRelearnMaxSkewRotations();
-                if (!atTarget && barelyMoved && sidesAgree) {
+                if (!outPointKnown && !atTarget && barelyMoved && sidesAgree) {
                     resetCurrentPositionToMax();
                     outPointRelearns++;
                     Telemetry.print("IntakeExtension: out point relearned at the stop");
                     position = config.getMaxRotations();
                 }
+                outPointKnown = true;
                 extendPhase = ExtendPhase.HOLDING;
                 holdStartRotations = position;
                 holdBoth();

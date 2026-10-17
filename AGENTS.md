@@ -30,6 +30,19 @@ docs/pose-sources.md for the localization testbed.
   and prove it with replay (`tools/replay_compare.py`).
 - One feature per PR.
 
+## Robot app
+
+`src/main/deploy/app/` is a pit web app the robot serves at `http://robot.local:5800/app/`. Plain
+HTML and JavaScript, shipped by every deploy. Plan: docs/robot-app-plan.md.
+
+- No npm, no build step. A library goes in `app/vendor/` as one file.
+- No Java file paths or CAN IDs in `app/`. Log key names live in `lib/log-model.js`, NT prefixes
+  at the top of each page. Find mechanisms, buses and cameras from the log or NT, never a list.
+- The app does not change the robot. Changes will go through NT commands handled on the main
+  thread, logged as inputs, only while disabled (plan step 3).
+- Test with `node --test tools/app-test/*.test.mjs`. A PR that renames a log key or NT key a page
+  reads updates that page in the same PR.
+
 ## Comments
 
 Keep comments as short as possible.

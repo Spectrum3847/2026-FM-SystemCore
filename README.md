@@ -675,6 +675,29 @@ Read its NetworkTables from a laptop:
 longer. From Git Bash, prefix with `MSYS_NO_PATHCONV=1` or the leading `/` is turned into a
 Windows path.
 
+## Robot app
+
+The robot serves a small pit web app from its deploy folder: open
+`http://robot.local:5800/app/` on a laptop or phone on the robot network. It is plain HTML and
+JavaScript in [`src/main/deploy/app/`](src/main/deploy/app/), so every `./gradlew deploy` ships the
+app that matches the code. There is no Node, npm or build step. The plan it follows is
+[docs/robot-app-plan.md](docs/robot-app-plan.md).
+
+| Page | What it does |
+| --- | --- |
+| Logs | Opens a `.wpilog` from the laptop: run metadata, mechanisms, CAN buses, keys no page shows. |
+| Power | Pack current and sag, pack resistance, main breaker heat, current and energy per mechanism. |
+| CAN Bus | Utilization and error counters per bus, leader and follower dropouts, alerts, loop time. |
+| Swerve Align | Live CANcoder readings over NetworkTables; prints the `configEncoderOffsets(...)` line. |
+| Cameras | Each Limelight's stream, mount (accelerometer and tag solve) and image tuning. |
+
+The app only reads from the robot. Swerve Align and Cameras print the Java line to paste; Cameras
+can also save a mount or image setting to the camera itself.
+
+To add a page, make `pages/<name>/index.html` and `main.js`, and add it to `PAGES` in
+`lib/ui.js`. Libraries go in `vendor/` as single files. Tests run with
+`node --test tools/app-test/*.test.mjs`, in CI and locally.
+
 ## Before the event: calibrate and check
 
 - [ ] **CAN wiring** matches `CanBuses` (`USE_CANIVORE` and the port table above). With a CANivore:
@@ -708,4 +731,5 @@ Windows path.
 - maple-sim has no 2027 build, so there are no field collisions and `RobotBumpSim` is unused.
 - The scripted sim changes the sim Driver Station mid-loop, so replaying a *scripted* run is exact
   except on the loop where the robot enables. Real Driver Station logs do not have this.
-- The 2026 `tools/robot-app`, log archiving and other repo tooling were not brought over.
+- Log archiving and the other 2026 repo tooling were not brought over. The robot app was (see
+  [Robot app](#robot-app)), without the parts that edited Java or synced logs.

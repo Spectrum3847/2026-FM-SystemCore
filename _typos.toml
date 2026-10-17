@@ -8,3 +8,11 @@ Pn = "Pn"
 [default]
 # grep patterns in build.gradle match partial words on purpose.
 extend-ignore-re = ['grep -E \\".*\\"']
+
+[default.extend-identifiers]
+# The team's log site repo is named this way.
+Analizer = "Analizer"
+
+[files]
+# Vendored minified libraries, and camera output captured verbatim.
+extend-exclude = ["src/main/deploy/app/vendor/", "tools/app-test/fixtures/"]

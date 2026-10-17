@@ -1,0 +1,802 @@
+/*
+ * Cameras page.
+ *
+ * One card per Limelight: its stream, its health, and how it is mounted, as the camera has saved
+ * it and as the camera can measure it right now from its accelerometer and from any AprilTag it
+ * can see. FM does not push mounts (VisionConfig.pushLimelightMounts is off), so the saved mount
+ * is the one the robot uses. Calibrators:
+ *
+ *  - Measure mount: sample a few seconds on a still robot, solve pitch, roll and height, save the
+ *    result to the camera, and print the VisionConfig line so the code can match.
+ *  - Auto-tune image: sweep exposure, then sensor gain, then black level, scoring each setting by
+ *    how steadily the camera sees the tags in front of it, then save the best to the camera.
+ *  - Set image values: type exposure, sensor gain and black level in and write them to this camera
+ *    or to all of them at once, for when the numbers are already known and only have to be matched.
+ *
+ * The browser talks to the cameras directly over their HTTP API (lib/limelight.js). Camera names
+ * come from the robot's NetworkTables, where each Limelight has a table of its own.
+ */
+import { mountHeader, el } from "../../lib/ui.js";
+import { NT4Client } from "../../lib/nt4.js";
+import { LimelightClient, sampleFrames, mountFromPipeline, PIPELINE_MOUNT_KEYS, PIPELINE_IMAGE_KEYS } from "../../lib/limelight.js";
+import {
+    summarizeMount,
+    proposeWrites,
+    tagHeightsFromLayout,
+    summarizeFrames,
+    pickBest,
+    scoreMetrics,
+    mountFromAccel,
+    wrapDeg,
+    DEFAULT_SWEEPS,
+} from "../../lib/camera-cal.js";
+
+mountHeader();
+const root = document.getElementById("app");
+
+const LAYOUT_URL = new URL("../../data/apriltag-2026-rebuilt-welded.json", import.meta.url).href;
+const POLL_MS = 1000;
+const PIPELINE_POLL_MS = 10000;
+const MEASURE_SECONDS = 5;
+const SWEEP_SETTLE_MS = 700;
+const SWEEP_SAMPLE_MS = 1500;
+
+/** How far the live mount may sit from the saved one before it is called a mismatch. */
+const MOUNT_MISMATCH = { m: 0.003, deg: 0.2 };
+
+/** Live tilt against the configured pitch: fine, worth a look, wrong. */
+const TILT_WARN_DEG = 1.0;
+const TILT_BAD_DEG = 3.0;
+
+/** Two cameras that both see tags should agree on where the robot is to about this. */
+const POSE_DISAGREE_M = 0.15;
+
+/** "limelight-back" becomes "Back", "limelightsc0" becomes "SystemCore 0". */
+const humanize = (name) =>
+    name.startsWith("limelightsc")
+        ? `SystemCore ${name.slice("limelightsc".length)}`
+        : name.replace(/^limelight-?/, "").replace(/^./, (c) => c.toUpperCase()) || name;
+
+/** NT tables that belong to the vision stack but are not a camera. */
+const NOT_CAMERAS = new Set(["limelightshared"]);
+
+const fmt = {
+    m: (v) => (Number.isFinite(v) ? `${v.toFixed(3)} m` : "n/a"),
+    cm: (v) => (Number.isFinite(v) ? `${(v * 100).toFixed(1)} cm` : "n/a"),
+    deg: (v) => (Number.isFinite(v) ? `${v.toFixed(1)}°` : "n/a"),
+    deg2: (v) => (Number.isFinite(v) ? `${v.toFixed(2)}°` : "n/a"),
+    sdeg: (v) => (Number.isFinite(v) ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}°` : "n/a"),
+    num: (v, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : "n/a"),
+    pct: (v) => (Number.isFinite(v) ? `${Math.round(v * 100)}%` : "n/a"),
+};
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
+const state = {
+    tagHeights: new Map(),
+    layoutError: null,
+    cameras: [], // see makeCamera
+};
+
+function hostKey(ntName) {
+    return `cameras.host.${ntName}`;
+}
+
+/**
+ * Standalone Limelights answer at <name>.local. SystemCore's built-in cameras run on the robot
+ * itself; that they serve the same API there is still to be checked on the bench.
+ */
+function defaultHost(ntName) {
+    return ntName.startsWith("limelightsc") ? location.hostname || "robot.local" : `${ntName}.local`;
+}
+
+function makeCamera(ntName) {
+    let host = defaultHost(ntName);
+    try {
+        host = localStorage.getItem(hostKey(ntName)) || host;
+    } catch {
+        // No storage: use the default.
+    }
+    return {
+        key: ntName,
+        ntName,
+        host,
+        client: new LimelightClient(host),
+        status: null,
+        results: null,
+        pipeline: null,
+        pipelineAt: 0,
+        error: null,
+        lastSeen: 0,
+        streamOn: true,
+        measuring: false,
+        measurement: null,
+        tuning: null, // { stage, rows, best, original, aborted }
+        setEdited: false, // whether the manual image fields have been typed into
+        dom: {},
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Data loading
+// ---------------------------------------------------------------------------
+
+/** Adds a camera card the first time a camera's NT table shows up. */
+function addCamera(ntName) {
+    if (NOT_CAMERAS.has(ntName) || state.cameras.some((c) => c.ntName === ntName)) return;
+    const cam = makeCamera(ntName);
+    state.cameras.push(cam);
+    state.cameras.sort((a, b) => a.ntName.localeCompare(b.ntName));
+    grid.replaceChildren(...state.cameras.map((c) => c.dom.card || buildCard(c)));
+    renderBanners();
+}
+
+/** Watches NT announcements (names only, no values) for Limelight tables. */
+function discoverCameras() {
+    const client = new NT4Client({
+        prefix: "/limelight",
+        topicsOnly: true,
+        onAnnounce: (topic) => {
+            const table = topic.split("/")[1];
+            if (table?.startsWith("limelight")) addCamera(table);
+        },
+        onState: (s) => {
+            state.ntState = s;
+            renderBanners();
+        },
+    });
+    client.connect(location.hostname || "robot.local");
+}
+
+async function loadLayout() {
+    try {
+        const res = await fetch(LAYOUT_URL);
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        state.tagHeights = tagHeightsFromLayout(await res.json());
+    } catch (e) {
+        state.layoutError = e.message;
+    }
+}
+
+async function pollCamera(cam) {
+    const client = cam.client;
+    const [status, results] = await Promise.allSettled([client.status(), client.results()]);
+    if (cam.client !== client) return;
+    if (status.status === "fulfilled" && status.value) {
+        cam.status = status.value;
+        cam.lastSeen = Date.now();
+        cam.error = null;
+    } else {
+        cam.error = status.reason?.message || "unreachable";
+    }
+    if (results.status === "fulfilled" && results.value) cam.results = results.value;
+    if (!cam.error && Date.now() - cam.pipelineAt > PIPELINE_POLL_MS) {
+        try {
+            const pipeline = await client.pipeline(cam.status?.pipelineIndex ?? 0);
+            if (cam.client !== client) return;
+            cam.pipeline = pipeline;
+            cam.pipelineAt = Date.now();
+        } catch {
+            // Keep the last one.
+        }
+    }
+}
+
+function setHost(cam, host) {
+    cam.host = host.trim();
+    cam.client = new LimelightClient(cam.host);
+    cam.status = cam.results = cam.pipeline = null;
+    cam.pipelineAt = 0;
+    cam.error = null;
+    try {
+        localStorage.setItem(hostKey(cam.ntName), cam.host);
+    } catch {
+        // Not remembering is fine.
+    }
+    cam.dom.stream.src = cam.streamOn ? cam.client.streamUrl() : "";
+    cam.dom.uiLink.href = cam.client.webUiUrl();
+    refreshCard(cam);
+}
+
+// ---------------------------------------------------------------------------
+// Page skeleton
+// ---------------------------------------------------------------------------
+
+const banners = el("div", {});
+const poseSection = el("section", {});
+const grid = el("div", { class: "cam-grid" });
+
+root.replaceChildren(
+    el("h1", {}, "Cameras"),
+    el("p", { class: "lede" },
+        "Each Limelight, live: what it sees, how it is mounted according to the code and according to itself, and two ",
+        "calibrators that write their answers back. The mount comes from the camera's own accelerometer and from the ",
+        "AprilTag solve; neither needs to know where the robot is, only that it is sitting still on a flat floor."),
+    banners,
+    poseSection,
+    grid
+);
+
+function renderBanners() {
+    const items = [];
+    if (!state.cameras.length) {
+        items.push(el("div", { class: "notice" },
+            el("strong", {}, state.ntState === "connected" ? "No cameras on the robot's NetworkTables yet. " : "Connecting to the robot's NetworkTables… "),
+            "Each Limelight shows up here once it publishes its table."));
+    }
+    if (state.layoutError) {
+        items.push(el("div", { class: "notice bad" },
+            el("strong", {}, "No field layout. "), `Could not load ${LAYOUT_URL} (${state.layoutError}). Tag heights are unknown, so the tag solve cannot give camera height; pitch and roll still work.`));
+    }
+    banners.replaceChildren(...items);
+}
+
+/** Where each camera thinks the robot is. Cameras with independent mounts agreeing is the yaw check this page cannot solve for. */
+function renderPoseSection() {
+    const rows = state.cameras.map((cam) => {
+        const r = cam.results;
+        const tags = r?.botpose_tagcount ?? 0;
+        const pose = tags > 0 && Array.isArray(r?.botpose_wpiblue) ? r.botpose_wpiblue : null;
+        return { cam, tags, pose };
+    });
+    const seeing = rows.filter((r) => r.pose);
+    let worst = 0;
+    for (let i = 0; i < seeing.length; i++) {
+        for (let j = i + 1; j < seeing.length; j++) {
+            worst = Math.max(worst, Math.hypot(seeing[i].pose[0] - seeing[j].pose[0], seeing[i].pose[1] - seeing[j].pose[1]));
+        }
+    }
+    const verdict =
+        seeing.length < 2
+            ? el("span", { class: "tag" }, "need two cameras on tags")
+            : worst > POSE_DISAGREE_M
+              ? el("span", { class: "tag bad" }, `disagree by ${fmt.cm(worst)}`)
+              : el("span", { class: "tag ok" }, `agree within ${fmt.cm(worst)}`);
+
+    poseSection.replaceChildren(
+        el("h2", {}, "Do the cameras agree on where the robot is? ", verdict),
+        el("div", { class: "card" },
+            el("div", { class: "table-wrap" },
+                el("table", { class: "pose-table" },
+                    el("thead", {}, el("tr", {}, ["Camera", "Tags", "X (blue origin)", "Y", "Heading", "MegaTag1 std dev"].map((h) => el("th", {}, h)))),
+                    el("tbody", {}, rows.map(({ cam, tags, pose }) =>
+                        el("tr", {},
+                            el("td", {}, humanize(cam.ntName)),
+                            el("td", { class: "num" }, String(tags)),
+                            el("td", { class: "num" }, pose ? fmt.m(pose[0]) : "n/a"),
+                            el("td", { class: "num" }, pose ? fmt.m(pose[1]) : "n/a"),
+                            el("td", { class: "num" }, pose ? fmt.deg(pose[5]) : "n/a"),
+                            el("td", { class: "num" }, cam.results?.stdev_mt1 && tags > 0 ? `${fmt.cm(Math.hypot(cam.results.stdev_mt1[0], cam.results.stdev_mt1[1]))}` : "n/a")))))),
+            el("div", { class: "footnote" },
+                "Every camera solves the robot's pose through its own mount transform, so two cameras seeing tags at once is a test of both mounts at once. ",
+                "A yaw or sideways error in one mount shows up here as a disagreement that grows with distance, and this page cannot fix it: ",
+                "forward, right and yaw need a surveyed robot position and come from CAD.")));
+}
+
+// ---------------------------------------------------------------------------
+// Camera card
+// ---------------------------------------------------------------------------
+
+/** How the pipeline's image keys are labelled and stepped in the manual fields. */
+const IMAGE_LABELS = { exposure: "Exposure (0.01 ms)", lcgain: "Sensor gain", black_level: "Black level" };
+const IMAGE_STEPS = { exposure: "1", lcgain: "0.1", black_level: "1" };
+
+function buildCard(cam) {
+    const d = cam.dom;
+    d.hostInput = el("input", { type: "text", value: cam.host, spellcheck: "false", title: "Hostname or IP of this camera", "aria-label": "Camera host" });
+    const useBtn = el("button", { onclick: () => setHost(cam, d.hostInput.value) }, "Use");
+    d.hostInput.addEventListener("keydown", (e) => e.key === "Enter" && setHost(cam, d.hostInput.value));
+    d.uiLink = el("a", { href: cam.client.webUiUrl(), target: "_blank", rel: "noopener" }, "web UI ↗");
+    const streamToggle = el("input", { type: "checkbox", checked: cam.streamOn });
+    streamToggle.addEventListener("change", () => {
+        cam.streamOn = streamToggle.checked;
+        d.stream.src = cam.streamOn ? cam.client.streamUrl() : "";
+        d.stream.classList.toggle("hidden", !cam.streamOn);
+    });
+
+    d.stream = el("img", { class: "stream", src: cam.streamOn ? cam.client.streamUrl() : "", alt: `${cam.ntName} stream` });
+    d.stream.addEventListener("error", () => d.stream.classList.add("hidden"));
+    d.stream.addEventListener("load", () => d.stream.classList.toggle("hidden", !cam.streamOn));
+
+    d.chips = el("div", { class: "chips" });
+    d.mountTable = el("div", { class: "table-wrap" });
+    d.tilt = el("div", { class: "chips" });
+
+    // Measure mount
+    d.checks = ["The robot is sitting still and nobody is touching it", "It is on a flat floor, all four wheels down", "For height: at least one AprilTag is in this camera's view"].map((t) =>
+        el("li", {}, el("label", {}, el("input", { type: "checkbox" }), el("span", {}, t))));
+    d.measureBtn = el("button", { class: "primary", onclick: () => measureMount(cam) }, `Measure mount (${MEASURE_SECONDS} s)`);
+    d.measureProgress = el("div", { class: "progress" });
+    d.measureOut = el("div", {});
+
+    // Image: exact values
+    d.set = {};
+    for (const k of PIPELINE_IMAGE_KEYS) {
+        d.set[k] = el("input", { type: "number", step: IMAGE_STEPS[k], min: "0", title: IMAGE_LABELS[k] });
+        // Once typed into, stop overwriting the field from the camera on every poll.
+        d.set[k].addEventListener("input", () => {
+            cam.setEdited = true;
+        });
+    }
+    d.setBtn = el("button", { class: "primary", onclick: () => applyImageSettings(cam, false) }, "Apply to this camera");
+    d.setAllBtn = el("button", { onclick: () => applyImageSettings(cam, true) }, "Apply to all cameras");
+    d.setOut = el("div", { class: "progress" });
+
+    // Image tuning
+    d.sweep = {};
+    for (const k of PIPELINE_IMAGE_KEYS) d.sweep[k] = el("input", { type: "text", value: DEFAULT_SWEEPS[k].join(", "), "aria-label": `${IMAGE_LABELS[k]} sweep values` });
+    d.tuneBtn = el("button", { class: "primary", onclick: () => autoTune(cam) }, "Auto-tune image");
+    d.abortBtn = el("button", { disabled: true, onclick: () => cam.tuning?.abort?.() }, "Stop");
+    d.tuneProgress = el("div", { class: "progress" });
+    d.tuneOut = el("div", {});
+    d.imageNow = el("div", { class: "chips" });
+
+    const card = el("div", { class: "card cam-card" },
+        el("h2", {}, humanize(cam.ntName)),
+        el("div", { class: "ntname" }, cam.ntName),
+        el("div", { class: "host-row" }, d.hostInput, useBtn, d.uiLink, el("span", { class: "spacer" }), el("label", {}, streamToggle, "stream")),
+        d.stream,
+        d.chips,
+        el("h3", {}, "Mount"),
+        d.mountTable,
+        d.tilt,
+        el("h3", {}, "Measure the mount"),
+        el("p", { class: "hint" },
+            "Solves pitch, roll and height from the camera's accelerometer and from every tag it can see, then offers to write them. ",
+            "Tick these first; none of them can be checked from here."),
+        el("ul", { class: "checklist" }, d.checks),
+        el("div", { class: "row" }, d.measureBtn, d.measureProgress),
+        d.measureOut,
+        el("h3", {}, "Image"),
+        d.imageNow,
+        el("p", { class: "hint" },
+            "Set the three values directly, or sweep for them below. Both write to the camera's flash; the robot code never pushes these, so they stick."),
+        el("div", { class: "sweep-inputs" },
+            ...PIPELINE_IMAGE_KEYS.flatMap((k) => [el("span", {}, IMAGE_LABELS[k]), d.set[k]])),
+        el("div", { class: "row" }, d.setBtn, d.setAllBtn),
+        d.setOut,
+        el("h4", {}, "Or tune it automatically"),
+        el("p", { class: "hint" },
+            "Sweeps exposure, then sensor gain, then black level, holding each setting for ",
+            `${(SWEEP_SAMPLE_MS / 1000).toFixed(1)} s and scoring how steadily the tags in view are detected. `,
+            "Point the camera at tags at a realistic range first. Nothing is saved until you say so, and the original settings come back when the sweep ends."),
+        el("div", { class: "sweep-inputs" },
+            el("span", {}, "Exposure (0.01 ms)"), d.sweep.exposure,
+            el("span", {}, "Sensor gain"), d.sweep.lcgain,
+            el("span", {}, "Black level"), d.sweep.black_level),
+        el("div", { class: "row" }, d.tuneBtn, d.abortBtn, d.tuneProgress),
+        d.tuneOut
+    );
+    d.card = card;
+    return card;
+}
+
+const chip = (label, value, cls) => el("span", { class: `chip ${cls || ""}` }, `${label} `, el("b", {}, value));
+
+function refreshCard(cam) {
+    const d = cam.dom;
+    const s = cam.status;
+    const r = cam.results;
+    const fresh = Date.now() - cam.lastSeen < POLL_MS * 3;
+
+    // Health chips
+    const chips = [];
+    if (!fresh) chips.push(chip("", cam.error ? `unreachable: ${cam.error}` : "connecting…", cam.error ? "bad" : ""));
+    if (s && fresh) {
+        chips.push(chip("", s.name === cam.ntName ? "reachable" : `reachable, but calls itself ${s.name}`, s.name === cam.ntName ? "ok" : "warn"));
+        chips.push(chip("fps", fmt.num(s.fps, 0), s.fps < 30 ? "warn" : ""));
+        chips.push(chip("temp", `${fmt.num(s.temp, 0)} °C`, s.temp > 80 ? "bad" : s.temp > 70 ? "warn" : ""));
+        chips.push(chip("cpu", fmt.pct(s.cpu / 100)));
+        chips.push(chip("pipeline", `${s.pipelineIndex} ${s.pipelineType || ""}`));
+        if (r) {
+            chips.push(chip("NT", r.ntconnected ? "connected" : "no robot", r.ntconnected ? "ok" : "warn"));
+            chips.push(chip("tags", String((r.Fiducial || []).length)));
+            if (r.imu) chips.push(chip("IMU mode", String(r.botorient?.imumode ?? "?")));
+        }
+    }
+    d.chips.replaceChildren(...chips);
+
+    // Mount table: saved on camera vs live on camera
+    const saved = cam.pipeline;
+    const cfg = mountFromPipeline(saved);
+    const live = Array.isArray(r?.t6c_rs) && r.t6c_rs.length >= 6 ? r.t6c_rs : null;
+    const order = ["forward", "right", "up", "roll", "pitch", "yaw"];
+    const rows = order.map((k, i) => {
+        const isAngle = i >= 3;
+        const f = isAngle ? fmt.deg : fmt.m;
+        const savedV = saved ? Number(saved[PIPELINE_MOUNT_KEYS[k]]) : NaN;
+        const liveV = live ? live[i] : NaN;
+        const tol = isAngle ? MOUNT_MISMATCH.deg : MOUNT_MISMATCH.m;
+        // The camera echoes yaw with the opposite sign to what was set (seen on all three cameras
+        // on 2026-09-07; both cameras still agreed on the robot pose, so it is a reporting
+        // convention, not an error). Compare yaw by magnitude.
+        const cmp = (a, b) => (k === "yaw" ? Math.abs(Math.abs(a) - Math.abs(b)) : isAngle ? Math.abs(wrapDeg(a - b)) : Math.abs(a - b));
+        const liveBad = Number.isFinite(liveV) && Number.isFinite(savedV) && cmp(liveV, savedV) > tol;
+        return el("tr", {},
+            el("td", {}, k),
+            el("td", { class: "num" }, f(savedV)),
+            el("td", { class: `num ${liveBad ? "mismatch" : "dim"}` }, f(liveV)));
+    });
+    d.mountTable.replaceChildren(
+        el("table", {},
+            el("thead", {}, el("tr", {}, ["", "saved on camera", "live on camera"].map((h) => el("th", {}, h)))),
+            el("tbody", {}, rows)),
+        el("div", { class: "footnote" },
+            "Live differs from saved while something (robot code, the web UI) has pushed a mount since boot. ",
+            "On the offseason bot yaw read back with the opposite sign to what was set; compared by magnitude."));
+
+    // Live tilt from the accelerometer
+    const accel = r?.imu?.data?.slice(7, 10);
+    if (accel && accel.length === 3 && fresh && cfg) {
+        const m = mountFromAccel(accel);
+        const dPitch = m.pitchDeg - cfg.pitch;
+        const cls = Math.abs(dPitch) > TILT_BAD_DEG ? "bad" : Math.abs(dPitch) > TILT_WARN_DEG ? "warn" : "ok";
+        d.tilt.replaceChildren(
+            chip("accelerometer pitch", fmt.deg(m.pitchDeg), cls),
+            chip("vs saved", fmt.sdeg(dPitch), cls),
+            chip("roll", fmt.deg(m.rollDeg)),
+            chip("|g|", fmt.num(m.gMagnitude, 2), Math.abs(m.gMagnitude - 1) > 0.1 ? "warn" : ""));
+    } else {
+        d.tilt.replaceChildren();
+    }
+
+    // Current image settings
+    if (saved) {
+        d.imageNow.replaceChildren(
+            chip("exposure", `${saved.exposure} (${(saved.exposure / 100).toFixed(2)} ms)`),
+            chip("gain", String(saved.lcgain)),
+            chip("black level", String(saved.black_level)),
+            chip("flip", String(saved.image_flip)),
+            chip("res", String(saved.pipeline_res)));
+        if (!cam.setEdited) {
+            for (const k of PIPELINE_IMAGE_KEYS) d.set[k].value = String(saved[k]);
+        }
+    }
+
+    d.measureBtn.disabled = cam.measuring || !fresh;
+    d.tuneBtn.disabled = Boolean(cam.tuning) || !fresh || !saved;
+}
+
+// ---------------------------------------------------------------------------
+// Measure mount
+// ---------------------------------------------------------------------------
+
+async function measureMount(cam) {
+    const d = cam.dom;
+    const unchecked = d.checks.filter((li) => !li.querySelector("input").checked).length;
+    if (unchecked) {
+        d.measureProgress.textContent = `${unchecked} checklist item${unchecked === 1 ? "" : "s"} left.`;
+        return;
+    }
+    cam.measuring = true;
+    cam.measurement = null;
+    d.measureOut.replaceChildren();
+    refreshCard(cam);
+    try {
+        const frames = await sampleFrames(cam.client, MEASURE_SECONDS * 1000, {
+            onFrame: (f, n) => (d.measureProgress.textContent = `sampling… ${n} frames, ${(f.Fiducial || []).length} tag${(f.Fiducial || []).length === 1 ? "" : "s"} in view`),
+        });
+        cam.measurement = summarizeMount(frames, state.tagHeights);
+        d.measureProgress.textContent = `${frames.length} frames.`;
+    } catch (e) {
+        d.measureProgress.textContent = `Failed: ${e.message}`;
+    } finally {
+        cam.measuring = false;
+    }
+    renderMeasurement(cam);
+    refreshCard(cam);
+}
+
+function renderMeasurement(cam) {
+    const d = cam.dom;
+    const m = cam.measurement;
+    if (!m) return;
+    const cfg = mountFromPipeline(cam.pipeline);
+    if (!cfg) {
+        d.measureOut.replaceChildren(el("div", { class: "notice warn" }, "The camera's saved pipeline has not loaded yet, so there is nothing to compare against. Try again in a few seconds."));
+        return;
+    }
+
+    const row = (label, n, pitch, pitchStd, roll, height, heightStd, extra) =>
+        el("tr", {},
+            el("td", {}, label),
+            el("td", { class: "num" }, String(n)),
+            el("td", { class: "num" }, pitch === null ? "n/a" : `${fmt.deg2(pitch)}${Number.isFinite(pitchStd) ? ` ± ${pitchStd.toFixed(2)}` : ""}`),
+            el("td", { class: "num" }, roll === null ? "n/a" : fmt.deg(roll)),
+            el("td", { class: "num" }, height === null ? "n/a" : `${fmt.m(height)}${Number.isFinite(heightStd) ? ` ± ${(heightStd * 1000).toFixed(0)} mm` : ""}`),
+            el("td", { class: "dim" }, extra || ""));
+
+    const rows = [];
+    if (m.accel) rows.push(row("Accelerometer", m.accel.n, m.accel.pitchDeg, m.accel.pitchStd, m.accel.rollDeg, null, null, "no height; roll sign unverified"));
+    for (const t of m.tags) rows.push(row(`Tag ${t.id}`, t.n, t.pitchDeg, t.pitchStd, t.rollDeg, t.heightM, t.heightStd, `range ${fmt.m(t.rangeM)}, ambiguity ${fmt.num(t.ambig, 2)}`));
+    if (m.tagSummary) rows.push(row(`All tags (${m.tagSummary.tagCount})`, m.tagSummary.n, m.tagSummary.pitchDeg, m.tagSummary.pitchStd, m.tagSummary.rollDeg, m.tagSummary.heightM, m.tagSummary.heightStd, "what gets proposed"));
+    rows.push(row("Saved on camera", "", cfg.pitch, NaN, cfg.roll, cfg.up, NaN, ""));
+
+    const notes = [];
+    if (!m.accel && !m.tagSummary) notes.push(el("div", { class: "notice bad" }, "Nothing usable came back. Is the camera reachable, and is a tag in view?"));
+    if (m.agreementDeg !== null && m.agreementDeg > 1.5) {
+        notes.push(el("div", { class: "notice warn" },
+            el("strong", {}, `Accelerometer and tags disagree by ${fmt.deg(m.agreementDeg)}. `),
+            "Either the robot is not flat, the tag is not vertical, or the IMU is off. The tag figure is proposed below; look before writing."));
+    }
+    if (m.tags.length && !m.tagSummary) notes.push(el("div", { class: "notice warn" }, "Too few clean tag frames to trust; only the accelerometer is proposed. Get closer or hold still longer."));
+    if (m.tags.length === 0 && m.accel) notes.push(el("div", { class: "notice" }, "No tag in view, so height cannot be measured. Pitch comes from the accelerometer alone."));
+
+    // Proposal
+    const proposal = m.proposed ? proposeWrites(cfg, m.proposed) : [];
+    const boxes = {};
+    const propRows = proposal.map((p) => {
+        const f = p.fmt === "m" ? fmt.m : fmt.deg;
+        const box = el("input", { type: "checkbox", checked: p.significant && !(p.key === "roll" && m.proposed.source === "accel") });
+        boxes[p.key] = box;
+        return el("tr", {},
+            el("td", {}, box),
+            el("td", {}, p.label),
+            el("td", { class: "num" }, f(p.from)),
+            el("td", { class: "num" }, el("strong", {}, f(p.to))),
+            el("td", { class: "num" }, p.fmt === "m" ? `${p.delta >= 0 ? "+" : ""}${(p.delta * 1000).toFixed(0)} mm` : fmt.sdeg(p.delta)),
+            el("td", {}, el("span", { class: `tag ${p.significant ? "warn" : "ok"}` }, p.significant ? "differs" : "matches")));
+    });
+
+    const writeBtn = el("button", { class: "primary" }, "Save to the camera");
+    const outcome = el("div", { class: "progress" });
+    const javaLine = el("pre", { class: "java-line" });
+    const showJava = () => {
+        const v = { ...cfg };
+        for (const p of proposal) if (boxes[p.key].checked) v[p.key] = Number(p.to.toFixed(p.fmt === "m" ? 4 : 2));
+        javaLine.textContent =
+            `new LimelightConfig("${cam.ntName}")\n` +
+            `        .withTranslation(${v.forward}, ${v.right}, ${v.up})\n` +
+            `        .withRotation(${v.roll}, ${v.pitch}, ${v.yaw})`;
+    };
+    for (const box of Object.values(boxes)) box.addEventListener("change", showJava);
+    showJava();
+    writeBtn.addEventListener("click", async () => {
+        const partial = {};
+        for (const p of proposal) if (boxes[p.key].checked) partial[PIPELINE_MOUNT_KEYS[p.key]] = Number(p.to.toFixed(p.fmt === "m" ? 4 : 2));
+        if (!Object.keys(partial).length) {
+            outcome.textContent = "Nothing ticked.";
+            return;
+        }
+        writeBtn.disabled = true;
+        outcome.textContent = "saving…";
+        try {
+            await cam.client.updatePipeline(partial, true);
+            cam.pipelineAt = 0;
+            outcome.textContent = "Saved to the camera's flash. Paste the lines below into VisionConfig so the code matches.";
+            refreshCard(cam);
+        } catch (e) {
+            outcome.textContent = `The camera refused the save: ${e.message}`;
+            writeBtn.disabled = false;
+        }
+    });
+
+    d.measureOut.replaceChildren(
+        el("div", { class: "table-wrap" },
+            el("table", {},
+                el("thead", {}, el("tr", {}, ["Method", "Frames", "Pitch", "Roll", "Height", ""].map((h) => el("th", {}, h)))),
+                el("tbody", {}, rows))),
+        ...notes,
+        proposal.length
+            ? el("div", {},
+                  el("h3", {}, `Proposed from ${m.proposed.source === "tags" ? "the tag solve" : "the accelerometer"}`),
+                  el("div", { class: "table-wrap" },
+                      el("table", {},
+                          el("thead", {}, el("tr", {}, ["Use", "Field", "Saved", "Measured", "Change", ""].map((h) => el("th", {}, h)))),
+                          el("tbody", {}, propRows))),
+                  el("div", { class: "row", style: "margin-top:10px" }, writeBtn),
+                  outcome,
+                  el("h4", {}, "For VisionConfig"),
+                  javaLine,
+                  el("div", { class: "footnote" },
+                      "Roll from the accelerometer is a magnitude with an unverified sign, so it is unticked unless a tag confirmed it. ",
+                      "Forward, right and yaw are not offered: they need a surveyed robot position."))
+            : null
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Auto-tune image
+// ---------------------------------------------------------------------------
+
+function parseCandidates(text, fallback) {
+    const vals = text.split(/[,\s]+/).map(Number).filter(Number.isFinite);
+    return vals.length ? vals : fallback;
+}
+
+/**
+ * Writes the three typed image values to one camera or to all of them, and saves to flash.
+ *
+ * Separate from the sweep on purpose. Auto-tune answers "what should these be?"; this answers "make
+ * every camera match the numbers I already have", which is the common pit job. One camera gets
+ * dialled in by hand or by sweep and the other two have to be told. Applying to all is why the
+ * values are read out of the fields rather than out of this card's own pipeline.
+ *
+ * flush is always true: a value that vanishes on the next power cycle is worse than none, because
+ * it looks set until the robot is rebooted.
+ *
+ * @param {object} cam the card the values were typed into
+ * @param {boolean} all whether to write them to every camera rather than just this one
+ */
+async function applyImageSettings(cam, all) {
+    const d = cam.dom;
+    const values = {};
+    const bad = [];
+    const outOfSweep = [];
+
+    for (const k of PIPELINE_IMAGE_KEYS) {
+        const raw = d.set[k].value.trim();
+        const n = Number(raw);
+        if (raw === "" || !Number.isFinite(n) || n < 0) {
+            bad.push(`${IMAGE_LABELS[k]} needs a number of 0 or more`);
+            continue;
+        }
+        values[k] = n;
+        // The sweep candidates are the range this robot's cameras have actually been run at, so
+        // outside it is worth saying out loud, but it is the camera's call to refuse, not ours.
+        const lo = Math.min(...DEFAULT_SWEEPS[k]);
+        const hi = Math.max(...DEFAULT_SWEEPS[k]);
+        if (n < lo || n > hi) outOfSweep.push(`${IMAGE_LABELS[k]} ${n} is outside the ${lo}-${hi} this page sweeps`);
+    }
+
+    if (bad.length) {
+        d.setOut.textContent = `Not sent: ${bad.join("; ")}.`;
+        return;
+    }
+
+    const targets = all ? state.cameras : [cam];
+    d.setBtn.disabled = true;
+    d.setAllBtn.disabled = true;
+    d.setOut.textContent = `saving to ${targets.length} camera${targets.length === 1 ? "" : "s"}...`;
+
+    const results = await Promise.all(
+        targets.map(async (t) => {
+            try {
+                await t.client.updatePipeline(values, true);
+                t.pipelineAt = 0; // force a re-read so the chips show what actually landed
+                return { name: t.ntName, ok: true };
+            } catch (e) {
+                return { name: t.ntName, ok: false, msg: e.message };
+            }
+        })
+    );
+
+    const done = results.filter((r) => r.ok).map((r) => r.name);
+    const failed = results.filter((r) => !r.ok);
+    const settings = PIPELINE_IMAGE_KEYS.map((k) => `${k}=${values[k]}`).join(", ");
+
+    const parts = [];
+    parts.push(done.length ? `Saved ${settings} to flash on ${done.join(", ")}.` : `Nothing saved.`);
+    if (failed.length) parts.push(`Failed on ${failed.map((r) => `${r.name} (${r.msg})`).join("; ")}.`);
+    if (outOfSweep.length) parts.push(`Note: ${outOfSweep.join("; ")}.`);
+    d.setOut.textContent = parts.join(" ");
+
+    d.setBtn.disabled = false;
+    d.setAllBtn.disabled = false;
+}
+
+async function autoTune(cam) {
+    const d = cam.dom;
+    const original = {};
+    for (const k of PIPELINE_IMAGE_KEYS) original[k] = cam.pipeline[k];
+
+    const controller = new AbortController();
+    cam.tuning = { stages: [], original, abort: () => controller.abort() };
+    d.abortBtn.disabled = false;
+    d.tuneOut.replaceChildren();
+    refreshCard(cam);
+
+    const current = { ...original };
+    const restore = () => cam.client.updatePipeline(original, false).catch(() => {});
+    const onUnload = () => cam.client.updatePipeline(original, false).catch(() => {});
+    window.addEventListener("beforeunload", onUnload);
+
+    try {
+        for (const key of PIPELINE_IMAGE_KEYS) {
+            if (controller.signal.aborted) break;
+            const candidates = parseCandidates(d.sweep[key].value, DEFAULT_SWEEPS[key]);
+            const stage = { key, rows: [], best: null };
+            cam.tuning.stages.push(stage);
+            for (const value of candidates) {
+                if (controller.signal.aborted) break;
+                d.tuneProgress.textContent = `${key} = ${value} … settling`;
+                await cam.client.updatePipeline({ ...current, [key]: value }, false);
+                await new Promise((r) => setTimeout(r, SWEEP_SETTLE_MS));
+                d.tuneProgress.textContent = `${key} = ${value} … sampling`;
+                const frames = await sampleFrames(cam.client, SWEEP_SAMPLE_MS, { signal: controller.signal });
+                const metrics = summarizeFrames(frames);
+                const exposure = key === "exposure" ? value : current.exposure;
+                stage.rows.push({ value, metrics, exposure, score: metrics.frames ? scoreMetrics(metrics, exposure) : -Infinity });
+                renderTuning(cam);
+            }
+            stage.best = pickBest(stage.rows);
+            if (stage.best) current[key] = stage.best.value;
+            renderTuning(cam);
+        }
+        cam.tuning.result = current;
+        cam.tuning.aborted = controller.signal.aborted;
+    } catch (e) {
+        cam.tuning.error = e.message;
+    } finally {
+        await restore();
+        window.removeEventListener("beforeunload", onUnload);
+        cam.pipelineAt = 0;
+        d.abortBtn.disabled = true;
+        d.tuneProgress.textContent = cam.tuning.error ? `Failed: ${cam.tuning.error}` : cam.tuning.aborted ? "Stopped; original settings restored." : "Done; original settings restored until you apply.";
+        cam.tuning.done = true;
+        renderTuning(cam);
+        cam.tuning = null;
+        refreshCard(cam);
+    }
+}
+
+function renderTuning(cam) {
+    const d = cam.dom;
+    const t = cam.tuning;
+    if (!t) return;
+    const sections = t.stages.map((stage) =>
+        el("div", {},
+            el("h3", {}, `${stage.key} sweep`),
+            el("div", { class: "table-wrap" },
+                el("table", {},
+                    el("thead", {}, el("tr", {}, [stage.key, "frames", "seen", "tags", "ambiguity", "corner px", "pose", "latency", "score"].map((h) => el("th", {}, h)))),
+                    el("tbody", {}, stage.rows.map((r) =>
+                        el("tr", { class: stage.best && stage.best.value === r.value ? "best" : "" },
+                            el("td", { class: "num" }, String(r.value)),
+                            el("td", { class: "num" }, String(r.metrics.frames)),
+                            el("td", { class: "num" }, fmt.pct(r.metrics.detectRate)),
+                            el("td", { class: "num" }, fmt.num(r.metrics.meanTags, 1)),
+                            el("td", { class: "num" }, fmt.num(r.metrics.meanAmbig, 2)),
+                            el("td", { class: "num" }, fmt.num(r.metrics.cornerJitterPx, 2)),
+                            el("td", { class: "num" }, r.metrics.poseJitterM === null ? "n/a" : fmt.cm(r.metrics.poseJitterM)),
+                            el("td", { class: "num" }, r.metrics.latencyMs === null ? "n/a" : `${fmt.num(r.metrics.latencyMs, 0)} ms`),
+                            el("td", { class: "num" }, Number.isFinite(r.score) ? r.score.toFixed(1) : "n/a"))))))));
+
+    if (t.done && t.result && !t.error) {
+        const changed = PIPELINE_IMAGE_KEYS.filter((k) => t.result[k] !== t.original[k]);
+        const applyBtn = el("button", { class: "primary", disabled: !changed.length }, "Apply and save to camera");
+        const outcome = el("div", { class: "progress" });
+        applyBtn.addEventListener("click", async () => {
+            applyBtn.disabled = true;
+            outcome.textContent = "saving…";
+            try {
+                await cam.client.updatePipeline(t.result, true);
+                cam.pipelineAt = 0;
+                outcome.textContent = `Saved ${PIPELINE_IMAGE_KEYS.map((k) => `${k}=${t.result[k]}`).join(", ")} to the camera's flash.`;
+            } catch (e) {
+                outcome.textContent = `Save failed: ${e.message}`;
+                applyBtn.disabled = false;
+            }
+        });
+        sections.push(
+            el("div", { class: `notice ${changed.length ? "" : "warn"}` },
+                el("strong", {}, changed.length ? "Best found: " : "Nothing better than the current settings. "),
+                PIPELINE_IMAGE_KEYS.map((k) => `${k} ${t.original[k]} → ${t.result[k]}`).join(" · "),
+                el("div", { class: "row", style: "margin-top:8px" }, applyBtn),
+                outcome)
+        );
+    }
+    d.tuneOut.replaceChildren(...sections);
+}
+
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
+
+await loadLayout();
+renderBanners();
+renderPoseSection();
+discoverCameras();
+
+async function tick() {
+    try {
+        await Promise.all(state.cameras.map(pollCamera));
+        for (const cam of state.cameras) refreshCard(cam);
+        renderPoseSection();
+    } finally {
+        setTimeout(tick, POLL_MS);
+    }
+}
+tick();

@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Swerve Alignment</title>
+<link rel="stylesheet" href="../../styles.css" />
+<link rel="stylesheet" href="align.css" />
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml" />
+</head>
+<body>
+<main class="wide">
+<div class="align-page" id="align">
+  <div class="align-header">
+              <div class="title">
+                  <h1>Swerve Alignment</h1>
+                  <p class="subtitle">Reads the CANcoders live and prints the offsets line for the robot config.</p>
+              </div>
+              <div class="connection">
+                  <div class="conn-row">
+                      <label for="host">Robot</label>
+                      <input id="host" list="host-presets" spellcheck="false" />
+                      <datalist id="host-presets">
+                          <option value="robot.local">SystemCore</option>
+                          <option value="127.0.0.1">Simulation</option>
+                      </datalist>
+                      <button id="connect" class="secondary">Connect</button>
+                  </div>
+                  <div class="conn-status">
+                      <span id="status-dot" class="dot"></span>
+                      <span id="status-text">Not connected</span>
+                      <span id="data-age" class="muted"></span>
+                  </div>
+              </div>
+          </div>
+
+          <div class="align-main">
+              <div id="banners"></div>
+
+              <section class="step">
+                  <h2><span class="num">1</span> Pin the modules straight</h2>
+                  <p class="hint">
+                      Point every wheel you are aligning straight forward, bevel gears all on the
+                      same side, and hold it there: the module&rsquo;s alignment pin if it has one,
+                      else a straight edge along the wheels.
+                  </p>
+                  <p class="hint">
+                      Tick each item as you do it. None of these are checked by software. They
+                      are the part only you can verify.
+                  </p>
+                  <ul class="checklist" id="checklist">
+                      <li>
+                          <label>
+                              <input type="checkbox" data-check="power" />
+                              <span>Robot is powered on and <strong>disabled</strong></span>
+                          </label>
+                      </li>
+                      <li>
+                          <label>
+                              <input type="checkbox" data-check="pinned" />
+                              <span>Every module you are aligning is <strong>pinned or held straight</strong></span>
+                          </label>
+                      </li>
+                      <li>
+                          <label>
+                              <input type="checkbox" data-check="seated" />
+                              <span>Each wheel is <strong>locked in place</strong>. Nudge it, it should not rotate at all</span>
+                          </label>
+                      </li>
+                      <li>
+                          <label>
+                              <input type="checkbox" data-check="bevel" />
+                              <span>All bevel gears face the <strong>same side</strong> of the robot</span>
+                          </label>
+                      </li>
+                      <li>
+                          <label>
+                              <input type="checkbox" data-check="clear" />
+                              <span>Nothing else is touching or leaning on the wheels</span>
+                          </label>
+                      </li>
+                  </ul>
+              </section>
+
+              <section class="step">
+                  <h2><span class="num">2</span> Check the live readings</h2>
+                  <p class="hint">
+                      Angles below are what the robot currently believes. With the modules pinned and
+                      a good alignment deployed, they should all read close to 0&deg;.
+                  </p>
+                  <div class="modules" id="modules"></div>
+              </section>
+
+              <section class="step">
+                  <h2><span class="num">3</span> Capture</h2>
+                  <p class="hint">
+                      Averages half a second of encoder readings and works out what the offsets should
+                      be. Nothing is written yet.
+                  </p>
+
+                  <fieldset class="module-select">
+                      <legend>Modules to align</legend>
+                      <div class="row" id="module-select">
+                          <label
+                              ><input type="checkbox" data-module="fl" checked /> Front Left</label
+                          >
+                          <label
+                              ><input type="checkbox" data-module="fr" checked /> Front Right</label
+                          >
+                          <label
+                              ><input type="checkbox" data-module="bl" checked /> Back Left</label
+                          >
+                          <label
+                              ><input type="checkbox" data-module="br" checked /> Back Right</label
+                          >
+                      </div>
+                      <p class="muted" style="margin: 9px 0 0">
+                          Unticked modules keep the offset they already have in the code. Untick the
+                          ones you have not pinned, after replacing a single module for instance.
+                      </p>
+                  </fieldset>
+
+                  <button id="capture" class="primary" disabled>Capture alignment</button>
+                  <span id="capture-blocked" class="muted"></span>
+
+                  <div id="review" hidden>
+                      <table class="review">
+                          <thead>
+                              <tr>
+                                  <th>Module</th>
+                                  <th>In code</th>
+                                  <th>New offset</th>
+                                  <th>Change</th>
+                                  <th>Verdict</th>
+                              </tr>
+                          </thead>
+                          <tbody id="review-body"></tbody>
+                      </table>
+                      <div id="resolutions"></div>
+                  </div>
+              </section>
+
+              <section class="step">
+                  <h2><span class="num">4</span> Paste into the code</h2>
+                  <p class="hint">
+                      Replace the <code>swerve.configEncoderOffsets(...)</code> line in this robot&rsquo;s
+                      config class with the line below. <span id="identity"></span>
+                  </p>
+                  <span id="paste-blocked" class="muted"></span>
+                  <div id="paste-output" hidden>
+                      <pre id="paste-line"></pre>
+                      <button id="copy" class="primary">Copy line</button>
+                      <span id="copy-result" class="muted"></span>
+                      <ol class="next-steps">
+                          <li>Deploy the code to the robot.</li>
+                          <li>With the pins still in, come back here: every module you captured should
+                              now read close to 0&deg;.</li>
+                          <li><strong>Pull all the alignment pins.</strong> Do not skip this. Enabling
+                              with a pin in will break something.</li>
+                          <li>Enable and drive slowly straight forward. If a wheel fights or the robot
+                              crabs, that module is a half turn out.</li>
+                          <li>Commit the change.</li>
+                      </ol>
+                  </div>
+              </section>
+          </div>
+</div>
+</main>
+<script type="module" src="./main.js"></script>
+</body>
+</html>

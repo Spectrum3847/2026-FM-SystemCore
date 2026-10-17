@@ -86,32 +86,35 @@ public class Vision implements Subsystem {
     public static class VisionConfig {
         @Getter final String name = "Vision";
 
-        // -- Limelights (FM, from 2026 main) ----------------------------------
+        // -- Limelights ---------------------------------------------------------
+        //
+        // Web UI convention: forward, right, up; pitch positive up; yaw positive clockwise.
+        // Left and right positions are from CAD (Camera Pose feature); angles, and the back
+        // camera, are the values flashed on the cameras at TXMAN1.
 
         @Getter
         final LimelightConfig backConfig =
                 new LimelightConfig("limelight-back")
-                        .withTranslation(-0.3084987734, 0.2134100126, 0.6502249886)
-                        .withRotation(0, 0, 180);
+                        .withTranslation(-0.3318, 0.0, 0.4465)
+                        .withRotation(0, 15, -180);
 
         @Getter
         final LimelightConfig leftConfig =
                 new LimelightConfig("limelight-left")
-                        .withTranslation(0, 0.215, 0.188)
-                        .withRotation(0, 0, 90);
+                        .withTranslation(0.0079, -0.3350, 0.5007)
+                        .withRotation(0, 18, -91);
 
         @Getter
         final LimelightConfig rightConfig =
                 new LimelightConfig("limelight-right")
-                        .withTranslation(-0.04445, 0.3027487722, 0.7137249886)
-                        .withRotation(0, 0, -90);
+                        .withTranslation(0.0084, 0.3337, 0.5004)
+                        .withRotation(0, 14, 88);
 
         /**
-         * Whether to push the mounts above to the cameras. Off: FM's 2026 code never pushed them,
-         * so the values in each camera's flash are the ones that were validated all season and the
-         * values above are unverified. Turn on once they have been checked against the web UI.
+         * Whether to push the mounts above to the cameras, so a reflashed or swapped camera still
+         * gets the right mount.
          */
-        @Getter final boolean pushLimelightMounts = false;
+        @Getter final boolean pushLimelightMounts = true;
 
         @Getter final int tagPipeline = 0;
 
@@ -136,11 +139,11 @@ public class Vision implements Subsystem {
         /** Table the SystemCore vision stack reads robot orientation from, for MegaTag2. */
         @Getter final String systemCoreSharedTable = "limelightshared";
 
-        // -- Orin / PhotonVision (CALIBRATE: orin-right is still a placeholder) --
+        // -- Orin / PhotonVision ------------------------------------------------
 
         /**
-         * Whether the robot reads the Orin's cameras. They are logged but fuse only when enabled on
-         * the dashboard. Without the Orin, PhotonLib warns every few seconds.
+         * Whether the robot reads the Orin's cameras. They fuse by default; the dashboard can turn
+         * each off. Without the Orin, PhotonLib warns every few seconds.
          */
         @Getter final boolean orinEnabled = true;
 
@@ -149,16 +152,13 @@ public class Vision implements Subsystem {
 
         @Getter
         final Transform3d[] orinRobotToCamera = {
-            // Solved from TXMAN1 Q17 Jetson video against the fused pose (449 multi-tag frames).
+            // Position and yaw from CAD. Pitch from the Q17 Jetson video: CAD says 15 deg up.
             new Transform3d(
-                    new Translation3d(0.11, 0.30, 0.48),
-                    new Rotation3d(
-                            Units.degreesToRadians(2),
-                            Units.degreesToRadians(-18),
-                            Units.degreesToRadians(85))),
+                    new Translation3d(0.0836, 0.3231, 0.4883),
+                    new Rotation3d(0, Units.degreesToRadians(-18), Units.degreesToRadians(90))),
             new Transform3d(
-                    new Translation3d(0.0, -0.30, 0.25),
-                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(-90)))
+                    new Translation3d(0.0836, -0.3231, 0.4883),
+                    new Rotation3d(0, Units.degreesToRadians(-18), Units.degreesToRadians(-90)))
         };
 
         // -- QuestNav (CALIBRATE: placeholder until mounted) --------------------
@@ -289,7 +289,6 @@ public class Vision implements Subsystem {
         this.swerve = swerve;
         this.fusion = swerve.getPoseFusion();
         tagLayout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded);
-
         boolean sim = Constants.currentMode == Constants.Mode.SIM;
         boolean replay = Constants.currentMode == Constants.Mode.REPLAY;
         if (sim) {
@@ -325,7 +324,7 @@ public class Vision implements Subsystem {
                             io,
                             VisionGates.aprilTagGates(),
                             VisionGates.PHOTON_MODEL,
-                            false));
+                            true));
         }
 
         // QuestNav.

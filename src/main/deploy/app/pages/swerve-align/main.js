@@ -210,6 +210,7 @@ function connect(host) {
         // A capture from another robot must not mix into this one's line.
         state.capture = null;
         state.resolutions = {};
+        state.capturing = false;
     }
     connectedHost = host;
     client.connect(host);
@@ -303,23 +304,25 @@ function startCapture() {
     };
     state.resolutions = {};
     state.capturing = true;
+    const capture = state.capture;
     render();
 
     // Sample on a timer rather than off NT updates: NetworkTables only sends a topic when it
     // changes, and a wheel that is genuinely still may not send anything at all during the window.
+    // Timers check they still own state.capture: a host change drops it mid-window.
     const sampler = setInterval(() => {
-        if (!state.capture) return;
+        if (state.capture !== capture) return;
         if (!dataIsFresh()) {
-            state.capture.wentStale = true;
+            capture.wentStale = true;
             return;
         }
-        for (const module of state.capture.modules) {
+        for (const module of capture.modules) {
             const live = state.live[module.key];
             if (Number.isFinite(live.raw)) {
-                state.capture.samples[module.key].push(live.raw);
+                capture.samples[module.key].push(live.raw);
             }
-            state.capture.maxVelocity[module.key] = Math.max(
-                state.capture.maxVelocity[module.key],
+            capture.maxVelocity[module.key] = Math.max(
+                capture.maxVelocity[module.key],
                 Math.abs(live.velocity || 0)
             );
         }
@@ -327,6 +330,7 @@ function startCapture() {
 
     setTimeout(() => {
         clearInterval(sampler);
+        if (state.capture !== capture) return;
         state.capturing = false;
         finishCapture();
         render();

@@ -42,15 +42,11 @@ function render(log) {
     const shade = enabledShadePlugin(m.enabled, log.firstTs, log.lastTs);
     const blocks = [];
 
-    const buses = m.canBuses().map((name) => ({
-        name,
-        util: m.ch(`${name}/BusUtilization`),
-        tec: m.ch(`${name}/TransmitErrorCounter`),
-        rec: m.ch(`${name}/ReceiveErrorCounter`),
-        busOffSteps: counterSteps(m.ch(`${name}/BusOffCount`)),
-        txFullSteps: counterSteps(m.ch(`${name}/TxFullCount`)),
-    }));
-    const loop = m.ch("LoggedRobot/FullCycleMS");
+    const buses = m.canBuses().map((name) => {
+        const { util, tec, rec, busOff, txFull } = m.busTelemetry(name);
+        return { name, util, tec, rec, busOffSteps: counterSteps(busOff), txFullSteps: counterSteps(txFull) };
+    });
+    const loop = m.loopTimeMs();
 
     const dropouts = connectionDropouts(m);
     const stale = staleTraces(m);

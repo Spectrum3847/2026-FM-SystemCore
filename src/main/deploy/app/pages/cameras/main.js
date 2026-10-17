@@ -170,6 +170,7 @@ async function pollCamera(cam) {
         cam.error = null;
     } else {
         cam.error = status.reason?.message || "unreachable";
+        cam.results = null;
     }
     if (results.status === "fulfilled" && results.value) cam.results = results.value;
     if (!cam.error && Date.now() - cam.pipelineAt > PIPELINE_POLL_MS) {

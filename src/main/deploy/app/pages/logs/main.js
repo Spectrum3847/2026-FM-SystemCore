@@ -1,6 +1,6 @@
 import { mountHeader, el, fmtDuration } from "../../lib/ui.js";
 import { logPicker } from "../../lib/log-loader.js";
-import { analysisKeep, enabledWindows } from "../../lib/log-model.js";
+import { analysisKeep, enabledWindows, MECH, BUS, META, ENABLED, SWERVE_ALIGN } from "../../lib/log-model.js";
 
 mountHeader();
 const root = document.getElementById("app");
@@ -9,7 +9,7 @@ const content = el("div", {});
 const METADATA = ["RobotIdentity", "Robot", "GitSHA", "GitBranch", "GitDate", "BuildDate", "RuntimeMode", "LogFolder"];
 
 // Values are only kept for what this page reads; every other key still gets its name, type and count.
-const keep = (name) => name.startsWith("/RealMetadata/") || name === "/DriverStation/Enabled";
+const keep = (name) => name.startsWith(META) || name === ENABLED;
 
 root.replaceChildren(
     el("h1", {}, "Logs"),
@@ -29,17 +29,17 @@ const tile = (label, value, note) =>
 
 function render(log) {
     const meta = (k) => {
-        const s = log.channel(`/RealMetadata/${k}`);
+        const s = log.channel(`${META}${k}`);
         return s.length ? String(s[s.length - 1][1]) : null;
     };
-    const names = [...log.counts.keys()].filter((n) => !n.startsWith("/RealMetadata/"));
+    const names = [...log.counts.keys()].filter((n) => !n.startsWith(META));
     const enabledSec = enabledWindows(log).reduce((a, [s, e]) => a + (e - s), 0);
-    const mechanisms = [...new Set(names.map((n) => /^\/Mechanisms\/([^/]+)\//.exec(n)?.[1]).filter(Boolean))].sort();
-    const buses = names.map((n) => /^\/RealOutputs\/([^/]+)\/BusUtilization$/.exec(n)?.[1]).filter(Boolean).sort();
+    const mechanisms = [...new Set(names.map((n) => MECH.exec(n)?.[1]).filter(Boolean))].sort();
+    const buses = names.map((n) => BUS.exec(n)?.[1]).filter(Boolean).sort();
     // Keys no page reads, grouped by their first two path parts, so new telemetry is easy to spot.
     const unread = new Map();
     for (const n of names) {
-        if (analysisKeep(n) || n.startsWith("/RealOutputs/Swerve/Align/")) continue;
+        if (analysisKeep(n) || n.startsWith(SWERVE_ALIGN)) continue;
         const group = n.split("/").slice(0, 3).join("/");
         unread.set(group, (unread.get(group) || 0) + 1);
     }

@@ -13,7 +13,7 @@ mountHeader();
 /*
  * Swerve alignment UI.
  *
- * Reads the robot's raw CANcoder data over NetworkTables (published by SwerveAlignment.java),
+ * Reads the robot's raw CANcoder data over NetworkTables (Swerve/Align/<Module>/*),
  * works out what each module's offset should be so that "wheel pointed forward" reads zero, sanity
  * checks the result against the offsets the deployed code was built with, and prints the new line.
  */
@@ -91,8 +91,8 @@ let connectedHost = null;
 // ---------------------------------------------------------------------------
 
 /**
- * Wraps rotations into [-0.5, 0.5), matching how CTRE reports CANcoder absolute position and how
- * SwerveAlignment.wrapRotations does it on the robot.
+ * Wraps rotations into [-0.5, 0.5), matching how CTRE reports CANcoder absolute position and the
+ * robot's own wrap.
  *
  * @param {number} rotations
  * @returns {number}
@@ -206,6 +206,11 @@ function connect(host) {
         state.firstSeen[module.key] = 0;
     }
     state.heartbeatAt = 0;
+    if (host !== connectedHost) {
+        // A capture from another robot must not mix into this one's line.
+        state.capture = null;
+        state.resolutions = {};
+    }
     connectedHost = host;
     client.connect(host);
 }

@@ -94,11 +94,24 @@ test("clipToEnabled drops disabled-time samples", () => {
 });
 
 test("wpilog parser reads a three-bit timestamp length", () => {
-    // Header byte 0b0100_0000 means tsLen = ((0x40 >> 4) & 7) + 1 = 5. A two-bit mask would read
-    // 1 byte here and desync every record after it.
-    const h = 0x40;
-    assert.equal(((h >> 4) & 0x7) + 1, 5);
-    assert.notEqual(((h >> 4) & 0x3) + 1, 5);
+    // Header 0x40: 1-byte id, 1-byte size, 5-byte timestamp. A two-bit mask would read 1 byte and
+    // desync the record after it.
+    const w = new LogWriter();
+    w.start("/RealOutputs/A", "double");
+    const raw = (id, tsUs, value) => {
+        const b = Buffer.alloc(1 + 1 + 1 + 5 + 8);
+        b.writeUInt8(0x40, 0);
+        b.writeUInt8(id, 1);
+        b.writeUInt8(8, 2);
+        b.writeUIntLE(tsUs, 3, 5);
+        b.writeDoubleLE(value, 8);
+        return b;
+    };
+    const t = 5_000_000_000; // past the 4-byte limit
+    w.chunks.push(raw(1, t, 1), raw(1, t + 20_000, 2));
+    const log = parseWpilog(w.buffer());
+    assert.equal(log.error, null);
+    assert.deepEqual(log.channel("/RealOutputs/A").map(([, v]) => v), [1, 2]);
 });
 
 test("parser rejects a file that is not a wpilog", () => {

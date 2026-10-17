@@ -7,18 +7,21 @@
  */
 
 const OUT = "/RealOutputs/";
-const MECH = /^\/Mechanisms\/([^/]+)\//;
+export const MECH = /^\/Mechanisms\/([^/]+)\//;
+export const BUS = /^\/RealOutputs\/([^/]+)\/BusUtilization$/;
+export const META = "/RealMetadata/";
+export const ENABLED = "/DriverStation/Enabled";
+export const SWERVE_ALIGN = "/RealOutputs/Swerve/Align/";
 
 /** Channels the analysis pages read. Pass to parseWpilog's keep() so big logs stay small. */
 export function analysisKeep(name) {
     return (
         name.startsWith("/Mechanisms/") ||
-        name === "/DriverStation/Enabled" ||
+        name === ENABLED ||
         name === "/Runtime/BatteryVoltage" ||
         name === "/RealMetadata/LoopPeriodSeconds" ||
         name === "/RealOutputs/LoggedRobot/FullCycleMS" ||
-        /^\/RealOutputs\/(Alerts|BatteryLogger|SystemStats|CANConfig|CANivore|SystemCoreCAN\d*)\//.test(name) ||
-        /^\/RealOutputs\/[^/]+\/(CommandedDegrees|PositionDegrees|CommandedRPM|RPM)$/.test(name)
+        /^\/RealOutputs\/(Alerts|BatteryLogger|SystemStats|CANConfig|CANivore|SystemCoreCAN\d*)\//.test(name)
     );
 }
 
@@ -100,10 +103,26 @@ export class LogModel {
     /** CAN bus labels in this log, e.g. "SystemCoreCAN1" or "CANivore". */
     canBuses() {
         return this.log
-            .matching(/^\/RealOutputs\/([^/]+)\/BusUtilization$/)
+            .matching(BUS)
             .filter((x) => x.values.length)
             .map((x) => x.capture)
             .sort();
+    }
+
+    /** One bus's counters, by a label from canBuses(). */
+    busTelemetry(name) {
+        return {
+            util: this.ch(`${name}/BusUtilization`),
+            tec: this.ch(`${name}/TransmitErrorCounter`),
+            rec: this.ch(`${name}/ReceiveErrorCounter`),
+            busOff: this.ch(`${name}/BusOffCount`),
+            txFull: this.ch(`${name}/TxFullCount`),
+        };
+    }
+
+    /** Main loop time, ms per cycle. */
+    loopTimeMs() {
+        return this.ch("LoggedRobot/FullCycleMS");
     }
 
     /** One entry per mechanism the log contains. */

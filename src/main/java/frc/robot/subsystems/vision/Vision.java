@@ -104,7 +104,8 @@ public class Vision implements Subsystem {
         final LimelightConfig backConfig =
                 new LimelightConfig("limelight-back")
                         .withTranslation(-0.3318, 0.0, 0.4465)
-                        .withRotation(0, 13.5, 177);
+                        // TXMAN1: 177 read 2-4 deg above the planned auto start heading.
+                        .withRotation(0, 13.5, 180.5);
 
         @Getter
         final LimelightConfig leftConfig =

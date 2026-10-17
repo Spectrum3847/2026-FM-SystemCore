@@ -26,8 +26,8 @@ import org.wpilib.units.measure.AngularVelocity;
  * device, and the difference between them, which is the "Absolute Position No Offset" value Phoenix
  * Tuner X shows.
  *
- * <p>The alignment web app in {@code tools/swerve-align} subscribes to these keys over
- * NetworkTables. See {@code docs/tools/swerve-alignment.md}.
+ * <p>The Swerve Align page of the robot app ({@code src/main/deploy/app/pages/swerve-align})
+ * subscribes to these keys over NetworkTables.
  */
 public class SwerveAlignment {
 

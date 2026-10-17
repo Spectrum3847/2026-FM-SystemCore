@@ -139,8 +139,8 @@ QuestNav is a VIO source, so its failure modes are different:
   requirement and only moves the fused tracks, not the tag EKF.
 - Orin, SystemCore cameras and Quest fuse whenever enabled and the robot is enabled; they start
   disabled.
-- The Quest is re-origined onto the fused pose when the seed is confirmed, after a gross-heading
-  correction, and on the operator's LB+X.
+- The Quest is re-origined onto the fused pose when the seed is confirmed, after a gross-heading or
+  LL-Back correction, and on the operator's LB+X.
 
 ## Simulation results
 

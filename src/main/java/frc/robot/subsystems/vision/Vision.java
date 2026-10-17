@@ -663,7 +663,10 @@ public class Vision implements Subsystem {
             seedWhileDisabled(context);
         } else {
             seedWhileEnabled(context);
-            checkGrossHeadingError(context);
+            // One seed per loop: only one frame can be kept out of the fusing.
+            if (seededThisLoop == null) {
+                checkGrossHeadingError(context);
+            }
         }
         boolean llWindow =
                 !disabled

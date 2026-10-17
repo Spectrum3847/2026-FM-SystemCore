@@ -73,10 +73,9 @@ public class SpectrumCANcoder {
                             CanConfigRetry.CONFIG,
                             true,
                             timeout -> canCoder.getConfigurator().apply(canCoderConfigs, timeout));
-            if (canCoderResponseOK(entry.isApplied() ? StatusCode.OK : StatusCode.ConfigFailed)) {
-                // Point the motor's feedback at this CANcoder.
-                modifyMotorConfig(motor, mechConfig);
-            }
+            canCoderResponseOK(entry.isApplied() ? StatusCode.OK : StatusCode.ConfigFailed);
+            // Even if the CANcoder's own config is still retrying: nothing re-runs this later.
+            modifyMotorConfig(motor, mechConfig);
         }
     }
 

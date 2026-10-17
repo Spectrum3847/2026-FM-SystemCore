@@ -98,6 +98,12 @@ class FaceChordFilterTest {
     }
 
     @Test
+    void lettingGoOfAWithXHeldTracksAtOnce() {
+        List<String> r = requests(hold("X", 30), hold("A X", 30), hold("X", 5));
+        assertEquals("TRACK_TARGET@60", r.get(r.size() - 1));
+    }
+
+    @Test
     void lettingGoOfLbWithXHeldIsIdleThenTracking() {
         assertEquals(
                 List.of("SET_SHOT_LEFT_TRENCH", "IDLE", "TRACK_TARGET", "IDLE"),

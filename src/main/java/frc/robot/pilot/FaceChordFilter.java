@@ -57,8 +57,10 @@ public final class FaceChordFilter {
             output = raw;
             return output;
         }
-        if (raw == output) {
-            pending = FaceChord.NONE; // already acting on it
+        // UNJAM to TRACK_TARGET only happens by letting go of A, so it does not wait.
+        if (raw == output || (output == FaceChord.UNJAM && raw == FaceChord.TRACK_TARGET)) {
+            pending = FaceChord.NONE;
+            output = raw;
             return output;
         }
         if (raw != pending) {

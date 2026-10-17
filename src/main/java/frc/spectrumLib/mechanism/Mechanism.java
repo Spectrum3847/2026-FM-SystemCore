@@ -856,7 +856,7 @@ public abstract class Mechanism implements Subsystem {
         }
         inputs.followerSupplyCurrentAmps = followerAmps;
         inputs.followerConnected = followerOk;
-        inputs.configApplied = configEntry == null || configEntry.isApplied();
+        inputs.configApplied = configEntry == null || configEntry.hasEverApplied();
         // Records the readings on the robot; overwrites them from the log in replay.
         Logger.processInputs(inputsKey, inputs);
     }

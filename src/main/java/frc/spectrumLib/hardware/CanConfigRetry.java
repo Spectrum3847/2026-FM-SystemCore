@@ -336,7 +336,7 @@ public final class CanConfigRetry {
                                     retryPass();
                                 } catch (InterruptedException e) {
                                     return;
-                                } catch (RuntimeException e) {
+                                } catch (Throwable e) {
                                     // A throwing apply must not end retries for every device.
                                     // Plain stdout: Telemetry logs through AdvantageKit, which
                                     // is main-thread only.
@@ -476,6 +476,16 @@ public final class CanConfigRetry {
         }
 
         /**
+         * Whether any config has ever applied. A later failed change leaves the earlier one on the
+         * device, soft limits included.
+         *
+         * @return true once one attempt has succeeded
+         */
+        public boolean hasEverApplied() {
+            return everApplied;
+        }
+
+        /**
          * Whether the newest config handed in has applied, with nothing queued.
          *
          * @return true when nothing is pending
@@ -586,7 +596,10 @@ public final class CanConfigRetry {
                     appliedGeneration = Math.max(appliedGeneration, gen);
                 } else {
                     consecutiveFailures++;
-                    nextAttemptNanos = clock.getAsLong() + backoffNanos(consecutiveFailures);
+                    // A config handed in during this attempt stays due now.
+                    if (generation.get() == gen) {
+                        nextAttemptNanos = clock.getAsLong() + backoffNanos(consecutiveFailures);
+                    }
                 }
                 return status;
             } finally {

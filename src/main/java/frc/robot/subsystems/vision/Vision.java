@@ -109,7 +109,8 @@ public class Vision implements Subsystem {
         final LimelightConfig leftConfig =
                 new LimelightConfig("limelight-left")
                         .withTranslation(0.0079, -0.3350, 0.5007)
-                        .withRotation(0, 20, 90);
+                        // Q27-Q34: 90 read 7-9 deg below LL-Back; toed forward like the right.
+                        .withRotation(0, 20, 84.5);
 
         @Getter
         final LimelightConfig rightConfig =

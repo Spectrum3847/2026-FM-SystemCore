@@ -175,9 +175,9 @@ public class Hood extends Mechanism {
         }
     }
 
-    // Must be called to enable the simulation
-    // if roller position changes configure x and y to set position.
-    // Simulation steps itself on spectrumLib SimLoop (200 Hz) since the offseason port.
+    // Must be called to enable the simulation.
+    // Set x and y when the roller position changes.
+    // Simulation steps itself on spectrumLib SimLoop (200 Hz).
 
     class HoodSim extends ArmSim {
         public HoodSim(Mechanism2d mech, TalonFX armMotorSim) {

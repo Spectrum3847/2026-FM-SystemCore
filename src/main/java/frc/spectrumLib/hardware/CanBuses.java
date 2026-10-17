@@ -31,7 +31,7 @@ public final class CanBuses {
      * the SystemCore's native ports instead (see {@link #DRIVETRAIN}, {@link #SHOOTER}, {@link
      * #MECHANISMS}); no {@code "*"} bus is ever opened.
      */
-    public static final boolean USE_CANIVORE = false;
+    public static final boolean USE_CANIVORE = true;
 
     /** The first CANivore found. */
     public static final String CANIVORE = "*";

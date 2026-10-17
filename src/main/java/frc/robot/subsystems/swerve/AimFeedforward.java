@@ -20,8 +20,8 @@ public final class AimFeedforward {
 
     /**
      * Largest feedforward handed to the request, rad/s. 2910 clamps theirs to the same +/-2 rad/s
-     * so a noisy derivative (a vision correction, a pose reset) cannot whip the robot round. For
-     * scale: strafing at 1 m/s past the hub at 1.5 m needs 0.67 rad/s.
+     * so a noisy derivative (a vision correction, a pose reset) cannot make the robot turn
+     * abruptly. For scale: strafing at 1 m/s past the hub at 1.5 m needs 0.67 rad/s.
      */
     public static final double MAX_RAD_PER_SEC = 2.0;
 

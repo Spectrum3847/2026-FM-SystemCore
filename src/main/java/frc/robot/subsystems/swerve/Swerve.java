@@ -151,7 +151,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
             double ctreTimestamp, Rotation2d rawHeading, SwerveModulePosition[] positions) {}
 
     /**
-     * Samples waiting for the main loop. 250 Hz is two or three per 10 ms loop; 64 rides out a loop
+     * Samples waiting for the main loop. 250 Hz is two or three per 10 ms loop; 64 covers a loop
      * stall of a quarter second. When full, the oldest sample is the one lost.
      */
     private final ArrayBlockingQueue<OdometrySample> odometryQueue = new ArrayBlockingQueue<>(64);
@@ -564,7 +564,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
      *
      * <p>From the offseason branch: in the 2026-09-19 Chezy P8 match the CANivore bus died
      * mid-teleop and the eight drivetrain motors left no direct evidence at all; the failure had to
-     * be read off their currents at 10 Hz. These ride the same 10 Hz refresh as the currents.
+     * be read off their currents at 10 Hz. These use the same 10 Hz refresh as the currents.
      */
     private String[] moduleConnectedKeys = new String[0];
 

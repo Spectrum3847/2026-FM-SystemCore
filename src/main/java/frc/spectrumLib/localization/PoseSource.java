@@ -39,7 +39,7 @@ public class PoseSource {
     private final LoggedNetworkBoolean enabled;
     private final String logPrefix;
 
-    // Log keys, built once: 14 sources times a dozen keys was a lot of string building per loop.
+    // Built once, so no string concatenation runs per loop.
     private final String acceptedPosesKey;
     private final String rejectedPosesKey;
     private final String verdictsKey;

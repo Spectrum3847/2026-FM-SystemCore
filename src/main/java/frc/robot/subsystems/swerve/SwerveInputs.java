@@ -9,12 +9,12 @@ import org.wpilib.math.kinematics.SwerveModuleVelocity;
 /**
  * Everything the drivetrain reads from CTRE in one loop, as an AdvantageKit input.
  *
- * <p>The CTRE {@code SwerveDrivetrain} keeps doing what it does best -- a 250 Hz odometry thread
- * and the swerve requests -- but none of the robot's logic reads its pose directly. Instead, every
- * odometry sample it produced since the last loop is queued off its thread and recorded here, and
- * {@link frc.spectrumLib.localization.PoseFusion} integrates them on the main loop. That is what
- * makes the robot pose replayable: in replay these arrays come back from the log, the fusion
- * re-runs over them, and every vision gate sees the same pose it saw on the field.
+ * <p>The CTRE {@code SwerveDrivetrain} still runs a 250 Hz odometry thread and the swerve requests.
+ * None of the robot's logic reads its pose directly. Instead, every odometry sample it produced
+ * since the last loop is queued off its thread and recorded here, and {@link
+ * frc.spectrumLib.localization.PoseFusion} integrates them on the main loop. That is what makes the
+ * robot pose replayable: in replay these arrays come back from the log, the fusion re-runs over
+ * them, and every vision gate sees the same pose it saw on the field.
  *
  * <p>Odometry samples are stored flattened: module {@code m} of sample {@code s} is at index {@code
  * s * 4 + m}.

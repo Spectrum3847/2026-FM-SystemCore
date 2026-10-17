@@ -1,0 +1,41 @@
+# This is a basic workflow to build robot code.
+
+name: CI
+
+# Triggers on push to main, and on ANY pull request regardless of target branch.
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # WPILib SystemCore cross-compile container (Debian trixie, Java 25)
+    container: wpilib/systemcore-cross-debian:trixie
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Declares the repository safe and not under dubious ownership.
+      - name: Add repository to git safe directories
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      # Grant execute permission for gradlew
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # Check Java formatting (Spotless)
+      - name: Check Java formatting (Spotless)
+        run: ./gradlew spotlessCheck
+
+      # Runs a single command using the runners shell
+      - name: Compile and run tests on robot code
+        run: ./gradlew build

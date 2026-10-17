@@ -191,5 +191,13 @@ src/main/java/frc/robot/BuildConstants.java
 # AdvantageKit replay output
 *_sim.wpilog
 
+# Robot logs, match logs, Limelight Rewind clips, and other logs pulled off the robot
+robotlogs/
+*.wpilog
+*.hoot
+*.mp4
+*.avi
+*.rwnd
+
 # Python
 __pycache__/

@@ -60,12 +60,6 @@ public class RollerConfig {
         rollerDiameterInches = diameterInches;
     }
 
-    /**
-     * Sets the gear ratio between the motor and the roller output shaft.
-     *
-     * @param ratio gear ratio (motor rotations per roller rotation)
-     * @return this config for chaining
-     */
     /** True when the sim geometry travels opposite the motor's positive direction. */
     @Getter private boolean reversedLinkage = false;
 

@@ -1,6 +1,6 @@
 # The shot log
 
-One row per volley, so a practice session is a dataset instead of a memory. Ported from the
+One row per volley, so a practice session produces a table of shots. Ported from the
 offseason bot's shot record (2026-Spectrum `2026-offseason-bot` eb2d86e, `docs/tools/shot-log.md`
 there), extended with FM's shot gate and the pose's trust. Written by
 [ShotLog](../src/main/java/frc/robot/subsystems/ShotLog.java), called from `SuperStructure`.
@@ -19,7 +19,7 @@ written under `ShotLog/End/`, joined to its row by index.
 
 AdvantageKit records a value only when it changes, so a key that is the same as the last shot's
 has no record at this shot's time. **Read a row as each key's last value at or before the row's
-`ShotLog/Index` record**; `tools/shot_log.py` does exactly that.
+`ShotLog/Index` record**. `tools/shot_log.py` does this.
 
 ## `ShotLog/*`, one row per volley
 

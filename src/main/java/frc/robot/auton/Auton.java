@@ -123,9 +123,7 @@ public class Auton {
                         SpectrumAuton("2nd-TBTB 1", mirrored),
                         launch(),
                         SpectrumAuton("2nd-TBTB 2", mirrored))
-                // the "- Right" and "- Left" is added to the name of the command so that when the
-                // visualizer checks the name of the command it can determine whether the auto is
-                // mirrored or not and correctly mirror the poses
+                // The "- Right" or "- Left" suffix tells the visualizer to mirror the poses.
                 .withName("2nd-TBTB Full - " + (mirrored ? "Right" : "Left"));
     }
 
@@ -135,9 +133,7 @@ public class Auton {
                         SpectrumAuton("2nd-BBD 1", mirrored),
                         launch(),
                         SpectrumAuton("2nd-BBD 2", mirrored))
-                // the "- Right" and "- Left" is added to the name of the command so that when the
-                // visualizer checks the name of the command it can determine whether the auto is
-                // mirrored or not and correctly mirror the poses
+                // The "- Right" or "- Left" suffix tells the visualizer to mirror the poses.
                 .withName("2nd-BBD Full - " + (mirrored ? "Right" : "Left"));
     }
 
@@ -148,9 +144,7 @@ public class Auton {
                         SpectrumAuton("Option TBT 2", mirrored),
                         launch(),
                         SpectrumAuton("Option TBT 3", mirrored))
-                // the "- Right" and "- Left" is added to the name of the command so that when the
-                // visualizer checks the name of the command it can determine whether the auto is
-                // mirrored or not and correctly mirror the poses
+                // The "- Right" or "- Left" suffix tells the visualizer to mirror the poses.
                 .withName("Option TBT Full - " + (mirrored ? "Right" : "Left"));
     }
 
@@ -161,9 +155,7 @@ public class Auton {
                         SpectrumAuton("Option BBB 2", mirrored),
                         launch(),
                         SpectrumAuton("Option BBB 3", mirrored))
-                // the "- Right" and "- Left" is added to the name of the command so that when the
-                // visualizer checks the name of the command it can determine whether the auto is
-                // mirrored or not and correctly mirror the poses
+                // The "- Right" or "- Left" suffix tells the visualizer to mirror the poses.
                 .withName("Option BBB Full - " + (mirrored ? "Right" : "Left"));
     }
 
@@ -174,9 +166,7 @@ public class Auton {
                         SpectrumAuton("TBTB 2", mirrored),
                         launch(),
                         SpectrumAuton("TBTB 3", mirrored))
-                // the "- Right" and "- Left" is added to the name of the command so that when the
-                // visualizer checks the name of the command it can determine whether the auto is
-                // mirrored or not and correctly mirror the poses
+                // The "- Right" or "- Left" suffix tells the visualizer to mirror the poses.
                 .withName("TBTB Full - " + (mirrored ? "Right" : "Left"));
     }
 
@@ -187,9 +177,7 @@ public class Auton {
                         SpectrumAuton("TBTT 2", mirrored),
                         launch(),
                         SpectrumAuton("TBTT 3", mirrored))
-                // the "- Right" and "- Left" is added to the name of the command so that when the
-                // visualizer checks the name of the command it can determine whether the auto is
-                // mirrored or not and correctly mirror the poses
+                // The "- Right" or "- Left" suffix tells the visualizer to mirror the poses.
                 .withName("TBTT Full - " + (mirrored ? "Right" : "Left"));
     }
 
@@ -200,9 +188,7 @@ public class Auton {
                         SpectrumAuton("TTTT 2", mirrored),
                         launch(),
                         SpectrumAuton("TTTT 3", mirrored))
-                // the "- Right" and "- Left" is added to the name of the command so that when the
-                // visualizer checks the name of the command it can determine whether the auto is
-                // mirrored or not and correctly mirror the poses
+                // The "- Right" or "- Left" suffix tells the visualizer to mirror the poses.
                 .withName("TTTT Full - " + (mirrored ? "Right" : "Left"));
     }
 
@@ -212,9 +198,7 @@ public class Auton {
                         launch(),
                         SpectrumAuton("BBBB 2", mirrored),
                         launch())
-                // the "- Right" and "- Left" is added to the name of the command so that when the
-                // visualizer checks the name of the command it can determine whether the auto is
-                // mirrored or not and correctly mirror the poses
+                // The "- Right" or "- Left" suffix tells the visualizer to mirror the poses.
                 .withName("BBBB Full - " + (mirrored ? "Right" : "Left"));
     }
 
@@ -242,21 +226,18 @@ public class Auton {
     }
 
     /**
-     * Retrieves the autonomous command selected on the shuffleboard.
+     * Retrieves the autonomous command selected on the dashboard.
      *
      * @return the selected autonomous command if one is chosen; otherwise, returns a PrintCommand
      *     indicating that the autonomous command is null.
      */
     public Command getAutonomousCommand() {
-        Command auton = pathChooser.get(); // sees what auto is chosen on shuffleboard
+        Command auton = pathChooser.get();
         if (auton != null) {
-            return auton; // checks to make sure there is an auto and if there is it runs an auto
+            return auton;
         } else {
-            return new PrintCommand(
-                    "*** AUTON COMMAND IS NULL ***"); // runs if there is no auto chosen, which
-            // shouldn't happen because of the default
-            // auto set to nothing which still runs
-            // something
+            // Not expected: the chooser's default option is a real command.
+            return new PrintCommand("*** AUTON COMMAND IS NULL ***");
         }
     }
 
@@ -266,7 +247,7 @@ public class Auton {
         autoMessagePrinted = false;
     }
 
-    /** Called at AutonExit and displays the duration of the auton command Based on 6328 code */
+    /** Called at AutonExit. Displays the duration of the auton command. Based on 6328 code. */
     public void printAutoDuration() {
         Command autoCommand = getAutonomousCommand();
         if (autoCommand != null) {

@@ -54,7 +54,7 @@ public class SystemLoadMonitor {
         return frc.spectrumLib.framework.RobotLoop.periodSeconds() * 1000.0 * LOOP_OVERRUN_FACTOR;
     }
 
-    /** Share of overrunning loops that starts the loop alert clock. */
+    /** Share of overrunning loops that starts the loop alert timer. */
     public static final double LOOP_OVERRUN_ALERT_PERCENT = 50.0;
 
     /** Share of overrunning loops below which the loop alert clears. */
@@ -300,10 +300,10 @@ public class SystemLoadMonitor {
 
     /**
      * Logs the busiest threads of this program over the last sample as {@code "name 12.3%"}
-     * (percent of one core), from {@code /proc/self/task}, so native threads -- Phoenix's CAN and
-     * odometry threads, NetworkTables, the HAL -- are counted as well as Java ones. On the
-     * SystemCore bench unit the program used ~1.4 cores while its main loop used 0.17; this is how
-     * to see where the rest goes.
+     * (percent of one core), from {@code /proc/self/task}. Native threads, such as Phoenix's CAN
+     * and odometry threads, NetworkTables, and the HAL, are counted as well as Java ones. On the
+     * SystemCore bench unit the program used ~1.4 cores while its main loop used 0.17. This shows
+     * where the rest goes.
      */
     private String[] readTopThreads(double wallNanos) {
         java.io.File[] tasks = new java.io.File("/proc/self/task").listFiles();

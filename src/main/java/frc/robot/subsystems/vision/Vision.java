@@ -84,32 +84,35 @@ public class Vision implements Subsystem {
     public static class VisionConfig {
         @Getter final String name = "Vision";
 
-        // -- Limelights (FM, from 2026 main) ----------------------------------
+        // -- Limelights ---------------------------------------------------------
+        //
+        // Web UI convention: forward, right, up; pitch positive up; yaw positive clockwise.
+        // Left and right positions are from CAD (Camera Pose feature), the back camera's from its
+        // flash. Pitch and yaw were solved from TXMAN1 Q13 rewinds against the fused pose.
 
         @Getter
         final LimelightConfig backConfig =
                 new LimelightConfig("limelight-back")
-                        .withTranslation(-0.3084987734, 0.2134100126, 0.6502249886)
-                        .withRotation(0, 0, 180);
+                        .withTranslation(-0.3318, 0.0, 0.4465)
+                        .withRotation(0, 13.5, 177);
 
         @Getter
         final LimelightConfig leftConfig =
                 new LimelightConfig("limelight-left")
-                        .withTranslation(0, 0.215, 0.188)
-                        .withRotation(0, 0, 90);
+                        .withTranslation(0.0079, -0.3350, 0.5007)
+                        .withRotation(0, 20, -90);
 
         @Getter
         final LimelightConfig rightConfig =
                 new LimelightConfig("limelight-right")
-                        .withTranslation(-0.04445, 0.3027487722, 0.7137249886)
-                        .withRotation(0, 0, -90);
+                        .withTranslation(0.0084, 0.3337, 0.5004)
+                        .withRotation(0, 20, 84.5);
 
         /**
-         * Whether to push the mounts above to the cameras. Off: FM's 2026 code never pushed them,
-         * so the values in each camera's flash are the ones that were validated all season and the
-         * values above are unverified. Turn on once they have been checked against the web UI.
+         * Whether to push the mounts above to the cameras, so a reflashed or swapped camera still
+         * gets the right mount.
          */
-        @Getter final boolean pushLimelightMounts = false;
+        @Getter final boolean pushLimelightMounts = true;
 
         @Getter final int tagPipeline = 0;
 
@@ -117,9 +120,9 @@ public class Vision implements Subsystem {
         //
         // The SystemCore image runs the Limelight vision stack for cameras plugged into it,
         // publishing them as limelightsc0/1/2 and reading MegaTag2 orientation from
-        // limelightshared. It only ever connects to 127.0.0.1:5810 -- which, with FM's code
-        // running on the SystemCore, is this program (see Spectrum3847/SystemCoreVision; the
-        // NT bridge that repo provides is only needed when a roboRIO is the controller).
+        // limelightshared. It only ever connects to 127.0.0.1:5810. With FM's code running on the
+        // SystemCore, that address is this program (see Spectrum3847/SystemCoreVision; the NT
+        // bridge that repo provides is only needed when a roboRIO is the controller).
 
         @Getter
         final LimelightConfig[] systemCoreCameras = {
@@ -137,41 +140,33 @@ public class Vision implements Subsystem {
         // -- Orin / PhotonVision on the Jetson (issue #10) ------------------------
 
         /**
-         * Camera names in PhotonVision. The Jetson names each camera after the USB port it is
-         * plugged into: TopLeft = 2.1, TopRight = 2.3, BottomLeft = 2.2, BottomRight = 2.4.
+         * Camera names in PhotonVision. FM's Jetson has two cameras; add a name, mount, installed
+         * flag and factor to run another.
          */
-        @Getter
-        final String[] orinCameraNames = {"TopLeft", "TopRight", "BottomLeft", "BottomRight"};
+        @Getter final String[] orinCameraNames = {"orin-left", "orin-right"};
+
+        /** Which cameras are plugged in. Only these raise camera alerts. */
+        @Getter final boolean[] orinCameraInstalled = {true, true};
 
         /**
-         * Which cameras are plugged in. Only these raise camera alerts; the others still run, so
-         * plugging one in needs no code change beyond this flag.
-         */
-        @Getter final boolean[] orinCameraInstalled = {true, true, false, false};
-
-        /**
-         * Camera mounts, robot frame (x fwd, y left, z up; negative pitch tilts up). CALIBRATE:
-         * placeholders. Height, pitch and roll can be read off the Jetson's mount estimate ({@code
-         * Vision/Orin/<camera>/Mount/*}) with the robot on the field and 2+ tags in view.
+         * Camera mounts, robot frame (x fwd, y left, z up; negative pitch tilts up). Position from
+         * CAD. Pitch, and orin-right's yaw, solved from TXMAN1 logs (Q13: 1318 multi-tag frames);
+         * the right bracket is toed 5.5 deg forward, as limelight-right's solve also shows. The
+         * Jetson's mount estimate ({@code Vision/Orin/<camera>/Mount/*}) checks height, pitch and
+         * roll.
          */
         @Getter
         final Transform3d[] orinRobotToCamera = {
             new Transform3d(
-                    new Translation3d(0.30, 0.15, 0.25),
-                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(20))),
+                    new Translation3d(0.0836, 0.3231, 0.4883),
+                    new Rotation3d(0, Units.degreesToRadians(-18), Units.degreesToRadians(90))),
             new Transform3d(
-                    new Translation3d(0.30, -0.15, 0.25),
-                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(-20))),
-            new Transform3d(
-                    new Translation3d(-0.30, 0.15, 0.25),
-                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(160))),
-            new Transform3d(
-                    new Translation3d(-0.30, -0.15, 0.25),
-                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(-160)))
+                    new Translation3d(0.0836, -0.3231, 0.4883),
+                    new Rotation3d(0, Units.degreesToRadians(-18), Units.degreesToRadians(-84.5)))
         };
 
         /** Per-camera std-dev multiplier (6328's camera factor); 1 until logs say otherwise. */
-        @Getter final double[] orinCameraFactors = {1.0, 1.0, 1.0, 1.0};
+        @Getter final double[] orinCameraFactors = {1.0, 1.0};
 
         /** The Jetson's image size, for the image-edge std-dev scaling. */
         @Getter final int orinImageWidth = 1280;
@@ -216,9 +211,8 @@ public class Vision implements Subsystem {
         /**
          * Consecutive seeding frames in which the best Limelight must have seeded the pose from two
          * or more tags, with its heading holding within {@link #seedConfirmSpreadDeg}, before the
-         * seed counts as confirmed. About a second at Limelight frame rates. (2026 counted loops
-         * and re-read the same frame each loop; frames are now reported once, so this counts frames
-         * and loops without a new frame neither extend nor break the run.)
+         * seed counts as confirmed. About a second at Limelight frame rates. This counts frames,
+         * not loops: a loop with no new frame neither extends nor breaks the run.
          */
         @Getter final int seedConfirmLoops = 50;
 
@@ -230,11 +224,11 @@ public class Vision implements Subsystem {
         @Getter final double seedConfirmSpreadDeg = 3.0;
 
         /**
-         * Gross heading correction while enabled. 20 deg sits clear of two-tag MegaTag1 heading
-         * noise (15 deg tail) while staying far below the 90 and 180 deg boot-heading errors this
-         * exists to catch. See the offseason {@code Vision.VisionConfig} for the log evidence.
+         * Gross heading correction while enabled. 10 deg sits above the 5 to 8 deg that one
+         * camera's mount error can show. A single two-tag frame can read 15 deg off, so every
+         * multi-tag frame across the hold must be past the threshold.
          */
-        @Getter final double grossHeadingErrorDeg = 20.0;
+        @Getter final double grossHeadingErrorDeg = 10.0;
 
         @Getter final double grossHeadingHoldSeconds = 1.0;
         @Getter final double grossHeadingMaxLinearSpeed = 0.2; // m/s
@@ -321,7 +315,7 @@ public class Vision implements Subsystem {
         this.config = config;
         this.swerve = swerve;
         this.fusion = swerve.getPoseFusion();
-        // Must match the Jetson's layout (2026 Rebuilt AndyMark) and the event field (#10, sec. 5).
+        // Must match the Jetson's and Limelights' layout and the event field (#10, sec. 5).
         tagLayout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltAndymark);
 
         boolean sim = Constants.currentMode == Constants.Mode.SIM;
@@ -370,16 +364,15 @@ public class Vision implements Subsystem {
             jetsonCameras.add(new Jetson.Camera(name, io, mount, config.orinCameraInstalled[i]));
             orinSources.add(
                     new PoseSource(
-                            "Orin-" + name,
+                            orinSourceName(name),
                             io,
                             VisionGates.orinGates(this::secondsSinceAutoStart),
                             VisionGates.ORIN_MODEL,
-                            false));
+                            true));
             for (OrinGyroSourceIO.Mode mode : OrinGyroSourceIO.Mode.values()) {
                 orinGyroSources.add(
                         new PoseSource(
-                                "Orin-"
-                                        + name
+                                orinSourceName(name)
                                         + (mode == OrinGyroSourceIO.Mode.TXTY ? "/TxTy" : "/Gyro"),
                                 new OrinGyroSourceIO(
                                         mode,
@@ -509,6 +502,12 @@ public class Vision implements Subsystem {
             return "LL-" + Character.toUpperCase(side.charAt(0)) + side.substring(1);
         }
         return name;
+    }
+
+    /** "orin-left" becomes "Orin-Left". */
+    private static String orinSourceName(String camera) {
+        String side = camera.startsWith("orin-") ? camera.substring("orin-".length()) : camera;
+        return "Orin-" + Character.toUpperCase(side.charAt(0)) + side.substring(1);
     }
 
     @Override
@@ -643,7 +642,7 @@ public class Vision implements Subsystem {
 
         // 3. Seed (disabled, or enabled with nothing seeded yet) and fuse (enabled).
         if (disabled) {
-            seedWhileDisabled();
+            seedWhileDisabled(context);
         } else {
             seedWhileEnabled(context);
         }
@@ -734,16 +733,6 @@ public class Vision implements Subsystem {
         return best;
     }
 
-    /** Whether any Limelight reported a MegaTag1 frame this loop. */
-    private boolean anyMt1Frames() {
-        for (PoseSource s : mt1Sources) {
-            if (!s.getResults().isEmpty()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /** The best Limelight's latest accepted MegaTag1 result this loop, or {@code null}. */
     private PoseSource.Result bestAcceptedMt1() {
         int best = bestLimelightIndex();
@@ -764,19 +753,19 @@ public class Vision implements Subsystem {
      * MegaTag1 only. MegaTag2 is deliberately not used here: it depends on the heading we push to
      * the camera, which is the very thing seeding is trying to fix.
      */
-    private void seedWhileDisabled() {
+    private void seedWhileDisabled(GateContext c) {
         PoseSource.Result best = bestAcceptedMt1();
         if (best == null) {
-            // A loop with no new frame from any camera is not evidence either way (the cameras run
-            // slower than the loop, and each frame is reported once); a loop whose frames were all
-            // rejected breaks the run.
-            if (anyMt1Frames()) {
-                seedConfirmStreak = 0;
-                Telemetry.log("Vision/SeedConfirmBreak", "Best frame rejected");
-            }
             return;
         }
         PoseObservation o = best.observation();
+        // A robot rolling after auto, or a single tag, can seed a heading many degrees off.
+        boolean still =
+                c.linearSpeed() <= config.grossHeadingMaxLinearSpeed
+                        && Math.abs(c.robotVelocity().omega) <= config.grossHeadingMaxOmega;
+        if (!still || !o.multiTag()) {
+            return;
+        }
         fusion.seed(
                 o.pose2d(),
                 o.timestampSeconds(),
@@ -801,7 +790,7 @@ public class Vision implements Subsystem {
      * <p>Seeding takes the first multi-tag MegaTag1 solve from the best Limelight while the robot
      * is slow enough for the gross-heading net ({@link VisionConfig#grossHeadingMaxLinearSpeed},
      * {@link VisionConfig#grossHeadingMaxOmega}). Single-tag headings are where the large MegaTag1
-     * heading errors come from, and a wrong seed while enabled aims wrong with confidence.
+     * heading errors come from, and a wrong seed taken while enabled gives confident, wrong aims.
      * Confirmation (which lets the chassis cameras move on to MegaTag2) is stricter than the
      * disabled version: each counted frame's heading must also agree with the fused heading.
      */
@@ -811,9 +800,6 @@ public class Vision implements Subsystem {
         }
         PoseSource.Result best = bestAcceptedMt1();
         if (best == null) {
-            if (poseHeadingSeeded && anyMt1Frames()) {
-                seedConfirmStreak = 0;
-            }
             return;
         }
         PoseObservation o = best.observation();
@@ -840,6 +826,9 @@ public class Vision implements Subsystem {
                     PrintPriority.HIGH);
             return;
         }
+        if (!o.multiTag()) {
+            return;
+        }
         double errorDeg =
                 o.pose2d().getRotation().minus(headingAt(o.timestampSeconds())).getDegrees();
         if (Math.abs(errorDeg) <= config.seedConfirmSpreadDeg) {
@@ -861,8 +850,6 @@ public class Vision implements Subsystem {
             return;
         }
         if (!o.multiTag()) {
-            seedConfirmStreak = 0;
-            Telemetry.log("Vision/SeedConfirmBreak", "Single tag");
             return;
         }
         Rotation2d heading = o.pose2d().getRotation();
@@ -906,7 +893,11 @@ public class Vision implements Subsystem {
         boolean still =
                 c.linearSpeed() <= config.grossHeadingMaxLinearSpeed
                         && Math.abs(c.robotVelocity().omega) <= config.grossHeadingMaxOmega;
-        if (best == null || !best.observation().multiTag() || !still) {
+        // Loops without a new multi-tag frame are common and do not break the hold.
+        if (best == null || !best.observation().multiTag()) {
+            return;
+        }
+        if (!still) {
             grossHeadingSince = Double.NaN;
             return;
         }
@@ -969,11 +960,11 @@ public class Vision implements Subsystem {
 
     /**
      * MegaTag2 needs the robot's heading every loop: it is written every loop, and one
-     * NetworkTables flush for all cameras sends it straight away every other loop, i.e. at 50 Hz --
+     * NetworkTables flush for all cameras sends it straight away every other loop, i.e. at 50 Hz,
      * the rate FM's 2026 code flushed at on the roboRIO. A flush makes the NT server send to every
-     * client, so at 100 Hz it was twice the traffic for a heading the cameras' own IMUs (IMU mode
-     * 1) already bridge between updates. The loops in between still go out at NT's normal update
-     * rate.
+     * client, so flushing every loop (100 Hz) would double the traffic for a heading the cameras'
+     * own IMUs (IMU mode 1) already bridge between updates. The loops in between still go out at
+     * NT's normal update rate.
      */
     private void pushHeadingToLimelights() {
         if (!Constants.hasHardware() || simVision != null) {
@@ -1111,15 +1102,27 @@ public class Vision implements Subsystem {
         return false;
     }
 
+    /** End of auto: auto's 20 s plus a few seconds either side. */
+    public static final double AUTO_REWIND_SECONDS = 25;
+
     /**
-     * Saves the last 165 s (the most a Limelight keeps) of each of FM's Limelights' rewind buffer:
-     * video plus every frame's results, reviewable frame by frame afterwards. Rewind is a Limelight
-     * 4 feature; the camera writes the capture to its own storage and manages that space itself.
+     * End of teleop: the most a Limelight keeps. Teleop's 140 s plus the gap after auto, so it also
+     * reaches back into the end of auto.
+     */
+    public static final double TELEOP_REWIND_SECONDS = 165;
+
+    /**
+     * Saves the last {@code seconds} of the rewind buffer of each FM Limelight: video plus every
+     * frame's results, reviewable frame by frame afterwards. Rewind is a Limelight 4 feature; the
+     * camera writes the capture to its own storage, which survives a power cycle (checked
+     * 2026-10-16), so the robot can be powered off after a match.
      *
      * <p>Not the SystemCore's own cameras: their "camera storage" is the robot controller's
      * internal disk, which {@link frc.spectrumLib.telemetry.LogStorage} is keeping free.
+     *
+     * @param seconds how much to save, at most 165
      */
-    public void triggerRewindCaptureForAllCameras() {
+    public void triggerRewindCaptureForAllCameras(double seconds) {
         if (!Constants.hasHardware() || simVision != null) {
             return;
         }
@@ -1127,7 +1130,7 @@ public class Vision implements Subsystem {
             if (limelight.getName().startsWith("limelightsc")) {
                 continue;
             }
-            LimelightHelpers.triggerRewindCapture(limelight.getName(), 165);
+            LimelightHelpers.triggerRewindCapture(limelight.getName(), seconds);
         }
     }
 

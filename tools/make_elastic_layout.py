@@ -16,7 +16,7 @@ Fits above the Driver Station: 14 columns by 6 rows (1792 x 768), the size the o
 layout settled on after its last two rows turned out to be hidden behind the DS window along the
 bottom of the same screen ("Fit the dashboard above the Driver Station", 2026-09-05). The check at
 the bottom asserts every widget is inside that grid and that none overlap, so nothing can drift
-back below the fold. To use a seventh row, change ROWS -- nothing else.
+back below the fold. To use a seventh row, change ROWS and nothing else.
 """
 
 import json
@@ -107,8 +107,8 @@ MECHANISMS = ["Hood", "Launcher", "FuelIntake", "IndexerBed", "IndexerTower",
               "IntakeExtension", "IntakeExtensionRight"]
 
 SOURCES = ["LL-Back/MT1", "LL-Back/MT2", "LL-Left/MT1", "LL-Left/MT2", "LL-Right/MT1",
-           "LL-Right/MT2", "SC0/MT1", "SC0/MT2", "SC1/MT1", "SC1/MT2", "Orin-TopLeft",
-           "Orin-TopRight", "Quest"]
+           "LL-Right/MT2", "SC0/MT1", "SC0/MT2", "SC1/MT1", "SC1/MT2", "Orin-Left",
+           "Orin-Right", "Quest"]
 
 # The main CAN bus follows CanBuses.USE_CANIVORE: the CANivore, or else the drivetrain's SystemCore
 # port (the busiest one). Rerun this script after flipping it.
@@ -208,8 +208,8 @@ for i, s in enumerate(SOURCES):
     ]
 localization += [
     light("Quest", out("Vision/Quest/Connected"), 8, 2),
-    light("Orin TopLeft", out("Vision/Orin-TopLeft/Connected"), 10, 2),
-    light("Orin TopRight", out("Vision/Orin-TopRight/Connected"), 8, 3),
+    light("Orin left", out("Vision/Orin-Left/Connected"), 10, 2),
+    light("Orin right", out("Vision/Orin-Right/Connected"), 8, 3),
     light("Jetson", out("Vision/Jetson/Connected"), 10, 3),
     light("LL Back", out("Vision/LL-Back/Connected"), 8, 4),
     light("LL Left", out("Vision/LL-Left/Connected"), 10, 4),

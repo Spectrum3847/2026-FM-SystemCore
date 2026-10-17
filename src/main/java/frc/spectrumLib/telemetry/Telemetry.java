@@ -15,9 +15,9 @@ import org.wpilib.util.struct.StructSerializable;
 /**
  * Telemetry and logging facade, backed by AdvantageKit.
  *
- * <p>In 2026 this class extended DogLog. On SystemCore it keeps the same static API -- {@code log},
+ * <p>In 2026 this class extended DogLog. On SystemCore it keeps the same static API ({@code log},
  * {@code logDash}, {@code logDashAlways}, {@code print}, {@code time}/{@code timeEnd}, {@code
- * slowLogThisLoop} -- so every existing call site compiles unchanged, but every value is now an
+ * slowLogThisLoop}), so every existing call site compiles unchanged. Every value is now an
  * AdvantageKit <em>output</em> ({@link Logger#recordOutput}). Outputs land in the same wpilog as
  * the replayed inputs, under {@code /RealOutputs/...} on the robot and {@code /ReplayOutputs/...}
  * in replay, so a replayed match regenerates every one of these keys from the code under test.
@@ -39,7 +39,7 @@ import org.wpilib.util.struct.StructSerializable;
  *   <li>{@link #logDash} / {@link #logDashAlways} record to the log and mark the key as a dashboard
  *       key, which {@link DashboardReceiver} also sends to NetworkTables. Only dashboard keys
  *       (these, and every key the Elastic layout reads) go to NT, unless the {@value
- *       #NT_MIRROR_SWITCH_KEY} switch is on -- the 2026 offseason rule, for the CPU it costs.
+ *       #NT_MIRROR_SWITCH_KEY} switch is on. That is the 2026 offseason rule, for the CPU it costs.
  *   <li>{@link #slowLogThisLoop()} is true at 10 Hz whatever the loop rate. Wrap logs that do not
  *       need loop-rate resolution (currents, temperatures, vision status) in it.
  * </ul>
@@ -57,8 +57,8 @@ public class Telemetry {
      * Priority levels for printing to the console.
      *
      * <ul>
-     *   <li>{@link #NORMAL} — only printed when the global priority is also {@code NORMAL}.
-     *   <li>{@link #HIGH} — always printed regardless of the global priority setting.
+     *   <li>{@link #NORMAL}: printed only when the global priority is also {@code NORMAL}.
+     *   <li>{@link #HIGH}: always printed, regardless of the global priority setting.
      * </ul>
      */
     public enum PrintPriority {
@@ -76,7 +76,7 @@ public class Telemetry {
 
     /**
      * Returns {@code true} on the loops the slow telemetry tier publishes on. Every caller in the
-     * same loop agrees, so related values land on the same records.
+     * same loop agrees, so related values are logged in the same cycle.
      *
      * @return whether slow-tier values should be logged this loop
      */
@@ -305,7 +305,6 @@ public class Telemetry {
 
     // ── Loop timers ──────────────────────────────────────────────────────────
 
-    /** Start times of open {@link #time} spans, in nanoseconds. */
     /** Start time per timer key; a one-element array so restarting a timer allocates nothing. */
     private static final Map<String, long[]> epochStartNanos = new HashMap<>();
 
@@ -345,10 +344,10 @@ public class Telemetry {
     private static final Map<String, java.util.List<String>> events = new HashMap<>();
 
     /**
-     * Logs a discrete event. AdvantageKit keeps one value per key per cycle, so logging two
-     * messages to the same key in one loop kept only the second -- two commands ending on the same
-     * loop, or two prints, lost one. Events are accumulated per loop and recorded as a string array
-     * holding every one of them.
+     * Logs a discrete event. AdvantageKit keeps one value per key per cycle. Logging two messages
+     * to the same key in one loop kept only the second, so two commands ending in the same loop, or
+     * two prints, lost one. Events are accumulated per loop and recorded as a string array holding
+     * all of them.
      *
      * @param key the log key
      * @param message the event

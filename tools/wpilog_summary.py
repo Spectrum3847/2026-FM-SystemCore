@@ -92,6 +92,10 @@ def _decode(typ, payload):
         return struct.unpack("<3d", payload)
     if typ == "struct:Pose2d[]":
         return [struct.unpack_from("<3d", payload, i) for i in range(0, len(payload), 24)]
+    if typ == "struct:Pose3d":
+        return struct.unpack("<7d", payload)  # x, y, z, qw, qx, qy, qz
+    if typ == "struct:Pose3d[]":
+        return [struct.unpack_from("<7d", payload, i) for i in range(0, len(payload), 56)]
     return None
 
 
@@ -146,7 +150,7 @@ def main():
         top = ", ".join(f"{r} x{c}" for r, c in rejections.most_common(3))
         print(f"{s:<16}{total:>8}{accepted:>10}{fused_loops:>7}{fe:>13}{se:>14}  {top}")
 
-    for key in ("FusedErrorVsTruthMeters", "OdometryErrorVsTruthMeters"):
+    for key in ("FusedErrorVsTruthMeters", "EKF/ErrorVsTruthMeters", "OdometryErrorVsTruthMeters"):
         vals = [v for _, v in series(records, types, "Localization/" + key) if v is not None]
         if vals:
             print(f"{key}: mean {statistics.mean(vals):.3f} m, max {max(vals):.3f} m, final {vals[-1]:.3f} m")

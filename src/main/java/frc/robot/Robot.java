@@ -942,10 +942,11 @@ public class Robot extends SpectrumRobot {
 
     @Override
     public void autonomousExit() {
-        // The Limelight rewind buffer holds 165 s, less than auto plus teleop, so each period is
+        // The Limelight rewind buffer holds 165 s, about auto plus teleop, so each period is
         // captured as it ends (10183 found the teleop-only capture missed auto at Summer Scorcher).
+        // Auto's capture is short, or it is mostly pre-match disabled time.
         if (RobotState.isFMSAttached()) {
-            vision.triggerRewindCaptureForAllCameras();
+            vision.triggerRewindCaptureForAllCameras(Vision.AUTO_REWIND_SECONDS);
         }
         auton.exit();
         Telemetry.print("@@@ Auton Exit @@@ ");
@@ -970,7 +971,7 @@ public class Robot extends SpectrumRobot {
     @Override
     public void teleopExit() {
         if (RobotState.isFMSAttached()) {
-            vision.triggerRewindCaptureForAllCameras();
+            vision.triggerRewindCaptureForAllCameras(Vision.TELEOP_REWIND_SECONDS);
         }
         Telemetry.print("!!! Teleop Exit !!! ");
     }

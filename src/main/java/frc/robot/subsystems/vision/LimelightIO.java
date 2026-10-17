@@ -46,6 +46,7 @@ public class LimelightIO implements PoseSourceIO {
         inputs.connected = limelight.isCameraConnected();
         List<PoseObservation> observations = new ArrayList<>(1);
         int[] tagIds = new int[0];
+        double[] fiducialData = new double[0];
         double latencyMs = Double.NaN;
 
         if (limelight.isAttached() && limelight.targetInView()) {
@@ -80,6 +81,10 @@ public class LimelightIO implements PoseSourceIO {
                         maxAmbiguity = Math.max(maxAmbiguity, fiducials[i].ambiguity);
                         tagIds[i] = fiducials[i].id;
                     }
+                    // MT1 and MT2 see the same tags; log them once.
+                    if (kind == Kind.LIMELIGHT_MT1) {
+                        fiducialData = packFiducials(fiducials);
+                    }
                 }
                 observations.add(
                         new PoseObservation(
@@ -100,7 +105,22 @@ public class LimelightIO implements PoseSourceIO {
             inputs.set(i, observations.get(i));
         }
         inputs.tagIds = tagIds;
+        inputs.fiducials = fiducialData;
         // [latency ms] of this loop's frame, NaN when there was none.
         inputs.health = new double[] {latencyMs};
+    }
+
+    private static double[] packFiducials(RawFiducial[] fiducials) {
+        int stride = PoseSourceInputs.FIDUCIAL_STRIDE;
+        double[] out = new double[fiducials.length * stride];
+        for (int i = 0; i < fiducials.length; i++) {
+            RawFiducial f = fiducials[i];
+            out[i * stride] = f.id;
+            out[i * stride + 1] = f.txnc;
+            out[i * stride + 2] = f.tync;
+            out[i * stride + 3] = f.distToCamera;
+            out[i * stride + 4] = f.ambiguity;
+        }
+        return out;
     }
 }

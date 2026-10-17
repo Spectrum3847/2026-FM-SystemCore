@@ -115,6 +115,11 @@ public class ShotCalculator {
      */
     private static final double MPS_FACTOR = 0.8;
 
+    /**
+     * Added to the hub range the model sees. TXMAN1 RR1: shots from 2-8 m landed about 1 ft long.
+     */
+    static final double HUB_DISTANCE_OFFSET_METERS = -0.305;
+
     /** Scale factor converting polynomial exit speed (m/s) to flywheel RPM. */
     private static final double RPM_PER_MPS = 255.0;
 
@@ -410,7 +415,7 @@ public class ShotCalculator {
      * @return {@code {hoodDegrees, flywheelRPM}}
      */
     static double[] setShotSolution(PolyModel model, double distanceMeters) {
-        double[] raw = evalPolyRaw(model, distanceMeters, 0.0);
+        double[] raw = evalPolyRaw(model, distanceMeters + HUB_DISTANCE_OFFSET_METERS, 0.0);
         double hoodDegrees = Math.max(90 - raw[1] + HOOD_ANGLE_OFFSET, 9);
         double rpm = raw[0] * MPS_FACTOR * RPM_PER_MPS;
         return new double[] {hoodDegrees, rpm};
@@ -529,7 +534,11 @@ public class ShotCalculator {
         // ── Polynomial + 1690 virtual-target solver ───────────────────────────
         // Returns: { exitSpeed_ms, launchAngle_deg, yawOffset_deg, virtualDist_m, tof_s }
         double[] poly =
-                solveVirtualTarget(model, distanceNoLookahead, radialVelocity, tangentialVelocity);
+                solveVirtualTarget(
+                        model,
+                        distanceNoLookahead + (feed ? 0 : HUB_DISTANCE_OFFSET_METERS),
+                        radialVelocity,
+                        tangentialVelocity);
         double exitSpeedMs = poly[0];
         double rawHoodAngle = 90 - poly[1]; // degrees, before HOOD_ANGLE_OFFSET
         double yawOffsetDeg = poly[2];

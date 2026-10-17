@@ -748,12 +748,17 @@ function renderOutput() {
         output.hidden = true;
         return;
     }
-    blocked.textContent = '';
     // Modules that were not captured keep the offset they already have.
     const offsets = MODULES.map((module) => {
         const result = state.capture.results.find((r) => r.key === module.key);
         return result ? resolvedOffset(result) : codeOffset(module.key);
     });
+    if (!offsets.every(Number.isFinite)) {
+        blocked.textContent = 'Waiting for the robot to report the offsets of the modules not captured.';
+        output.hidden = true;
+        return;
+    }
+    blocked.textContent = '';
     const line = `swerve.configEncoderOffsets(${offsets.join(', ')});`;
     const code = document.getElementById('paste-line');
     if (code.textContent !== line) code.textContent = line;

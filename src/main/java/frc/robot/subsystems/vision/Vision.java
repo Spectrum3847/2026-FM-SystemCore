@@ -136,7 +136,7 @@ public class Vision implements Subsystem {
         /** Table the SystemCore vision stack reads robot orientation from, for MegaTag2. */
         @Getter final String systemCoreSharedTable = "limelightshared";
 
-        // -- Orin / PhotonVision (CALIBRATE: placeholders until mounted) --------
+        // -- Orin / PhotonVision (CALIBRATE: orin-right is still a placeholder) --
 
         /**
          * Whether the robot reads the Orin's cameras. They are logged but fuse only when enabled on
@@ -149,9 +149,13 @@ public class Vision implements Subsystem {
 
         @Getter
         final Transform3d[] orinRobotToCamera = {
+            // Solved from TXMAN1 Q17 Jetson video against the fused pose (449 multi-tag frames).
             new Transform3d(
-                    new Translation3d(0.0, 0.30, 0.25),
-                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(90))),
+                    new Translation3d(0.11, 0.30, 0.48),
+                    new Rotation3d(
+                            Units.degreesToRadians(2),
+                            Units.degreesToRadians(-18),
+                            Units.degreesToRadians(85))),
             new Transform3d(
                     new Translation3d(0.0, -0.30, 0.25),
                     new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(-90)))

@@ -52,13 +52,9 @@ public class TalonFXFactory {
     }
 
     /**
-     * Creates a TalonFX and applies the supplied configuration, retried at boot and then in the
-     * background until it applies ({@link CanConfigRetry}).
+     * Creates a TalonFX and applies the configuration through {@link CanConfigRetry}.
      *
-     * @param name the mechanism or motor name, for the not-applied alert and log keys
-     * @param id CAN device identifier
-     * @param config The {@link TalonFXConfiguration} to apply
-     * @return the configured TalonFX
+     * @param name for the not-applied alert and log keys
      */
     public static TalonFX createConfigTalon(
             String name, CanDeviceId id, TalonFXConfiguration config) {
@@ -67,16 +63,7 @@ public class TalonFXFactory {
         return talon;
     }
 
-    /**
-     * Applies a configuration during robot init through {@link CanConfigRetry}: retried while the
-     * boot budget allows, then in the background until it applies, and re-applied if the motor
-     * resets. A snapshot of {@code config} is applied, so later edits to it need another call.
-     *
-     * @param name the mechanism or motor name, for the alert and log keys
-     * @param talon the motor
-     * @param config the configuration
-     * @return the motor's config entry
-     */
+    /** Applies a snapshot of {@code config}, so later edits to it need another call. */
     public static CanConfigRetry.Entry applyConfigAtBoot(
             String name, TalonFX talon, TalonFXConfiguration config) {
         TalonFXConfiguration snapshot = config.clone();
@@ -90,16 +77,7 @@ public class TalonFXFactory {
                 timeout -> talon.getConfigurator().apply(snapshot, timeout));
     }
 
-    /**
-     * Hands a changed configuration to {@link CanConfigRetry}'s background thread, which applies it
-     * within a tenth of a second and keeps retrying if it fails. Never blocks the caller, so it is
-     * safe from the real-time main loop. A snapshot of {@code config} is applied.
-     *
-     * @param name the mechanism or motor name
-     * @param talon the motor
-     * @param config the configuration
-     * @return the motor's config entry
-     */
+    /** Hands a snapshot of {@code config} to the retry thread. Never blocks the main loop. */
     public static CanConfigRetry.Entry requestConfig(
             String name, TalonFX talon, TalonFXConfiguration config) {
         TalonFXConfiguration snapshot = config.clone();
@@ -129,13 +107,9 @@ public class TalonFXFactory {
     }
 
     /**
-     * Follow the motor output of another Talon.
+     * Same, with a name for the not-applied alert and log keys.
      *
-     * @param name the follower's name, for the not-applied alert and log keys
-     * @param followerId Device ID of the follower.
-     * @param leaderTalonFX The leader TalonFX to follow.
-     * @param motorAlignment Aligned or Opposed to the leader's configured Invert; see {@link
-     *     #createPermanentFollowerTalon(CanDeviceId, TalonFX, MotorAlignmentValue)}.
+     * @param name the follower's name
      */
     public static TalonFX createPermanentFollowerTalon(
             String name,

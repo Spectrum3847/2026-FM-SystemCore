@@ -51,10 +51,6 @@ class LogStorageTest {
         return new LogStorage.LogFile(name, bytes, modified);
     }
 
-    /**
-     * SystemCore booted with its clock behind the old logs: this boot's log is stamped earliest, so
-     * it sorts oldest. Protected by name, it is skipped and the real oldest old log goes.
-     */
     @Test
     void neverDeletesThisBootsLogWhenTheClockIsBehind() {
         var logs =
@@ -69,7 +65,6 @@ class LogStorageTest {
                         logs, 1200, Long.MAX_VALUE, 0, 1, Set.of("current.wpilog"), NOW));
     }
 
-    /** Anything modified in the last few minutes is being written, protected or not. */
     @Test
     void neverDeletesARecentlyModifiedFile() {
         var logs =
@@ -82,7 +77,6 @@ class LogStorageTest {
                 LogStorage.selectForDeletion(logs, 0, Long.MAX_VALUE, 0, 0, Set.of(), NOW));
     }
 
-    /** Low disk: deletes oldest until the free floor is met, counting each deletion as freed. */
     @Test
     void deletesUntilTheFreeFloorIsMet() {
         var logs =
@@ -95,7 +89,6 @@ class LogStorageTest {
                 LogStorage.selectForDeletion(logs, Long.MAX_VALUE, 500, 1000, 0, Set.of(), NOW));
     }
 
-    /** Equal times sort by name, so the order is total even then. */
     @Test
     void equalTimesAreOrderedByName() {
         var logs = List.of(f("b.wpilog", 400, NOW - HOUR), f("a.wpilog", 400, NOW - HOUR));

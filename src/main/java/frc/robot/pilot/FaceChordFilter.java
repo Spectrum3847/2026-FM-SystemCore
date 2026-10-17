@@ -1,27 +1,11 @@
 package frc.robot.pilot;
 
 /**
- * Makes a bare face button (A = unjam, X = track target) wait {@link #SETTLE_SECONDS} before it
- * counts, so sloppy chord timing doesn't fire it for a loop or two. The LB chords (set shots) still
- * act at once.
+ * Makes bare A and X wait {@link #SETTLE_SECONDS} before they count, so a button pressed a cycle
+ * before LB, or let go a cycle after it, does not blip unjam or tracking. Chords act at once.
  *
- * <p>The cases this is for:
- *
- * <ul>
- *   <li>Letting go of LB + A with A a cycle late: without this, "A alone" asked for UNJAM for 10-20
- *       ms, jerking the indexer backwards as the shot ended. Now it goes straight to nothing
- *       (IDLE), and only an A still held after the settle time unjams.
- *   <li>Pressing A a cycle before LB: no unjam blip before the tower shot.
- *   <li>The same for X (track target) with the left-trench chord.
- * </ul>
- *
- * <p>While a bare button settles, the output stays on the previous bare answer if there was one (X
- * held, then A pressed: tracking continues until unjam takes over), and is {@link FaceChord#NONE}
- * otherwise. So letting go of LB with X still held is IDLE for the settle time, then tracking.
- *
- * <p>Time is the robot clock and the buttons are logged inputs, so this replays exactly. {@link
- * #update} may be called many times a loop (one trigger per answer polls it); only the first call
- * at a new timestamp advances it.
+ * <p>Uses the robot clock and logged inputs, so it replays exactly. Several triggers poll it each
+ * loop, so only the first call at a new timestamp advances it.
  */
 public final class FaceChordFilter {
     /** How long a bare face button must be held, without LB, before it counts. */
@@ -40,9 +24,7 @@ public final class FaceChordFilter {
     }
 
     /**
-     * The filtered answer for the buttons held now.
-     *
-     * @param nowSeconds robot time (the same value all loop)
+     * @param nowSeconds robot time
      * @param raw {@link FaceChord#of} for the buttons held now
      * @return what to act on
      */
@@ -52,7 +34,6 @@ public final class FaceChordFilter {
         }
         lastTime = nowSeconds;
         if (!bare(raw)) {
-            // Chords and "nothing" act at once.
             pending = FaceChord.NONE;
             output = raw;
             return output;

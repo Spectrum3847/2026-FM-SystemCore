@@ -37,13 +37,8 @@ public class Pilot extends Gamepad {
      * on the button, left thumb never leaves the drive stick). Teleop only. The offseason bot's
      * fourth, LB+Y from the hub face, is not here: FM cannot make that shot.
      *
-     * X and A are also bound bare (track target, unjam). All of these come from one function of the
-     * buttons held (FaceChord), so any press or release order lands in what the buttons now say:
-     * LB pressed with X held goes to the left-trench shot, LB let go with X still held goes back to
-     * tracking, everything let go goes to IDLE (anyFaceChord's falling edge). Bind only the rising
-     * edges of the individual triggers: exactly one of them is true at a time. Bare A and X only
-     * count after being held alone for 0.12 s (FaceChordFilter), so a button let go a cycle after
-     * LB, or pressed a cycle before it, does nothing.
+     * X and A are also bound bare (track target, unjam). Exactly one of these triggers is true at a
+     * time (FaceChord), so bind only rising edges.
      */
     public final Trigger setShotTower_LB_A = faceChord(FaceChord.SET_SHOT_TOWER);
     public final Trigger setShotLeftTrench_LB_X = faceChord(FaceChord.SET_SHOT_LEFT_TRENCH);
@@ -51,13 +46,12 @@ public class Pilot extends Gamepad {
     public final Trigger trackTarget_X = faceChord(FaceChord.TRACK_TARGET);
     public final Trigger unjam_A = faceChord(FaceChord.UNJAM);
 
-    /** Any of the above; its falling edge (every face button and chord let go) is IDLE. */
+    /** Any of the above; its falling edge is IDLE. */
     public final Trigger anyFaceChord = new Trigger(() -> faceChord() != FaceChord.NONE);
 
-    /** Bare A and X wait {@link FaceChordFilter#SETTLE_SECONDS} before they count. */
     private final FaceChordFilter faceChordFilter = new FaceChordFilter();
 
-    /** What LB and the face buttons ask for right now, after the bare-button settle time. */
+    /** What LB and the face buttons ask for, after the bare-button settle time. */
     public FaceChord faceChord() {
         return faceChordFilter.update(
                 org.wpilib.system.Timer.getTimestamp(),

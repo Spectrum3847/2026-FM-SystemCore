@@ -179,14 +179,10 @@ public class Robot extends SpectrumRobot {
                 // SystemCore): do not spend a minute timing out every device on it.
                 CanConfigBudget.exhaust("CANivore '" + CanBuses.CANIVORE + "' not found");
             }
-            // Nothing talking on the drivetrain bus (a bench controller, or every device
-            // unpowered) is decided in the Swerve constructor, once its devices exist and have
-            // been configured: see Swerve.anyDeviceAnswering(). Before that a bus with devices on
-            // it may still read zero utilization. Either shortcut only spends the boot budget;
-            // CanConfigRetry keeps retrying every config that did not apply.
+            // A silent drivetrain bus is detected in Swerve.anyDeviceAnswering(), once its devices
+            // exist. Before then a live bus can still read zero utilization.
             if (Constants.hasHardware()) {
-                // Its own thread, not the /proc sampler's: a getStatus() that hangs must not
-                // freeze the CPU and memory telemetry too (and the stale check below catches it).
+                // Its own thread, so a hung getStatus() cannot freeze the CPU and memory telemetry.
                 canStatus =
                         BackgroundSampler.every(
                                 "CanStatusSampler",
@@ -200,8 +196,6 @@ public class Robot extends SpectrumRobot {
                                 });
             }
 
-            // The Alliance Override chooser and alliance alerts: every alliance decision goes
-            // through AllianceSource.
             AllianceSource.init();
 
             pilot = new Pilot(config.pilot);
@@ -263,9 +257,7 @@ public class Robot extends SpectrumRobot {
             ShotCalculator.getInstance();
             if (Constants.hasHardware()) {
                 WebServer.start(5800, Filesystem.getDeployDirectory().getPath());
-                // Every device now exists and has had its boot attempts; from here on configs
-                // that did not apply, and devices that reset, are retried off the main thread.
-                // Started before the main thread goes real-time, so it does not inherit that.
+                // Before the main thread goes real-time, so this thread does not inherit it.
                 CanConfigRetry.INSTANCE.start();
             }
 
@@ -383,8 +375,7 @@ public class Robot extends SpectrumRobot {
                 // SystemCore's own storage. Without a stick /U/logs cannot be opened and the
                 // match is not logged at all.
                 String logFolder = LogStorage.chooseFolder();
-                // Old logs are trimmed here, before Logger.start() opens this boot's log, so the
-                // cleanup cannot delete it (the clock can boot behind the old logs' times).
+                // Before Logger.start(), so the cleanup cannot delete this boot's log.
                 LogStorage.cleanUpAtBoot();
                 Logger.addDataReceiver(new WPILOGWriter(logFolder));
                 Logger.recordMetadata("LogFolder", LogStorage.folder());
@@ -472,11 +463,8 @@ public class Robot extends SpectrumRobot {
 
         // Fixed shots: park at the spot, point the back at the hub, hold the chord. Hood and
         // flywheel from the spot's range, fed once they are there; no pose read, no aim checked.
-        // See ShotCalculator.SetShot. The chords, bare X (track target) and bare A (unjam) are one
-        // function of the buttons held (Pilot.faceChord / FaceChord): only one is true at a time,
-        // so only rising edges are bound, and IDLE only when all of them are let go. Separate
-        // onFalse bindings raced here: LB pressed with X held asked for the set shot and then,
-        // from X's "X and not LB" trigger falling, IDLE.
+        // See ShotCalculator.SetShot. Only one face chord is true at a time (FaceChord), so bind
+        // only rising edges, and go to IDLE only when all are let go.
         pilot.setShotTower_LB_A.onTrue(superStructure.setShotCommand(SetShot.TOWER));
         pilot.setShotLeftTrench_LB_X.onTrue(superStructure.setShotCommand(SetShot.LEFT_TRENCH));
         pilot.setShotRightTrench_LB_B.onTrue(superStructure.setShotCommand(SetShot.RIGHT_TRENCH));
@@ -613,18 +601,14 @@ public class Robot extends SpectrumRobot {
     private double lastCanStatusSeconds = Double.NEGATIVE_INFINITY;
 
     /**
-     * Every bus's status by log label, read once a second on its own {@link BackgroundSampler}
-     * thread: {@code getStatus()} can block for up to a millisecond, which on the real-time main
-     * thread is a late loop. Null off the robot.
+     * Every bus's status by log label, sampled off the main thread because {@code getStatus()} can
+     * block. Null off the robot.
      */
     private static BackgroundSampler.Latest<java.util.Map<String, CANBusStatus>> canStatus;
 
     private long lastCanStatusSequence = 0;
 
-    /**
-     * Seconds without a new status sample after which every bus is logged as not OK. The sampler
-     * reads once a second, so three missed reads.
-     */
+    /** Three missed once-a-second samples, after which every bus is logged as not OK. */
     private static final double CAN_STATUS_STALE_SECONDS = 3.0;
 
     /** When the status sample last advanced, or NaN before the first check. */
@@ -652,7 +636,6 @@ public class Robot extends SpectrumRobot {
             logCanStatusIfStale(now - lastCanStatusAdvanceSeconds);
         }
 
-        // Per-device config status and not-applied alerts (CanConfigRetry).
         CanConfigRetry.INSTANCE.periodic();
 
         Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds());
@@ -674,14 +657,8 @@ public class Robot extends SpectrumRobot {
     }
 
     /**
-     * Marks every bus not OK once the status sampler has stopped delivering.
-     *
-     * <p>Bus health is logged only when a new sample lands, and the log (and Elastic) keep the last
-     * value. If {@code getStatus()} hangs -- plausible exactly when a CANivore is misbehaving --
-     * the sampler thread stops, and every {@code StatusOK} light stays green for the rest of the
-     * match while nothing is being checked. After {@link #CAN_STATUS_STALE_SECONDS} without a
-     * sample each bus is logged as {@code StatusOK=false} with a stale status string, and an alert
-     * says the bus health is unknown.
+     * Marks every bus not OK once the sampler stops delivering. Otherwise a hung {@code
+     * getStatus()} would leave the last green {@code StatusOK} on the dashboard.
      *
      * @param ageSeconds seconds since the last new sample
      */
@@ -695,7 +672,7 @@ public class Robot extends SpectrumRobot {
             }
             canStatusStaleAlert.setText(
                     String.format(
-                            "CAN bus status not read for %.0f s (sampler stalled) -- bus health"
+                            "CAN bus status not read for %.0f s. The sampler stalled, so bus health is"
                                     + " unknown",
                             ageSeconds));
         }
@@ -800,8 +777,7 @@ public class Robot extends SpectrumRobot {
                     Telemetry.print("Could not load path planner paths");
                 }
 
-                // Flip the paths if on red alliance: the same AllianceSource answer PathPlanner's
-                // shouldFlip gives (Swerve), so the preview and start pose match the auto that
+                // Same answer as PathPlanner's shouldFlip, so the preview matches the auto that
                 // runs.
                 if (AllianceSource.isRed()) {
                     pathPlannerPaths =

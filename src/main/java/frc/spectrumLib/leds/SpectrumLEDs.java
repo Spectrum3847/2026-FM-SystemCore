@@ -280,8 +280,7 @@ public class SpectrumLEDs implements Subsystem {
                                             .withBrightnessScalar(config.getBrightness())
                                             .withLossOfSignalBehavior(
                                                     config.getLossOfSignalBehavior()));
-            // Retried at boot, then in the background until it applies. No alert: a CANdle on
-            // its flash config still lights, and the LEDs are not worth a HIGH alert.
+            // No alert: a CANdle on its flash config still lights.
             CanConfigRetry.INSTANCE.applyAtBoot(
                     "CANdle " + config.getDeviceId(),
                     candle,

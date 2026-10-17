@@ -30,10 +30,8 @@ public class MotorInputs implements LoggableInputs, Cloneable {
     public boolean[] followerConnected = new boolean[0];
 
     /**
-     * Whether the leader's {@code TalonFXConfiguration} is known to have reached it ({@code
-     * CanConfigRetry}). An input because it comes from the hardware side and decides whether a
-     * soft-limited position mechanism may drive; true by default so a log from before it existed
-     * replays as it ran.
+     * Whether the leader's config is known to have reached it. An input because it gates driving a
+     * soft-limited mechanism. True by default so older logs replay as they ran.
      */
     public boolean configApplied = true;
 

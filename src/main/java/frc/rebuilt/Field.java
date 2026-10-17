@@ -223,10 +223,7 @@ public class Field {
     @Getter public static final Translation3d blueHubCenter = BlueHub.topCenter;
     @Getter public static final Translation3d redHubCenter = BlueToRed(BlueHub.topCenter);
 
-    /**
-     * Returns {@code true} if the robot is on the blue alliance, as {@link AllianceSource} resolves
-     * it (override, DS, last known, or blue by default).
-     */
+    /** Whether the robot is on the blue alliance, as {@link AllianceSource} resolves it. */
     public static boolean isBlue() {
         return AllianceSource.isBlue();
     }

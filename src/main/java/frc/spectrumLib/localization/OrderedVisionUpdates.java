@@ -27,26 +27,17 @@ import org.wpilib.math.numbers.N3;
  * had they arrived in time order. It costs one extra estimator update per newer measurement, a
  * handful per loop at most.
  *
- * <p>Several measurements can share a timestamp, and they are all kept, in the order they were
- * added. The case that matters is seeding: {@code Vision} seeds with a MegaTag1 frame (tiny heading
- * std-dev) and the same frame, at the same capture time, can also arrive as an ordinary camera
- * measurement (heading std-dev {@code LARGE_VARIANCE}). The estimator composes the two -- its
- * {@code sampleAt} floor is inclusive, so the second builds on the first's correction and replaces
- * its entry. When this map held one measurement per timestamp, the second overwrote the seed here
- * too, and the next out-of-order redo re-applied only the camera frame: the seeded heading was
- * silently undone. Re-applying each timestamp's measurements in their original order reproduces the
- * estimator's composition exactly.
+ * <p>Measurements that share a timestamp are all kept, in the order added, because the estimator
+ * composes them. A seed and the same frame fused as a camera measurement share one capture time,
+ * and keeping only the second would undo the seeded heading on the next redo.
  */
 final class OrderedVisionUpdates {
     /** WPILib's pose estimator buffer (PoseEstimator.kBufferDuration). */
     static final double HISTORY_SECONDS = 1.5;
 
     /**
-     * Most timestamps kept. Pruning by odometry time keeps the map to {@link #HISTORY_SECONDS} of
-     * measurements -- a few hundred timestamps with every source running -- but if odometry stops
-     * (a stalled drivetrain thread) the cameras keep reporting and nothing ages out, so this bounds
-     * it. Pruning by the newest measurement time instead would let one bad future timestamp empty
-     * the map and keep it empty.
+     * Most timestamps kept, since nothing ages out if odometry stalls. Pruning by the newest
+     * measurement instead would let one bad future timestamp keep the map empty.
      */
     static final int MAX_TIMESTAMPS = 2048;
 
@@ -54,7 +45,7 @@ final class OrderedVisionUpdates {
 
     private final PoseEstimator<?> estimator;
 
-    /** Applied measurements by capture time; each list is in the order they were added. */
+    /** Applied measurements by capture time, each list in the order added. */
     private final TreeMap<Double, List<Measurement>> applied = new TreeMap<>();
 
     /** Measurements re-applied because an older one arrived after them, since construction. */
@@ -95,7 +86,6 @@ final class OrderedVisionUpdates {
         }
     }
 
-    /** Drops measurements the estimator can no longer use, and caps the map's size. */
     private void prune(double newestOdometrySeconds) {
         applied.headMap(newestOdometrySeconds - HISTORY_SECONDS, false).clear();
         while (applied.size() >= MAX_TIMESTAMPS) {
@@ -108,7 +98,7 @@ final class OrderedVisionUpdates {
         applied.clear();
     }
 
-    /** Timestamps currently kept, for tests. */
+    /** For tests. */
     int size() {
         return applied.size();
     }

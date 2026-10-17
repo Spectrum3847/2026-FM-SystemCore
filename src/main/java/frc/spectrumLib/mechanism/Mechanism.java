@@ -108,10 +108,7 @@ public abstract class Mechanism implements Subsystem {
     /** FPGA time of the previous follower check, for integrating the mismatch. */
     private double followerCheckLastSeconds = 0;
 
-    /**
-     * The leader's config entry, whose status becomes {@link MotorInputs#configApplied}. Null when
-     * unattached.
-     */
+    /** Feeds {@link MotorInputs#configApplied}. Null when unattached. */
     private CanConfigRetry.Entry configEntry;
 
     /** The last closed-loop position setpoint (in rotations) sent to the motor. */
@@ -183,11 +180,8 @@ public abstract class Mechanism implements Subsystem {
 
     /**
      * Rate for the output signals (duty cycle, motor voltage, torque current) of a leader that has
-     * followers. A follower acts on its leader's broadcast of these frames -- that broadcast is the
-     * follower's setpoint -- so their rate is the follower's control rate. 250 Hz is what 2026 ran
-     * all season; the port briefly had it at 50 Hz, which left the launcher's three followers (and
-     * the indexers' and the intake's) up to 20 ms behind their leader. Only the few leaders with
-     * followers pay for it.
+     * followers. A follower's setpoint is its leader's broadcast of these frames, so this is the
+     * follower's control rate.
      */
     private static final double FOLLOWED_LEADER_OUTPUT_HZ = 250;
 
@@ -320,17 +314,12 @@ public abstract class Mechanism implements Subsystem {
     /**
      * Sets the status frame rates this mechanism relies on and disables everything else. A
      * follower's frames cost the same bandwidth as the leader's, so it gets the diagnostic rate for
-     * everything; a leader that has followers publishes the output frames they act on at {@link
-     * #FOLLOWED_LEADER_OUTPUT_HZ}; a leader whose feedforward is fit from logs ({@link
-     * Config#isFastOutputLogging()}) publishes its output at least at the control rate so the
-     * logged voltage lines up with the logged velocity.
+     * everything. A leader with followers publishes their output frames at {@link
+     * #FOLLOWED_LEADER_OUTPUT_HZ}. A leader whose feedforward is fit from logs publishes its output
+     * at the control rate, so logged voltage lines up with velocity.
      *
-     * <p>Registered with {@link CanConfigRetry} as the motor's {@link CanConfigRetry#SIGNALS}
-     * entry: tried once at boot, retried in the background if that fails, and re-sent if the motor
-     * resets (signal rates, unlike the config, are not kept in flash). Once the boot budget is
-     * spent it is not tried at boot at all -- on a dead bus that is several timeouts per motor for
-     * rates nobody will receive -- but deferred to the retry thread, so a bus that comes up later
-     * still gets its rates and its bus optimisation.
+     * <p>Signal rates are not kept in flash, so {@link CanConfigRetry} re-sends them after a reset.
+     * Once the boot budget is spent they go straight to the retry thread.
      *
      * @param name the motor's name, for log keys
      * @param talon the motor to configure
@@ -344,9 +333,8 @@ public abstract class Mechanism implements Subsystem {
                 role == SignalRole.FOLLOWED_LEADER
                         ? FOLLOWED_LEADER_OUTPUT_HZ
                         : fastOutput ? CONTROL_SIGNAL_HZ : DIAGNOSTIC_SIGNAL_HZ;
-        // getX(false): the device's shared signal objects without refreshing them, because this
-        // may run on the retry thread while the main thread refreshes the same objects. Setting a
-        // rate only hands the signal's handle to Phoenix; it does not touch the cached value.
+        // getX(false) skips the refresh: this may run on the retry thread while the main thread
+        // refreshes the same signal objects.
         BaseStatusSignal position = talon.getPosition(false);
         BaseStatusSignal velocity = talon.getVelocity(false);
         BaseStatusSignal dutyCycle = talon.getDutyCycle(false);
@@ -1252,12 +1240,7 @@ public abstract class Mechanism implements Subsystem {
 
     // ── Motor Control (Protected) ──────────────────────────────────────────────
 
-    /**
-     * Whether the leader's config is known to be on the motor, as this loop's input. See {@link
-     * MotorInputs#configApplied}.
-     *
-     * @return true when attached and the config has applied, or when unattached
-     */
+    /** See {@link MotorInputs#configApplied}. True when unattached. */
     public boolean isConfigApplied() {
         if (!isAttached()) {
             return true;
@@ -1267,22 +1250,13 @@ public abstract class Mechanism implements Subsystem {
     }
 
     /**
-     * Holds a soft-limited position mechanism neutral while its config has not reached the motor.
+     * Holds a soft-limited position mechanism neutral until its config reaches the motor. On a
+     * factory config, Motion Magic would drive it the wrong way, the wrong distance, past its soft
+     * limits. Velocity mechanisms keep running, since a stale flywheel config is only slow.
      *
-     * <p>A position setpoint means something only in the config's frame: its sensor ratio, its
-     * direction and, for anything that can hit a hard stop, its soft limits. A motor on its factory
-     * config has a 1:1 ratio, the default direction and no soft limits, so Motion Magic toward a
-     * setpoint in mechanism rotations drives the hood (or the intake extension) the wrong way, the
-     * wrong distance, into the end of its travel. Staying neutral until {@link CanConfigRetry} gets
-     * the config on is the only safe answer; the not-applied alert says why the mechanism is limp.
-     * Velocity mechanisms keep running: a flywheel on a stale config is slow, not dangerous, and a
-     * match without the launcher is lost anyway.
+     * <p>Reads the logged {@link MotorInputs#configApplied}, so replay decides the same way.
      *
-     * <p>The decision reads {@link MotorInputs#configApplied}, a logged input, so replay makes it
-     * the same way; the setpoint itself is still recorded in {@code target}, so the mechanism's
-     * logic is unchanged either way.
-     *
-     * @return true if the output was held neutral and the caller must not send its request
+     * @return true if the caller must not send its request
      */
     private boolean holdNeutralUntilConfigured() {
         var limits = config.talonConfig.SoftwareLimitSwitch;
@@ -1693,7 +1667,7 @@ public abstract class Mechanism implements Subsystem {
 
     /**
      * Applies new supply and stator current limits if the requested values differ from the
-     * currently configured limits. The update is retried in the background until it applies.
+     * currently configured limits.
      *
      * @param supplyLimit the new supply current limit in amps
      * @param statorLimit the new stator current limit in amps
@@ -1707,8 +1681,6 @@ public abstract class Mechanism implements Subsystem {
                 config.configStatorCurrentLimit(Math.abs(statorLimit.getAsDouble()), true);
                 config.configForwardTorqueCurrentLimit(Math.abs(statorLimit.getAsDouble()));
                 config.configReverseTorqueCurrentLimit(-1 * Math.abs(statorLimit.getAsDouble()));
-                // Retried in the background until it applies, instead of up to ten blocking
-                // attempts on the main loop.
                 config.applyTalonConfig(motor);
             }
         }
@@ -2000,10 +1972,8 @@ public abstract class Mechanism implements Subsystem {
         // ── Config Helpers ────────────────────────────────────────────────────
 
         /**
-         * Applies the current {@link TalonFXConfiguration} to the given motor. A snapshot is handed
-         * to {@link CanConfigRetry}'s background thread, which applies it within a tenth of a
-         * second and retries until it succeeds (raising the mechanism's not-applied alert
-         * meanwhile), so this never blocks the main loop on a slow or absent device.
+         * Hands a snapshot of the current {@link TalonFXConfiguration} to {@link CanConfigRetry},
+         * so this never blocks the main loop.
          *
          * @param talon the TalonFX motor to configure
          */

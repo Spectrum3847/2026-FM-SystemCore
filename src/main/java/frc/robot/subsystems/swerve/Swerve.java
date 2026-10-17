@@ -266,9 +266,8 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
 
         this.register();
 
-        // The dead-bus shortcut (see CanConfigBudget): decided here, from whether the thirteen
-        // devices CTRE just configured are actually talking, not from bus utilization before any
-        // device existed, which Phoenix may well report as zero on a healthy native port.
+        // Decided once the devices exist: before that, a healthy native port may read zero
+        // utilization.
         if (Constants.currentMode == Constants.Mode.REAL && !anyDeviceAnswering()) {
             CanConfigBudget.exhaust(
                     "no drivetrain device answering on '" + config.getCanBus().getName() + "'");
@@ -314,22 +313,15 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         Telemetry.print(getName() + " Subsystem Initialized");
     }
 
-    /** How long boot waits for any drivetrain device to show up before calling the bus dead. */
+    /** How long boot waits for any drivetrain device before calling the bus dead. */
     private static final double DEVICE_ANSWER_WAIT_SECONDS = 1.0;
 
     /**
-     * Whether any drivetrain device (motor, CANcoder or Pigeon) is broadcasting, waiting up to
-     * {@link #DEVICE_ANSWER_WAIT_SECONDS} for one.
+     * Whether any drivetrain device is broadcasting, waiting up to {@link
+     * #DEVICE_ANSWER_WAIT_SECONDS}. CTRE has just configured all thirteen, so on a live bus one
+     * answering is proof enough.
      *
-     * <p>This replaces the pre-construction check that every bus read zero utilization. That check
-     * was only ever tried on a bench SystemCore with nothing wired, and nothing says Phoenix
-     * reports utilization on a native port before a device is registered on it; if it reads zero
-     * there, the old check would have spent the config budget on a healthy robot. Here the devices
-     * exist and CTRE has just finished configuring them, so a live bus has frames from all thirteen
-     * and one answering is proof enough. {@code isConnected()} only reads the age of the latest
-     * frame; it sends nothing.
-     *
-     * @return true as soon as one device is connected; false if none is within the wait
+     * @return true as soon as one device is connected
      */
     private boolean anyDeviceAnswering() {
         java.util.List<com.ctre.phoenix6.hardware.ParentDevice> devices =
@@ -733,7 +725,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
     }
 
     private ChassisVelocities calculateSpeedsBasedOnJoystickInputs() {
-        // Never empty: blue until the DS reports an alliance (the robot used to sit still here).
+        // Blue until the DS reports an alliance, so the robot always drives.
         boolean blue = AllianceSource.isBlue();
 
         double xMagnitude = Robot.getPilot().getDriveFwdPositive();

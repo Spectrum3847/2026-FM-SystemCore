@@ -19,26 +19,22 @@ class AllianceSourceTest {
         assertEquals(source, r.source());
     }
 
-    /** Nothing reported yet: blue, so the robot still drives (it used to sit still). */
     @Test
     void defaultsToBlue() {
         check(AllianceSource.resolve(Override.AUTO, NONE, NONE), Alliance.BLUE, Source.DEFAULT);
     }
 
-    /** The DS wins over the last known and the default the moment it reports one. */
     @Test
     void followsTheDs() {
         check(AllianceSource.resolve(Override.AUTO, RED, NONE), Alliance.RED, Source.DS);
         check(AllianceSource.resolve(Override.AUTO, BLUE, RED), Alliance.BLUE, Source.DS);
     }
 
-    /** A momentary drop-out keeps the last alliance instead of flipping back to blue. */
     @Test
     void remembersTheLastKnown() {
         check(AllianceSource.resolve(Override.AUTO, NONE, RED), Alliance.RED, Source.LAST_KNOWN);
     }
 
-    /** The dashboard override beats everything, including the DS. */
     @Test
     void overrideWins() {
         check(AllianceSource.resolve(Override.RED, BLUE, BLUE), Alliance.RED, Source.OVERRIDE);

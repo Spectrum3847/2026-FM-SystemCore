@@ -655,9 +655,7 @@ public class Vision implements Subsystem {
             s.process(context);
         }
 
-        // 3. Seed (disabled, or enabled with nothing seeded yet; the gross-heading net while
-        // enabled) and fuse (enabled). Seeding comes first so the frame it used can be left out of
-        // the fusing below.
+        // 3. Seed, then fuse, so the seed frame can be left out of the fusing.
         seededThisLoop = null;
         if (disabled) {
             seedWhileDisabled(context);
@@ -730,10 +728,7 @@ public class Vision implements Subsystem {
         fusion.apply(source, results, fuse);
     }
 
-    /**
-     * The frame a seed used this loop, or {@code null}. It has already gone into every track, as
-     * the seed, so fusing it again as an ordinary measurement would count its translation twice.
-     */
+    /** This loop's seed frame, or {@code null}. Fusing it again would count it twice. */
     private PoseObservation seededThisLoop = null;
 
     /** Seeds every track from {@code o} and remembers it as this loop's seed frame. */
@@ -747,9 +742,8 @@ public class Vision implements Subsystem {
     }
 
     /**
-     * {@code results} with this loop's seed frame, if it is among them, marked as not fused ("Used
-     * as Seed"). It stays in the list so its disagreement with the fused pose is still logged with
-     * the rest.
+     * {@code results} with this loop's seed frame marked as not fused. It stays in the list so its
+     * disagreement with the fused pose is still logged.
      */
     private List<PoseSource.Result> withoutSeedFrame(List<PoseSource.Result> results) {
         if (seededThisLoop == null) {
@@ -1060,17 +1054,11 @@ public class Vision implements Subsystem {
 
     /**
      * How often the settings the robot owns (IMU mode, and the mount poses when {@link
-     * VisionConfig#pushLimelightMounts} is on) are re-sent. Offseason 71dc7a7.
+     * VisionConfig#pushLimelightMounts} is on) are re-sent. Likely a no-op, since a Limelight gets
+     * current values when it resubscribes, but it is nearly free.
      *
-     * <p>FM uses IMU mode 1: MegaTag2 takes its yaw from {@code SetRobotOrientation} (as in mode 0,
-     * "external yaw only", which is standard MegaTag2 and works fine), and the Limelight 4 also
-     * seeds its internal IMU from that yaw. A camera left in mode 0 would still produce usable
-     * MegaTag2 poses from the pushed heading; mode 1 only matters for the internal IMU.
-     *
-     * <p>The resend is belt-and-braces and most likely a no-op: NetworkTables does not transmit a
-     * write of an unchanged value, and a Limelight that boots after the robot or reboots mid-match
-     * gets the current values when it resubscribes anyway. It is kept only because it costs one NT
-     * write per camera every two seconds.
+     * <p>IMU mode 1 also seeds the Limelight 4's internal IMU from the pushed yaw. MegaTag2 works
+     * the same in mode 0.
      */
     private static final double SETTINGS_RESEND_PERIOD_SECS = 2.0;
 
@@ -1092,20 +1080,13 @@ public class Vision implements Subsystem {
 
     private long orientationPushes = 0;
 
-    /**
-     * Yaw rate (rad/s) above which the heading is flushed every loop rather than every other loop.
-     */
+    /** Yaw rate, rad/s, above which the heading is flushed every loop instead of every other. */
     private static final double HEADING_FLUSH_EVERY_LOOP_RAD_PER_SEC = 0.5;
 
     /**
-     * MegaTag2 solves each frame with the last external yaw the camera received -- the cameras' own
-     * IMUs do not fill in between updates -- so a stale heading is heading error, and while turning
-     * it becomes MegaTag2 translation error. The heading is written every loop, and a NetworkTables
-     * flush sends it straight away: every loop (100 Hz) while the robot turns faster than {@link
-     * #HEADING_FLUSH_EVERY_LOOP_RAD_PER_SEC}, where a 10 ms older heading matters, and every other
-     * loop (50 Hz, the rate FM's 2026 code flushed at) otherwise, where the heading barely changes
-     * and a flush -- which makes the NT server send to every client -- would mostly be traffic.
-     * Unflushed loops still go out at NT's normal update rate.
+     * MegaTag2 solves with the last yaw the camera received, so a stale heading becomes translation
+     * error while turning. Flush every loop while turning fast, and every other loop otherwise,
+     * since a flush sends to every NT client.
      */
     private void pushHeadingToLimelights() {
         if (!Constants.hasHardware() || simVision != null) {

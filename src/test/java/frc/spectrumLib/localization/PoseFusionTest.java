@@ -130,9 +130,7 @@ class PoseFusionTest {
         assertEquals(1, s.getRejectedCount());
     }
 
-    /**
-     * A source reporting one frame at {@code t} with heading {@code headingDeg}, heading ignored.
-     */
+    /** One frame at {@code t}, heading ignored. */
     private static PoseSource frameAt(String name, double t, double x, double headingDeg) {
         PoseSourceIO io =
                 inputs -> {
@@ -162,15 +160,13 @@ class PoseFusionTest {
 
     @Test
     void seedHeadingSurvivesOutOfOrderFrame() {
-        // Seed at t from a frame, fuse that same frame at t (heading ignored), then an older frame
-        // from another camera at t - 0.05 arrives: the redo must keep the seeded heading, in the
-        // fused pose and in the shadows, which get the seed too.
+        // The redo after the older frame must keep the seeded heading, in the shadows too.
         PoseSource cam = frameAt("Test-Cam", 0.30, 1.0, 40);
         PoseSource older = frameAt("Test-Older", 0.25, 1.0, 0);
         PoseFusion f = fusion(cam, older);
         cam.update();
         older.update();
-        // Create the older camera's shadow first, so the seed reaches it as it does on the robot.
+        // Create the older camera's shadow first, so the seed reaches it as on the robot.
         f.apply(older, older.process(ctx(f)), false);
 
         f.seed(new Pose2d(1.0, 0, Rotation2d.fromDegrees(40)), 0.30, 0.01, 1e-4);

@@ -13,15 +13,11 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class FaceChordTest {
-    /** Buttons held, in the order FaceChord.of takes them (teleop assumed). */
     private static FaceChord held(boolean lb, boolean a, boolean x, boolean b) {
         return FaceChord.of(lb, a, x, b, true);
     }
 
-    /**
-     * Replays a sequence of button states the way Robot binds them: each chord's rising edge
-     * requests it, and the value becoming NONE requests IDLE. Returns the requests in order.
-     */
+    /** Replays button states the way Robot binds them. Returns the requests in order. */
     private static List<String> requests(boolean[][] states) {
         List<String> out = new ArrayList<>();
         FaceChord last = NONE;
@@ -38,7 +34,6 @@ class FaceChordTest {
     private static final boolean T = true;
     private static final boolean F = false;
 
-    /** The reported bug: X held, then LB, went to IDLE instead of the left-trench shot. */
     @Test
     void lbPressedWhileHoldingXIsTheLeftTrenchShot() {
         // {lb, a, x, b}
@@ -50,7 +45,6 @@ class FaceChordTest {
                         }));
     }
 
-    /** Same for A: unjam, then LB makes it the tower shot, LB off is unjam again. */
     @Test
     void lbPressedWhileHoldingAIsTheTowerShot() {
         assertEquals(
@@ -61,7 +55,6 @@ class FaceChordTest {
                         }));
     }
 
-    /** LB first, then the face button; face button let go first goes straight to IDLE. */
     @Test
     void chordReleasedFaceButtonFirst() {
         assertEquals(
@@ -75,7 +68,6 @@ class FaceChordTest {
                 requests(new boolean[][] {{T, F, F, T}, {F, F, F, T}, {F, F, F, F}}));
     }
 
-    /** Both let go on the same loop. */
     @Test
     void chordReleasedTogether() {
         assertEquals(
@@ -94,7 +86,6 @@ class FaceChordTest {
         assertEquals(NONE, held(T, F, F, F)); // bare LB is not a face chord
     }
 
-    /** Outside teleop an LB chord asks for nothing (as before); bare X and A still work. */
     @Test
     void setShotsAreTeleopOnly() {
         assertEquals(NONE, FaceChord.of(T, F, T, F, false));

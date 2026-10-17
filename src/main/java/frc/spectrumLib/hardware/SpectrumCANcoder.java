@@ -63,7 +63,6 @@ public class SpectrumCANcoder {
                             ? SensorDirectionValue.Clockwise_Positive
                             : SensorDirectionValue.CounterClockwise_Positive;
             canCoderConfigs.MagnetSensor.AbsoluteSensorDiscontinuityPoint = 0.5;
-            // Retried at boot, then in the background until it applies (CanConfigRetry).
             CanConfigRetry.Entry entry =
                     CanConfigRetry.INSTANCE.applyAtBoot(
                             "CANcoder " + CANcoderID,
@@ -74,7 +73,7 @@ public class SpectrumCANcoder {
                             true,
                             timeout -> canCoder.getConfigurator().apply(canCoderConfigs, timeout));
             canCoderResponseOK(entry.isApplied() ? StatusCode.OK : StatusCode.ConfigFailed);
-            // Even if the CANcoder's own config is still retrying: nothing re-runs this later.
+            // Even if the CANcoder config is still retrying, since nothing re-runs this.
             modifyMotorConfig(motor, mechConfig);
         }
     }

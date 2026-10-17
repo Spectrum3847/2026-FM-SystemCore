@@ -17,60 +17,19 @@ import java.util.function.LongSupplier;
 import org.wpilib.driverstation.Alert.Level;
 
 /**
- * Makes sure every CAN device configuration actually reaches its device, and keeps trying until it
- * does.
+ * Retries every CAN device config until it reaches the device. A motor left on its flash config may
+ * have no soft limits, the wrong direction and a 1:1 sensor ratio.
  *
- * <p>Until 2026-09-25 each device config was applied once at boot, with a 50 ms timeout. A failed
- * apply incremented {@code CANConfig/FailedCalls} and nothing else: the motor then ran on whatever
- * was in its flash -- for a hood motor swapped in from the spares shelf that is the factory config,
- * which means no soft limits, the wrong direction and a 1:1 sensor ratio, on a mechanism driven by
- * Motion Magic toward a setpoint in mechanism rotations. Nothing on the dashboard said so.
+ * <p>Boot applies run on the main thread under {@link CanConfigBudget}. After boot, one
+ * low-priority thread retries failed configs with backoff, applies runtime changes from {@link
+ * #request}, and re-applies after a device reset, since signal rates are not kept in flash.
  *
- * <p>Now every device configuration goes through here, as an {@link Entry} per device and per
- * config (a mechanism TalonFX has its {@code TalonFXConfiguration} and, separately, its
- * status-signal rates):
+ * <p>Thread safety: each entry's lock keeps two applies to one device apart, and after boot only
+ * the retry thread applies. Callers pass a config snapshot. Alerts and logging stay on the main
+ * thread in {@link #periodic()}.
  *
- * <ol>
- *   <li><b>At boot</b> ({@link #applyAtBoot}), on the main thread, it is retried up to {@link
- *       CanConfigBudget#maxAttempts()} times, each with {@link
- *       CanConfigBudget#CALL_TIMEOUT_SECONDS}, while the boot budget holds. Failures are still
- *       charged to {@link CanConfigBudget}, so a dead bus still boots in seconds.
- *   <li><b>After boot</b>, every entry that did not apply stays pending and is retried from one
- *       low-priority daemon thread ({@link #start()}), backing off from {@link
- *       #BACKOFF_MIN_SECONDS} to {@link #BACKOFF_MAX_SECONDS}, until it applies. A bus that comes
- *       up late, or a device plugged in after boot, gets its config within seconds. None of this
- *       blocks the real-time main loop, and none of it is charged to the boot budget.
- *   <li><b>Configuration changes at runtime</b> ({@link #request}: brake/coast, current limits) no
- *       longer block the main thread either: the caller snapshots the new config and hands it to
- *       the same thread, which applies it within one {@link #THREAD_PERIOD_SECONDS}.
- *   <li><b>A device that resets</b> (brownout, loose power lead, firmware fault) is noticed on that
- *       thread from Phoenix's startup frame ({@link ParentDevice#getResetOccurredChecker()}) and
- *       has every one of its entries re-applied. The config itself is persisted in the device's
- *       flash, so for it this is belt and braces; status-signal rates are not persisted, and this
- *       is what puts them back.
- * </ol>
- *
- * <p>Each entry that matters to a mechanism raises its own HIGH {@link Alert} ("Hood config not
- * applied (CAN id 15 on systemcore:2) -- retrying") while it is not applied, cleared the moment it
- * is, and every entry logs its status under {@code CANConfig/Devices/<name>/<config>/...}. Position
- * mechanisms with soft limits hold their output neutral while their config is missing ({@code
- * Mechanism.holdNeutralUntilConfigured}).
- *
- * <h2>Thread safety</h2>
- *
- * <p>Phoenix 6 allows a config apply to a device from any thread, concurrently with control
- * requests and signal refreshes from the main thread. What this class avoids is two applies to one
- * device at once: each entry has a lock that every apply of it (boot or retry) holds, and after
- * boot the main thread never applies at all -- {@link #request} only hands over a new config.
- * Callers pass a snapshot ({@code config.clone()}), never the live object the main thread keeps
- * editing. Alerts and logging happen only on the main thread ({@link #periodic()}), from volatile
- * fields the retry thread writes.
- *
- * <h2>Replay</h2>
- *
- * <p>This is hardware IO. In replay the thread is never started and nothing retries; whether a
- * mechanism's config applied reaches its logic only through its logged inputs ({@code
- * MotorInputs.configApplied}), which replay restores from the log.
+ * <p>Replay: the thread never starts. Logic sees config status only through {@code
+ * MotorInputs.configApplied}.
  */
 public final class CanConfigRetry {
 
@@ -78,29 +37,24 @@ public final class CanConfigRetry {
     public static final double BACKOFF_MIN_SECONDS = 0.5;
 
     /**
-     * Longest delay between retries of one entry. Every failed apply prints a Phoenix error to the
-     * Driver Station console, so a dead bus of twenty devices at this rate is four lines a second:
-     * visible without being a flood, and a device that comes back is configured within five
-     * seconds.
+     * Longest delay between retries. Each failure prints a Phoenix error, so this keeps a dead bus
+     * from flooding the console.
      */
     public static final double BACKOFF_MAX_SECONDS = 5.0;
 
-    /** How often the retry thread wakes to look for due entries and device resets. */
     public static final double THREAD_PERIOD_SECONDS = 0.1;
 
-    /** Label of a device's main configuration ({@code TalonFXConfiguration} and the like). */
+    /** Label of a device's main configuration. */
     public static final String CONFIG = "Config";
 
     /** Label of a TalonFX's status-signal rates and bus optimisation. */
     public static final String SIGNALS = "Signals";
 
-    /** The robot's tracker. */
     public static final CanConfigRetry INSTANCE =
             new CanConfigRetry(
                     System::nanoTime,
                     new BootPolicy() {
-                        // Lambdas rather than method references so CanConfigBudget (which builds
-                        // an Alert) is not initialised until the first boot apply.
+                        // Not method references, so CanConfigBudget loads only on first use.
                         @Override
                         public int maxAttempts() {
                             return CanConfigBudget.maxAttempts();
@@ -113,23 +67,11 @@ public final class CanConfigRetry {
                     },
                     CanConfigBudget.CALL_TIMEOUT_SECONDS);
 
-    /** How a boot apply is attempted: {@link CanConfigBudget} on the robot, a fake in tests. */
+    /** How a boot apply is attempted, so tests can fake {@link CanConfigBudget}. */
     public interface BootPolicy {
-        /**
-         * Attempts allowed for one config; re-read before every retry, so a budget spent part-way
-         * through a device's retries stops them.
-         *
-         * @return the attempt count
-         */
+        /** Re-read before every retry, so a budget spent part-way stops them. */
         int maxAttempts();
 
-        /**
-         * Runs one attempt.
-         *
-         * @param name the device, for alerts
-         * @param call the apply, taking a timeout in seconds
-         * @return its status
-         */
         StatusCode run(String name, DoubleFunction<StatusCode> call);
     }
 
@@ -141,11 +83,7 @@ public final class CanConfigRetry {
     private volatile Thread thread;
 
     /**
-     * Creates a tracker. The robot uses {@link #INSTANCE}; tests make their own.
-     *
      * @param clock monotonic time in nanoseconds
-     * @param bootPolicy how boot attempts are counted and charged
-     * @param retryTimeoutSeconds timeout of each background attempt
      */
     CanConfigRetry(LongSupplier clock, BootPolicy bootPolicy, double retryTimeoutSeconds) {
         this.clock = clock;
@@ -156,17 +94,12 @@ public final class CanConfigRetry {
     // ── Registration and applying ──────────────────────────────────────────────
 
     /**
-     * Applies a config during robot init, retrying while the boot budget allows, and leaves it for
-     * the retry thread if it still has not applied.
+     * Applies a config during robot init while the boot budget allows, then leaves it to the retry
+     * thread.
      *
-     * @param name the mechanism or device name, for alerts and log keys
-     * @param device the device, for reset detection and to find the entry again; may be null
-     * @param canId the device's CAN id
-     * @param bus the bus name
-     * @param what which config ({@link #CONFIG}, {@link #SIGNALS})
-     * @param raisesAlert whether a missing config raises a HIGH alert
-     * @param apply the apply, taking a timeout in seconds; must use a snapshot of the config
-     * @return the entry
+     * @param device may be null
+     * @param what {@link #CONFIG} or {@link #SIGNALS}
+     * @param apply takes a timeout in seconds, and must use a config snapshot
      */
     public Entry applyAtBoot(
             String name,
@@ -179,20 +112,7 @@ public final class CanConfigRetry {
         return applyAtBoot(name, device, canId, bus, what, raisesAlert, Integer.MAX_VALUE, apply);
     }
 
-    /**
-     * {@link #applyAtBoot(String, ParentDevice, int, String, String, boolean, DoubleFunction)} with
-     * a cap on the attempts below the budget's own.
-     *
-     * @param name the mechanism or device name
-     * @param device the device; may be null
-     * @param canId the device's CAN id
-     * @param bus the bus name
-     * @param what which config
-     * @param raisesAlert whether a missing config raises a HIGH alert
-     * @param maxAttempts the most attempts to make now
-     * @param apply the apply, taking a timeout in seconds
-     * @return the entry
-     */
+    /** Same, with a lower cap on boot attempts. */
     public Entry applyAtBoot(
             String name,
             ParentDevice device,
@@ -212,19 +132,7 @@ public final class CanConfigRetry {
         return entry;
     }
 
-    /**
-     * Registers a config without attempting it, for the retry thread to apply. Used for calls that
-     * are skipped at boot once the budget is spent.
-     *
-     * @param name the mechanism or device name
-     * @param device the device; may be null
-     * @param canId the device's CAN id
-     * @param bus the bus name
-     * @param what which config
-     * @param raisesAlert whether a missing config raises a HIGH alert
-     * @param apply the apply, taking a timeout in seconds
-     * @return the entry
-     */
+    /** Registers a config for the retry thread without trying it now. */
     public Entry defer(
             String name,
             ParentDevice device,
@@ -240,17 +148,9 @@ public final class CanConfigRetry {
     }
 
     /**
-     * Hands a changed config to the retry thread, which applies it within one {@link
-     * #THREAD_PERIOD_SECONDS} and keeps retrying if it fails. Never blocks. For a device with no
-     * entry yet, one is created (with an alert).
+     * Hands a changed config to the retry thread. Never blocks.
      *
-     * @param name the mechanism or device name
-     * @param device the device
-     * @param canId the device's CAN id
-     * @param bus the bus name
-     * @param what which config
-     * @param apply the apply, taking a timeout in seconds; must use a snapshot of the config
-     * @return the entry
+     * @param apply must use a config snapshot
      */
     public Entry request(
             String name,
@@ -265,13 +165,7 @@ public final class CanConfigRetry {
         return entry;
     }
 
-    /**
-     * The entry for a device's config, or null if it has none.
-     *
-     * @param device the device
-     * @param what which config
-     * @return the entry, or null
-     */
+    /** The entry for a device's config, or null. */
     public Entry find(ParentDevice device, String what) {
         if (device == null) {
             return null;
@@ -284,9 +178,6 @@ public final class CanConfigRetry {
         return null;
     }
 
-    /**
-     * @return every entry, in registration order
-     */
     public List<Entry> entries() {
         return entries;
     }
@@ -318,8 +209,8 @@ public final class CanConfigRetry {
     // ── The retry thread ───────────────────────────────────────────────────────
 
     /**
-     * Starts the retry thread. Call once, at the end of robot init and before the main thread is
-     * made real-time (a thread inherits its creator's scheduling policy). Not in replay.
+     * Call before the main thread goes real-time, since a thread inherits its creator's scheduling
+     * policy. Not in replay.
      */
     public synchronized void start() {
         if (thread != null) {
@@ -337,9 +228,7 @@ public final class CanConfigRetry {
                                 } catch (InterruptedException e) {
                                     return;
                                 } catch (Throwable e) {
-                                    // A throwing apply must not end retries for every device.
-                                    // Plain stdout: Telemetry logs through AdvantageKit, which
-                                    // is main-thread only.
+                                    // Plain stdout: Telemetry is main-thread only.
                                     System.out.println("CanConfigRetry: " + e);
                                 }
                             }
@@ -351,10 +240,7 @@ public final class CanConfigRetry {
         t.start();
     }
 
-    /**
-     * One pass of the retry thread: notices device resets, then attempts every entry that is due.
-     * Package-private so tests can drive it without the thread.
-     */
+    /** Package-private so tests can drive it without the thread. */
     void retryPass() {
         for (Entry e : entries) {
             e.pollReset(clock.getAsLong());
@@ -368,7 +254,7 @@ public final class CanConfigRetry {
 
     // ── Main-thread reporting ──────────────────────────────────────────────────
 
-    /** Main thread, once a second: raises or clears each entry's alert and logs its status. */
+    /** Main thread only. */
     public void periodic() {
         List<String> notApplied = new ArrayList<>();
         for (Entry e : entries) {
@@ -388,7 +274,7 @@ public final class CanConfigRetry {
                                             + e.canId
                                             + " on "
                                             + e.bus
-                                            + ") -- retrying",
+                                            + "). Retrying.",
                                     Level.HIGH);
                 }
                 e.alert.set(!ok);
@@ -405,13 +291,11 @@ public final class CanConfigRetry {
 
     // ── Entry ──────────────────────────────────────────────────────────────────
 
-    /** Retry delay after {@code failures} consecutive failures, in nanoseconds. */
     static long backoffNanos(int failures) {
         double seconds = BACKOFF_MIN_SECONDS * Math.pow(2, Math.max(0, failures - 1));
         return (long) (Math.min(seconds, BACKOFF_MAX_SECONDS) * 1e9);
     }
 
-    /** One configuration of one device, and whether it has reached the device. */
     public static final class Entry {
         private final String name;
         private final int canId;
@@ -420,18 +304,17 @@ public final class CanConfigRetry {
         private final ParentDevice device;
         private final boolean raisesAlert;
 
-        /** A clone of the device's reset signal; only ever called on the retry thread. */
+        /** Retry thread only. */
         private final BooleanSupplier resetChecker;
 
-        /** False until the retry thread has swallowed the checker's first report. */
         private boolean resetPrimed = false;
 
         private final ReentrantLock lock = new ReentrantLock();
 
-        /** Bumped by every new config and every reset; what has applied is compared to it. */
+        /** Bumped by every new config and every reset. */
         private final AtomicLong generation = new AtomicLong();
 
-        /** The newest generation an attempt has applied. Written under {@link #lock}. */
+        /** Written under {@link #lock}. */
         private volatile long appliedGeneration = 0;
 
         private volatile DoubleFunction<StatusCode> apply;
@@ -465,80 +348,45 @@ public final class CanConfigRetry {
         }
 
         /**
-         * Whether the device is running a config this code gave it: one has applied and nothing has
-         * failed since. A newer config or a reset that is merely queued keeps this true; a failed
-         * attempt, or a config that has never once applied, makes it false.
-         *
-         * @return true when the device can be trusted to have this config
+         * True once a config has applied and nothing has failed since. A queued change keeps it.
          */
         public boolean isApplied() {
             return everApplied && consecutiveFailures == 0;
         }
 
-        /**
-         * Whether any config has ever applied. A later failed change leaves the earlier one on the
-         * device, soft limits included.
-         *
-         * @return true once one attempt has succeeded
-         */
+        /** A later failed change leaves the earlier config, soft limits included, on the device. */
         public boolean hasEverApplied() {
             return everApplied;
         }
 
-        /**
-         * Whether the newest config handed in has applied, with nothing queued.
-         *
-         * @return true when nothing is pending
-         */
         public boolean isUpToDate() {
             return appliedGeneration == generation.get();
         }
 
-        /**
-         * @return the device or mechanism name
-         */
         public String getName() {
             return name;
         }
 
-        /**
-         * @return which config this is ({@link #CONFIG}, {@link #SIGNALS}, ...)
-         */
         public String getWhat() {
             return what;
         }
 
-        /**
-         * @return the device's CAN id
-         */
         public int getCanId() {
             return canId;
         }
 
-        /**
-         * @return the bus name
-         */
         public String getBus() {
             return bus;
         }
 
-        /**
-         * @return attempts made so far, boot included
-         */
         public int getAttempts() {
             return attempts;
         }
 
-        /**
-         * @return device resets noticed so far
-         */
         public int getResets() {
             return resets;
         }
 
-        /**
-         * @return the status of the last attempt
-         */
         public String getLastStatus() {
             return lastStatus;
         }
@@ -547,22 +395,20 @@ public final class CanConfigRetry {
             return !isUpToDate() && nowNanos >= nextAttemptNanos;
         }
 
-        /** Hands in a new config and makes it due now. */
         void setConfig(DoubleFunction<StatusCode> newApply, long nowNanos) {
             apply = newApply;
             generation.incrementAndGet();
             nextAttemptNanos = nowNanos;
         }
 
-        /** Retry thread only: queues a re-apply if the device has booted since the last look. */
+        /** Retry thread only. */
         void pollReset(long nowNanos) {
             if (resetChecker == null) {
                 return;
             }
             boolean reset = resetChecker.getAsBoolean();
             if (!resetPrimed) {
-                // The first look reports whatever startup frame arrived since construction,
-                // including the boot this robot program already configured.
+                // The first report is the boot this program already configured.
                 resetPrimed = true;
                 return;
             }
@@ -573,13 +419,6 @@ public final class CanConfigRetry {
             }
         }
 
-        /**
-         * Runs one attempt of the current config under the entry's lock and records the outcome.
-         *
-         * @param runner runs the apply (through the boot budget, or directly with a timeout)
-         * @param clock for scheduling the next retry
-         * @return the status
-         */
         StatusCode attempt(
                 java.util.function.Function<DoubleFunction<StatusCode>, StatusCode> runner,
                 LongSupplier clock) {

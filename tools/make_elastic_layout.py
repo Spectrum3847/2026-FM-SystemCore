@@ -110,14 +110,11 @@ SOURCES = ["LL-Back/MT1", "LL-Back/MT2", "LL-Left/MT1", "LL-Left/MT2", "LL-Right
            "LL-Right/MT2", "SC0/MT1", "SC0/MT2", "SC1/MT1", "SC1/MT2", "Orin-Left",
            "Orin-Right", "Quest"]
 
-# The CAN buses follow CanBuses.java: which buses are in use (CanBuses.inUse()) depends on
-# USE_CANIVORE, so rerun this script after flipping it. The main bus is the CANivore, or else the
-# drivetrain's SystemCore port (the busiest one).
+# The buses in use depend on USE_CANIVORE in CanBuses.java, so rerun this after flipping it.
 _canbuses = open(os.path.join(os.path.dirname(__file__), "..", "src", "main", "java", "frc",
                               "spectrumLib", "hardware", "CanBuses.java"), encoding="utf-8").read()
 USE_CANIVORE = re.search(r"USE_CANIVORE = (true|false);", _canbuses).group(1) == "true"
 
-# What each group is called on the dashboard, by its CanBuses constant.
 _GROUP_TITLES = {"RIO_CANBUS": "Intake", "DRIVETRAIN": "Drive", "SHOOTER": "Shooter",
                  "MECHANISMS": "Mech"}
 
@@ -196,8 +193,7 @@ pre_match = [
     field(0, 1, 7, 3),
     chooser("Auto Chooser", "/SmartDashboard/Auto Chooser", 0, 4),
     chooser("Hub Model", "/SmartDashboard/Hub Model Chooser", 0, 5, 4),
-    # Force Blue/Red when the DS reports the wrong (or no) alliance; Auto follows the DS. See
-    # AllianceSource. Super State, here before, is on the Match tab.
+    # For a DS that reports the wrong alliance, or none.
     chooser("Alliance Override", "/SmartDashboard/Alliance Override", 4, 5, 3),
     alerts(7, 0, 4, 2),
     light("Pose Seed Confirmed", out("Vision/PoseSeedConfirmed"), 11, 0, 3),

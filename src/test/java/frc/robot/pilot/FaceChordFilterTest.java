@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 class FaceChordFilterTest {
     private static final double LOOP = 0.01; // 100 Hz
 
-    /** One loop's buttons: {lb, a, x, b}, held for {@code loops} loops. */
     private record Hold(boolean lb, boolean a, boolean x, boolean b, int loops) {}
 
     private static Hold hold(String buttons, int loops) {
@@ -22,10 +21,7 @@ class FaceChordFilterTest {
                 loops);
     }
 
-    /**
-     * Replays button holds through the filter the way Robot binds the result: a new answer's rising
-     * edge requests it, and becoming NONE requests IDLE. Returns "REQUEST@loop" in order.
-     */
+    /** Replays holds the way Robot binds the result. Returns "REQUEST@loop" in order. */
     private static List<String> requests(Hold... holds) {
         FaceChordFilter filter = new FaceChordFilter();
         List<String> out = new ArrayList<>();
@@ -36,7 +32,7 @@ class FaceChordFilterTest {
                 double now = 10.0 + loop * LOOP;
                 FaceChord raw = FaceChord.of(h.lb(), h.a(), h.x(), h.b(), true);
                 FaceChord out1 = filter.update(now, raw);
-                // Several triggers poll it each loop: the answer must not change within a loop.
+                // Several triggers poll it each loop.
                 assertEquals(out1, filter.update(now, raw));
                 if (out1 != last) {
                     out.add((out1 == FaceChord.NONE ? "IDLE" : out1.name()) + "@" + loop);
@@ -91,7 +87,6 @@ class FaceChordFilterTest {
 
     @Test
     void holdingXThenPressingAKeepsTrackingUntilUnjamTakesOver() {
-        // No IDLE between tracking and unjam.
         assertEquals(
                 List.of("TRACK_TARGET", "UNJAM", "IDLE"),
                 names(requests(hold("X", 30), hold("A X", 30), hold("", 5))));

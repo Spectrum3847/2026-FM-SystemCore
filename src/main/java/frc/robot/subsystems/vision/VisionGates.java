@@ -64,11 +64,9 @@ public final class VisionGates {
     public static final double MAX_ESTIMATE_AGE_SECONDS = 1.0;
 
     /**
-     * Estimates captured more than this (seconds) after now are rejected. A capture time in the
-     * future is a clock or conversion fault, and the pose estimator does not reject it: it stores
-     * the correction under the future time, where every later frame's out-of-order handling treats
-     * it as the newest measurement. The margin covers the loop's own timestamp being read at the
-     * start of the loop.
+     * Estimates captured more than this many seconds after now are rejected. The pose estimator
+     * would treat a future frame as the newest measurement for every later frame. The margin covers
+     * the loop timestamp being read at the start of the loop.
      */
     public static final double MAX_FUTURE_SECONDS = 0.05;
 
@@ -80,9 +78,7 @@ public final class VisionGates {
 
     // ── Gates ───────────────────────────────────────────────────────────────
 
-    /**
-     * Rejects a capture time more than {@link #MAX_FUTURE_SECONDS} ahead of now; for every chain.
-     */
+    /** Rejects a capture time more than {@link #MAX_FUTURE_SECONDS} ahead of now. */
     public static final Gate FUTURE_TIMESTAMP_GATE =
             Gate.rejectIf(
                     "Future Timestamp Rejection",

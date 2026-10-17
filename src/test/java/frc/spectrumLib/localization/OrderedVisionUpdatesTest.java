@@ -102,9 +102,7 @@ class OrderedVisionUpdatesTest {
 
     @Test
     void seedSurvivesAnOutOfOrderRedo() {
-        // Vision seeds with a MegaTag1 frame, and the same frame at the same time is fused as an
-        // ordinary camera measurement whose heading is ignored. An older frame arriving afterwards
-        // forces a redo, which must re-apply the seed too, not just the camera frame.
+        // A seed and the same frame fused at the same time, then an older frame forces a redo.
         Pose2d seeded = new Pose2d(0.8, 0.0, Rotation2d.fromDegrees(30));
         var e = driving();
         var v = new OrderedVisionUpdates(e);
@@ -120,7 +118,6 @@ class OrderedVisionUpdatesTest {
 
     @Test
     void sameTimestampRedoMatchesInOrder() {
-        // Two measurements sharing a timestamp are re-applied in the order they were added.
         Pose2d a = new Pose2d(0.9, 0.2, Rotation2d.fromDegrees(10));
         Pose2d b = new Pose2d(0.7, -0.2, Rotation2d.fromDegrees(-5));
         var inOrder = driving();
@@ -146,7 +143,7 @@ class OrderedVisionUpdatesTest {
     void boundedWhenOdometryStops() {
         var e = driving();
         var v = new OrderedVisionUpdates(e);
-        // Odometry stuck at 1.0 s while frames keep arriving: nothing ages out by time.
+        // Odometry stuck at 1.0 s, so nothing ages out by time.
         for (int i = 0; i < OrderedVisionUpdates.MAX_TIMESTAMPS + 500; i++) {
             v.add(LATE, 1.0 + i * 0.01, STD, 1.0);
         }

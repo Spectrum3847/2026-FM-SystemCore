@@ -700,7 +700,6 @@ public abstract class Gamepad implements Subsystem {
      * @return the snapped heading in radians, for the current alliance
      */
     public double chooseCardinalDirections() {
-        // hotfix
         if (AllianceSource.isBlue()) {
             return getRedAllianceStickCardinals();
         }

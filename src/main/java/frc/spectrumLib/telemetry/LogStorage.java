@@ -26,24 +26,15 @@ import org.wpilib.driverstation.Alert.Level;
  * <ul>
  *   <li>{@link #chooseFolder()} waits briefly for a USB stick to mount before settling on internal
  *       storage: the robot program can start before {@code /U} is mounted (SystemcoreTesting #341).
- *       It only waits when a USB disk is actually attached, so a boot with no stick does not pay
- *       the wait.
- *   <li>{@link #cleanUpAtBoot()} deletes the oldest logs until the folder is under {@link
- *       #LOCAL_CAP_BYTES} and the disk has {@link #FREE_FLOOR_BYTES} free. Call it between {@link
- *       #chooseFolder()} and {@code Logger.start()}, so it runs before this boot's log exists and
- *       cannot delete it. It also remembers which logs were already there.
- *   <li>{@link #start} (after {@code Logger.start()}) checks free space every {@link
- *       #CHECK_PERIOD_SECONDS} on its own low-priority thread (disk calls stay off the real-time
- *       main thread) and trims the internal folder if the disk runs short; {@link #periodic()}
- *       turns the result into alerts and log values on the main thread.
+ *   <li>{@link #cleanUpAtBoot()} deletes the oldest logs before this boot's log exists.
+ *   <li>{@link #start} checks free space off the main thread and trims the internal folder if the
+ *       disk runs short; {@link #periodic()} turns the result into alerts and log values on the
+ *       main thread.
  * </ul>
  *
- * <p>The log being written is never deleted, whatever the clock says. "Oldest" is by modification
- * time, and SystemCore can boot with its clock behind the previous logs' times, so this boot's log
- * could sort oldest; keeping "the newest two" did not protect it. Instead a file is never deleted
- * if it appeared after {@link #cleanUpAtBoot()} (this boot's AdvantageKit log, including after
- * AdvantageKit renames it once the match is known) or if it was modified within {@link
- * #ACTIVE_WINDOW_MILLIS} of now on the same clock that stamps it (anything still being written).
+ * <p>SystemCore can boot with its clock behind older logs, so this boot's log can sort oldest. A
+ * file is never deleted if it appeared after {@link #cleanUpAtBoot()} or was modified within {@link
+ * #ACTIVE_WINDOW_MILLIS}.
  */
 public final class LogStorage {
     private LogStorage() {}
@@ -66,13 +57,9 @@ public final class LogStorage {
 
     static final double CHECK_PERIOD_SECONDS = 10.0;
 
-    /**
-     * A log modified within this long of now (either side, for a clock that has jumped) is taken to
-     * be still being written and is never deleted. Every open log is written far more often.
-     */
+    /** A log modified within this long of now, either side, is still being written. */
     static final long ACTIVE_WINDOW_MILLIS = 5 * 60 * 1000L;
 
-    /** Where USB disks show up; see {@link #usbDiskAttached()}. */
     private static final String SYS_BLOCK = "/sys/block";
 
     /** Log files this program (and Phoenix, REV) write; nothing else in the folder is touched. */
@@ -88,21 +75,20 @@ public final class LogStorage {
     private static volatile long logBytes = -1;
     private static ScheduledExecutorService checker;
 
-    /** Log file names in {@link #folder} after the boot cleanup; null until it has run. */
+    /** Log names present at the boot cleanup; null until it has run. */
     private static volatile Set<String> bootLogs;
 
-    /** {count, bytes} the boot cleanup deleted, printed by {@link #start}. */
+    /** {count, bytes} the boot cleanup deleted. */
     private static long[] bootDeleted = {0, 0};
 
-    /** Set by the background check when it throws; reported on the main thread. */
+    /** Reported on the main thread. */
     private static volatile String checkError;
 
     private static boolean checkErrorReported;
 
     /**
      * The folder to log to: the USB stick if one is (or within {@link #USB_WAIT_SECONDS} becomes)
-     * mounted, else internal storage. Blocks at most that long, and only when {@code /U} exists and
-     * a USB disk is attached (one that could still mount).
+     * mounted, else internal storage. Waits only when a USB disk is attached.
      *
      * @return the log folder, created if needed
      */
@@ -127,10 +113,8 @@ public final class LogStorage {
     }
 
     /**
-     * Whether a USB disk is attached, mounted or not: a SCSI-style disk ({@code sd*}) in {@code
-     * /sys/block}, which is how Linux names USB mass storage (SystemCore's own storage is not one).
-     * Enumeration comes well before the mount, so with no such disk there is nothing to wait for.
-     * If {@code /sys/block} cannot be read, says yes, keeping the old always-wait behavior.
+     * Whether a USB disk is attached, mounted or not. Linux names USB mass storage {@code sd*}, and
+     * it appears well before the mount. Says yes if {@code /sys/block} cannot be read.
      */
     private static boolean usbDiskAttached() {
         String[] blocks = new File(SYS_BLOCK).list();
@@ -164,31 +148,17 @@ public final class LogStorage {
     }
 
     /**
-     * One log file, with its size and modification time read once. Sorting {@link File}s by {@code
-     * File::lastModified} re-read the times during the sort, and the log being written changes its
-     * time, which can break the sort's contract ("Comparison method violates its general
-     * contract").
-     *
-     * @param name the file name
-     * @param bytes its size
-     * @param modifiedMillis its modification time
+     * A log file with its times read once, since the active log's time changing mid-sort breaks the
+     * sort's contract.
      */
     record LogFile(String name, long bytes, long modifiedMillis) {}
 
     /**
-     * Which logs to delete, oldest first: until they total at most {@code capBytes} and the disk
-     * has at least {@code freeFloorBytes} free (each deletion counted as freeing its size), never a
-     * protected or recently modified file, and keeping the newest {@code keepNewest} of the rest.
-     * Pure, for tests.
+     * Which logs to delete, oldest first, to meet {@code capBytes} and {@code freeFloorBytes}.
+     * Never a protected or recently modified file. Pure, for tests.
      *
-     * @param logs the log files in the folder
-     * @param capBytes most the logs may total
-     * @param freeBytes free space on the disk now
-     * @param freeFloorBytes free space to leave on the disk
      * @param keepNewest how many of the newest deletable logs are kept anyway
-     * @param protectedNames files never deleted (this boot's logs)
-     * @param nowMillis the current time, on the clock that stamps the files
-     * @return the names to delete, oldest first
+     * @param nowMillis on the clock that stamps the files
      */
     static List<String> selectForDeletion(
             List<LogFile> logs,
@@ -234,12 +204,12 @@ public final class LogStorage {
 
     /**
      * Deletes the oldest log files in {@code dir} until they total at most {@code capBytes} and the
-     * disk has at least {@code freeFloorBytes} free; see {@link #selectForDeletion}.
+     * disk has at least {@code freeFloorBytes} free.
      *
      * @param dir the log folder
      * @param capBytes most the logs may total
      * @param freeFloorBytes free space to leave on the disk
-     * @param keepNewest how many of the newest deletable logs are never deleted
+     * @param keepNewest how many of the newest logs are kept
      * @param protectedNames files never deleted
      * @return {count deleted, bytes deleted}
      */
@@ -275,10 +245,6 @@ public final class LogStorage {
         return new long[] {deleted, deletedBytes};
     }
 
-    /**
-     * {@link #cleanUp(File, long, long, int, Set)} with nothing protected but recently modified
-     * files.
-     */
     public static long[] cleanUp(File dir, long capBytes, long freeFloorBytes, int keepNewest) {
         return cleanUp(dir, capBytes, freeFloorBytes, keepNewest, Collections.emptySet());
     }
@@ -293,10 +259,8 @@ public final class LogStorage {
     }
 
     /**
-     * Cleans the internal log folder (always: logs land there whenever the stick is out) and
-     * remembers what logs {@link #folder} holds, so anything that appears later is this boot's and
-     * is never deleted. Call once at boot on the real robot, after {@link #chooseFolder()} and
-     * before {@code Logger.start()}, so this boot's log does not exist yet.
+     * Cleans the internal log folder and remembers which logs exist, so later ones are protected.
+     * Call before {@code Logger.start()}.
      */
     public static void cleanUpAtBoot() {
         bootDeleted = cleanUp(new File(LOCAL_LOGS), LOCAL_CAP_BYTES, FREE_FLOOR_BYTES, 2);
@@ -308,8 +272,8 @@ public final class LogStorage {
     }
 
     /**
-     * Reports the boot cleanup and starts the background free-space check. Call once at boot on the
-     * real robot, after {@code Logger.start()} (and after {@link #cleanUpAtBoot()}).
+     * Reports the boot cleanup and starts the background free-space check. Call after {@code
+     * Logger.start()}.
      */
     public static void start() {
         if (bootDeleted[0] > 0) {
@@ -333,11 +297,7 @@ public final class LogStorage {
                 TimeUnit.MILLISECONDS);
     }
 
-    /**
-     * {@link #check()}, never throwing: an exception out of a {@code scheduleWithFixedDelay} task
-     * silently cancels every later run, which would freeze the free-space value and alerts. Not
-     * logged here (Logger is main-thread only): {@link #periodic()} reports it.
-     */
+    /** Never throws, since a throwing scheduled task silently cancels every later run. */
     private static void checkSafely() {
         try {
             check();
@@ -352,8 +312,6 @@ public final class LogStorage {
         File dir = new File(folder);
         long free = dir.getUsableSpace();
         if (free < FREE_FLOOR_BYTES && folder.equals(LOCAL_LOGS)) {
-            // Never this boot's logs (anything not there at the boot cleanup) or anything still
-            // being written, whatever order the clock puts them in.
             Set<String> before = bootLogs;
             Set<String> thisBoot = new HashSet<>();
             for (LogFile f : list(dir)) {

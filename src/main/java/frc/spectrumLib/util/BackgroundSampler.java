@@ -22,10 +22,8 @@ import java.util.function.Supplier;
 public final class BackgroundSampler {
     private BackgroundSampler() {}
 
-    /** Default thread name, shared by every sampler that does not ask for its own. */
     private static final String DEFAULT_THREAD = "BackgroundSampler";
 
-    /** One single-thread executor per thread name. */
     private static final Map<String, ScheduledExecutorService> executors =
             new ConcurrentHashMap<>();
 
@@ -79,14 +77,8 @@ public final class BackgroundSampler {
     }
 
     /**
-     * Runs {@code read} every {@code periodSeconds} on a thread of its own name, so a read that can
-     * hang (a CAN bus status call) cannot stall the samplers on the shared thread, nor they it.
-     * Samplers given the same name share that thread.
-     *
-     * @param threadName the sampler thread to run on
-     * @param periodSeconds time between reads
-     * @param read the read; exceptions are swallowed so one bad read cannot stop the thread
-     * @return where each result lands
+     * Runs {@code read} on the named thread, so a read that can hang does not stall the shared
+     * sampler thread. Samplers with the same name share a thread.
      */
     public static <T> Latest<T> every(String threadName, double periodSeconds, Supplier<T> read) {
         Latest<T> latest = new Latest<>();

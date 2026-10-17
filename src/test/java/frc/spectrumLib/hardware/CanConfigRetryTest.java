@@ -10,15 +10,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.DoubleFunction;
 import org.junit.jupiter.api.Test;
 
-/** The retry bookkeeping of {@link CanConfigRetry}, with a fake clock and no hardware. */
 class CanConfigRetryTest {
     private static final StatusCode FAIL = StatusCode.ConfigFailed;
     private static final long SECOND = 1_000_000_000L;
 
-    /** A settable clock. */
     private long now = 0;
 
-    /** A boot budget allowing {@code attempts} per config and charging nothing. */
     private static CanConfigRetry.BootPolicy budget(AtomicInteger attempts) {
         return new CanConfigRetry.BootPolicy() {
             @Override
@@ -37,7 +34,6 @@ class CanConfigRetryTest {
         return new CanConfigRetry(() -> now, budget(new AtomicInteger(attempts)), 0.1);
     }
 
-    /** An apply that fails {@code failures} times, then succeeds; counts its calls. */
     private static DoubleFunction<StatusCode> failing(int failures, AtomicInteger calls) {
         return timeout -> calls.incrementAndGet() > failures ? StatusCode.OK : FAIL;
     }

@@ -35,9 +35,7 @@ import org.wpilib.driverstation.Alert.Level;
  * diagnostics server ({@code Unmanaged.setPhoenixDiagnosticsStartTime(-1)}) and the SignalLogger to
  * see which one it is. Log: {@code logs/matches/FRC_20260919_034444.wpilog}.
  *
- * <p>The budget bounds only the boot. A config that fails here is not abandoned: {@link
- * CanConfigRetry} records it and retries it from a background thread until it applies, so a bus
- * that was dead at boot and comes up later still ends up configured.
+ * <p>The budget bounds only the boot. {@link CanConfigRetry} keeps retrying failed configs after.
  *
  * <p>The cap is deliberately cause-agnostic. A cut wire, a powered-down bus, a wrong bus name and a
  * missing CANivore all present identically here, and the correct response to all of them is the
@@ -59,19 +57,13 @@ public final class CanConfigBudget {
     /**
      * Timeout for a single configuration call, in seconds.
      *
-     * <p>0.100 s, the 2026 default and Phoenix's own for a config apply. It was 0.050 s through
-     * 2026-09-24, which is short enough for a healthy but busy bus (a full {@code
-     * TalonFXConfiguration} is dozens of frames, each acknowledged) to miss it now and then, and a
-     * miss used to leave the motor on its flash config for the whole match. The fix for a dead bus
-     * is not a shorter individual wait but refusing to repeat it once nothing is answering, which
-     * is what the budget does; {@link CanConfigRetry} keeps retrying after boot.
+     * <p>Phoenix's default for a config apply. A full {@code TalonFXConfiguration} is dozens of
+     * acknowledged frames, so a shorter wait can miss on a busy but healthy bus. The budget, not
+     * this timeout, handles a dead bus.
      */
     public static final double CALL_TIMEOUT_SECONDS = 0.100;
 
-    /**
-     * Boot attempts per configuration while the budget holds. After boot, {@link CanConfigRetry}
-     * takes over.
-     */
+    /** Boot attempts per configuration while the budget holds. */
     public static final int MAX_ATTEMPTS = 10;
 
     private static double spentSeconds = 0;

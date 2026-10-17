@@ -54,6 +54,15 @@ public class PoseSourceInputs implements LoggableInputs {
     /** Every tag id seen this loop, for display. */
     public int[] tagIds = new int[0];
 
+    /**
+     * Per-tag data of this loop's frame, {@link #FIDUCIAL_STRIDE} values per tag: id, horizontal
+     * and vertical angle from the principal point (deg, positive right and up), camera-to-tag
+     * distance (m), ambiguity. Limelight MegaTag1 only; empty otherwise.
+     */
+    public double[] fiducials = EMPTY_DOUBLE;
+
+    public static final int FIDUCIAL_STRIDE = 5;
+
     /** Source-specific health numbers, e.g. QuestNav battery, Limelight fps. Keys fixed per IO. */
     public double[] health = new double[0];
 
@@ -133,6 +142,7 @@ public class PoseSourceInputs implements LoggableInputs {
         table.put("Tracking", allTracking ? EMPTY_BOOLEAN : tracking);
         table.put("StdDevScales", allOnes(stdDevScales) ? EMPTY_DOUBLE : stdDevScales);
         table.put("TagIds", tagIds);
+        table.put("Fiducials", fiducials);
         table.put("Health", health);
     }
 
@@ -160,6 +170,7 @@ public class PoseSourceInputs implements LoggableInputs {
             java.util.Arrays.fill(stdDevScales, 1.0);
         }
         tagIds = table.get("TagIds", tagIds);
+        fiducials = table.get("Fiducials", EMPTY_DOUBLE);
         health = table.get("Health", health);
     }
 

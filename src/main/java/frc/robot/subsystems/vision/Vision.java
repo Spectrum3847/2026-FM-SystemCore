@@ -11,6 +11,9 @@ import frc.spectrumLib.localization.PoseObservation;
 import frc.spectrumLib.localization.PoseObservation.Kind;
 import frc.spectrumLib.localization.PoseSource;
 import frc.spectrumLib.localization.PoseSourceIO;
+import frc.spectrumLib.localization.PoseSourceInputs;
+import frc.spectrumLib.localization.TagEkf;
+import frc.spectrumLib.localization.TagSighting;
 import frc.spectrumLib.localization.YawRateHistory;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
@@ -21,14 +24,19 @@ import frc.spectrumLib.vision.Limelight.LimelightConfig;
 import frc.spectrumLib.vision.LimelightHelpers;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 import lombok.Getter;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
+import org.photonvision.targeting.PhotonPipelineResult;
+import org.photonvision.targeting.PhotonTrackedTarget;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Subsystem;
 import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.geometry.Rotation3d;
 import org.wpilib.math.geometry.Transform3d;
@@ -251,6 +259,9 @@ public class Vision implements Subsystem {
     @Getter private final List<PoseSource> scMt1Sources = new ArrayList<>();
     @Getter private final List<PoseSource> scMt2Sources = new ArrayList<>();
     @Getter private final List<PoseSource> orinSources = new ArrayList<>();
+    private final List<OrinPoseSourceIO> orinIos = new ArrayList<>();
+    private final List<Transform3d> orinMounts = new ArrayList<>();
+    private final List<Transform3d> chassisLimelightMounts = new ArrayList<>();
 
     /** Orin sources built on the main ones: gyro-held PnP and tx/ty (issue #10, 3 and 8c). */
     @Getter private final List<PoseSource> orinGyroSources = new ArrayList<>();
@@ -328,6 +339,7 @@ public class Vision implements Subsystem {
         LimelightConfig[] lls = {config.backConfig, config.leftConfig, config.rightConfig};
         for (LimelightConfig llConfig : lls) {
             addLimelight(llConfig, true, mt1Sources, mt2Sources, sim, replay);
+            chassisLimelightMounts.add(SimVision.robotToCamera(llConfig));
         }
         // SystemCore's own cameras: logged and shadowed, fused only when enabled on the dashboard.
         for (LimelightConfig llConfig : config.systemCoreCameras) {
@@ -362,6 +374,8 @@ public class Vision implements Subsystem {
                             () -> jetson == null ? java.util.Set.of() : jetson.getExcludedTags(),
                             this::orinHeadingAt);
             jetsonCameras.add(new Jetson.Camera(name, io, mount, config.orinCameraInstalled[i]));
+            orinIos.add(io);
+            orinMounts.add(mount);
             orinSources.add(
                     new PoseSource(
                             orinSourceName(name),
@@ -675,6 +689,7 @@ public class Vision implements Subsystem {
         if (!disabled) {
             checkGrossHeadingError(context);
         }
+        feedTagEkf();
 
         // 4. Keep the Limelights and the Quest aligned with the fused pose.
         if (Constants.currentMode != Constants.Mode.REPLAY) {
@@ -708,6 +723,89 @@ public class Vision implements Subsystem {
             }
         }
         fusion.apply(source, source.getResults(), fuse);
+    }
+
+    // =========================================================================
+    // Tag EKF (logged only; never moves the robot pose)
+    // =========================================================================
+
+    /** Every Orin and chassis-Limelight tag this loop, frame by frame, into the tag EKF. */
+    private void feedTagEkf() {
+        TagEkf ekf = fusion.getTagEkf();
+        Set<Integer> excluded = jetson.getExcludedTags();
+        // The 2-D model assumes a level robot.
+        boolean tilted = swerve.isTilted();
+        long start = System.nanoTime();
+        for (int i = 0; i < orinIos.size(); i++) {
+            OrinPoseSourceIO io = orinIos.get(i);
+            String camera = orinSources.get(i).getName();
+            for (PhotonPipelineResult r : io.getSolver().decoded) {
+                List<TagSighting> frame = new ArrayList<>();
+                for (PhotonTrackedTarget t : r.getTargets()) {
+                    if (t.fiducialId < 0 || excluded.contains(t.fiducialId)) {
+                        continue;
+                    }
+                    Optional<Pose3d> tag = tagLayout.getTagPose(t.fiducialId);
+                    if (tag.isEmpty()) {
+                        continue;
+                    }
+                    frame.add(
+                            new TagSighting(
+                                    camera,
+                                    r.getTimestampSeconds(),
+                                    t.fiducialId,
+                                    tag.get().getTranslation(),
+                                    orinMounts.get(i),
+                                    t.bestCameraToTarget.getTranslation(),
+                                    io.getSolver().cameraFactor()));
+                }
+                addTagFrame(ekf, frame, tilted);
+            }
+        }
+        int stride = PoseSourceInputs.FIDUCIAL_STRIDE;
+        for (int i = 0; i < mt1Sources.size(); i++) {
+            PoseSourceInputs in = mt1Sources.get(i).getInputs();
+            if (in.count() == 0 || in.fiducials.length == 0) {
+                continue;
+            }
+            String camera = mt1Sources.get(i).getName().split("/")[0];
+            double timestamp = in.timestamps[in.count() - 1];
+            List<TagSighting> frame = new ArrayList<>();
+            for (int f = 0; f + stride <= in.fiducials.length; f += stride) {
+                int id = (int) in.fiducials[f];
+                if (excluded.contains(id)) {
+                    continue;
+                }
+                Optional<Pose3d> tag = tagLayout.getTagPose(id);
+                if (tag.isEmpty()) {
+                    continue;
+                }
+                frame.add(
+                        new TagSighting(
+                                camera,
+                                timestamp,
+                                id,
+                                tag.get().getTranslation(),
+                                chassisLimelightMounts.get(i),
+                                TagSighting.fromAngles(
+                                        in.fiducials[f + 1],
+                                        in.fiducials[f + 2],
+                                        in.fiducials[f + 3]),
+                                1.0));
+            }
+            addTagFrame(ekf, frame, tilted);
+        }
+        Logger.recordOutput("Localization/EKF/FeedMicros", (System.nanoTime() - start) / 1000);
+    }
+
+    private static void addTagFrame(TagEkf ekf, List<TagSighting> frame, boolean tilted) {
+        if (tilted) {
+            for (TagSighting t : frame) {
+                ekf.skip(t.camera(), "Tilted");
+            }
+        } else {
+            ekf.addFrame(frame);
+        }
     }
 
     // =========================================================================

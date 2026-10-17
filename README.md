@@ -143,6 +143,10 @@ Sources (names are the log paths under `Localization/Sources/`):
 robot's pose. Toggle any of them live from a dashboard at
 `/Localization/Sources/<name>/Enabled` (an AdvantageKit dashboard input, so replay knows too).
 
+**All-camera EKF** (`Localization/EKF/Pose`): every tag from both Orin cameras and the three
+Limelights, one at a time, in one EKF. Logged next to the fused pose for comparison; it never moves
+the robot. See [docs/pose-sources.md](docs/pose-sources.md#ekf-alongside-wpilib).
+
 What gets logged, per source:
 
 | Key | Meaning |

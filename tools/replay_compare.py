@@ -17,6 +17,7 @@ from wpilog_summary import decode, read_wpilog
 DEFAULT_KEYS = [
     "Localization/FusedPose",
     "Localization/OdometryPose",
+    "Localization/EKF/Pose",
     "Localization/Shadow/LL-Back/MT1/Pose",
     "Localization/Shadow/Orin-Left/Pose",
     "Localization/Sources/Orin-Left/Observations/Poses",

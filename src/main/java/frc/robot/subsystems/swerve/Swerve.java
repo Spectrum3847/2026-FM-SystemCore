@@ -432,6 +432,11 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                 inputs.accelYG,
                 inputs.accelZG);
         double scale = tiltScaledOdometry.get() ? tilt.odometryScale() : 1.0;
+        // Wheels slip and lift on a bump; trust them less there.
+        poseFusion
+                .getTagEkf()
+                .setOdometryNoiseScale(
+                        tilt.tilted() || tilt.bumpedRecently(Timer.getTimestamp()) ? 10.0 : 1.0);
         for (int s = 0; s < inputs.odometryTimestamps.length; s++) {
             for (int m = 0; m < 4; m++) {
                 double raw = inputs.odometryModuleDistances[s * 4 + m];

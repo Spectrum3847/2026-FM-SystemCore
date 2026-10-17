@@ -9,8 +9,8 @@ This follows the handoff brief (`HANDOFF-fm-pose-sources.md`, 2026-09); its deci
 that fusion is two estimators compared side by side:
 
 - Fusion runs WPILib's `SwerveDrivePoseEstimator` **and** an EKF alongside it, both fed the same
-  odometry samples and gated measurements. The robot drives on whichever one the logs show gives
-  the better result (see [EKF alongside WPILib](#ekf-alongside-wpilib)).
+  odometry samples. The EKF is logged for comparison only; the robot drives on WPILib's (see
+  [EKF alongside WPILib](#ekf-alongside-wpilib)).
 - Fusion runs where the drivetrain loop runs. FM's drivetrain is on SystemCore, so fusion is too.
 - The Orin runs PhotonVision (the 971 CUDA detector fork), read with PhotonLib.
 - Comparison happens offline against logs; AdvantageKit's deterministic replay is why AKit is used.
@@ -27,7 +27,8 @@ All in [`frc.spectrumLib.localization`](../src/main/java/frc/spectrumLib/localiz
 | `Gate` | One named rejection rule. A source declares its own chain. The first gate to fire names the rejection. |
 | `StdDevModel` | How much to trust a frame that passed: returns std-devs and a tier name, or refuses ("Integration Criteria not Met"). |
 | `PoseSource` | Device + gates + model + a dashboard enable switch. Runs every loop whether enabled or not. |
-| `PoseFusion` | The fused estimator, a never-corrected odometry track, and **one shadow estimator per source**. |
+| `PoseFusion` | The fused estimator, a never-corrected odometry track, **one shadow estimator per source**, and the tag EKF. |
+| `TagEkf` / `TagSighting` | The all-camera EKF and one tag seen by one camera. |
 
 In [`frc.robot.subsystems.vision`](../src/main/java/frc/robot/subsystems/vision):
 
@@ -66,33 +67,37 @@ X" tracks. Seeds and explicit resets are applied to every track so they start to
 
 ## EKF alongside WPILib
 
-The WPILib estimator takes each camera frame as one whole robot pose with fixed odometry trust. An
-EKF (the approach FRC 971 / 1868 run in AOS) can do better in two places, so it runs as a second
-fused track. The robot drives on it only if the logs show it is better:
+The WPILib estimator takes each camera frame as one whole robot pose with fixed odometry trust.
+`TagEkf` (the approach FRC 971 / 1868 run in AOS) takes every tag from every camera, both Orin
+cameras and the three chassis Limelights, into one estimate. It runs on the same odometry, seeds
+and resets as the fused pose and is **logged only**: it never moves the robot pose.
 
-- **Per-tag measurements.** Each tag in a frame is its own correction: the bearing to the tag's
-  centre and the distance to it, from PhotonLib's per-target yaw/pitch and camera-to-target
-  distance, or the Limelight raw fiducials' `txnc`/`tync` and distance to camera. Bearing and
-  distance are not ambiguous even for a single tag (only the tag's facing is), and heading comes
-  from the gyro, so single and far tags can be used at a low weight instead of being thrown away.
-  Noise grows with distance squared, distance from the image centre and robot speed.
+- **Per-tag measurements.** Each tag is its own correction: the bearing to the tag's centre and the
+  distance to it, from the camera. Orin tags come from PhotonLib's per-target camera-to-tag
+  translation; Limelight tags from the raw fiducials' `txnc`/`tync` and distance to camera. Bearing
+  and distance are not ambiguous even for a single tag (only the tag's facing is), so single and far
+  tags are used at a low weight instead of being thrown away. Noise grows with distance squared,
+  angle off the optical axis and robot speed. A tag whose innovation fails a chi-squared test is
+  rejected; if most tags keep failing for a second, the covariance is widened so the cameras can
+  pull it back (`Relocalizations`).
 - **Odometry noise that changes.** Each 250 Hz odometry sample predicts the pose from the module
   deltas and the Pigeon's heading change, with uncertainty that grows with distance driven and more
-  when the wheels look like they are slipping (modules disagreeing with each other or the gyro).
-  Heading gets very little process noise; the Pigeon drifts about 0.4 deg/min in motion.
+  when the modules disagree with each other or the gyro (slip), or the robot is on a bump. Heading
+  gets very little process noise; the Pigeon drifts about 0.4 deg/min.
+- **Timing.** The EKF keeps about 1.5 s of states; a frame is applied at its capture time and
+  odometry and later frames are replayed over it, so the result does not depend on arrival order
+  and AdvantageKit replay regenerates it.
 
-Timing: the EKF keeps about 1.5 s of states; a frame is applied at its capture time and odometry
-is replayed forward from there, so the result does not depend on arrival order and AdvantageKit
-replay regenerates it exactly.
+Logged under `Localization/EKF/`: `Pose`, `StdDevs` (m, m, deg), `ErrorVsFusedMeters`,
+`HeadingErrorVsFusedDeg`, `ErrorVsTruthMeters` (sim), tag counts and `RejectionCounts/*`, and per
+camera `Cameras/<camera>/BearingResidualsDeg` and `RangeResidualsMeters` for the tags that passed.
+A camera whose bearing residuals sit off zero has a mount yaw error. Its noise values are starting
+points (`TagEkf` constants), to tune in replay against match logs.
 
-How it is chosen: both tracks are logged every loop (with the per-source shadows as before), the
-comparison is made in replay against the same matches, and a dashboard switch picks which track the
-robot drives on. WPILib stays the default and the fallback until the EKF is shown to be better.
-Whichever is chosen is the pose `syncCtrePose()` keeps CTRE's own estimate on. Don't feed one
-estimator's output into the other: both already contain the odometry, so it would be counted twice.
+Limelight per-tag data is logged as `Localization/Sources/LL-<camera>/MT1/Fiducials`. Logs from
+before it replay with Orin tags only.
 
-The per-tag data has to be logged for this: `PhotonIO` and `LimelightIO` log each frame's tags (id,
-bearing, distance, ambiguity) as well as the robot pose they solve.
+Scripted sim drive, 2026-10-17: EKF 0.011 m mean error against truth, fused pose 0.020 m.
 
 ## Gates per source type
 

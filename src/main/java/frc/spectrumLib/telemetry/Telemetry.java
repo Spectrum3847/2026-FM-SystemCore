@@ -15,9 +15,9 @@ import org.wpilib.util.struct.StructSerializable;
 /**
  * Telemetry and logging facade, backed by AdvantageKit.
  *
- * <p>In 2026 this class extended DogLog. On SystemCore it keeps the same static API -- {@code log},
+ * <p>In 2026 this class extended DogLog. On SystemCore it keeps the same static API ({@code log},
  * {@code logDash}, {@code logDashAlways}, {@code print}, {@code time}/{@code timeEnd}, {@code
- * slowLogThisLoop} -- so every existing call site compiles unchanged, but every value is now an
+ * slowLogThisLoop}), so every existing call site compiles unchanged. Every value is now an
  * AdvantageKit <em>output</em> ({@link Logger#recordOutput}). Outputs land in the same wpilog as
  * the replayed inputs, under {@code /RealOutputs/...} on the robot and {@code /ReplayOutputs/...}
  * in replay, so a replayed match regenerates every one of these keys from the code under test.
@@ -35,13 +35,13 @@ import org.wpilib.util.struct.StructSerializable;
  * <h2>Tiers</h2>
  *
  * <ul>
- *   <li>{@link #log} records to the log. AdvantageKit's NT4 publisher also mirrors every output to
- *       NetworkTables on a real robot, which SystemCore has the CPU for (the 2026 roboRIO did not;
- *       see the offseason notes on 2026-09-05 CPU load).
- *   <li>{@link #logDash} / {@link #logDashAlways} are kept for call-site compatibility. They are
- *       the keys a dashboard reads, and are identical to {@link #log} here.
- *   <li>{@link #slowLogThisLoop()} is true every fifth loop. Wrap logs that do not need loop-rate
- *       resolution (currents, temperatures, vision status) in it.
+ *   <li>{@link #log} records to the log only.
+ *   <li>{@link #logDash} / {@link #logDashAlways} record to the log and mark the key as a dashboard
+ *       key, which {@link DashboardReceiver} also sends to NetworkTables. Only dashboard keys
+ *       (these, and every key the Elastic layout reads) go to NT, unless the {@value
+ *       #NT_MIRROR_SWITCH_KEY} switch is on. That is the 2026 offseason rule, for the CPU it costs.
+ *   <li>{@link #slowLogThisLoop()} is true at 10 Hz whatever the loop rate. Wrap logs that do not
+ *       need loop-rate resolution (currents, temperatures, vision status) in it.
  * </ul>
  */
 public class Telemetry {
@@ -57,8 +57,8 @@ public class Telemetry {
      * Priority levels for printing to the console.
      *
      * <ul>
-     *   <li>{@link #NORMAL} — only printed when the global priority is also {@code NORMAL}.
-     *   <li>{@link #HIGH} — always printed regardless of the global priority setting.
+     *   <li>{@link #NORMAL}: printed only when the global priority is also {@code NORMAL}.
+     *   <li>{@link #HIGH}: always printed, regardless of the global priority setting.
      * </ul>
      */
     public enum PrintPriority {
@@ -76,7 +76,7 @@ public class Telemetry {
 
     /**
      * Returns {@code true} on the loops the slow telemetry tier publishes on. Every caller in the
-     * same loop agrees, so related values land on the same records.
+     * same loop agrees, so related values are logged in the same cycle.
      *
      * @return whether slow-tier values should be logged this loop
      */
@@ -213,9 +213,27 @@ public class Telemetry {
         return dashboardKeys.contains(key);
     }
 
+    /** The same keys as absolute log-table keys ({@code /RealOutputs/<key>}). */
+    private static final java.util.Set<String> dashboardTableKeys =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /**
+     * Whether an absolute log-table key ({@code /RealOutputs/<key>}) is a dashboard key. For the
+     * NetworkTables receiver, which walks the whole table every cycle: one hash lookup per entry,
+     * no substring.
+     */
+    public static boolean isDashboardTableKey(String tableKey) {
+        return dashboardTableKeys.contains(tableKey);
+    }
+
+    private static boolean markDashboard(String key) {
+        dashboardTableKeys.add("/RealOutputs/" + key);
+        return dashboardKeys.add(key);
+    }
+
     /** Marks a key for NetworkTables, e.g. one a dashboard layout reads. */
     public static void addDashboardKey(String key) {
-        dashboardKeys.add(key);
+        markDashboard(key);
     }
 
     /**
@@ -233,7 +251,7 @@ public class Telemetry {
                         .matcher(layoutJson);
         int n = 0;
         while (m.find()) {
-            if (dashboardKeys.add(m.group(1))) {
+            if (markDashboard(m.group(1))) {
                 n++;
             }
         }
@@ -241,27 +259,27 @@ public class Telemetry {
     }
 
     public static void logDash(String key, double value) {
-        dashboardKeys.add(key);
+        markDashboard(key);
         log(key, value);
     }
 
     public static void logDash(String key, double value, String unit) {
-        dashboardKeys.add(key);
+        markDashboard(key);
         log(key, value, unit);
     }
 
     public static void logDash(String key, boolean value) {
-        dashboardKeys.add(key);
+        markDashboard(key);
         log(key, value);
     }
 
     public static void logDash(String key, String value) {
-        dashboardKeys.add(key);
+        markDashboard(key);
         log(key, value);
     }
 
     public static void logDash(String key, long value) {
-        dashboardKeys.add(key);
+        markDashboard(key);
         log(key, value);
     }
 
@@ -287,8 +305,8 @@ public class Telemetry {
 
     // ── Loop timers ──────────────────────────────────────────────────────────
 
-    /** Start times of open {@link #time} spans, in nanoseconds. */
-    private static final Map<String, Long> epochStartNanos = new HashMap<>();
+    /** Start time per timer key; a one-element array so restarting a timer allocates nothing. */
+    private static final Map<String, long[]> epochStartNanos = new HashMap<>();
 
     /**
      * Starts a timed span. Pair with {@link #timeEnd(String)} on the same key.
@@ -299,7 +317,7 @@ public class Telemetry {
      * @param key the log key the elapsed time will be written to
      */
     public static void time(String key) {
-        epochStartNanos.put(key, System.nanoTime());
+        epochStartNanos.computeIfAbsent(key, k -> new long[1])[0] = System.nanoTime();
     }
 
     /**
@@ -309,11 +327,12 @@ public class Telemetry {
      * @param key the key passed to {@link #time(String)}
      */
     public static void timeEnd(String key) {
-        Long start = epochStartNanos.remove(key);
-        if (start == null) {
+        long[] start = epochStartNanos.get(key);
+        if (start == null || start[0] == 0) {
             return;
         }
-        log(key, (System.nanoTime() - start) / 1e9, "seconds");
+        log(key, (System.nanoTime() - start[0]) / 1e9, "seconds");
+        start[0] = 0;
     }
 
     // ── Events ───────────────────────────────────────────────────────────────
@@ -325,10 +344,10 @@ public class Telemetry {
     private static final Map<String, java.util.List<String>> events = new HashMap<>();
 
     /**
-     * Logs a discrete event. AdvantageKit keeps one value per key per cycle, so logging two
-     * messages to the same key in one loop kept only the second -- two commands ending on the same
-     * loop, or two prints, lost one. Events are accumulated per loop and recorded as a string array
-     * holding every one of them.
+     * Logs a discrete event. AdvantageKit keeps one value per key per cycle. Logging two messages
+     * to the same key in one loop kept only the second, so two commands ending in the same loop, or
+     * two prints, lost one. Events are accumulated per loop and recorded as a string array holding
+     * all of them.
      *
      * @param key the log key
      * @param message the event

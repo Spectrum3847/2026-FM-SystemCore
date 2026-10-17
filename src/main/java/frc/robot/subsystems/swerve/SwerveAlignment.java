@@ -158,7 +158,7 @@ public class SwerveAlignment {
      * Refreshes and publishes the alignment data. Safe to call every robot loop.
      *
      * <p>Only publishes while the robot is disabled. Alignment is a pit procedure done on blocks
-     * with the robot disabled, and these are 32 keys at 20 Hz -- about 77 records a second, in a
+     * with the robot disabled. These are 32 keys at 20 Hz, about 77 records a second, going into a
      * log that already overran DogLog's queue and dropped data during the 2026-09-05 17:10 session.
      * There is nothing to learn from them while the robot is driving.
      */

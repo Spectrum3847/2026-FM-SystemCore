@@ -155,14 +155,14 @@
             }
           },
           {
-            "title": "CANivore",
+            "title": "Drive CAN 1",
             "x": 896,
             "y": 256,
             "width": 256,
             "height": 128,
             "type": "Boolean Box",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/CANivore/StatusOK",
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/StatusOK",
               "period": 0.1,
               "data_type": "boolean",
               "true_color": 4283215696,
@@ -671,14 +671,31 @@
             }
           },
           {
-            "title": "Shot Model",
+            "title": "Shot Ready",
             "x": 896,
             "y": 640,
-            "width": 896,
+            "width": 384,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Shot/Ready",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Shot Blocked By",
+            "x": 1280,
+            "y": 640,
+            "width": 512,
             "height": 128,
             "type": "Large Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/HubPolyModel",
+              "topic": "/AdvantageKit/RealOutputs/Shot/BlockedReason",
               "period": 0.1,
               "data_type": "string"
             }
@@ -731,7 +748,7 @@
             "title": "Launcher Current (A)",
             "x": 0,
             "y": 640,
-            "width": 384,
+            "width": 256,
             "height": 128,
             "type": "Text Display",
             "properties": {
@@ -743,15 +760,43 @@
           },
           {
             "title": "Hood Current (A)",
-            "x": 384,
+            "x": 256,
             "y": 640,
-            "width": 512,
+            "width": 256,
             "height": 128,
             "type": "Text Display",
             "properties": {
               "topic": "/AdvantageKit/RealOutputs/Hood/StatorCurrent",
               "period": 0.1,
               "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Feed Reason",
+            "x": 512,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Shot/FeedReason",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Shots",
+            "x": 768,
+            "y": 640,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotLog/Index",
+              "period": 0.1,
+              "data_type": "int",
               "show_submit_button": false
             }
           },
@@ -899,14 +944,27 @@
             }
           },
           {
-            "title": "Shot Model",
+            "title": "Shot Blocked By",
             "x": 1280,
             "y": 256,
-            "width": 512,
+            "width": 256,
             "height": 128,
             "type": "Large Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/HubPolyModel",
+              "topic": "/AdvantageKit/RealOutputs/Shot/BlockedReason",
+              "period": 0.1,
+              "data_type": "string"
+            }
+          },
+          {
+            "title": "Set Shot",
+            "x": 1536,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Large Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/ShotCalc/SetShot",
               "period": 0.1,
               "data_type": "string"
             }
@@ -925,10 +983,27 @@
             }
           },
           {
-            "title": "Super State",
+            "title": "Shot Ready",
             "x": 1280,
             "y": 512,
-            "width": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Shot/Ready",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Super State",
+            "x": 1536,
+            "y": 512,
+            "width": 256,
             "height": 128,
             "type": "Large Text Display",
             "properties": {
@@ -1614,14 +1689,14 @@
             }
           },
           {
-            "title": "CANivore Bus (%)",
+            "title": "Drive CAN 1 Bus (%)",
             "x": 0,
             "y": 512,
             "width": 512,
             "height": 128,
             "type": "Number Bar",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/CANivore/BusUtilization",
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/BusUtilization",
               "period": 0.1,
               "data_type": "double",
               "min_value": 0,
@@ -2067,14 +2142,14 @@
             }
           },
           {
-            "title": "CANivore Bus (%)",
+            "title": "Drive CAN 1 Bus (%)",
             "x": 896,
             "y": 256,
             "width": 512,
             "height": 128,
             "type": "Number Bar",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/CANivore/BusUtilization",
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/BusUtilization",
               "period": 0.1,
               "data_type": "double",
               "min_value": 0,
@@ -2099,14 +2174,14 @@
             }
           },
           {
-            "title": "CANivore",
+            "title": "Drive CAN 1",
             "x": 896,
             "y": 384,
             "width": 256,
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/CANivore/Status",
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN1/Status",
               "period": 0.1,
               "data_type": "string",
               "show_submit_button": false

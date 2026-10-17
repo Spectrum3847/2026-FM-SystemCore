@@ -15,8 +15,8 @@ import org.wpilib.math.util.Units;
  * <p>The AprilTag values are ported unchanged, comments and all, from the 2026 Spectrum code:
  * {@code main}'s FM {@code Vision.java} and the offseason branch's evidence-driven additions (the
  * lookback spin gate, the height gate, the one-second age gate). Change a threshold here only with
- * log evidence -- the standard the originals held themselves to -- and AdvantageKit replay is now
- * the way to get it: edit, replay a match, compare the {@code Localization/Shadow/*} tracks.
+ * log evidence, the standard the originals held themselves to. AdvantageKit replay is the way to
+ * get that evidence: edit, replay a match, and compare the {@code Localization/Shadow/*} tracks.
  */
 public final class VisionGates {
     private VisionGates() {}
@@ -64,7 +64,7 @@ public final class VisionGates {
     public static final double MAX_ESTIMATE_AGE_SECONDS = 1.0;
 
     /**
-     * Variance used to effectively ignore a measurement dimension -- here, the heading of every
+     * Variance used to effectively ignore a measurement dimension. Here it is the heading of every
      * estimate fused while enabled, so the gyro owns heading during a match.
      */
     public static final double LARGE_VARIANCE = 999999.0;

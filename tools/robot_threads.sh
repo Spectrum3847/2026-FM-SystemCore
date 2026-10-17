@@ -31,3 +31,13 @@ while read tid pct; do
     done
     sudo cat /proc/$pid/task/$tid/stack 2>/dev/null | head -6
 done
+echo "== real-time threads (policy 1=FIFO 2=RR, rt_priority)"
+for t in /proc/$pid/task/*; do
+    f=$(sudo cat $t/stat 2>/dev/null) || continue
+    rest=${f##*) }
+    set -- $rest
+    prio=${38}; pol=${39}
+    [ "$pol" != "0" ] && echo "$(basename $t) $(cat $t/comm) policy=$pol rt=$prio"
+done
+echo "== image"
+cat /etc/os-release 2>/dev/null | grep -iE "^(NAME|VERSION|PRETTY|BUILD|IMAGE)" ; ls /etc/*release* /etc/*version* 2>/dev/null; cat /etc/limelight* /etc/systemcore* 2>/dev/null | head -5

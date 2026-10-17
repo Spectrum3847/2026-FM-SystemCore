@@ -1,9 +1,8 @@
 package frc.robot.subsystems.leds;
 
-import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.signals.LossOfSignalBehaviorValue;
 import com.ctre.phoenix6.signals.StripTypeValue;
-import frc.spectrumLib.hardware.Rio;
+import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.leds.SpectrumLEDs;
 import frc.spectrumLib.telemetry.Telemetry;
 
@@ -24,7 +23,7 @@ public class Leds extends SpectrumLEDs {
     // Hardware configuration
     // -------------------------------------------------------------------------
 
-    /** Number of external LEDs attached to the CANdle output (indices 8–27 on the device). */
+    /** Number of external LEDs attached to the CANdle output (indices 8 to 27 on the device). */
     public static final int NUM_LEDS = 20;
 
     /**
@@ -35,7 +34,7 @@ public class Leds extends SpectrumLEDs {
     public static final Config ledsConfig;
 
     static {
-        ledsConfig = new Config("Leds", 1, NUM_LEDS, new CANBus(Rio.CANIVORE));
+        ledsConfig = new Config("Leds", 1, NUM_LEDS, CanBuses.forName(CanBuses.MECHANISMS));
         ledsConfig.setStripType(StripTypeValue.RGB);
         ledsConfig.setBrightness(0.5);
         ledsConfig.setLossOfSignalBehavior(LossOfSignalBehaviorValue.DisableLEDs);

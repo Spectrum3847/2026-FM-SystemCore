@@ -4,7 +4,7 @@ import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfigurator;
 import com.ctre.phoenix6.hardware.TalonFX;
 import frc.robot.RobotSim;
-import frc.spectrumLib.hardware.Rio;
+import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
 import frc.spectrumLib.sim.LinearConfig;
 import frc.spectrumLib.sim.LinearSim;
@@ -93,7 +93,7 @@ public class IntakeExtension extends Mechanism {
         @Getter private final double maxExtensionHeight = 40;
 
         public IntakeExtensionConfig() {
-            super("IntakeExtension", 4, Rio.CANIVORE);
+            super("IntakeExtension", 4, CanBuses.MECHANISMS);
             configMinMaxRotations(minRotations, maxRotations);
             configPIDGains(0, positionKp, positionKi, positionKd);
             configFeedForwardGains(positionKs, positionKv, positionKa, positionKg);
@@ -122,7 +122,7 @@ public class IntakeExtension extends Mechanism {
     }
 
     // ================================================================================
-    // Right Axis — independent, closed-loop, mirror-mounted
+    // Right Axis. Independent, closed-loop, mirror-mounted.
     // ================================================================================
 
     /**
@@ -136,7 +136,7 @@ public class IntakeExtension extends Mechanism {
 
         public static class RightConfig extends Config {
             public RightConfig(IntakeExtensionConfig left) {
-                super("IntakeExtensionRight", 5, Rio.CANIVORE);
+                super("IntakeExtensionRight", 5, CanBuses.MECHANISMS);
                 setAttached(left.isAttached());
                 configMinMaxRotations(left.getMinRotations(), left.getMaxRotations());
                 configPIDGains(0, left.getPositionKp(), left.getPositionKi(), left.getPositionKd());
@@ -332,7 +332,7 @@ public class IntakeExtension extends Mechanism {
     /**
      * Commands both axes to the same position.
      *
-     * @param percent target as a percentage of max rotations (0–100)
+     * @param percent target as a percentage of max rotations (0 to 100)
      * @param slow whether to use the slow (dynamic Motion Magic voltage) profile
      */
     private void commandBoth(double percent, boolean slow) {
@@ -368,9 +368,9 @@ public class IntakeExtension extends Mechanism {
     /**
      * Drives each side independently into the fully-extended hard stop, re-zeroing that side's
      * encoder at {@code maxRotations} once it stalls. A tooth skip corrupts the motor encoder, so
-     * the hard stop is the only reliable position truth; homing uses a soft-limit-bypassing voltage
-     * so it can reach the physical stop even when the (stale) encoder thinks the soft limit is
-     * already reached.
+     * the hard stop is the only reliable position reference. Homing uses a soft-limit-bypassing
+     * voltage so it can reach the physical stop even when the (stale) encoder thinks the soft limit
+     * is already reached.
      */
     private void applyHoming() {
         // Re-arm on entry to the HOMING state.
@@ -419,7 +419,7 @@ public class IntakeExtension extends Mechanism {
                 right.stopAxis();
             }
         } else {
-            rightHomed = true; // no right axis attached → nothing to resync
+            rightHomed = true; // No right axis attached, so nothing to resync.
         }
     }
 
@@ -496,10 +496,21 @@ public class IntakeExtension extends Mechanism {
         if (isAttached()) {
             sim = new IntakeExtensionSim(RobotSim.leftView, motor);
         }
+        // The right axis gets no model yet: in sim it is the same device as the intake roller
+        // (both CAN id 5, and the sim does not keep SystemCore ports apart), so a second model
+        // would fight the roller's for that one motor.
     }
 
-    // Simulation steps itself on spectrumLib SimLoop (200 Hz) since the offseason port.
+    // Simulation steps itself on spectrumLib SimLoop (200 Hz).
 
+    /**
+     * The left deploy axis in simulation. The deploy slides horizontally, so gravity is off and
+     * nothing pulls it back in when the motor stops.
+     *
+     * <p>The left motor is Clockwise_Positive, so the model runs mirrored ({@code
+     * setReversedLinkage(true)}). Without that the model is driven toward 0, sits on its bottom
+     * stop, and the axis never moves.
+     */
     class IntakeExtensionSim extends LinearSim {
         public IntakeExtensionSim(Mechanism2d mech, TalonFX intakeExtensionMotorSim) {
             super(
@@ -513,7 +524,10 @@ public class IntakeExtension extends Mechanism {
                             .setStaticLength(config.getStaticLength())
                             .setMaxHeight(config.getMaxExtensionHeight())
                             .setLineWidth(config.getLineWidth())
-                            .setColor(new Color8Bit(Color.LIGHT_GRAY)),
+                            .setColor(new Color8Bit(Color.LIGHT_GRAY))
+                            .setCarriageMass(config.getExtensionMass())
+                            .setSimulateGravity(false)
+                            .setReversedLinkage(true),
                     mech,
                     intakeExtensionMotorSim,
                     config.getName());

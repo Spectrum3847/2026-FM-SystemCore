@@ -1,6 +1,5 @@
 package frc.spectrumLib.vision;
 
-import frc.spectrumLib.vision.LimelightHelpers.LimelightResults;
 import frc.spectrumLib.vision.LimelightHelpers.PoseEstimate;
 import frc.spectrumLib.vision.LimelightHelpers.RawFiducial;
 import java.text.DecimalFormat;
@@ -29,8 +28,8 @@ import org.wpilib.smartdashboard.SmartDashboard;
  * <p>Two pose estimation flavors are supported:
  *
  * <ul>
- *   <li><b>MegaTag1</b> — full 3-D pose estimation using one or more AprilTags.
- *   <li><b>MegaTag2</b> — fused estimate that incorporates the robot heading supplied via {@link
+ *   <li><b>MegaTag1</b> is full 3-D pose estimation using one or more AprilTags.
+ *   <li><b>MegaTag2</b> is a fused estimate that incorporates the robot heading supplied via {@link
  *       #setRobotOrientation(double)}.
  * </ul>
  */
@@ -47,7 +46,7 @@ public class Limelight {
      */
     @Accessors(chain = true)
     public static class LimelightConfig {
-        /** Must match to the name given in LL dashboard */
+        /** Must match the name given in the LL dashboard. */
         @Getter @Setter private String name;
 
         /** Whether this camera is physically connected to the robot. */
@@ -77,7 +76,7 @@ public class Limelight {
         }
 
         /**
-         * Sets the position of the robot in meters
+         * Sets the camera position relative to the robot center, in meters.
          *
          * @param forward (meters) forward from center of robot
          * @param right (meters) right from center of robot
@@ -94,9 +93,9 @@ public class Limelight {
         /**
          * Sets the rotation of the limelight in degrees
          *
-         * @param roll (degrees) roll of limelight || positive is rotated right
-         * @param pitch (degrees) pitch of limelight || positive is camera tilted up
-         * @param yaw (yaw) yaw of limelight || positive is rotated left
+         * @param roll (degrees) roll of the limelight. Positive is rotated right.
+         * @param pitch (degrees) pitch of the limelight. Positive is tilted up.
+         * @param yaw (degrees) yaw of the limelight. Positive is rotated left.
          * @return the LimelightConfig object
          */
         public LimelightConfig withRotation(double roll, double pitch, double yaw) {
@@ -359,10 +358,10 @@ public class Limelight {
     }
 
     /**
-     * Gets the ID of the apriltag most centered in the LL's view (or based on different
+     * Gets the ID of the apriltag most centered in the LL's view.
      *
-     * @return the tag ID of the apriltag most centered in the LL's view (or based on different
-     *     criteria set in LL dasbhoard)
+     * @return the tag ID of the apriltag most centered in the LL's view, or the tag chosen by the
+     *     criteria set in the LL dashboard
      */
     public double getClosestTagID() {
         if (!isAttached()) {
@@ -372,7 +371,7 @@ public class Limelight {
     }
 
     /**
-     * Returns the area of the primary target as a percentage of the camera image (0–100).
+     * Returns the area of the primary target as a percentage of the camera image (0 to 100).
      *
      * @return target area percentage, or {@code 0} if not attached
      */
@@ -402,9 +401,9 @@ public class Limelight {
     }
 
     /**
-     * Get the corresponding LL Pose2d (MEGATAG1) for the alliance in DriverStation.java
+     * Get the corresponding LL Pose2d (MEGATAG2) for the alliance in DriverStation.java
      *
-     * @return the corresponding LL Pose3d (MEGATAG2) for the alliance in DriverStation.java
+     * @return the corresponding LL Pose2d (MEGATAG2) for the alliance in DriverStation.java
      */
     public Pose2d getMegaTag2_Pose2d() {
         if (!isAttached()) {
@@ -440,8 +439,8 @@ public class Limelight {
     }
 
     /**
-     * Returns {@code true} when the pose estimate is considered accurate — i.e., multiple tags are
-     * visible and the combined target area exceeds a minimum threshold.
+     * Returns {@code true} when the pose estimate is considered accurate: multiple tags are visible
+     * and the combined target area exceeds a minimum threshold.
      *
      * @return {@code true} if the pose estimate meets the accuracy criteria
      */
@@ -475,8 +474,7 @@ public class Limelight {
         if (!isAttached()) {
             return new RawFiducial[0];
         }
-        // Same per-loop snapshot as every other MegaTag1 getter; this used to do a second full
-        // NetworkTables read and parse of botpose_wpiblue on each call.
+        // Shares the per-loop MegaTag1 snapshot, so this adds no NetworkTables read.
         RawFiducial[] fiducials = mt1Estimate().rawFiducials;
         return fiducials == null ? new RawFiducial[0] : fiducials;
     }
@@ -564,14 +562,6 @@ public class Limelight {
      */
 
     /**
-     * @return The latest LL results as a LimelightResults object.
-     */
-    @SuppressWarnings("unused")
-    private LimelightResults retrieveJSON() {
-        return LimelightHelpers.getLatestResults(config.name);
-    }
-
-    /**
      * Sets the LL pipeline to the given index.
      *
      * @param pipelineIndex the pipeline index (refer to robot vision configuration for pipeline
@@ -616,10 +606,10 @@ public class Limelight {
      * {@link LimelightConfig#withRotation}) to the camera over NetworkTables, making the code the
      * source of truth for the offsets instead of the values typed into the web UI.
      *
-     * <p>The six values are stored in exactly the convention the camera wants -- forward, right, up
-     * in metres, then roll, pitch, yaw in degrees -- so they go across unchanged. That is the same
-     * order and sign as the boxes in the web UI, so what is in {@code VisionConfig} can be read
-     * straight off against what a camera is showing.
+     * <p>The six values are stored in exactly the convention the camera wants: forward, right, up
+     * in metres, then roll, pitch, yaw in degrees. They go across unchanged. That is the same order
+     * and sign as the boxes in the web UI, so what is in {@code VisionConfig} can be read straight
+     * off against what a camera is showing.
      *
      * <p>A Limelight keeps its own copy in flash and falls back to it on boot, so this has to be
      * republished rather than written once: a camera that reboots mid-match otherwise silently
@@ -693,7 +683,7 @@ public class Limelight {
     /**
      * Returns the area of the primary target as a percentage of the camera image.
      *
-     * @return target area (0–100 %), or {@code -99999} if not attached or no target in view
+     * @return target area (0 to 100 %), or {@code -99999} if not attached or no target in view
      */
     public double getTagTA() {
         if (!isAttached()) {
@@ -751,7 +741,7 @@ public class Limelight {
         LimelightHelpers.setLEDMode_ForceBlink(config.getName());
     }
 
-    /** Checks if the camera is connected by looking for an empty botpose array from camera. */
+    /** Checks if the camera is connected by looking for a full botpose array from the camera. */
     public boolean isCameraConnected() {
         if (!isAttached()) {
             return false;

@@ -5,7 +5,7 @@ Usage:
     python tools/wpilog_summary.py logs/akit_XXXX.wpilog [--keys]
 
 Prints, for every pose source, how many observations it produced, how many were accepted, the
-most common rejection reasons, and (in simulation) its error against the truth pose -- both per
+most common rejection reasons, and (in simulation) its error against the truth pose, both per
 frame and for its shadow track. That is the "which source do we trust" table; AdvantageScope is
 the place to look at the tracks themselves.
 
@@ -26,8 +26,8 @@ def read_wpilog(path):
         raise ValueError("not a wpilog")
     extra_len = struct.unpack_from("<I", data, 8)[0]
     pos = 12 + extra_len
-    entries = {}  # id -> (name, type)
-    records = collections.defaultdict(list)  # name -> [(t, payload)]
+    entries = {}  # id to (name, type)
+    records = collections.defaultdict(list)  # name to list of (t, payload)
     n = len(data)
     while pos < n:
         hdr = data[pos]
@@ -154,6 +154,56 @@ def main():
         vals = series(records, types, key)
         if vals:
             print(f"{key}: final {vals[-1][1]}")
+    shot_summary(records, types)
+
+
+def shot_summary(records, types):
+    """The shot gate: how each launch began feeding, and how long it was held first."""
+    reasons = series(records, types, "Shot/FeedReason")
+    if not reasons:
+        return
+    # Each launch is a run of FeedReason values between NotLaunching ones. Outputs are written
+    # only when they change, so a transition is a record.
+    launches = []
+    start = None
+    first_feed = None
+    for t, r in reasons:
+        if r == "NotLaunching":
+            if start is not None:
+                launches.append((start, first_feed))
+            start, first_feed = None, None
+            continue
+        if start is None:
+            start = t
+        if r != "Held" and first_feed is None:
+            first_feed = (t, r)
+    if start is not None:
+        launches.append((start, first_feed))
+    blocked = series(records, types, "Shot/BlockedReason")
+    print(f"Shot gate: {len(launches)} launches")
+    for s, feed in launches:
+        end = feed[0] if feed else s + 1e9
+        held_by = {b for t, b in blocked if s <= t < end}
+        before = [b for t, b in blocked if t <= s]
+        if before:
+            held_by.add(before[-1])  # the value carried into the launch's first loop
+        why = sorted(held_by - {"None"})
+        if feed:
+            print(f"  t={s:7.2f}s  fed after {feed[0] - s:5.2f} s ({feed[1]})"
+                  + (f", held by {', '.join(why)}" if why else ""))
+        else:
+            print(f"  t={s:7.2f}s  never fed" + (f", held by {', '.join(why)}" if why else ""))
+    for key in ("Shot/LaunchingLoops", "Shot/HeldLoops", "Shot/Volleys"):
+        vals = series(records, types, key)
+        if vals:
+            print(f"  {key}: {vals[-1][1]}")
+    for key in ("Sim/Launched", "Sim/Scored"):
+        vals = series(records, types, key)
+        if vals:
+            print(f"  {key}: {vals[-1][1]}")
+    rows = series(records, types, "ShotLog/Index")
+    if rows:
+        print(f"  Shot log: {len(rows)} volleys (python tools/shot_log.py <log> for the rows)")
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ import com.pathplanner.lib.commands.PathPlannerAuto;
 import com.pathplanner.lib.path.PathPlannerPath;
 import frc.rebuilt.ShiftHelpers;
 import frc.rebuilt.ShotCalculator;
+import frc.rebuilt.ShotCalculator.SetShot;
 import frc.robot.auton.Auton;
 import frc.robot.configs.FM2026;
 import frc.robot.configs.PHOTON2026;
@@ -44,9 +45,11 @@ import frc.spectrumLib.hardware.Rio;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.BatteryLogger;
 import frc.spectrumLib.telemetry.DashboardReceiver;
+import frc.spectrumLib.telemetry.LogStorage;
 import frc.spectrumLib.telemetry.SystemLoadMonitor;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.telemetry.Telemetry.PrintPriority;
+import frc.spectrumLib.util.BackgroundSampler;
 import frc.spectrumLib.util.CrashTracker;
 import frc.spectrumLib.util.Util;
 import java.io.IOException;
@@ -131,11 +134,8 @@ public class Robot extends SpectrumRobot {
     @Getter private static SuperStructure superStructure;
     @Getter private static BatteryLogger batteryLogger;
 
-    /** FM's CANivore: drivetrain and most mechanisms. */
-    @Getter private static CANBus mainCANBus;
-
-    /** The SystemCore port that carries what was on the roboRIO's own bus in 2026. */
-    @Getter private static CANBus secondaryCANBus;
+    /** Every CAN bus this layout uses ({@link CanBuses#inUse()}), by log label. */
+    private static final java.util.Map<String, CANBus> canBuses = new java.util.LinkedHashMap<>();
 
     public Robot() {
         super(Constants.LOOP_PERIOD_SECONDS);
@@ -146,7 +146,7 @@ public class Robot extends SpectrumRobot {
         /*
          * Phoenix otherwise starts writing .hoot signal logs for every CAN device a second after
          * the first enable. Nobody replays them, and on 2026-09-05 they were a large share of the
-         * roboRIO's SD card. AdvantageKit's log is the record now. SignalLogger.start() still works
+         * roboRIO's SD card. AdvantageKit's log is the record. SignalLogger.start() still works
          * for a deliberate capture.
          */
         SignalLogger.enableAutoLogging(false);
@@ -169,15 +169,30 @@ public class Robot extends SpectrumRobot {
                     break;
             }
 
-            double canInitDelay = Constants.hasHardware() ? 0.1 : 0;
-            mainCANBus = CanBuses.forName(CanBuses.CANIVORE);
-            secondaryCANBus = CanBuses.forName(CanBuses.RIO_CANBUS);
+            CanBuses.inUse().forEach((label, name) -> canBuses.put(label, CanBuses.forName(name)));
             SystemLoadMonitor.threadCensus("canbuses");
             if (Constants.currentMode == Constants.Mode.REAL
-                    && !mainCANBus.getStatus().Status.isOK()) {
+                    && CanBuses.USE_CANIVORE
+                    && !canBuses.get("CANivore").getStatus().Status.isOK()) {
                 // No CANivore at all (not plugged in, or canivore-usb not installed on the
                 // SystemCore): do not spend a minute timing out every device on it.
                 CanConfigBudget.exhaust("CANivore '" + CanBuses.CANIVORE + "' not found");
+            } else if (Constants.currentMode == Constants.Mode.REAL && noCanTraffic()) {
+                // Buses up but nothing talking on any of them (a bench controller, or every
+                // device unpowered): the same minute of timeouts, so the same shortcut.
+                CanConfigBudget.exhaust("no CAN traffic on any bus");
+            }
+            if (Constants.hasHardware()) {
+                canStatus =
+                        BackgroundSampler.every(
+                                1.0,
+                                () -> {
+                                    var status =
+                                            new java.util.LinkedHashMap<String, CANBusStatus>();
+                                    canBuses.forEach(
+                                            (label, bus) -> status.put(label, bus.getStatus()));
+                                    return status;
+                                });
             }
 
             pilot = new Pilot(config.pilot);
@@ -189,28 +204,21 @@ public class Robot extends SpectrumRobot {
 
             swerve = new Swerve(config.swerve);
             SystemLoadMonitor.threadCensus("swerve");
-            Timer.delay(canInitDelay);
 
             intakeExtension = new IntakeExtension(config.intakeExtension);
             SystemLoadMonitor.threadCensus("intakeExtension");
-            Timer.delay(canInitDelay);
 
             fuelIntake = new FuelIntake(config.fuelIntake);
-            Timer.delay(canInitDelay);
 
             hood = new Hood(config.hood);
-            Timer.delay(canInitDelay);
 
             launcher = new Launcher(config.launcher);
             SystemLoadMonitor.threadCensus("hood+launcher");
-            Timer.delay(canInitDelay);
 
             indexerTower = new IndexerTower(config.indexerTower);
-            Timer.delay(canInitDelay);
 
             indexerBed = new IndexerBed(config.indexerBed);
             SystemLoadMonitor.threadCensus("indexers");
-            Timer.delay(canInitDelay);
 
             superStructure =
                     new SuperStructure(
@@ -248,6 +256,9 @@ public class Robot extends SpectrumRobot {
                 WebServer.start(5800, Filesystem.getDeployDirectory().getPath());
             }
 
+            if (Constants.currentMode == Constants.Mode.REAL) {
+                setMainThreadPriority(Constants.MAIN_THREAD_RT_PRIORITY);
+            }
             Telemetry.print("--- Robot Init Complete ---");
 
         } catch (Throwable t) {
@@ -275,6 +286,54 @@ public class Robot extends SpectrumRobot {
         }
     }
 
+    private final Alert mainThreadPriorityAlert = new Alert("", Level.MEDIUM);
+
+    /** Makes the calling (main) thread real-time; see {@link Constants#MAIN_THREAD_RT_PRIORITY}. */
+    @SuppressWarnings("deprecation") // WPILib deprecates it as a warning to know what you are doing
+    private void setMainThreadPriority(int priority) {
+        if (priority <= 0) {
+            return;
+        }
+        // Read it back rather than trusting the return value: on alpha-6 SystemCore it reports
+        // false even when the priority took (2026-09-23 bench unit: false, then 15).
+        org.wpilib.system.Threads.setCurrentThreadPriority(priority);
+        int now = org.wpilib.system.Threads.getCurrentThreadPriority();
+        boolean ok = now == priority;
+        Logger.recordMetadata("MainThreadPriority", Integer.toString(now));
+        Telemetry.print(
+                "Main thread real-time priority "
+                        + priority
+                        + (ok ? " set" : " FAILED")
+                        + " (now "
+                        + now
+                        + ")");
+        mainThreadPriorityAlert.setText("Main thread real-time priority " + priority + " failed");
+        mainThreadPriorityAlert.set(!ok);
+    }
+
+    /**
+     * Battery voltage below which a disabled robot raises the swap-the-battery alert. CALIBRATE
+     * against a meter: SystemCore's reading has been reported ~1.5 V low (SystemcoreTesting #306).
+     */
+    private static final double LOW_BATTERY_VOLTS = 11.8;
+
+    private final Alert lowBatteryAlert = new Alert("", Level.MEDIUM);
+    private final org.wpilib.math.filter.Debouncer lowBatteryDebounce =
+            new org.wpilib.math.filter.Debouncer(3.0);
+
+    /**
+     * Before a match (disabled), a battery that stays under {@link #LOW_BATTERY_VOLTS} for three
+     * seconds raises an alert. Disabled only: under load while driving the voltage sags by design.
+     */
+    private void checkBatteryBeforeMatch() {
+        double volts = RuntimeInputs.batteryVoltage();
+        boolean low =
+                lowBatteryDebounce.calculate(
+                        RobotState.isDisabled() && volts > 1 && volts < LOW_BATTERY_VOLTS);
+        lowBatteryAlert.setText(String.format("Battery low: %.1f V, swap before the match", volts));
+        lowBatteryAlert.set(low);
+    }
+
     /** Whether the HAL's brownout API works here (it did not on the 2026-09 SystemCore). */
     private boolean powerApiAvailable = false;
 
@@ -291,6 +350,7 @@ public class Robot extends SpectrumRobot {
         // Which robot config this controller selected (by serial number); replay always builds
         // FM2026, so a log from another robot says so here.
         Logger.recordMetadata("RobotIdentity", Rio.id.name());
+        Logger.recordMetadata("ControllerSerial", Rio.serial());
         Logger.recordMetadata("BuildDate", BuildConstants.BUILD_DATE);
         Logger.recordMetadata("GitSHA", BuildConstants.GIT_SHA);
         Logger.recordMetadata("GitDate", BuildConstants.GIT_DATE);
@@ -308,7 +368,8 @@ public class Robot extends SpectrumRobot {
                 // A USB stick if one is inserted (AdvantageKit's default /U/logs), otherwise the
                 // SystemCore's own storage. Without a stick /U/logs cannot be opened and the
                 // match is not logged at all.
-                Logger.addDataReceiver(new WPILOGWriter(realLogFolder()));
+                Logger.addDataReceiver(new WPILOGWriter(LogStorage.chooseFolder()));
+                Logger.recordMetadata("LogFolder", LogStorage.folder());
                 // Dashboard keys to NT at ~50 Hz; the log file keeps everything, every cycle.
                 Logger.addDataReceiver(new DashboardReceiver(new NT4Publisher(), ntEveryN()));
                 break;
@@ -326,6 +387,9 @@ public class Robot extends SpectrumRobot {
                 break;
         }
         Logger.start();
+        if (Constants.currentMode == Constants.Mode.REAL) {
+            LogStorage.start();
+        }
 
         // Dashboard keys: what the Elastic layout reads goes to NetworkTables; everything else
         // stays in the log unless the mirror switch is on (default on in the simulator).
@@ -346,39 +410,28 @@ public class Robot extends SpectrumRobot {
         return (int) Math.max(1, Math.round(0.02 / Constants.LOOP_PERIOD_SECONDS));
     }
 
-    /** {@code /U/logs} when a USB stick is mounted, else {@code /home/systemcore/logs}. */
-    private static String realLogFolder() {
-        java.io.File usb = new java.io.File("/U");
-        if (usb.isDirectory() && usb.canWrite()) {
-            return "/U/logs";
-        }
-        java.io.File local = new java.io.File("/home/systemcore/logs");
-        local.mkdirs();
-        return local.getPath();
-    }
-
     public void configureBindings() {
-        // LT alone → intake fuel; do nothing if RT is already held (RT+LT handled below)
+        // LT alone intakes fuel. Does nothing if RT is already held (RT+LT is handled below).
         pilot.LT.onTrue(
                 Commands.either(
                         superStructure.setStateCommand(WantedSuperState.INTAKE_FUEL),
                         Commands.none(),
                         pilot.RT.negate()));
 
-        // RT alone → launch; do nothing if LT is already held (RT+LT handled below)
+        // RT alone launches. Does nothing if LT is already held (RT+LT is handled below).
         pilot.RT.onTrue(
                 Commands.either(
                         superStructure.setStateCommand(WantedSuperState.LAUNCH_WITH_SQUEEZE),
                         Commands.none(),
                         pilot.LT.negate()));
 
-        // RT + LT both held → launch (intake stays extended; resolves to LAUNCH_WITHOUT_SQUEEZE)
+        // RT and LT both held: launch, intake stays extended (LAUNCH_WITHOUT_SQUEEZE).
         pilot.RT
                 .and(pilot.LT)
                 .onTrue(superStructure.setStateCommand(WantedSuperState.LAUNCH_WITHOUT_SQUEEZE));
 
-        // LT released while RT still held → launch (no delay; resolves to
-        // LAUNCH_WITH_SQUEEZE_WITH_NO_DELAY)
+        // LT released while RT is still held launches with no delay, as
+        // LAUNCH_WITH_SQUEEZE_WITH_NO_DELAY.
         pilot.LT.onFalse(
                 Commands.either(
                         superStructure.setStateCommand(
@@ -386,24 +439,33 @@ public class Robot extends SpectrumRobot {
                         Commands.none(),
                         pilot.RT));
 
-        // RT released while LT still held → resume intaking
+        // RT released while LT is still held resumes intaking.
         pilot.RT.onFalse(
                 Commands.either(
                         superStructure.setStateCommand(WantedSuperState.INTAKE_FUEL),
                         Commands.none(),
                         pilot.LT));
 
-        // Both released → idle
+        // Both released goes idle.
         pilot.RT.or(pilot.LT).onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
 
         pilot.LT.and(pilot.LB).onTrue(superStructure.setStateCommand(WantedSuperState.EJECT));
         pilot.LT.and(pilot.LB).onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
 
-        pilot.XButton.onTrue(superStructure.setStateCommand(WantedSuperState.TRACK_TARGET));
-        pilot.XButton.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
+        // Fixed shots: park at the spot, point the back at the hub, hold the chord. Hood and
+        // flywheel from the spot's range, fed once they are there; no pose read, no aim checked.
+        // See ShotCalculator.SetShot. Bound before the bare X and A below so that letting go of LB
+        // first lands in what the buttons now say (track target, unjam), not IDLE.
+        pilot.setShotTower_LB_A.onTrue(superStructure.setShotCommand(SetShot.TOWER));
+        pilot.setShotLeftTrench_LB_X.onTrue(superStructure.setShotCommand(SetShot.LEFT_TRENCH));
+        pilot.setShotRightTrench_LB_B.onTrue(superStructure.setShotCommand(SetShot.RIGHT_TRENCH));
+        pilot.anySetShot.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
 
-        pilot.AButton.onTrue(superStructure.setStateCommand(WantedSuperState.UNJAM));
-        pilot.AButton.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
+        pilot.trackTarget_X.onTrue(superStructure.setStateCommand(WantedSuperState.TRACK_TARGET));
+        pilot.trackTarget_X.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
+
+        pilot.unjam_A.onTrue(superStructure.setStateCommand(WantedSuperState.UNJAM));
+        pilot.unjam_A.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
 
         pilot.selectButton.onTrue(superStructure.setStateCommand(WantedSuperState.FORCE_HOME));
         pilot.selectButton.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
@@ -432,6 +494,9 @@ public class Robot extends SpectrumRobot {
 
         operator.selectButton.onTrue(superStructure.setStateCommand(WantedSuperState.FORCE_HOME));
         operator.selectButton.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
+
+        // Held: feed regardless of the shot gate (SuperStructure / ShotGate).
+        superStructure.setFeedOverride(operator.feedOverride_Y);
 
         operator.dPadDown.onTrue(ShotCalculator.decreaseHoodAngleOffset());
         operator.dPadUp.onTrue(ShotCalculator.increaseHoodAngleOffset());
@@ -467,6 +532,7 @@ public class Robot extends SpectrumRobot {
         RuntimeInputs.update();
         Telemetry.periodic();
         Alert.periodic();
+        LogStorage.periodic();
         systemLoad.periodic();
 
         // Latched here rather than in the mode inits so every mode is covered by the same check.
@@ -501,6 +567,7 @@ public class Robot extends SpectrumRobot {
             Telemetry.logDash("Match Data/TimeLeftInShift", shift.remainingTime(), "seconds");
 
             batteryLogger.setBatteryVoltage(RuntimeInputs.batteryVoltage());
+            checkBatteryBeforeMatch();
             // Every loop: a brownout is a few hundred milliseconds.
             if (powerApiAvailable) {
                 Telemetry.log("SystemStats/BrownedOut", RobotController.isBrownedOut());
@@ -524,13 +591,40 @@ public class Robot extends SpectrumRobot {
         }
     }
 
-    /** Time of the last CAN bus status read. */
+    /**
+     * Whether every bus reads zero utilization twice, 0.3 s apart. Any powered Phoenix device
+     * broadcasts status frames continuously, so a bus with devices on it is never at zero.
+     */
+    private static boolean noCanTraffic() {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                Thread.sleep(300); // wall clock: the robot clock is frozen during init
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+            for (CANBus bus : canBuses.values()) {
+                if (bus.getStatus().BusUtilization > 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /** Time of the last CAN bus status log. */
     private double lastCanStatusSeconds = Double.NEGATIVE_INFINITY;
 
     /**
-     * Reads and logs CAN bus health once a second (offseason: {@code getStatus()} can block for up
-     * to 1 ms, and nothing is lost at 1 Hz), plus the match identity, which the 2026 logs lacked.
+     * Every bus's status by log label, read once a second on {@link BackgroundSampler}'s thread:
+     * {@code getStatus()} can block for up to a millisecond, which on the real-time main thread is
+     * a late loop. Null off the robot.
      */
+    private static BackgroundSampler.Latest<java.util.Map<String, CANBusStatus>> canStatus;
+
+    private long lastCanStatusSequence = 0;
+
+    /** Logs CAN bus health once a second, plus the match identity, which the 2026 logs lacked. */
     private void logCanBusStatus() {
         double now = Timer.getTimestamp();
         if (now - lastCanStatusSeconds < 1.0) {
@@ -538,9 +632,9 @@ public class Robot extends SpectrumRobot {
         }
         lastCanStatusSeconds = now;
 
-        if (Constants.hasHardware()) {
-            logOneCanBus("CANivore", mainCANBus.getStatus());
-            logOneCanBus("SystemCoreCAN0", secondaryCANBus.getStatus());
+        if (canStatus != null && canStatus.sequence() != lastCanStatusSequence) {
+            lastCanStatusSequence = canStatus.sequence();
+            canStatus.get().forEach(this::logOneCanBus);
         }
 
         Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds());
@@ -579,7 +673,7 @@ public class Robot extends SpectrumRobot {
     public void disabledInit() {
         Telemetry.print("### Disabled Init Starting ### ");
 
-        // Offseason: honoured only before the first enable -- see mayPlaceAtAutoStart().
+        // Offseason: honoured only before the first enable. See mayPlaceAtAutoStart().
         placeAtAutoStart = true;
 
         if (!autonWarmedUp) {
@@ -848,6 +942,11 @@ public class Robot extends SpectrumRobot {
 
     @Override
     public void autonomousExit() {
+        // The Limelight rewind buffer holds 165 s, less than auto plus teleop, so each period is
+        // captured as it ends (10183 found the teleop-only capture missed auto at Summer Scorcher).
+        if (RobotState.isFMSAttached()) {
+            vision.triggerRewindCaptureForAllCameras();
+        }
         auton.exit();
         Telemetry.print("@@@ Auton Exit @@@ ");
     }
@@ -907,5 +1006,7 @@ public class Robot extends SpectrumRobot {
         robotSim.getBallSim().tick(); // runs physics, publishes ball positions to NT
         robotSim.updateArticulatedMechanisms();
         Telemetry.log("Sim/Fuel", robotSim.getBallSim().getTotalIntaked());
+        Telemetry.log("Sim/Launched", robotSim.getBallSim().getTotalLaunched());
+        Telemetry.log("Sim/Scored", robotSim.getBallSim().getTotalScored());
     }
 }

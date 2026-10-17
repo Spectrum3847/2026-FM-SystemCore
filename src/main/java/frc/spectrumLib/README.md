@@ -1,6 +1,6 @@
 # SpectrumLib
 
-Reusable robot library shared across Spectrum teams (3847, 8515, Flash, etc.). Contains framework abstractions, hardware wrappers, telemetry utilities, and simulation helpers designed to carry forward year-to-year.
+Robot library shared across Spectrum teams (3847, 8515, Flash, and others). It has framework base classes, hardware wrappers, telemetry, and simulation helpers, and is reused from season to season.
 
 ---
 
@@ -16,7 +16,6 @@ frc.spectrumLib
 ├── gamepads/       Xbox controller abstraction with deadbanding and rumble
 ├── leds/           CTRE CANdle wrapper with built-in pattern library
 ├── sim/            Mechanism2d simulation helpers (arm, roller, linear)
-├── swerve/         Swerve-specific utilities (SysID, Maple-Sim bridge)
 └── vision/         Limelight helpers and vision logging
 ```
 
@@ -41,7 +40,7 @@ Low-level hardware wrappers and robot identity constants.
 
 |          Class           |                                                       Description                                                       |
 |--------------------------|-------------------------------------------------------------------------------------------------------------------------|
-| `Rio`                    | Enum mapping RoboRIO serial numbers to robot identities; exposes `Rio.CANIVORE` and `Rio.RIO_CANBUS` bus name constants |
+| `Rio`                    | Enum mapping controller serial numbers to robot identities (bus names are in `CanBuses`) |
 | `SpectrumCANcoder`       | Configures a CANcoder and wires it into a `TalonFX` as Remote, Fused, or Sync feedback                                  |
 | `SpectrumCANcoderConfig` | Configuration holder for CANcoder offset, gear ratios, inversion, and attachment flag                                   |
 | `SpectrumServo`          | PWM servo wrapper that also implements `Subsystem`                                                                      |
@@ -127,17 +126,6 @@ Mechanism2d simulation helpers for visualizing robot mechanisms in DriverStation
 
 ---
 
-### `swerve`
-
-Swerve-specific utilities.
-
-|           Class            |                              Description                              |
-|----------------------------|-----------------------------------------------------------------------|
-| `MapleSimSwerveDrivetrain` | Maple-Sim simulation bridge for CTRE swerve                           |
-| `SysID`                    | SysID characterization routine wrapper (translation, rotation, steer) |
-
----
-
 ### `vision`
 
 Limelight vision utilities.
@@ -146,7 +134,6 @@ Limelight vision utilities.
 |--------------------|----------------------------------------------------------------------------------------------------------------------------|
 | `Limelight`        | Wrapper around `LimelightHelpers` with null-safe MegaTag1/MegaTag2 pose access, tag-count queries, and distance estimation |
 | `LimelightHelpers` | Vendored Limelight utility library                                                                                         |
-| `VisionLogger`     | Logs vision pose estimates and tag data to telemetry                                                                       |
 
 ---
 
@@ -156,7 +143,6 @@ Limelight vision utilities.
 - [CTRE Phoenix 6](https://pro.docs.ctr-electronics.com/en/stable/)
 - [DogLog](https://github.com/jonahsnider/doglog)
 - [PathPlanner](https://github.com/mjansen4857/pathplanner)
-- [Maple-Sim](https://github.com/Shenzhen-Robotics-Alliance/Maple-Sim) *(simulation only)*
 - [Lombok](https://projectlombok.org/) *(compile-time `@Getter`/`@Setter` generation)*
 
 ---

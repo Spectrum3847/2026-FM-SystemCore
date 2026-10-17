@@ -1,5 +1,6 @@
 package frc.spectrumLib.telemetry;
 
+import frc.spectrumLib.util.BackgroundSampler;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.lang.management.GarbageCollectorMXBean;
@@ -45,7 +46,7 @@ public class SystemLoadMonitor {
     /** Seconds between samples and dashboard publishes. */
     public static final double SAMPLE_PERIOD_SECONDS = 1.0;
 
-    /** A loop longer than this counts as an overrun. The budget is 20 ms. */
+    /** A loop longer than this many periods counts as an overrun. */
     public static final double LOOP_OVERRUN_FACTOR = 1.25;
 
     /** A loop longer than this counts as an overrun: 25 ms at 50 Hz, 12.5 ms at 100 Hz. */
@@ -53,7 +54,7 @@ public class SystemLoadMonitor {
         return frc.spectrumLib.framework.RobotLoop.periodSeconds() * 1000.0 * LOOP_OVERRUN_FACTOR;
     }
 
-    /** Share of overrunning loops that starts the loop alert clock. */
+    /** Share of overrunning loops that starts the loop alert timer. */
     public static final double LOOP_OVERRUN_ALERT_PERCENT = 50.0;
 
     /** Share of overrunning loops below which the loop alert clears. */
@@ -178,15 +179,32 @@ public class SystemLoadMonitor {
     private long lastShareWallNanos = -1;
 
     /**
-     * Logs how much CPU this program and its main (robot loop) thread used over the last sample.
+     * What the background sampler read from {@code /proc} and the JVM over the last second. NaN (or
+     * null for the thread list) where a value is not available, e.g. off Linux.
      *
-     * <p>Separates "the loop is slow because our code is slow" from "the loop is late because
-     * something else on the controller has the CPU": on the SystemCore bench unit the loop ran 0.6
-     * ms of work per 10 ms cycle yet overran, with the Limelight vision servers for two cameras
-     * taking most of the CPU. {@code MainThreadPercent} is of one core; {@code ProcessPercent} is
-     * of the whole machine.
+     * <p>{@code mainThreadPercent} is of one core; {@code processPercent} is of the whole machine.
+     * Together they separate "the loop is slow because our code is slow" from "the loop is late
+     * because something else on the controller has the CPU": on the SystemCore bench unit the loop
+     * ran 0.6 ms of work per 10 ms cycle yet overran, with the Limelight vision servers for two
+     * cameras taking most of the CPU.
      */
-    private void logProcessShare(double now) {
+    private record ProcSnapshot(
+            double cpuPercent,
+            double availableMb,
+            double processPercent,
+            double mainThreadPercent,
+            long threadCount,
+            String[] topThreads) {}
+
+    /** Read on {@link BackgroundSampler}'s thread: none of this touches the real-time loop. */
+    private final BackgroundSampler.Latest<ProcSnapshot> proc =
+            BackgroundSampler.every(SAMPLE_PERIOD_SECONDS, this::readProc);
+
+    private long lastProcSequence = 0;
+
+    private ProcSnapshot readProc() {
+        double cpu = readCpuPercent();
+        double mem = readMemAvailableMb();
         long wall = System.nanoTime();
         long processCpu =
                 ProcessHandle.current()
@@ -198,27 +216,40 @@ public class SystemLoadMonitor {
                 threadBean.isThreadCpuTimeSupported()
                         ? threadBean.getThreadCpuTime(mainThreadId)
                         : -1;
+        double processPercent = Double.NaN;
+        double mainPercent = Double.NaN;
+        String[] top = null;
         if (lastShareWallNanos > 0) {
             double wallNanos = wall - lastShareWallNanos;
             int cores = Runtime.getRuntime().availableProcessors();
             if (processCpu >= 0 && lastProcessCpuNanos >= 0) {
-                Telemetry.logDash(
-                        "System/ProcessPercent",
-                        100.0 * (processCpu - lastProcessCpuNanos) / (wallNanos * cores),
-                        "%");
+                processPercent = 100.0 * (processCpu - lastProcessCpuNanos) / (wallNanos * cores);
             }
             if (mainCpu >= 0 && lastMainCpuNanos >= 0) {
-                Telemetry.logDash(
-                        "System/MainThreadPercent",
-                        100.0 * (mainCpu - lastMainCpuNanos) / wallNanos,
-                        "%");
+                mainPercent = 100.0 * (mainCpu - lastMainCpuNanos) / wallNanos;
             }
-            Telemetry.logDash("System/ThreadCount", (long) threadBean.getThreadCount());
-            logTopThreads(wallNanos);
+            top = readTopThreads(wallNanos);
         }
         lastShareWallNanos = wall;
         lastProcessCpuNanos = processCpu;
         lastMainCpuNanos = mainCpu;
+        return new ProcSnapshot(
+                cpu, mem, processPercent, mainPercent, threadBean.getThreadCount(), top);
+    }
+
+    /** Logs this program's CPU share and busiest threads from a background reading. */
+    private void logProcessShare(ProcSnapshot snap) {
+        if (!Double.isNaN(snap.processPercent())) {
+            Telemetry.logDash("System/ProcessPercent", snap.processPercent(), "%");
+        }
+        if (!Double.isNaN(snap.mainThreadPercent())) {
+            Telemetry.logDash("System/MainThreadPercent", snap.mainThreadPercent(), "%");
+        }
+        Telemetry.logDash("System/ThreadCount", snap.threadCount());
+        if (snap.topThreads() != null) {
+            Telemetry.addDashboardKey("System/TopThreads");
+            Telemetry.log("System/TopThreads", snap.topThreads());
+        }
     }
 
     private int censusLoops = 0;
@@ -269,15 +300,15 @@ public class SystemLoadMonitor {
 
     /**
      * Logs the busiest threads of this program over the last sample as {@code "name 12.3%"}
-     * (percent of one core), from {@code /proc/self/task}, so native threads -- Phoenix's CAN and
-     * odometry threads, NetworkTables, the HAL -- are counted as well as Java ones. On the
-     * SystemCore bench unit the program used ~1.4 cores while its main loop used 0.17; this is how
-     * to see where the rest goes.
+     * (percent of one core), from {@code /proc/self/task}. Native threads, such as Phoenix's CAN
+     * and odometry threads, NetworkTables, and the HAL, are counted as well as Java ones. On the
+     * SystemCore bench unit the program used ~1.4 cores while its main loop used 0.17. This shows
+     * where the rest goes.
      */
-    private void logTopThreads(double wallNanos) {
+    private String[] readTopThreads(double wallNanos) {
         java.io.File[] tasks = new java.io.File("/proc/self/task").listFiles();
         if (tasks == null) {
-            return; // not Linux (the desktop sim)
+            return null; // not Linux (the desktop sim)
         }
         java.util.Map<String, Long> now = new java.util.HashMap<>();
         java.util.List<String> names = new java.util.ArrayList<>();
@@ -291,12 +322,15 @@ public class SystemLoadMonitor {
                 String[] f = stat.substring(close + 2).split(" ");
                 // After "(comm) ": state is f[0], utime f[11], stime f[12].
                 long ticks = Long.parseLong(f[11]) + Long.parseLong(f[12]);
+                // rt_priority and policy: fields 40 and 41 of stat, 37 and 38 after "(comm) ".
+                int rtPriority = Integer.parseInt(f[37]);
+                String rt = rtPriority > 0 ? " [rt " + rtPriority + "]" : "";
                 String key = task.getName() + ":" + name;
                 now.put(key, ticks);
                 Long before = lastTaskTicks.get(key);
                 if (before != null) {
                     // Native threads that never set a name inherit "java"; keep them apart.
-                    names.add(name.equals("java") ? "java/" + task.getName() : name);
+                    names.add((name.equals("java") ? "java/" + task.getName() : name) + rt);
                     pcts.add(100.0 * (ticks - before) / TICKS_PER_SECOND / (wallNanos / 1e9));
                 }
             } catch (IOException | RuntimeException e) {
@@ -310,14 +344,11 @@ public class SystemLoadMonitor {
         for (int i = 0; i < names.size(); i++) {
             byName.merge(names.get(i), pcts.get(i), Double::sum);
         }
-        String[] top =
-                byName.entrySet().stream()
-                        .sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
-                        .limit(10)
-                        .map(e -> String.format("%s %.1f%%", e.getKey(), e.getValue()))
-                        .toArray(String[]::new);
-        Telemetry.addDashboardKey("System/TopThreads");
-        Telemetry.log("System/TopThreads", top);
+        return byName.entrySet().stream()
+                .sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
+                .limit(10)
+                .map(e -> String.format("%s %.1f%%", e.getKey(), e.getValue()))
+                .toArray(String[]::new);
     }
 
     private void sample(double now) {
@@ -355,8 +386,18 @@ public class SystemLoadMonitor {
         bucketSumMs = 0;
         bucketMaxMs = 0;
 
+        // ── From the background sampler (only when it has a new reading) ────────
+        ProcSnapshot snap = proc.get();
+        long sequence = proc.sequence();
+        boolean fresh = snap != null && sequence != lastProcSequence;
+        lastProcSequence = sequence;
+        double cpuPercent = fresh ? snap.cpuPercent() : Double.NaN;
+        double availableMb = fresh ? snap.availableMb() : Double.NaN;
+        if (fresh) {
+            logProcessShare(snap);
+        }
+
         // ── CPU ───────────────────────────────────────────────────────────────
-        double cpuPercent = readCpuPercent();
         if (!Double.isNaN(cpuPercent)) {
             Telemetry.logDashAlways("System/CpuPercent", cpuPercent, "%");
             if (cpuPercent >= CPU_ALERT_PERCENT) {
@@ -377,11 +418,7 @@ public class SystemLoadMonitor {
             }
         }
 
-        // ── This program's share ─────────────────────────────────────────────
-        logProcessShare(now);
-
         // ── Memory ────────────────────────────────────────────────────────────
-        double availableMb = readMemAvailableMb();
         if (!Double.isNaN(availableMb)) {
             Telemetry.logDashAlways("System/MemAvailableMB", availableMb, "MB");
             if (availableMb < MEMORY_ALERT_MB) {
@@ -392,7 +429,7 @@ public class SystemLoadMonitor {
                 if (held >= MEMORY_HOLD_SECONDS && (!memoryAlert.get() || refreshText)) {
                     memoryAlert.setText(
                             String.format(
-                                    "roboRIO memory low: %.0f MB available for %.0f s",
+                                    "Controller memory low: %.0f MB available for %.0f s",
                                     availableMb, held));
                     memoryAlert.set(true);
                 }

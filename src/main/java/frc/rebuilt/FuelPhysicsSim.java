@@ -1,5 +1,5 @@
 /*
- * FuelPhysicsSim.java - Full-field ball physics simulation for FRC 2026 REBUILT
+ * FuelPhysicsSim.java: Full-field ball physics simulation for FRC 2026 REBUILT
  *
  * MIT License
  *
@@ -644,7 +644,7 @@ public class FuelPhysicsSim {
     static class Contact {
         int ballIndexA; // index into balls list
         int ballIndexB; // index into balls list, or -1 for field geometry
-        Translation3d normal; // contact normal (A -> B or outward from field)
+        Translation3d normal; // contact normal (from A to B, or outward from the field)
         double penetration; // overlap depth (positive = overlapping)
         Translation3d contactPoint; // world-space contact location
         double normalImpulseAccum; // warm-start accumulated normal impulse
@@ -1231,7 +1231,7 @@ public class FuelPhysicsSim {
         }
     }
 
-    /** Compute acceleration: gravity + drag + Magnus lift. Magnus only kicks in when airborne. */
+    /** Compute acceleration: gravity + drag + Magnus lift. Magnus only applies when airborne. */
     private Translation3d computeAcceleration(SimBall ball) {
         // Gravity always acts
         double ax = 0, ay = 0, az = -GRAVITY;
@@ -1239,7 +1239,7 @@ public class FuelPhysicsSim {
         double speed = ball.vel.getNorm();
         boolean airborne = ball.pos.getZ() > BALL_RADIUS + 0.01;
 
-        // Drag acts whether on ground or airborne (air doesn't vanish at carpet level)
+        // Drag acts on the ground as well as in the air
         if (config.dragEnabled && speed > 1e-6) {
             ax -= DRAG_ACCEL_FACTOR * speed * ball.vel.getX();
             ay -= DRAG_ACCEL_FACTOR * speed * ball.vel.getY();
@@ -2411,6 +2411,15 @@ public class FuelPhysicsSim {
 
     public int getTotalIntaked() {
         return totalIntaked;
+    }
+
+    /**
+     * Puts fuel in the robot's hopper without driving over it, for scripted shooting runs.
+     *
+     * @param count how much fuel the hopper should hold, capped at its size
+     */
+    public void setHopperCount(int count) {
+        totalIntaked = Math.max(0, Math.min(hopperSize, count));
     }
 
     public double getLastLaunchSpeed() {

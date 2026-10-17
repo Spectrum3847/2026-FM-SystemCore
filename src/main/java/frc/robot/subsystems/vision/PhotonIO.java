@@ -41,11 +41,17 @@ public class PhotonIO implements PoseSourceIO {
         this.layout = layout;
     }
 
+    /** Tag ids seen this update; reused so a loop with no targets allocates nothing. */
+    private final java.util.BitSet ids = new java.util.BitSet();
+
+    private static final int[] NO_IDS = new int[0];
+    private static final double[] NO_HEALTH = new double[0];
+
     @Override
     public void updateInputs(PoseSourceInputs inputs) {
         inputs.connected = camera.isConnected();
         List<PoseObservation> observations = new ArrayList<>();
-        List<Integer> ids = new ArrayList<>();
+        ids.clear();
 
         for (PhotonPipelineResult result : camera.getAllUnreadResults()) {
             if (!result.hasTargets()) {
@@ -54,7 +60,9 @@ public class PhotonIO implements PoseSourceIO {
             double distanceSum = 0;
             for (PhotonTrackedTarget t : result.getTargets()) {
                 distanceSum += t.bestCameraToTarget.getTranslation().getNorm();
-                ids.add(t.fiducialId);
+                if (t.fiducialId >= 0) {
+                    ids.set(t.fiducialId);
+                }
             }
             double avgDistance = distanceSum / result.getTargets().size();
 
@@ -103,7 +111,7 @@ public class PhotonIO implements PoseSourceIO {
         for (int i = 0; i < observations.size(); i++) {
             inputs.set(i, observations.get(i));
         }
-        inputs.tagIds = ids.stream().mapToInt(Integer::intValue).distinct().toArray();
-        inputs.health = new double[0];
+        inputs.tagIds = ids.isEmpty() ? NO_IDS : ids.stream().toArray();
+        inputs.health = NO_HEALTH;
     }
 }

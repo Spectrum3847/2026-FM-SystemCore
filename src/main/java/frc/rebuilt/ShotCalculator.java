@@ -14,7 +14,6 @@ import org.wpilib.math.geometry.Transform2d;
 import org.wpilib.math.geometry.Translation2d;
 import org.wpilib.math.geometry.Twist2d;
 import org.wpilib.math.kinematics.ChassisVelocities;
-import org.wpilib.math.util.MathUtil;
 
 @SuppressWarnings("unused")
 public class ShotCalculator {
@@ -25,7 +24,7 @@ public class ShotCalculator {
 
     private static ShotCalculator instance;
 
-    /** Robot-centre to launcher offset. Zero = launcher is at robot centre. */
+    /** Offset from robot centre to launcher. Zero means the launcher is at the robot centre. */
     private static final Transform2d robotToLauncher = Transform2d.kZero;
 
     public static ShotCalculator getInstance() {
@@ -46,7 +45,10 @@ public class ShotCalculator {
             boolean isValid,
             /** Field-relative heading the robot must face to aim at the goal. */
             Rotation2d driveAngle,
-            /** Rate of change of {@code driveAngle} (rad/s) for heading feedforward. */
+            /**
+             * How fast the bearing to the goal is turning (rad/s, counter-clockwise positive), for
+             * the drivetrain's heading feedforward. See {@link #bearingRateRadPerSec}.
+             */
             double driveAngularVelocity,
             /** Commanded hood/pivot angle (degrees), including {@link #HOOD_ANGLE_OFFSET}. */
             double hoodAngle,
@@ -61,7 +63,15 @@ public class ShotCalculator {
             /** Raw uncompensated distance to goal (metres). */
             double distanceNoLookahead,
             /** Estimated ball time-of-flight (seconds). */
-            double timeOfFlight) {}
+            double timeOfFlight,
+            /** Launcher velocity toward the goal (m/s), positive closing. */
+            double radialVelocity,
+            /** Launcher velocity across the line to the goal (m/s). */
+            double tangentialVelocity,
+            /** A feed (passing) shot rather than a hub shot. */
+            boolean feedShot,
+            /** Name of the fitted model the shot was evaluated on. */
+            String modelName) {}
 
     private ShootingParameters latestParameters = null;
 
@@ -100,13 +110,23 @@ public class ShotCalculator {
 
     /**
      * Global exit-speed scale factor. Adjust post-characterization to correct for ball compression,
-     * wear, or temperature without re-fitting the polynomial. 1.0 = no scaling. Applied to both the
-     * hub and feed models.
+     * wear, or temperature without re-fitting the polynomial. 1.0 means no scaling. Applied to both
+     * the hub and feed models.
      */
     private static final double MPS_FACTOR = 0.8;
 
     /** Scale factor converting polynomial exit speed (m/s) to flywheel RPM. */
     private static final double RPM_PER_MPS = 255.0;
+
+    /**
+     * The ball exit speed a flywheel speed stands for, the inverse of the model's RPM conversion.
+     *
+     * @param rpm flywheel speed
+     * @return exit speed, m/s
+     */
+    public static double exitSpeedForFlywheelRpm(double rpm) {
+        return rpm / RPM_PER_MPS;
+    }
 
     /**
      * A fitted degree-3 polynomial surface plus its input domain and normalisation. Inputs are
@@ -140,7 +160,7 @@ public class ShotCalculator {
             double[] speedCoeffs,
             double[] angleCoeffs) {}
 
-    /** Hub-shot model — used when the robot is in a scoring zone. */
+    /** Hub-shot model, used when the robot is in a scoring zone. */
     private static final PolyModel NO_CEILING_HUB_MODEL =
             new PolyModel(
                     "No Ceiling Hub Model",
@@ -177,7 +197,7 @@ public class ShotCalculator {
                         /* v³   */ -1.4532157984e+0
                     });
 
-    /** 3 meter ceiling hub model - used when the robot is testing at home */
+    /** 3 meter ceiling hub model, used when the robot is testing at home. */
     private static final PolyModel CEILING_3M_HUB_MODEL =
             new PolyModel(
                     "3 Meter Ceiling Hub Model",
@@ -214,7 +234,7 @@ public class ShotCalculator {
                         /* v³   */ -5.4437632941e-1
                     });
 
-    /** Feed-shot model — used when the robot is in a feed zone. */
+    /** Feed-shot model, used when the robot is in a feed zone. */
     private static final PolyModel FEED_MODEL =
             new PolyModel(
                     "Feed Model",
@@ -264,6 +284,7 @@ public class ShotCalculator {
     private ShotCalculator() {
         hubModelChooser.addDefaultOption(NO_CEILING_HUB_MODEL.name(), NO_CEILING_HUB_MODEL);
         hubModelChooser.addOption(CEILING_3M_HUB_MODEL.name(), CEILING_3M_HUB_MODEL);
+        Telemetry.logDash("ShotCalc/SetShot", selectedSetShot.label);
     }
 
     /**
@@ -276,7 +297,142 @@ public class ShotCalculator {
     }
 
     // =========================================================================
-    // State — Velocity Derivative Filters
+    // Set shots: fixed shots from known parking spots, for when the pose is gone
+    // =========================================================================
+
+    /**
+     * FM's centre to its bumper face, metres: half the 0.84 m bumpered frame PathPlanner uses
+     * ({@code settings.json}). CALIBRATE: measure FM's bumper-to-centre, both ways.
+     */
+    public static final double FM_HALF_LENGTH_METERS = 0.42;
+
+    /**
+     * The y of the tower's centreline, metres. CALIBRATE on the field. The offseason bot parked on
+     * tag 31's y (147.469 in in the 2026 welded layout, 3.746 m) and found "squared up dead flat is
+     * 5.3 deg off, because the tower's centreline follows tag 31 and the hub sits on the field
+     * centreline". FM's own {@code Field.BlueTower.tag31Y} puts the tower on the field centreline
+     * instead (4.035 m); the distance differs by under a centimetre, only the heading moves.
+     */
+    public static final double TOWER_CENTRE_Y_METERS = 147.469 * 0.0254;
+
+    /**
+     * The fixed shots, one per parking spot, from the offseason bot's set shots (463c465, fa1376b)
+     * less its hub-face shot, which FM cannot make. Spots are for blue. Each gives where to park
+     * the robot centre, and the heading that points the launcher (FM's back) at the hub centre. Red
+     * rotates the spot about the field centre. The hood and flywheel are not stored here: they are
+     * FM's selected hub model evaluated at the spot's range at a standstill ({@link
+     * #setShotSolution}), so a set shot follows the shot map, and the operator's hood trim, without
+     * anyone retyping numbers.
+     *
+     * <p>The driver aims, as on the offseason bot: park where the spot says, point the back of the
+     * robot at the hub (the heading below), hold the chord. Nothing reads the pose, so the shot is
+     * only as good as the parking. The model moves about 0.5 deg of hood and 35 RPM per 15 cm here,
+     * so lining up by eye against the field element is good enough.
+     *
+     * <p>Hub centre: {@code Field.BlueHub} (the midpoint of tags 26 and 20, 4.626, 4.035 m).
+     */
+    public enum SetShot {
+        /**
+         * Intake (front bumper) against the tower's field-facing wall, on its centreline, back of
+         * the robot to the hub: (1.525, 3.746) m, 3.11 m out. Squared up to the wall the launcher
+         * points 5.3 deg right of the hub, so turn the robot about 5 deg counter-clockwise (from
+         * above) off square.
+         */
+        TOWER("Tower", Field.BlueTower.frontFaceX + FM_HALF_LENGTH_METERS, TOWER_CENTRE_Y_METERS),
+        /**
+         * In the left trench lane (the driver's left: +y on blue) just clear of the trench on the
+         * alliance side, intake to the wall, back to the hub. Lane centre is half the 50.34 in
+         * opening from the wall; the trench is the hub's 47 in deep, centred on the hub's x.
+         * (3.609, 7.430) m, 3.54 m out. CALIBRATE both: the offseason bot used the same spot, 3.53
+         * m with its smaller frame.
+         */
+        LEFT_TRENCH(
+                "LeftTrench",
+                Field.BlueHub.centerX - Field.BlueTrench.depth / 2.0 - FM_HALF_LENGTH_METERS,
+                Field.fieldWidth - Field.BlueTrench.openingWidth / 2.0),
+        /** Mirror of {@link #LEFT_TRENCH} across the field's long centreline. */
+        RIGHT_TRENCH(
+                "RightTrench",
+                Field.BlueHub.centerX - Field.BlueTrench.depth / 2.0 - FM_HALF_LENGTH_METERS,
+                Field.BlueTrench.openingWidth / 2.0);
+
+        /** Short name, logged to {@code ShotCalc/SetShot}. */
+        public final String label;
+
+        /** Where to park on the blue side, and the heading to hold there. */
+        public final Pose2d bluePose;
+
+        /** Robot centre (the launcher: {@code robotToLauncher} is zero) to the hub centre. */
+        public final double distanceMeters;
+
+        SetShot(String label, double blueX, double blueY) {
+            this.label = label;
+            Translation2d spot = new Translation2d(blueX, blueY);
+            Translation2d toHub =
+                    new Translation2d(Field.BlueHub.centerX, Field.BlueHub.centerY).minus(spot);
+            this.bluePose = new Pose2d(spot, toHub.getAngle().plus(Rotation2d.k180deg));
+            this.distanceMeters = toHub.getNorm();
+        }
+
+        /** The spot and heading for the alliance the robot is on (rotated about centre for red). */
+        public Pose2d pose() {
+            return FieldHelpers.flipIfRed(bluePose);
+        }
+    }
+
+    private static SetShot selectedSetShot = SetShot.TOWER;
+
+    /**
+     * Picks which fixed shot the SET_SHOT super state runs. Called from the pilot binding before
+     * the state is requested; the selection sticks until the next binding changes it. Main thread
+     * only; the binding comes from logged Driver Station inputs, so replay makes the same pick.
+     *
+     * @param shot the parking spot
+     */
+    public static void selectSetShot(SetShot shot) {
+        selectedSetShot = shot;
+        Telemetry.logDash("ShotCalc/SetShot", shot.label);
+    }
+
+    /** The fixed shot currently selected, {@link SetShot#TOWER} until a binding picks one. */
+    public static SetShot getSelectedSetShot() {
+        return selectedSetShot;
+    }
+
+    /**
+     * Hood angle and flywheel speed for a set shot: the hub model at the spot's range at a
+     * standstill, exactly what {@link #getParameters()} commands standing still at that range (with
+     * no velocity the virtual-target solver evaluates the model at the real distance), with the
+     * same hood trim and 9 deg floor. Never reads the pose.
+     *
+     * @param model the hub model to evaluate
+     * @param distanceMeters range to the hub centre
+     * @return {@code {hoodDegrees, flywheelRPM}}
+     */
+    static double[] setShotSolution(PolyModel model, double distanceMeters) {
+        double[] raw = evalPolyRaw(model, distanceMeters, 0.0);
+        double hoodDegrees = Math.max(90 - raw[1] + HOOD_ANGLE_OFFSET, 9);
+        double rpm = raw[0] * MPS_FACTOR * RPM_PER_MPS;
+        return new double[] {hoodDegrees, rpm};
+    }
+
+    /** {@link #setShotSolution} for a spot on the no-ceiling (competition) hub model. */
+    static double[] setShotSolution(SetShot shot) {
+        return setShotSolution(NO_CEILING_HUB_MODEL, shot.distanceMeters);
+    }
+
+    /** Hood angle for the selected set shot, degrees, on the dashboard's hub model. */
+    public static double getSetShotHoodDegrees() {
+        return setShotSolution(getInstance().selectedHubModel(), selectedSetShot.distanceMeters)[0];
+    }
+
+    /** Flywheel speed for the selected set shot, RPM, on the dashboard's hub model. */
+    public static double getSetShotFlywheelRPM() {
+        return setShotSolution(getInstance().selectedHubModel(), selectedSetShot.distanceMeters)[1];
+    }
+
+    // =========================================================================
+    // State: velocity derivative filters
     // =========================================================================
 
     /** Robot loop period, for the ~100 ms filter windows below. */
@@ -292,11 +448,7 @@ public class ShotCalculator {
     private final LinearFilter hoodAngleFilter =
             LinearFilter.movingAverage((int) (0.1 / LOOP_PERIOD_SECS)); // ~100 ms window
 
-    private final LinearFilter driveAngleFilter =
-            LinearFilter.movingAverage((int) (0.1 / LOOP_PERIOD_SECS)); // ~100 ms window
-
     private double lastHoodAngle = Double.NaN;
-    private Rotation2d lastDriveAngle = null;
 
     // =========================================================================
     // Main API
@@ -404,12 +556,9 @@ public class ShotCalculator {
                                                 launcherVelocityY * tofFinal)),
                         driveAngle);
 
-        // Drive angular velocity (rad/s) for heading feedforward
-        if (lastDriveAngle == null) lastDriveAngle = driveAngle;
-        double deltaRot =
-                MathUtil.inputModulus(driveAngle.minus(lastDriveAngle).getRotations(), -0.5, 0.5);
-        double driveAngularVelocity = driveAngleFilter.calculate(deltaRot / LOOP_PERIOD_SECS);
-        lastDriveAngle = driveAngle;
+        // ── Drive angular velocity (rad/s, CCW positive) for heading feedforward ──
+        double driveAngularVelocity =
+                bearingRateRadPerSec(launcherToTarget, launcherVelocityX, launcherVelocityY);
 
         // ── Hood angle + velocity ─────────────────────────────────────────────
         // Compute velocity on the raw (un-offset) angle so HOOD_ANGLE_OFFSET (a
@@ -420,7 +569,7 @@ public class ShotCalculator {
         lastHoodAngle = rawHoodAngle;
         double hoodAngle = Math.max(rawHoodAngle + HOOD_ANGLE_OFFSET, 9);
 
-        // ── Flywheel speed: exit speed (m/s) → RPM ───────────────────────────
+        // ── Flywheel speed: exit speed (m/s) to RPM ───────────────────────────
         double flywheelSpeed = exitSpeedMs * RPM_PER_MPS;
 
         // ── Validity ──────────────────────────────────────────────────────────
@@ -438,7 +587,11 @@ public class ShotCalculator {
                         exitSpeedMs,
                         lookaheadDist,
                         distanceNoLookahead,
-                        tofFinal);
+                        tofFinal,
+                        radialVelocity,
+                        tangentialVelocity,
+                        feed,
+                        model.name());
 
         Telemetry.log("ShotCalc/LookaheadPose", lookaheadPose);
         Telemetry.log("ShotCalc/DistanceMeters", lookaheadDist, "meters");
@@ -461,6 +614,38 @@ public class ShotCalculator {
     }
 
     /**
+     * How fast the bearing from the launcher to the goal turns while the launcher moves: minus the
+     * tangential velocity over the distance (581's {@code AimParameterUtil}), in rad/s,
+     * counter-clockwise positive, the convention of the heading it feeds forward. {@code
+     * driveAngle} is that bearing plus a constant half turn plus the shoot-on-move yaw offset,
+     * which barely moves at a steady velocity, so this is very nearly the rate it turns at.
+     *
+     * <p>This is the analytic rate, not a numerical derivative of {@code driveAngle}.
+     * Differentiating {@code driveAngle} also differentiates the yaw offset, which follows the
+     * measured velocity, which the rotation itself disturbs. In simulation that made the aim
+     * oscillate (mean heading error 6 to 9 deg strafing at 1 m/s, against a steady 4 to 5 deg lag
+     * with no feedforward). The analytic rate has no derivative to amplify that.
+     *
+     * @param launcherToTarget field-relative vector from the launcher to the goal, metres
+     * @param launcherVx field-relative launcher velocity, x, m/s
+     * @param launcherVy field-relative launcher velocity, y, m/s
+     * @return rad/s, counter-clockwise positive; 0 when on top of the goal
+     */
+    static double bearingRateRadPerSec(
+            Translation2d launcherToTarget, double launcherVx, double launcherVy) {
+        double distance = launcherToTarget.getNorm();
+        if (distance < 1e-6) {
+            return 0;
+        }
+        double ux = launcherToTarget.getX() / distance;
+        double uy = launcherToTarget.getY() / distance;
+        // Same decomposition as getParameters(): positive tangential is the launcher moving to
+        // the left of its line of sight, so the bearing to the goal turns clockwise.
+        double tangential = -launcherVx * uy + launcherVy * ux;
+        return -tangential / distance;
+    }
+
+    /**
      * Clears the cached parameters so they are recomputed on the next call to {@link
      * #getParameters()}.
      */
@@ -469,7 +654,7 @@ public class ShotCalculator {
     }
 
     // =========================================================================
-    // Private — Polynomial Solver
+    // Private: polynomial solver
     // =========================================================================
 
     /**
@@ -477,8 +662,8 @@ public class ShotCalculator {
      *
      * <p>Each pass evaluates the polynomial at the current virtual aim point, estimates
      * time-of-flight from horizontal kinematics, shifts the aim point by how far the launcher moves
-     * during that flight, and repeats until TOF converges. Terminates in ≤ 5 iterations (typically
-     * 2–3).
+     * during that flight, and repeats until TOF converges. Takes at most 5 iterations (typically 2
+     * to 3).
      *
      * @param model the polynomial model (hub or feed) to evaluate against
      * @param distance horizontal distance to goal centre (metres)
@@ -487,17 +672,17 @@ public class ShotCalculator {
      * @param tangentialVelocity launcher velocity perpendicular to goal line (m/s)
      * @return {@code double[]} with indices:
      *     <ul>
-     *       <li>0 — exit speed (m/s), scaled by {@link #MPS_FACTOR}
-     *       <li>1 — launch angle (degrees), raw polynomial value
-     *       <li>2 — yaw offset (degrees); add to static bearing before firing
-     *       <li>3 — converged virtual aim distance (metres)
-     *       <li>4 — converged time of flight (seconds)
+     *       <li>0: exit speed (m/s), scaled by {@link #MPS_FACTOR}
+     *       <li>1: launch angle (degrees), raw polynomial value
+     *       <li>2: yaw offset (degrees); add to static bearing before firing
+     *       <li>3: converged virtual aim distance (metres)
+     *       <li>4: converged time of flight (seconds)
      *     </ul>
      */
     private static double[] solveVirtualTarget(
             PolyModel model, double distance, double radialVelocity, double tangentialVelocity) {
-        double vdx = distance; // virtual aim point — radial component (m)
-        double vdz = 0.0; // virtual aim point — lateral component (m)
+        double vdx = distance; // virtual aim point, radial component (m)
+        double vdz = 0.0; // virtual aim point, lateral component (m)
         double tof = 0.0;
 
         for (int iter = 0; iter < 5; iter++) {
@@ -537,9 +722,9 @@ public class ShotCalculator {
 
     /**
      * Evaluates the given polynomial surface at (distance, radialVel). Inputs are clamped to the
-     * model's fitted data range. Returns raw polynomial output — callers are responsible for
-     * applying {@link #MPS_FACTOR} to the exit speed and {@code HOOD_ANGLE_OFFSET} to the launch
-     * angle.
+     * model's fitted data range. Returns raw polynomial output. Callers apply {@link #MPS_FACTOR}
+     * to the exit speed, and command the hood at {@code max(90 - launchAngle + HOOD_ANGLE_OFFSET,
+     * 9)} degrees.
      *
      * @param model the polynomial model (hub or feed) to evaluate
      * @param distance horizontal distance to the aim point (metres)

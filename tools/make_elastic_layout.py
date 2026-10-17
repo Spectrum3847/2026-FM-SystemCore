@@ -16,10 +16,11 @@ Fits above the Driver Station: 14 columns by 6 rows (1792 x 768), the size the o
 layout settled on after its last two rows turned out to be hidden behind the DS window along the
 bottom of the same screen ("Fit the dashboard above the Driver Station", 2026-09-05). The check at
 the bottom asserts every widget is inside that grid and that none overlap, so nothing can drift
-back below the fold. To use a seventh row, change ROWS -- nothing else.
+back below the fold. To use a seventh row, change ROWS and nothing else.
 """
 
 import json
+import re
 import os
 
 CELL = 128
@@ -109,6 +110,14 @@ SOURCES = ["LL-Back/MT1", "LL-Back/MT2", "LL-Left/MT1", "LL-Left/MT2", "LL-Right
            "LL-Right/MT2", "SC0/MT1", "SC0/MT2", "SC1/MT1", "SC1/MT2", "orin-front",
            "orin-left", "orin-right", "Quest"]
 
+# The main CAN bus follows CanBuses.USE_CANIVORE: the CANivore, or else the drivetrain's SystemCore
+# port (the busiest one). Rerun this script after flipping it.
+_canbuses = open(os.path.join(os.path.dirname(__file__), "..", "src", "main", "java", "frc",
+                              "spectrumLib", "hardware", "CanBuses.java"), encoding="utf-8").read()
+USE_CANIVORE = re.search(r"USE_CANIVORE = (true|false);", _canbuses).group(1) == "true"
+MAIN_BUS, MAIN_BUS_LABEL = ("CANivore", "CANivore") if USE_CANIVORE else ("SystemCoreCAN1",
+                                                                          "Drive CAN 1")
+
 pre_match = [
     widget("FMSInfo", "FMSInfo", 0, 0, 4, 1, topic="/FMSInfo", period=0.1),
     battery(4, 0),
@@ -120,7 +129,7 @@ pre_match = [
     light("Pose Seed Confirmed", out("Vision/PoseSeedConfirmed"), 11, 0, 3),
     text("Start Pose Err (m)", out("Auton/StartPoseErrorMeters"), 11, 1, 2),
     text("Hdg Err", out("Auton/StartHeadingErrorDeg"), 13, 1, 1),
-    light("CANivore", out("CANivore/StatusOK"), 7, 2),
+    light(MAIN_BUS_LABEL, out(MAIN_BUS + "/StatusOK"), 7, 2),
     light("SystemCore CAN 0", out("SystemCoreCAN0/StatusOK"), 9, 2),
     light("CAN Config Budget Spent", out("CANConfig/BudgetExhausted"), 11, 2,
           good_when_true=False),
@@ -156,14 +165,17 @@ match = [
     text("Hood Trim (deg)", out("ShotCalc/HoodAngleOffsetDegrees"), 7, 4),
     text("Aim Trim (deg)", out("ShotCalc/DriveAngleOffsetDegrees"), 9, 4),
     text("Intake Extension (rot)", out("IntakeExtension/Position"), 11, 4, 3),
-    big("Shot Model", out("ShotCalc/HubPolyModel"), 7, 5, 7),
+    light("Shot Ready", out("Shot/Ready"), 7, 5, 3),
+    big("Shot Blocked By", out("Shot/BlockedReason"), 10, 5, 4),
 ]
 
 shooting = [
     graph("Launcher RPM", out("Launcher/RPM"), 0, 0, 7, 3, 0, 6000),
     graph("Hood Position (deg)", out("Hood/PositionDegrees"), 0, 3, 7, 2, 0, 60, 4283215696),
-    text("Launcher Current (A)", out("Launcher/StatorCurrent"), 0, 5, 3),
-    text("Hood Current (A)", out("Hood/StatorCurrent"), 3, 5, 4),
+    text("Launcher Current (A)", out("Launcher/StatorCurrent"), 0, 5, 2),
+    text("Hood Current (A)", out("Hood/StatorCurrent"), 2, 5, 2),
+    text("Feed Reason", out("Shot/FeedReason"), 4, 5, 2, data_type="string"),
+    text("Shots", out("ShotLog/Index"), 6, 5, 1, data_type="int"),
     text("Distance (m)", out("ShotCalc/DistanceMeters"), 7, 0, 3),
     text("Wanted Flywheel RPM", out("ShotCalc/FlywheelSpeedRPM"), 7, 1, 3),
     text("Wanted Hood (deg)", out("ShotCalc/HoodAngleDeg"), 7, 2, 3),
@@ -174,9 +186,11 @@ shooting = [
     text("Hood Trim (deg)", out("ShotCalc/HoodAngleOffsetDegrees"), 12, 0),
     text("Aim Trim (deg)", out("ShotCalc/DriveAngleOffsetDegrees"), 10, 1),
     text("Yaw Offset (deg)", out("ShotCalc/YawOffsetDeg"), 12, 1),
-    big("Shot Model", out("ShotCalc/HubPolyModel"), 10, 2, 4),
+    big("Shot Blocked By", out("Shot/BlockedReason"), 10, 2, 2),
+    big("Set Shot", out("ShotCalc/SetShot"), 12, 2, 2),
     chooser("Hub Model", "/SmartDashboard/Hub Model Chooser", 10, 3, 4),
-    big("Super State", out("SuperStructure/CurrentSuperState"), 10, 4, 4),
+    light("Shot Ready", out("Shot/Ready"), 10, 4),
+    big("Super State", out("SuperStructure/CurrentSuperState"), 12, 4, 2),
     text("Launcher Temp (C)", out("Launcher/Temp"), 10, 5),
     text("Hood Temp (C)", out("Hood/Temp"), 12, 5),
 ]
@@ -213,7 +227,7 @@ power = [
     graph("Battery Voltage", out("BatteryLogger/BatteryVoltage"), 0, 0, 7, 2, 6, 13),
     graph("Total Supply Current (A)", out("BatteryLogger/Current"), 0, 2, 7, 2, 0, 300,
           4294198070),
-    bar("CANivore Bus (%)", out("CANivore/BusUtilization"), 0, 4, 0, 100, 4),
+    bar(MAIN_BUS_LABEL + " Bus (%)", out(MAIN_BUS + "/BusUtilization"), 0, 4, 0, 100, 4),
     text("Energy Used (Wh)", out("BatteryLogger/Energy"), 4, 4, 3),
     light("Browned Out", out("SystemStats/BrownedOut"), 0, 5, 3, good_when_true=False),
     bar("IndexerTower (A)", out("BatteryLogger/Current/Mechanisms/IndexerTower"), 3, 5, 0, 120, 4),
@@ -237,9 +251,9 @@ diagnostics = [
     text("Heap MB", out("System/HeapUsedMB"), 6, 5, 1),
     alerts(7, 0, 4, 2),
     widget("Scheduler", "Scheduler", 11, 0, 3, 2, topic="/SmartDashboard/Scheduler", period=0.1),
-    bar("CANivore Bus (%)", out("CANivore/BusUtilization"), 7, 2, 0, 100, 4),
+    bar(MAIN_BUS_LABEL + " Bus (%)", out(MAIN_BUS + "/BusUtilization"), 7, 2, 0, 100, 4),
     text("CAN Config Spent (s)", out("CANConfig/BudgetSpentSeconds"), 11, 2, 3),
-    text("CANivore", out("CANivore/Status"), 7, 3, 2, data_type="string"),
+    text(MAIN_BUS_LABEL, out(MAIN_BUS + "/Status"), 7, 3, 2, data_type="string"),
     text("SC CAN 0", out("SystemCoreCAN0/Status"), 9, 3, 2, data_type="string"),
     text("CAN Failed Configs", out("CANConfig/FailedCalls"), 11, 3, 3),
     toggle("Mirror All Logs To NT", "/SmartDashboard/Telemetry/MirrorLogsToNT", 7, 4, 4),

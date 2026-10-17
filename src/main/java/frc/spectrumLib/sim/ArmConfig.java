@@ -108,12 +108,6 @@ public class ArmConfig {
         this.pivotY = initialY;
     }
 
-    /**
-     * Sets the arm's display color in the Mechanism2d canvas.
-     *
-     * @param color the color to use
-     * @return this config for chaining
-     */
     /** True when the sim geometry travels opposite the motor's positive direction. */
     @Getter private boolean reversedLinkage = false;
 

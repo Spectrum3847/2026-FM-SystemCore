@@ -16,8 +16,8 @@ import org.wpilib.util.Color8Bit;
 
 /**
  * WPILib-backed simulation of a roller (flywheel) mechanism driven by a single Kraken X60 motor.
- * Updates the TalonFX sim state each robot period and animates the roller — including spin-color
- * feedback — in a {@link Mechanism2d} canvas. Implements {@link Mountable} so the roller axle can
+ * Updates the TalonFX sim state each robot period and animates the roller, including spin-color
+ * feedback, in a {@link Mechanism2d} canvas. Implements {@link Mountable} so the roller axle can
  * follow a parent {@link Mount}.
  */
 public class RollerSim implements Mountable {
@@ -90,7 +90,7 @@ public class RollerSim implements Mountable {
             rollerAxle.setPosition(config.getInitialX(), config.getInitialY());
         }
 
-        // Scale down the angular velocity so we can actually see what is happening
+        // Scale down the angular velocity so the spin is visible.
         double rpm = (rollerSim.getAngularVelocity() * 60.0 / (2 * Math.PI)) / 2;
         rollerViz.setAngle(rollerViz.getAngle() + Math.toDegrees(rpm) * dt * 0.1);
 

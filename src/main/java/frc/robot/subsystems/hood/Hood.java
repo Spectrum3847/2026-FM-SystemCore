@@ -3,7 +3,7 @@ package frc.robot.subsystems.hood;
 import com.ctre.phoenix6.hardware.TalonFX;
 import frc.rebuilt.ShotCalculator;
 import frc.robot.RobotSim;
-import frc.spectrumLib.hardware.Rio;
+import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
 import frc.spectrumLib.sim.ArmConfig;
 import frc.spectrumLib.sim.ArmSim;
@@ -48,7 +48,7 @@ public class Hood extends Mechanism {
         @Getter private final double length = Units.inchesToMeters(10);
 
         public HoodConfig() {
-            super("Hood", 15, Rio.CANIVORE);
+            super("Hood", 15, CanBuses.SHOOTER);
             configMinMaxRotations(minRotations, maxRotations);
             configPIDGains(0, positionKp, positionKi, positionKd);
             configFeedForwardGains(positionKs, positionKv, positionKa, positionKg);
@@ -73,12 +73,15 @@ public class Hood extends Mechanism {
         HOME,
         STOPPED,
         AIM_AT_TARGET,
+        /** The selected set shot's angle, off the hub model at the spot's range. */
+        SET_SHOT,
     }
 
     public enum SystemState {
         HOME,
         STOPPED,
         AIM_AT_TARGET,
+        SET_SHOT,
     }
 
     private WantedState wantedState = WantedState.HOME;
@@ -93,11 +96,20 @@ public class Hood extends Mechanism {
             case HOME -> SystemState.HOME;
             case STOPPED -> SystemState.STOPPED;
             case AIM_AT_TARGET -> SystemState.AIM_AT_TARGET;
+            case SET_SHOT -> SystemState.SET_SHOT;
         };
     }
 
+    /**
+     * Hood angle the current shot wants this loop, degrees; NaN when the hood is not on a shot.
+     * Computed from logged inputs, so the shot gate that compares it with {@link
+     * #getPositionDegrees()} replays.
+     */
+    @Getter private double shotTargetDegrees = Double.NaN;
+
     private void applyStates() {
         double wantedDegrees = 9;
+        shotTargetDegrees = Double.NaN;
         switch (systemState) {
             case HOME:
                 wantedDegrees = 9.0;
@@ -108,6 +120,11 @@ public class Hood extends Mechanism {
             case AIM_AT_TARGET:
                 var params = ShotCalculator.getInstance().getParameters();
                 wantedDegrees = params.hoodAngle();
+                shotTargetDegrees = wantedDegrees;
+                break;
+            case SET_SHOT:
+                wantedDegrees = ShotCalculator.getSetShotHoodDegrees();
+                shotTargetDegrees = wantedDegrees;
                 break;
         }
         final double finalWantedDegrees = wantedDegrees;
@@ -158,9 +175,9 @@ public class Hood extends Mechanism {
         }
     }
 
-    // Must be called to enable the simulation
-    // if roller position changes configure x and y to set position.
-    // Simulation steps itself on spectrumLib SimLoop (200 Hz) since the offseason port.
+    // Must be called to enable the simulation.
+    // Set x and y when the roller position changes.
+    // Simulation steps itself on spectrumLib SimLoop (200 Hz).
 
     class HoodSim extends ArmSim {
         public HoodSim(Mechanism2d mech, TalonFX armMotorSim) {

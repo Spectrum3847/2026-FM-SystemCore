@@ -14,13 +14,12 @@ import org.wpilib.system.Timer;
 /**
  * A WPILib {@link org.wpilib.driverstation.Alert} that is also logged and shown on Elastic.
  *
- * <p>In WPILib 2027 alpha-6 alerts go to the Driver Station through the HAL. They are no longer
- * published to {@code /SmartDashboard/Alerts}, so Elastic's Alerts widget stayed empty, and there
- * is no API to list them, so AdvantageKit's alert logger has nothing to read and alerts never
- * reached the log either. This subclass keeps its own registry: {@link #periodic()} records the
- * active alerts as outputs ({@code Alerts/Errors}, {@code Alerts/Warnings}, {@code Alerts/Infos},
- * newest first, as the 2026 dashboard showed them) and republishes them in the {@code
- * /SmartDashboard/Alerts} group Elastic reads.
+ * <p>WPILib 2027 alpha-6 sends alerts to the Driver Station through the HAL only. They are not
+ * published to {@code /SmartDashboard/Alerts}, so Elastic's Alerts widget stays empty. There is no
+ * API to list them, so AdvantageKit's alert logger never sees them either. This subclass keeps its
+ * own registry: {@link #periodic()} records the active alerts as outputs ({@code Alerts/Errors},
+ * {@code Alerts/Warnings}, {@code Alerts/Infos}, newest first, as the 2026 dashboard showed them)
+ * and republishes them in the {@code /SmartDashboard/Alerts} group Elastic reads.
  *
  * <p>A drop-in replacement: same constructors and methods, and {@code Alert.Level} still refers to
  * WPILib's levels.
@@ -38,6 +37,12 @@ public class Alert extends org.wpilib.driverstation.Alert {
     private static StringArrayPublisher warnings;
     private static StringArrayPublisher infos;
     private static StringPublisher type;
+
+    /**
+     * Set when an alert turns on or off or changes text. {@link #periodic()} rebuilds and publishes
+     * only then, since most loops nothing changes.
+     */
+    private static volatile boolean dirty = true;
 
     /**
      * Creates an alert in the default group.
@@ -71,18 +76,25 @@ public class Alert extends org.wpilib.driverstation.Alert {
         if (on && !active) {
             activeSinceSeconds = Timer.getTimestamp();
         }
+        if (on != active) {
+            dirty = true;
+        }
         active = on;
         super.set(on);
     }
 
     @Override
     public void setText(String newText) {
+        if (active && !newText.equals(text)) {
+            dirty = true;
+        }
         text = newText;
         super.setText(newText);
     }
 
     @Override
     public void close() {
+        dirty = true;
         ALL.remove(this);
         super.close();
     }
@@ -102,8 +114,14 @@ public class Alert extends org.wpilib.driverstation.Alert {
         return out;
     }
 
-    /** Logs the active alerts and republishes them for Elastic. Call once per loop. */
+    /**
+     * Logs the active alerts and republishes them for Elastic when they change. Call every loop.
+     */
     public static void periodic() {
+        if (!dirty) {
+            return; // The log and NetworkTables keep the last published values.
+        }
+        dirty = false;
         String[] e = active(Level.HIGH);
         String[] w = active(Level.MEDIUM);
         String[] i = active(Level.LOW);

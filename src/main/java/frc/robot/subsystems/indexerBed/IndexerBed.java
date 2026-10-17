@@ -1,7 +1,7 @@
 package frc.robot.subsystems.indexerBed;
 
 import com.ctre.phoenix6.signals.MotorAlignmentValue;
-import frc.spectrumLib.hardware.Rio;
+import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
 import frc.spectrumLib.telemetry.Telemetry;
 import lombok.Getter;
@@ -26,7 +26,7 @@ public class IndexerBed extends Mechanism {
         @Getter private final double wheelDiameter = 12;
 
         public IndexerBedConfig() {
-            super("IndexerBed", 8, Rio.CANIVORE);
+            super("IndexerBed", 8, CanBuses.MECHANISMS);
             configPIDGains(0, velocityKp, 0, 0);
             configFeedForwardGains(velocityKs, velocityKv, 0, 0);
             configGearRatio(1);
@@ -40,7 +40,10 @@ public class IndexerBed extends Mechanism {
             configClockwise_Positive();
             setFollowerConfigs(
                     new FollowerConfig(
-                            "IndexerBed Follower 1", 9, Rio.CANIVORE, MotorAlignmentValue.Opposed));
+                            "IndexerBed Follower 1",
+                            9,
+                            CanBuses.MECHANISMS,
+                            MotorAlignmentValue.Opposed));
         }
     }
 

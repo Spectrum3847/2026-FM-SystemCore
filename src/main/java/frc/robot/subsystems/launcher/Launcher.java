@@ -5,7 +5,7 @@ import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import frc.rebuilt.ShotCalculator;
 import frc.robot.Robot;
 import frc.robot.RobotSim;
-import frc.spectrumLib.hardware.Rio;
+import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
 import frc.spectrumLib.sim.RollerConfig;
 import frc.spectrumLib.sim.RollerSim;
@@ -31,7 +31,14 @@ public class Launcher extends Mechanism {
         @Getter private final double velocityKv = 0;
         @Getter private final double velocityKs = 20;
 
-        @Getter private final double onTargetToleranceRPM = 100;
+        /**
+         * Flywheel error inside which a volley may start (the shot gate, {@code ShotGate}). 100
+         * cannot be met in the sim: velocity TorqueCurrentFOC with kS 20 A and kP 10 A/rps settles
+         * 2 rps (120 RPM) off target wherever friction does not cancel kS, and the sim sits 124 RPM
+         * fast. 9470 uses 150 for feed shots, the offseason bot 200. CALIBRATE: tighten once {@code
+         * Shot/FlywheelErrorRPM} from the real robot shows its steady-state error.
+         */
+        @Getter private final double onTargetToleranceRPM = 150;
 
         /* Sim Configs */
         @Getter private final double launcherX = Units.inchesToMeters(62.5);
@@ -39,7 +46,7 @@ public class Launcher extends Mechanism {
         @Getter private final double wheelDiameter = 4;
 
         public LauncherConfig() {
-            super("Launcher", 46, Rio.CANIVORE);
+            super("Launcher", 46, CanBuses.SHOOTER);
             configPIDGains(0, velocityKp, 0, 0);
             configFeedForwardGains(velocityKs, velocityKv, 0, 0);
             configGearRatio(1);
@@ -55,13 +62,19 @@ public class Launcher extends Mechanism {
             configClockwise_Positive();
             setFollowerConfigs(
                     new FollowerConfig(
-                            "Launcher Top Right", 47, Rio.CANIVORE, MotorAlignmentValue.Opposed),
+                            "Launcher Top Right",
+                            47,
+                            CanBuses.SHOOTER,
+                            MotorAlignmentValue.Opposed),
                     new FollowerConfig(
-                            "Launcher Bottom Left", 48, Rio.CANIVORE, MotorAlignmentValue.Aligned),
+                            "Launcher Bottom Left",
+                            48,
+                            CanBuses.SHOOTER,
+                            MotorAlignmentValue.Aligned),
                     new FollowerConfig(
                             "Launcher Bottom Right",
                             49,
-                            Rio.CANIVORE,
+                            CanBuses.SHOOTER,
                             MotorAlignmentValue.Opposed));
         }
     }
@@ -73,6 +86,8 @@ public class Launcher extends Mechanism {
         IDLE_PREP,
         SLOW_LAUNCH,
         AIM_AT_TARGET,
+        /** The selected set shot's speed, off the hub model at the spot's range. */
+        SET_SHOT,
     }
 
     public enum SystemState {
@@ -80,6 +95,7 @@ public class Launcher extends Mechanism {
         IDLE_PREP,
         SLOW_LAUNCH,
         AIM_AT_TARGET,
+        SET_SHOT,
     }
 
     private WantedState wantedState = WantedState.OFF;
@@ -95,11 +111,20 @@ public class Launcher extends Mechanism {
             case IDLE_PREP -> SystemState.IDLE_PREP;
             case SLOW_LAUNCH -> SystemState.SLOW_LAUNCH;
             case AIM_AT_TARGET -> SystemState.AIM_AT_TARGET;
+            case SET_SHOT -> SystemState.SET_SHOT;
         };
     }
 
+    /**
+     * Flywheel speed the current shot wants this loop, RPM; 0 when the flywheel is not on a shot.
+     * Computed from logged inputs (the shot solution), never read back from the motor, so the shot
+     * gate that compares it with {@link #getVelocityRPM()} replays.
+     */
+    @Getter private double shotTargetRPM = 0;
+
     private void applyStates() {
         double wantedRPM = 0;
+        shotTargetRPM = 0;
         switch (systemState) {
             case OFF:
                 stop();
@@ -113,6 +138,11 @@ public class Launcher extends Mechanism {
             case AIM_AT_TARGET:
                 var params = ShotCalculator.getInstance().getParameters();
                 wantedRPM = params.flywheelSpeed();
+                shotTargetRPM = wantedRPM;
+                break;
+            case SET_SHOT:
+                wantedRPM = ShotCalculator.getSetShotFlywheelRPM();
+                shotTargetRPM = wantedRPM;
                 break;
         }
         final double finalWantedRPM = wantedRPM;
@@ -153,9 +183,9 @@ public class Launcher extends Mechanism {
         }
     }
 
-    // Must be called to enable the simulation
-    // if roller position changes configure x and y to set position.
-    // Simulation steps itself on spectrumLib SimLoop (200 Hz) since the offseason port.
+    // Must be called to enable the simulation.
+    // Set x and y when the roller position changes.
+    // Simulation steps itself on spectrumLib SimLoop (200 Hz).
 
     class LauncherSim extends RollerSim {
         public LauncherSim(Mechanism2d mech, TalonFX rollerMotorSim) {

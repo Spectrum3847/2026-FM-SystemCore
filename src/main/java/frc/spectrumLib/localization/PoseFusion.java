@@ -20,11 +20,11 @@ import org.wpilib.math.linalg.VecBuilder;
  * <p>Three kinds of estimator run side by side, all fed the same odometry samples:
  *
  * <ul>
- *   <li><b>Fused</b> -- the robot pose. WPILib {@link SwerveDrivePoseEstimator}, corrected by the
+ *   <li><b>Fused</b> is the robot pose: a WPILib {@link SwerveDrivePoseEstimator}, corrected by the
  *       accepted measurements of every <em>enabled</em> source. This is what the robot drives on.
- *   <li><b>Odometry</b> -- wheels and gyro only, never corrected. The baseline every source is
- *       trying to beat, and the thing that shows how far the robot drifts without help.
- *   <li><b>Shadow, one per source</b> -- odometry plus <em>only</em> that source's accepted
+ *   <li><b>Odometry</b> uses wheels and gyro only, and is never corrected. It is the baseline every
+ *       source is trying to beat, and it shows how far the robot drifts without help.
+ *   <li><b>Shadow, one per source</b> is odometry plus <em>only</em> that source's accepted
  *       measurements, whether or not the source is enabled. This is the comparison: after a match
  *       each shadow track is "what the robot would have believed with only this source", and they
  *       can be overlaid in AdvantageScope. Seeds and explicit resets are applied to every shadow,
@@ -35,8 +35,10 @@ import org.wpilib.math.linalg.VecBuilder;
  * regenerated in AdvantageKit replay, and a gate or std-dev change can be tested against a real
  * match without the robot.
  *
- * <p>Decisions carried over from the 2026 handoff: fusion stays WPILib's estimator (971's EKF was
- * evaluated and rejected), and it runs where the drivetrain loop runs -- on SystemCore.
+ * <p>Fusion runs where the drivetrain loop runs, on SystemCore. The fused track is WPILib's
+ * estimator for now. An EKF with per-tag measurements is to run alongside it as a second fused
+ * track, and the robot drives on whichever the logs show is better (docs/pose-sources.md, "EKF
+ * alongside WPILib").
  */
 public class PoseFusion {
 
@@ -47,7 +49,12 @@ public class PoseFusion {
     private final SwerveDriveOdometry odometry;
     private final Map<String, SwerveDrivePoseEstimator> shadows = new LinkedHashMap<>();
 
-    /** Per-source log keys, built once at registration (they were concatenated every loop). */
+    /** Vision goes into every estimator through these, so arrival order cannot drop a frame. */
+    private final OrderedVisionUpdates fusedVision;
+
+    private final Map<String, OrderedVisionUpdates> shadowVision = new LinkedHashMap<>();
+
+    /** Per-source log keys, built once at registration so no string work runs per loop. */
     private record Keys(
             String fusedThisLoop,
             String errorVsFused,
@@ -88,6 +95,7 @@ public class PoseFusion {
         this.lastGyro = gyro;
         this.lastPositions = copy(positions);
         this.fused = newEstimator(odometryStdDevs, Pose2d.kZero);
+        this.fusedVision = new OrderedVisionUpdates(fused);
         this.odometry = new SwerveDriveOdometry(kinematics, gyro, positions, Pose2d.kZero);
         this.odometryStdDevs = odometryStdDevs;
     }
@@ -141,8 +149,16 @@ public class PoseFusion {
                 n -> {
                     SwerveDrivePoseEstimator e = newEstimator(odometryStdDevs, getPose());
                     e.updateWithTime(lastSampleTime, lastGyro, lastPositions);
+                    shadowVision.put(n, new OrderedVisionUpdates(e));
                     return e;
                 });
+    }
+
+    private void clearVisionHistory() {
+        fusedVision.clear();
+        for (OrderedVisionUpdates v : shadowVision.values()) {
+            v.clear();
+        }
     }
 
     /**
@@ -187,6 +203,7 @@ public class PoseFusion {
             haveOdometry = true;
             fused.resetPosition(gyro, positions, fused.getEstimatedPosition());
             odometry.resetPosition(gyro, positions, odometry.getPose());
+            clearVisionHistory();
             for (SwerveDrivePoseEstimator shadow : shadows.values()) {
                 shadow.resetPosition(gyro, positions, shadow.getEstimatedPosition());
             }
@@ -242,9 +259,10 @@ public class PoseFusion {
                             r.stdDevs().xyMeters(),
                             r.stdDevs().xyMeters(),
                             r.stdDevs().thetaRadians());
-            shadowFor(name).addVisionMeasurement(measured, t, std);
+            shadowFor(name);
+            shadowVision.get(name).add(measured, t, std, lastSampleTime);
             if (fuse) {
-                fused.addVisionMeasurement(measured, t, std);
+                fusedVision.add(measured, t, std, lastSampleTime);
             }
         }
         if (k != null) {
@@ -257,8 +275,8 @@ public class PoseFusion {
     }
 
     /**
-     * Adds one measurement straight to the fused pose and every shadow. For seeding: the one event
-     * every track should share.
+     * Adds one measurement straight to the fused pose and every shadow. Used for seeding, the one
+     * event every track should share.
      *
      * @param pose measured pose
      * @param timestampSeconds capture time
@@ -267,9 +285,9 @@ public class PoseFusion {
      */
     public void seed(Pose2d pose, double timestampSeconds, double xyStd, double thetaStd) {
         var std = VecBuilder.fill(xyStd, xyStd, thetaStd);
-        fused.addVisionMeasurement(pose, timestampSeconds, std);
-        for (SwerveDrivePoseEstimator shadow : shadows.values()) {
-            shadow.addVisionMeasurement(pose, timestampSeconds, std);
+        fusedVision.add(pose, timestampSeconds, std, lastSampleTime);
+        for (OrderedVisionUpdates shadow : shadowVision.values()) {
+            shadow.add(pose, timestampSeconds, std, lastSampleTime);
         }
     }
 
@@ -281,6 +299,7 @@ public class PoseFusion {
     public void resetPose(Pose2d pose) {
         fused.resetPosition(lastGyro, lastPositions, pose);
         odometry.resetPosition(lastGyro, lastPositions, pose);
+        clearVisionHistory();
         for (SwerveDrivePoseEstimator shadow : shadows.values()) {
             shadow.resetPosition(lastGyro, lastPositions, pose);
         }
@@ -321,20 +340,25 @@ public class PoseFusion {
         Pose2d fusedPose = getPose();
         Logger.recordOutput(PREFIX + "FusedPose", fusedPose);
         Logger.recordOutput(PREFIX + "OdometryPose", getOdometryPose());
-        for (var e : shadows.entrySet()) {
-            Keys k = keys.get(e.getKey());
-            if (k == null) {
-                continue;
-            }
-            Pose2d shadowPose = e.getValue().getEstimatedPosition();
-            Logger.recordOutput(k.shadowPose(), shadowPose);
-            Logger.recordOutput(
-                    k.shadowDistance(),
-                    shadowPose.getTranslation().getDistance(fusedPose.getTranslation()));
-            if (truth.isPresent()) {
+        Logger.recordOutput(PREFIX + "OutOfOrderReapplied", fusedVision.reapplied());
+        // Shadow tracks use the 10 Hz tier. At 100 Hz they were a fifth of the log. Every value
+        // here comes from logged inputs, so replay regenerates them at any rate.
+        if (frc.spectrumLib.telemetry.Telemetry.slowLogThisLoop()) {
+            for (var e : shadows.entrySet()) {
+                Keys k = keys.get(e.getKey());
+                if (k == null) {
+                    continue;
+                }
+                Pose2d shadowPose = e.getValue().getEstimatedPosition();
+                Logger.recordOutput(k.shadowPose(), shadowPose);
                 Logger.recordOutput(
-                        k.shadowTruthError(),
-                        shadowPose.getTranslation().getDistance(truth.get().getTranslation()));
+                        k.shadowDistance(),
+                        shadowPose.getTranslation().getDistance(fusedPose.getTranslation()));
+                if (truth.isPresent()) {
+                    Logger.recordOutput(
+                            k.shadowTruthError(),
+                            shadowPose.getTranslation().getDistance(truth.get().getTranslation()));
+                }
             }
         }
         if (truth.isPresent()) {

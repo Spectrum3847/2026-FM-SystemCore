@@ -75,6 +75,7 @@ public class PoseFusion {
 
     private Rotation2d lastGyro = Rotation2d.kZero;
     private SwerveModulePosition[] lastPositions;
+    private SwerveModulePosition[] lastRawPositions;
 
     /** Ground truth pose in simulation; empty on a robot and in replay without it logged. */
     @Getter private Optional<Pose2d> truth = Optional.empty();
@@ -95,6 +96,7 @@ public class PoseFusion {
         this.kinematics = kinematics;
         this.lastGyro = gyro;
         this.lastPositions = copy(positions);
+        this.lastRawPositions = copy(positions);
         this.fused = newEstimator(odometryStdDevs, Pose2d.kZero);
         this.fusedVision = new OrderedVisionUpdates(fused);
         this.odometry = new SwerveDriveOdometry(kinematics, gyro, positions, Pose2d.kZero);
@@ -216,6 +218,7 @@ public class PoseFusion {
             boolean includeShadows) {
         lastGyro = gyro;
         lastPositions = copy(positions);
+        lastRawPositions = copy(rawPositions);
         lastSampleTime = timestampSeconds;
         tagEkf.addOdometry(timestampSeconds, gyro, positions);
         if (!haveOdometry) {
@@ -322,7 +325,7 @@ public class PoseFusion {
      */
     public void resetPose(Pose2d pose) {
         fused.resetPosition(lastGyro, lastPositions, pose);
-        odometry.resetPosition(lastGyro, lastPositions, pose);
+        odometry.resetPosition(lastGyro, lastRawPositions, pose);
         clearVisionHistory();
         for (SwerveDrivePoseEstimator shadow : shadows.values()) {
             shadow.resetPosition(lastGyro, lastPositions, pose);

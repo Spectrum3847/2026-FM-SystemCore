@@ -85,16 +85,16 @@
             }
           },
           {
-            "title": "Super State",
+            "title": "Alliance Override",
             "x": 512,
             "y": 640,
             "width": 384,
             "height": 128,
-            "type": "Large Text Display",
+            "type": "Split Button Chooser",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/SuperStructure/CurrentSuperState",
+              "topic": "/SmartDashboard/Alliance Override",
               "period": 0.1,
-              "data_type": "string"
+              "sort_options": false
             }
           },
           {
@@ -172,7 +172,7 @@
             }
           },
           {
-            "title": "SystemCore CAN 0",
+            "title": "CAN0 Intake",
             "x": 1152,
             "y": 256,
             "width": 256,
@@ -506,11 +506,24 @@
             "title": "Super State",
             "x": 0,
             "y": 640,
-            "width": 896,
+            "width": 512,
             "height": 128,
             "type": "Large Text Display",
             "properties": {
               "topic": "/AdvantageKit/RealOutputs/SuperStructure/CurrentSuperState",
+              "period": 0.1,
+              "data_type": "string"
+            }
+          },
+          {
+            "title": "Alliance",
+            "x": 512,
+            "y": 640,
+            "width": 384,
+            "height": 128,
+            "type": "Large Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Alliance/Display",
               "period": 0.1,
               "data_type": "string"
             }
@@ -1662,14 +1675,32 @@
             }
           },
           {
-            "title": "CANivore Bus (%)",
+            "title": "CANivore (%)",
             "x": 0,
             "y": 512,
-            "width": 512,
+            "width": 256,
             "height": 128,
             "type": "Number Bar",
             "properties": {
               "topic": "/AdvantageKit/RealOutputs/CANivore/BusUtilization",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 100,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "CAN0 Intake (%)",
+            "x": 256,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN0/BusUtilization",
               "period": 0.1,
               "data_type": "double",
               "min_value": 0,
@@ -2115,14 +2146,32 @@
             }
           },
           {
-            "title": "CANivore Bus (%)",
+            "title": "CANivore (%)",
             "x": 896,
             "y": 256,
-            "width": 512,
+            "width": 256,
             "height": 128,
             "type": "Number Bar",
             "properties": {
               "topic": "/AdvantageKit/RealOutputs/CANivore/BusUtilization",
+              "period": 0.1,
+              "data_type": "double",
+              "min_value": 0,
+              "max_value": 100,
+              "divisions": 5,
+              "inverted": false,
+              "orientation": "horizontal"
+            }
+          },
+          {
+            "title": "CAN0 Intake (%)",
+            "x": 1152,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Number Bar",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/SystemCoreCAN0/BusUtilization",
               "period": 0.1,
               "data_type": "double",
               "min_value": 0,
@@ -2161,7 +2210,7 @@
             }
           },
           {
-            "title": "SC CAN 0",
+            "title": "CAN0 Intake",
             "x": 1152,
             "y": 384,
             "width": 256,
@@ -2178,13 +2227,27 @@
             "title": "CAN Failed Configs",
             "x": 1408,
             "y": 384,
-            "width": 384,
+            "width": 256,
             "height": 128,
             "type": "Text Display",
             "properties": {
               "topic": "/AdvantageKit/RealOutputs/CANConfig/FailedCalls",
               "period": 0.1,
               "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Not Applied",
+            "x": 1664,
+            "y": 384,
+            "width": 128,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/CANConfig/NotAppliedCount",
+              "period": 0.1,
+              "data_type": "int",
               "show_submit_button": false
             }
           },

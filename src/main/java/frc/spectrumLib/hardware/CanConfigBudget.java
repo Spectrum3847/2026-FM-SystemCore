@@ -35,6 +35,8 @@ import org.wpilib.driverstation.Alert.Level;
  * diagnostics server ({@code Unmanaged.setPhoenixDiagnosticsStartTime(-1)}) and the SignalLogger to
  * see which one it is. Log: {@code logs/matches/FRC_20260919_034444.wpilog}.
  *
+ * <p>The budget bounds only the boot. {@link CanConfigRetry} keeps retrying failed configs after.
+ *
  * <p>The cap is deliberately cause-agnostic. A cut wire, a powered-down bus, a wrong bus name and a
  * missing CANivore all present identically here, and the correct response to all of them is the
  * same: stop waiting and come up.
@@ -53,15 +55,15 @@ public final class CanConfigBudget {
     public static final double BUDGET_SECONDS = 3.0;
 
     /**
-     * Timeout for a single boot configuration call, in seconds.
+     * Timeout for a single configuration call, in seconds.
      *
-     * <p>Phoenix's own default is 0.050 s. This is deliberately the same: the fix here is not a
-     * shorter individual wait, which would risk failing on a healthy-but-busy bus, but refusing to
-     * repeat the wait once it is clear nothing is answering.
+     * <p>Phoenix's default for a config apply. A full {@code TalonFXConfiguration} is dozens of
+     * acknowledged frames, so a shorter wait can miss on a busy but healthy bus. The budget, not
+     * this timeout, handles a dead bus.
      */
-    public static final double CALL_TIMEOUT_SECONDS = 0.050;
+    public static final double CALL_TIMEOUT_SECONDS = 0.100;
 
-    /** Retry count used while the budget holds. */
+    /** Boot attempts per configuration while the budget holds. */
     public static final int MAX_ATTEMPTS = 10;
 
     private static double spentSeconds = 0;
@@ -113,9 +115,10 @@ public final class CanConfigBudget {
                 exhaustedAlert.setText(
                         String.format(
                                 "CAN config budget spent: %.1f s lost over %d failed device"
-                                        + " configs (first noticed at %s). Retries are now off so"
-                                        + " boot can finish -- expect mechanisms to be"
-                                        + " unconfigured. Check the CAN bus wiring and power.",
+                                        + " configs (first noticed at %s). Boot retries are now"
+                                        + " off so boot can finish; unapplied configs keep"
+                                        + " retrying in the background (CANConfig/NotApplied)."
+                                        + " Check the CAN bus wiring and power.",
                                 spentSeconds, failedCalls, name));
                 exhaustedAlert.set(true);
             }
@@ -137,8 +140,8 @@ public final class CanConfigBudget {
         exhaustedAlert.setText(
                 "CAN config budget spent before boot: "
                         + reason
-                        + ". Retries are off so boot can finish -- expect those mechanisms to be"
-                        + " unconfigured.");
+                        + ". Boot retries are off so boot can finish; unapplied configs keep"
+                        + " retrying in the background (CANConfig/NotApplied).");
         exhaustedAlert.set(true);
     }
 

@@ -41,6 +41,7 @@ import frc.spectrumLib.framework.RobotLoop;
 import frc.spectrumLib.framework.SpectrumRobot;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.hardware.CanConfigBudget;
+import frc.spectrumLib.hardware.CanConfigRetry;
 import frc.spectrumLib.hardware.Rio;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.BatteryLogger;
@@ -49,6 +50,7 @@ import frc.spectrumLib.telemetry.LogStorage;
 import frc.spectrumLib.telemetry.SystemLoadMonitor;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.telemetry.Telemetry.PrintPriority;
+import frc.spectrumLib.util.AllianceSource;
 import frc.spectrumLib.util.BackgroundSampler;
 import frc.spectrumLib.util.CrashTracker;
 import frc.spectrumLib.util.Util;
@@ -68,7 +70,6 @@ import org.wpilib.command2.Command;
 import org.wpilib.command2.CommandScheduler;
 import org.wpilib.command2.Commands;
 import org.wpilib.driverstation.Alert.Level;
-import org.wpilib.driverstation.Alliance;
 import org.wpilib.driverstation.MatchState;
 import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.geometry.Pose2d;
@@ -177,14 +178,14 @@ public class Robot extends SpectrumRobot {
                 // No CANivore at all (not plugged in, or canivore-usb not installed on the
                 // SystemCore): do not spend a minute timing out every device on it.
                 CanConfigBudget.exhaust("CANivore '" + CanBuses.CANIVORE + "' not found");
-            } else if (Constants.currentMode == Constants.Mode.REAL && noCanTraffic()) {
-                // Buses up but nothing talking on any of them (a bench controller, or every
-                // device unpowered): the same minute of timeouts, so the same shortcut.
-                CanConfigBudget.exhaust("no CAN traffic on any bus");
             }
+            // A silent drivetrain bus is detected in Swerve.anyDeviceAnswering(), once its devices
+            // exist. Before then a live bus can still read zero utilization.
             if (Constants.hasHardware()) {
+                // Its own thread, so a hung getStatus() cannot freeze the CPU and memory telemetry.
                 canStatus =
                         BackgroundSampler.every(
+                                "CanStatusSampler",
                                 1.0,
                                 () -> {
                                     var status =
@@ -194,6 +195,8 @@ public class Robot extends SpectrumRobot {
                                     return status;
                                 });
             }
+
+            AllianceSource.init();
 
             pilot = new Pilot(config.pilot);
             operator = new Operator(config.operator);
@@ -254,6 +257,8 @@ public class Robot extends SpectrumRobot {
             ShotCalculator.getInstance();
             if (Constants.hasHardware()) {
                 WebServer.start(5800, Filesystem.getDeployDirectory().getPath());
+                // Before the main thread goes real-time, so this thread does not inherit it.
+                CanConfigRetry.INSTANCE.start();
             }
 
             if (Constants.currentMode == Constants.Mode.REAL) {
@@ -299,7 +304,8 @@ public class Robot extends SpectrumRobot {
         org.wpilib.system.Threads.setCurrentThreadPriority(priority);
         int now = org.wpilib.system.Threads.getCurrentThreadPriority();
         boolean ok = now == priority;
-        Logger.recordMetadata("MainThreadPriority", Integer.toString(now));
+        // An output, not metadata: AdvantageKit ignores recordMetadata after Logger.start().
+        Telemetry.log("System/MainThreadPriority", now);
         Telemetry.print(
                 "Main thread real-time priority "
                         + priority
@@ -368,7 +374,10 @@ public class Robot extends SpectrumRobot {
                 // A USB stick if one is inserted (AdvantageKit's default /U/logs), otherwise the
                 // SystemCore's own storage. Without a stick /U/logs cannot be opened and the
                 // match is not logged at all.
-                Logger.addDataReceiver(new WPILOGWriter(LogStorage.chooseFolder()));
+                String logFolder = LogStorage.chooseFolder();
+                // Before Logger.start(), so the cleanup cannot delete this boot's log.
+                LogStorage.cleanUpAtBoot();
+                Logger.addDataReceiver(new WPILOGWriter(logFolder));
                 Logger.recordMetadata("LogFolder", LogStorage.folder());
                 // Dashboard keys to NT at ~50 Hz; the log file keeps everything, every cycle.
                 Logger.addDataReceiver(new DashboardReceiver(new NT4Publisher(), ntEveryN()));
@@ -454,18 +463,14 @@ public class Robot extends SpectrumRobot {
 
         // Fixed shots: park at the spot, point the back at the hub, hold the chord. Hood and
         // flywheel from the spot's range, fed once they are there; no pose read, no aim checked.
-        // See ShotCalculator.SetShot. Bound before the bare X and A below so that letting go of LB
-        // first lands in what the buttons now say (track target, unjam), not IDLE.
+        // See ShotCalculator.SetShot. Only one face chord is true at a time (FaceChord), so bind
+        // only rising edges, and go to IDLE only when all are let go.
         pilot.setShotTower_LB_A.onTrue(superStructure.setShotCommand(SetShot.TOWER));
         pilot.setShotLeftTrench_LB_X.onTrue(superStructure.setShotCommand(SetShot.LEFT_TRENCH));
         pilot.setShotRightTrench_LB_B.onTrue(superStructure.setShotCommand(SetShot.RIGHT_TRENCH));
-        pilot.anySetShot.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
-
         pilot.trackTarget_X.onTrue(superStructure.setStateCommand(WantedSuperState.TRACK_TARGET));
-        pilot.trackTarget_X.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
-
         pilot.unjam_A.onTrue(superStructure.setStateCommand(WantedSuperState.UNJAM));
-        pilot.unjam_A.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
+        pilot.anyFaceChord.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
 
         pilot.selectButton.onTrue(superStructure.setStateCommand(WantedSuperState.FORCE_HOME));
         pilot.selectButton.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
@@ -533,6 +538,7 @@ public class Robot extends SpectrumRobot {
         Telemetry.periodic();
         Alert.periodic();
         LogStorage.periodic();
+        AllianceSource.periodic();
         systemLoad.periodic();
 
         // Latched here rather than in the mode inits so every mode is covered by the same check.
@@ -591,38 +597,24 @@ public class Robot extends SpectrumRobot {
         }
     }
 
-    /**
-     * Whether every bus reads zero utilization twice, 0.3 s apart. Any powered Phoenix device
-     * broadcasts status frames continuously, so a bus with devices on it is never at zero.
-     */
-    private static boolean noCanTraffic() {
-        for (int attempt = 0; attempt < 2; attempt++) {
-            try {
-                Thread.sleep(300); // wall clock: the robot clock is frozen during init
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return false;
-            }
-            for (CANBus bus : canBuses.values()) {
-                if (bus.getStatus().BusUtilization > 0) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
     /** Time of the last CAN bus status log. */
     private double lastCanStatusSeconds = Double.NEGATIVE_INFINITY;
 
     /**
-     * Every bus's status by log label, read once a second on {@link BackgroundSampler}'s thread:
-     * {@code getStatus()} can block for up to a millisecond, which on the real-time main thread is
-     * a late loop. Null off the robot.
+     * Every bus's status by log label, sampled off the main thread because {@code getStatus()} can
+     * block. Null off the robot.
      */
     private static BackgroundSampler.Latest<java.util.Map<String, CANBusStatus>> canStatus;
 
     private long lastCanStatusSequence = 0;
+
+    /** Three missed once-a-second samples, after which every bus is logged as not OK. */
+    private static final double CAN_STATUS_STALE_SECONDS = 3.0;
+
+    /** When the status sample last advanced, or NaN before the first check. */
+    private double lastCanStatusAdvanceSeconds = Double.NaN;
+
+    private final Alert canStatusStaleAlert = new Alert("", Level.HIGH);
 
     /** Logs CAN bus health once a second, plus the match identity, which the 2026 logs lacked. */
     private void logCanBusStatus() {
@@ -632,10 +624,19 @@ public class Robot extends SpectrumRobot {
         }
         lastCanStatusSeconds = now;
 
-        if (canStatus != null && canStatus.sequence() != lastCanStatusSequence) {
-            lastCanStatusSequence = canStatus.sequence();
-            canStatus.get().forEach(this::logOneCanBus);
+        if (canStatus != null) {
+            if (Double.isNaN(lastCanStatusAdvanceSeconds)) {
+                lastCanStatusAdvanceSeconds = now;
+            }
+            if (canStatus.sequence() != lastCanStatusSequence) {
+                lastCanStatusSequence = canStatus.sequence();
+                lastCanStatusAdvanceSeconds = now;
+                canStatus.get().forEach(this::logOneCanBus);
+            }
+            logCanStatusIfStale(now - lastCanStatusAdvanceSeconds);
         }
+
+        CanConfigRetry.INSTANCE.periodic();
 
         Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds());
         Telemetry.log("CANConfig/FailedCalls", CanConfigBudget.getFailedCalls());
@@ -653,6 +654,29 @@ public class Robot extends SpectrumRobot {
             Telemetry.log(
                     "SystemStats/BrownoutVoltage", RobotController.getBrownoutVoltage(), "volts");
         }
+    }
+
+    /**
+     * Marks every bus not OK once the sampler stops delivering. Otherwise a hung {@code
+     * getStatus()} would leave the last green {@code StatusOK} on the dashboard.
+     *
+     * @param ageSeconds seconds since the last new sample
+     */
+    private void logCanStatusIfStale(double ageSeconds) {
+        boolean stale = ageSeconds > CAN_STATUS_STALE_SECONDS;
+        if (stale) {
+            String status = String.format("STALE: no status sample for %.0f s", ageSeconds);
+            for (String label : canBuses.keySet()) {
+                Telemetry.log(label + "/Status", status);
+                Telemetry.logDash(label + "/StatusOK", false);
+            }
+            canStatusStaleAlert.setText(
+                    String.format(
+                            "CAN bus status not read for %.0f s. The sampler stalled, so bus health is"
+                                    + " unknown",
+                            ageSeconds));
+        }
+        canStatusStaleAlert.set(stale);
     }
 
     /**
@@ -720,8 +744,7 @@ public class Robot extends SpectrumRobot {
 
         // The alliance belongs in the reload key, not just the auto name: the red flip is applied
         // in the reload branch below.
-        String selectionKey =
-                fullAutoName + "|" + MatchState.getAlliance().map(Enum::name).orElse("NONE");
+        String selectionKey = fullAutoName + "|" + AllianceSource.get().name();
 
         if (fullAutoName.equals("Do Nothing")) {
             field2d.getObject("Auto Routine").setPoses(new ArrayList<>());
@@ -754,9 +777,9 @@ public class Robot extends SpectrumRobot {
                     Telemetry.print("Could not load path planner paths");
                 }
 
-                // Flip the paths if on red alliance
-                Optional<Alliance> alliance = MatchState.getAlliance();
-                if (alliance.isPresent() && alliance.get() == Alliance.RED) {
+                // Same answer as PathPlanner's shouldFlip, so the preview matches the auto that
+                // runs.
+                if (AllianceSource.isRed()) {
                     pathPlannerPaths =
                             pathPlannerPaths.stream()
                                     .map(PathPlannerPath::flipPath)

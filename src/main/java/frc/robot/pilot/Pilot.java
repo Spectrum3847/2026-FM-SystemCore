@@ -37,20 +37,35 @@ public class Pilot extends Gamepad {
      * on the button, left thumb never leaves the drive stick). Teleop only. The offseason bot's
      * fourth, LB+Y from the hub face, is not here: FM cannot make that shot.
      *
-     * X and A are also bound bare (track target, unjam), so those carry "not LB" or LB + X would
-     * fire both. Release order matters at the margin: let go of LB first with the face button still
-     * down and the bare binding fires for the rest of the press. Let go of the face button first,
-     * or both together.
+     * X and A are also bound bare (track target, unjam). Exactly one of these triggers is true at a
+     * time (FaceChord), so bind only rising edges.
      */
-    public final Trigger setShotTower_LB_A = LB.and(AButton).and(teleop);
-    public final Trigger setShotLeftTrench_LB_X = LB.and(XButton).and(teleop);
-    public final Trigger setShotRightTrench_LB_B = LB.and(BButton).and(teleop);
-    public final Trigger anySetShot =
-            setShotTower_LB_A.or(setShotLeftTrench_LB_X).or(setShotRightTrench_LB_B);
+    public final Trigger setShotTower_LB_A = faceChord(FaceChord.SET_SHOT_TOWER);
+    public final Trigger setShotLeftTrench_LB_X = faceChord(FaceChord.SET_SHOT_LEFT_TRENCH);
+    public final Trigger setShotRightTrench_LB_B = faceChord(FaceChord.SET_SHOT_RIGHT_TRENCH);
+    public final Trigger trackTarget_X = faceChord(FaceChord.TRACK_TARGET);
+    public final Trigger unjam_A = faceChord(FaceChord.UNJAM);
 
-    /* Bare face buttons, gated so an LB-held press goes to the chords above */
-    public final Trigger trackTarget_X = XButton.and(LB.negate());
-    public final Trigger unjam_A = AButton.and(LB.negate());
+    /** Any of the above; its falling edge is IDLE. */
+    public final Trigger anyFaceChord = new Trigger(() -> faceChord() != FaceChord.NONE);
+
+    private final FaceChordFilter faceChordFilter = new FaceChordFilter();
+
+    /** What LB and the face buttons ask for, after the bare-button settle time. */
+    public FaceChord faceChord() {
+        return faceChordFilter.update(
+                org.wpilib.system.Timer.getTimestamp(),
+                FaceChord.of(
+                        LB.getAsBoolean(),
+                        AButton.getAsBoolean(),
+                        XButton.getAsBoolean(),
+                        BButton.getAsBoolean(),
+                        teleop.getAsBoolean()));
+    }
+
+    private Trigger faceChord(FaceChord chord) {
+        return new Trigger(() -> faceChord() == chord);
+    }
 
     public static class PilotConfig extends Config {
         private double deadzone = 0.15;

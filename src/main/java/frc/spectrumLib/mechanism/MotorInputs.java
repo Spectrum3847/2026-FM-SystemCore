@@ -29,6 +29,12 @@ public class MotorInputs implements LoggableInputs, Cloneable {
     public double[] followerSupplyCurrentAmps = new double[0];
     public boolean[] followerConnected = new boolean[0];
 
+    /**
+     * Whether the leader's config is known to have reached it. An input because it gates driving a
+     * soft-limited mechanism. True by default so older logs replay as they ran.
+     */
+    public boolean configApplied = true;
+
     @Override
     public void toLog(LogTable table) {
         table.put("Connected", connected);
@@ -41,6 +47,7 @@ public class MotorInputs implements LoggableInputs, Cloneable {
         table.put("TempCelsius", tempCelsius);
         table.put("FollowerSupplyCurrentAmps", followerSupplyCurrentAmps);
         table.put("FollowerConnected", followerConnected);
+        table.put("ConfigApplied", configApplied);
     }
 
     @Override
@@ -58,5 +65,6 @@ public class MotorInputs implements LoggableInputs, Cloneable {
         followerSupplyCurrentAmps =
                 table.get("FollowerSupplyCurrentAmps", followerSupplyCurrentAmps);
         followerConnected = table.get("FollowerConnected", followerConnected);
+        configApplied = table.get("ConfigApplied", configApplied);
     }
 }

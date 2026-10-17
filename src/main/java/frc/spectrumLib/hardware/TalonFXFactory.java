@@ -36,9 +36,7 @@ public class TalonFXFactory {
      */
     public static TalonFX createDefaultTalon(CanDeviceId id) {
         var talon = createTalon(id);
-        CanConfigBudget.run(
-                "Talon " + id.getDeviceNumber(),
-                timeout -> talon.getConfigurator().apply(getDefaultConfig(), timeout));
+        applyConfigAtBoot("Talon " + id.getDeviceNumber(), talon, getDefaultConfig());
         return talon;
     }
 
@@ -50,11 +48,46 @@ public class TalonFXFactory {
      * @return the configured TalonFX
      */
     public static TalonFX createConfigTalon(CanDeviceId id, TalonFXConfiguration config) {
+        return createConfigTalon("Talon " + id.getDeviceNumber(), id, config);
+    }
+
+    /**
+     * Creates a TalonFX and applies the configuration through {@link CanConfigRetry}.
+     *
+     * @param name for the not-applied alert and log keys
+     */
+    public static TalonFX createConfigTalon(
+            String name, CanDeviceId id, TalonFXConfiguration config) {
         var talon = createTalon(id);
-        CanConfigBudget.run(
-                "Talon " + id.getDeviceNumber(),
-                timeout -> talon.getConfigurator().apply(config, timeout));
+        applyConfigAtBoot(name, talon, config);
         return talon;
+    }
+
+    /** Applies a snapshot of {@code config}, so later edits to it need another call. */
+    public static CanConfigRetry.Entry applyConfigAtBoot(
+            String name, TalonFX talon, TalonFXConfiguration config) {
+        TalonFXConfiguration snapshot = config.clone();
+        return CanConfigRetry.INSTANCE.applyAtBoot(
+                name,
+                talon,
+                talon.getDeviceID(),
+                talon.getNetwork().getName(),
+                CanConfigRetry.CONFIG,
+                true,
+                timeout -> talon.getConfigurator().apply(snapshot, timeout));
+    }
+
+    /** Hands a snapshot of {@code config} to the retry thread. Never blocks the main loop. */
+    public static CanConfigRetry.Entry requestConfig(
+            String name, TalonFX talon, TalonFXConfiguration config) {
+        TalonFXConfiguration snapshot = config.clone();
+        return CanConfigRetry.INSTANCE.request(
+                name,
+                talon,
+                talon.getDeviceID(),
+                talon.getNetwork().getName(),
+                CanConfigRetry.CONFIG,
+                timeout -> talon.getConfigurator().apply(snapshot, timeout));
     }
 
     /**
@@ -69,6 +102,20 @@ public class TalonFXFactory {
      */
     public static TalonFX createPermanentFollowerTalon(
             CanDeviceId followerId, TalonFX leaderTalonFX, MotorAlignmentValue motorAlignment) {
+        return createPermanentFollowerTalon(
+                "Talon " + followerId.getDeviceNumber(), followerId, leaderTalonFX, motorAlignment);
+    }
+
+    /**
+     * Same, with a name for the not-applied alert and log keys.
+     *
+     * @param name the follower's name
+     */
+    public static TalonFX createPermanentFollowerTalon(
+            String name,
+            CanDeviceId followerId,
+            TalonFX leaderTalonFX,
+            MotorAlignmentValue motorAlignment) {
         int leaderId = leaderTalonFX.getDeviceID();
         // Compare resolved buses, not config strings: "systemcore:0" and the name Phoenix reports
         // for that port are the same bus.
@@ -79,7 +126,7 @@ public class TalonFXFactory {
 
         TalonFXConfiguration followerConfig = getDefaultConfig();
         leaderTalonFX.getConfigurator().refresh(followerConfig);
-        final TalonFX talon = createConfigTalon(followerId, followerConfig);
+        final TalonFX talon = createConfigTalon(name, followerId, followerConfig);
 
         talon.setControl(new Follower(leaderId, motorAlignment));
         return talon;

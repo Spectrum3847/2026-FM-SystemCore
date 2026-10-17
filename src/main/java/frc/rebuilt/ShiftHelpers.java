@@ -7,6 +7,7 @@
 
 package frc.rebuilt;
 
+import frc.spectrumLib.util.AllianceSource;
 import java.util.Optional;
 import java.util.function.Supplier;
 import lombok.Setter;
@@ -52,7 +53,7 @@ public class ShiftHelpers {
     }
 
     public static Alliance getFirstActiveAlliance() {
-        var alliance = MatchState.getAlliance().orElse(Alliance.BLUE);
+        var alliance = AllianceSource.get();
 
         // Return override value
         var winOverride = getAllianceWinOverride();
@@ -86,10 +87,7 @@ public class ShiftHelpers {
     private static boolean[] getSchedule() {
         boolean[] currentSchedule;
         Alliance startAlliance = getFirstActiveAlliance();
-        currentSchedule =
-                startAlliance == MatchState.getAlliance().orElse(Alliance.BLUE)
-                        ? activeSchedule
-                        : inactiveSchedule;
+        currentSchedule = startAlliance == AllianceSource.get() ? activeSchedule : inactiveSchedule;
         return currentSchedule;
     }
 

@@ -159,6 +159,29 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
     private final StatusSignal<AngularVelocity> yawRateSignal;
     private final StatusSignal<Angle> pitchSignal;
     private final StatusSignal<Angle> rollSignal;
+    private final StatusSignal<AngularVelocity> pitchRateSignal;
+    private final StatusSignal<AngularVelocity> rollRateSignal;
+    private final StatusSignal<?> accelXSignal;
+    private final StatusSignal<?> accelYSignal;
+    private final StatusSignal<?> accelZSignal;
+
+    /** Tilt, knocks and the odometry tilt scale, from the Pigeon inputs. */
+    private final TiltState tilt = new TiltState();
+
+    /**
+     * Scale wheel travel down while tilted (issue #10, 8g). The {@code Localization/OdometryPose}
+     * track is never scaled, so replay can compare the two.
+     */
+    private final org.littletonrobotics.junction.networktables.LoggedNetworkBoolean
+            tiltScaledOdometry =
+                    new org.littletonrobotics.junction.networktables.LoggedNetworkBoolean(
+                            "/Localization/TiltScaledOdometry", true);
+
+    /** Wheel distances as fed to the fused pose (tilt-scaled), and the raw ones last sample. */
+    private final double[] scaledDistances = new double[4];
+
+    private final double[] lastRawDistances = new double[4];
+    private boolean haveDistances = false;
 
     /** Module stator/supply currents: logged at 10 Hz, so 20 Hz frames are plenty. */
     private static final double MODULE_CURRENT_HZ = 20;
@@ -186,10 +209,24 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         yawRateSignal = pigeon.getAngularVelocityZWorld(false);
         pitchSignal = pigeon.getPitch(false);
         rollSignal = pigeon.getRoll(false);
+        // Pitch is about the Pigeon's y axis, roll about x.
+        pitchRateSignal = pigeon.getAngularVelocityYWorld(false);
+        rollRateSignal = pigeon.getAngularVelocityXWorld(false);
+        accelXSignal = pigeon.getAccelerationX(false);
+        accelYSignal = pigeon.getAccelerationY(false);
+        accelZSignal = pigeon.getAccelerationZ(false);
         // Pitch and roll only. The yaw rate (AngularVelocityZWorld) is one of the signals CTRE's
         // 250 Hz odometry thread waits on for latency compensation; setting it to 100 Hz here
         // would starve that wait (WaitForAll -1003, "CAN message is stale" on the Pigeon).
-        BaseStatusSignal.setUpdateFrequencyForAll(100, pitchSignal, rollSignal);
+        BaseStatusSignal.setUpdateFrequencyForAll(
+                100,
+                pitchSignal,
+                rollSignal,
+                pitchRateSignal,
+                rollRateSignal,
+                accelXSignal,
+                accelYSignal,
+                accelZSignal);
 
         SwerveModulePosition[] startPositions = new SwerveModulePosition[getModules().length];
         for (int i = 0; i < startPositions.length; i++) {
@@ -343,11 +380,25 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         inputs.successfulDaqs = state.SuccessfulDaqs;
         inputs.failedDaqs = state.FailedDaqs;
 
-        var status = BaseStatusSignal.refreshAll(yawRateSignal, pitchSignal, rollSignal);
+        var status =
+                BaseStatusSignal.refreshAll(
+                        yawRateSignal,
+                        pitchSignal,
+                        rollSignal,
+                        pitchRateSignal,
+                        rollRateSignal,
+                        accelXSignal,
+                        accelYSignal,
+                        accelZSignal);
         inputs.gyroConnected = status.isOK();
         inputs.gyroYawRateRadPerSec = Units.degreesToRadians(yawRateSignal.getValueAsDouble());
         inputs.gyroPitchDegrees = pitchSignal.getValueAsDouble();
         inputs.gyroRollDegrees = rollSignal.getValueAsDouble();
+        inputs.gyroPitchRateDegPerSec = pitchRateSignal.getValueAsDouble();
+        inputs.gyroRollRateDegPerSec = rollRateSignal.getValueAsDouble();
+        inputs.accelXG = accelXSignal.getValueAsDouble();
+        inputs.accelYG = accelYSignal.getValueAsDouble();
+        inputs.accelZG = accelZSignal.getValueAsDouble();
     }
 
     private final SwerveModulePosition[] scratchPositions = {
@@ -357,21 +408,66 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         new SwerveModulePosition()
     };
 
-    /** Integrates this loop's logged odometry samples into the fused pose. */
+    private final SwerveModulePosition[] scratchScaledPositions = {
+        new SwerveModulePosition(),
+        new SwerveModulePosition(),
+        new SwerveModulePosition(),
+        new SwerveModulePosition()
+    };
+
+    /**
+     * Integrates this loop's logged odometry samples into the fused pose. With tilt scaling on,
+     * each module's travel since the last sample is multiplied by the loop's {@link
+     * TiltState#odometryScale()} before the fused pose and the shadows see it; the odometry-only
+     * track always gets the raw travel.
+     */
     private void integrateOdometry() {
+        tilt.update(
+                Timer.getTimestamp(),
+                inputs.gyroPitchDegrees,
+                inputs.gyroRollDegrees,
+                inputs.gyroPitchRateDegPerSec,
+                inputs.gyroRollRateDegPerSec,
+                inputs.accelXG,
+                inputs.accelYG,
+                inputs.accelZG);
+        double scale = tiltScaledOdometry.get() ? tilt.odometryScale() : 1.0;
         for (int s = 0; s < inputs.odometryTimestamps.length; s++) {
             for (int m = 0; m < 4; m++) {
-                scratchPositions[m] =
-                        new SwerveModulePosition(
-                                inputs.odometryModuleDistances[s * 4 + m],
-                                Rotation2d.fromRadians(inputs.odometryModuleAngles[s * 4 + m]));
+                double raw = inputs.odometryModuleDistances[s * 4 + m];
+                Rotation2d angle = Rotation2d.fromRadians(inputs.odometryModuleAngles[s * 4 + m]);
+                if (!haveDistances) {
+                    scaledDistances[m] = raw;
+                } else {
+                    scaledDistances[m] += (raw - lastRawDistances[m]) * scale;
+                }
+                lastRawDistances[m] = raw;
+                scratchPositions[m] = new SwerveModulePosition(raw, angle);
+                scratchScaledPositions[m] = new SwerveModulePosition(scaledDistances[m], angle);
             }
+            haveDistances = true;
             poseFusion.addOdometry(
                     inputs.odometryTimestamps[s],
                     Rotation2d.fromRadians(inputs.odometryYawRadians[s]),
+                    scratchScaledPositions,
                     scratchPositions,
                     s == inputs.odometryTimestamps.length - 1);
         }
+    }
+
+    /** The Pigeon's tilt state this loop. */
+    public TiltState getTilt() {
+        return tilt;
+    }
+
+    /** Whether the robot is tilted more than {@link TiltState#TILTED_DEG}, e.g. on a bump. */
+    public boolean isTilted() {
+        return tilt.tilted();
+    }
+
+    /** Whether the robot took a knock (collision, bump landing) in the last half second. */
+    public boolean wasBumpedRecently() {
+        return tilt.bumpedRecently(Timer.getTimestamp());
     }
 
     /**
@@ -428,6 +524,13 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         // Localization/FusedPose and the Swerve inputs ModuleTargets, ModuleVelocities and
         // RobotVelocity already.)
         Telemetry.log("Swerve/OdometrySamplesThisLoop", inputs.odometryTimestamps.length);
+        Telemetry.log("Swerve/Tilt/TiltDegrees", tilt.tiltDeg());
+        Telemetry.log("Swerve/Tilt/TiltRateDegPerSec", tilt.tiltRateDegPerSec());
+        Telemetry.log("Swerve/Tilt/ImpactG", tilt.impactG());
+        Telemetry.log("Swerve/Tilt/Tilted", tilt.tilted());
+        Telemetry.log("Swerve/Tilt/BumpedRecently", wasBumpedRecently());
+        Telemetry.log(
+                "Swerve/Tilt/OdometryScale", tiltScaledOdometry.get() ? tilt.odometryScale() : 1.0);
         if (Constants.hasHardware()) {
             logBatteryUsage();
             alignment.log();

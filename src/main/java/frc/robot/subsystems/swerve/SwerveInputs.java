@@ -43,6 +43,14 @@ public class SwerveInputs implements LoggableInputs {
     public double gyroYawRateRadPerSec = 0;
     public double gyroPitchDegrees = 0;
     public double gyroRollDegrees = 0;
+    public double gyroPitchRateDegPerSec = 0;
+    public double gyroRollRateDegPerSec = 0;
+
+    /** Pigeon acceleration along its own axes, g (gravity included). All 0 when not read. */
+    public double accelXG = 0;
+
+    public double accelYG = 0;
+    public double accelZG = 0;
 
     public double odometryPeriodSeconds = 0;
     public int successfulDaqs = 0;
@@ -62,6 +70,11 @@ public class SwerveInputs implements LoggableInputs {
         table.put("GyroYawRateRadPerSec", gyroYawRateRadPerSec);
         table.put("GyroPitchDegrees", gyroPitchDegrees);
         table.put("GyroRollDegrees", gyroRollDegrees);
+        table.put("GyroPitchRateDegPerSec", gyroPitchRateDegPerSec);
+        table.put("GyroRollRateDegPerSec", gyroRollRateDegPerSec);
+        table.put("AccelXG", accelXG);
+        table.put("AccelYG", accelYG);
+        table.put("AccelZG", accelZG);
         table.put("OdometryPeriodSeconds", odometryPeriodSeconds);
         table.put("SuccessfulDaqs", successfulDaqs);
         table.put("FailedDaqs", failedDaqs);
@@ -81,6 +94,11 @@ public class SwerveInputs implements LoggableInputs {
         gyroYawRateRadPerSec = table.get("GyroYawRateRadPerSec", gyroYawRateRadPerSec);
         gyroPitchDegrees = table.get("GyroPitchDegrees", gyroPitchDegrees);
         gyroRollDegrees = table.get("GyroRollDegrees", gyroRollDegrees);
+        gyroPitchRateDegPerSec = table.get("GyroPitchRateDegPerSec", gyroPitchRateDegPerSec);
+        gyroRollRateDegPerSec = table.get("GyroRollRateDegPerSec", gyroRollRateDegPerSec);
+        accelXG = table.get("AccelXG", accelXG);
+        accelYG = table.get("AccelYG", accelYG);
+        accelZG = table.get("AccelZG", accelZG);
         odometryPeriodSeconds = table.get("OdometryPeriodSeconds", odometryPeriodSeconds);
         successfulDaqs = table.get("SuccessfulDaqs", successfulDaqs);
         failedDaqs = table.get("FailedDaqs", failedDaqs);

@@ -20,11 +20,11 @@ import org.wpilib.math.linalg.VecBuilder;
  * <p>Three kinds of estimator run side by side, all fed the same odometry samples:
  *
  * <ul>
- *   <li><b>Fused</b> -- the robot pose. WPILib {@link SwerveDrivePoseEstimator}, corrected by the
+ *   <li><b>Fused</b> is the robot pose: a WPILib {@link SwerveDrivePoseEstimator}, corrected by the
  *       accepted measurements of every <em>enabled</em> source. This is what the robot drives on.
- *   <li><b>Odometry</b> -- wheels and gyro only, never corrected. The baseline every source is
- *       trying to beat, and the thing that shows how far the robot drifts without help.
- *   <li><b>Shadow, one per source</b> -- odometry plus <em>only</em> that source's accepted
+ *   <li><b>Odometry</b> uses wheels and gyro only, and is never corrected. It is the baseline every
+ *       source is trying to beat, and it shows how far the robot drifts without help.
+ *   <li><b>Shadow, one per source</b> is odometry plus <em>only</em> that source's accepted
  *       measurements, whether or not the source is enabled. This is the comparison: after a match
  *       each shadow track is "what the robot would have believed with only this source", and they
  *       can be overlaid in AdvantageScope. Seeds and explicit resets are applied to every shadow,
@@ -35,8 +35,10 @@ import org.wpilib.math.linalg.VecBuilder;
  * regenerated in AdvantageKit replay, and a gate or std-dev change can be tested against a real
  * match without the robot.
  *
- * <p>Decisions carried over from the 2026 handoff: fusion stays WPILib's estimator (971's EKF was
- * evaluated and rejected), and it runs where the drivetrain loop runs -- on SystemCore.
+ * <p>Fusion runs where the drivetrain loop runs, on SystemCore. The fused track is WPILib's
+ * estimator. A {@link TagEkf} runs alongside it on the same odometry, seeds and resets, taking
+ * every camera's tags one at a time. It is logged for comparison only and never moves the robot
+ * pose.
  */
 public class PoseFusion {
 
@@ -46,13 +48,14 @@ public class PoseFusion {
     private final SwerveDrivePoseEstimator fused;
     private final SwerveDriveOdometry odometry;
     private final Map<String, SwerveDrivePoseEstimator> shadows = new LinkedHashMap<>();
+    @Getter private final TagEkf tagEkf;
 
     /** Vision goes into every estimator through these, so arrival order cannot drop a frame. */
     private final OrderedVisionUpdates fusedVision;
 
     private final Map<String, OrderedVisionUpdates> shadowVision = new LinkedHashMap<>();
 
-    /** Per-source log keys, built once at registration (they were concatenated every loop). */
+    /** Per-source log keys, built once at registration so no string work runs per loop. */
     private record Keys(
             String fusedThisLoop,
             String errorVsFused,
@@ -72,6 +75,7 @@ public class PoseFusion {
 
     private Rotation2d lastGyro = Rotation2d.kZero;
     private SwerveModulePosition[] lastPositions;
+    private SwerveModulePosition[] lastRawPositions;
 
     /** Ground truth pose in simulation; empty on a robot and in replay without it logged. */
     @Getter private Optional<Pose2d> truth = Optional.empty();
@@ -92,9 +96,11 @@ public class PoseFusion {
         this.kinematics = kinematics;
         this.lastGyro = gyro;
         this.lastPositions = copy(positions);
+        this.lastRawPositions = copy(positions);
         this.fused = newEstimator(odometryStdDevs, Pose2d.kZero);
         this.fusedVision = new OrderedVisionUpdates(fused);
         this.odometry = new SwerveDriveOdometry(kinematics, gyro, positions, Pose2d.kZero);
+        this.tagEkf = new TagEkf(kinematics.getModules());
         this.odometryStdDevs = odometryStdDevs;
     }
 
@@ -190,9 +196,31 @@ public class PoseFusion {
             Rotation2d gyro,
             SwerveModulePosition[] positions,
             boolean includeShadows) {
+        addOdometry(timestampSeconds, gyro, positions, positions, includeShadows);
+    }
+
+    /**
+     * As {@link #addOdometry(double, Rotation2d, SwerveModulePosition[], boolean)}, with separate
+     * module positions for the odometry-only track: the fused pose and shadows can take adjusted
+     * (e.g. tilt-scaled) wheel travel while {@code OdometryPose} keeps the raw wheels and gyro.
+     *
+     * @param timestampSeconds sample time, {@code Timer.getTimestamp()} base
+     * @param gyro gyro yaw at the sample
+     * @param positions module positions for the fused pose and the shadows
+     * @param rawPositions module positions for the odometry-only track
+     * @param includeShadows whether the shadow tracks take this sample
+     */
+    public void addOdometry(
+            double timestampSeconds,
+            Rotation2d gyro,
+            SwerveModulePosition[] positions,
+            SwerveModulePosition[] rawPositions,
+            boolean includeShadows) {
         lastGyro = gyro;
         lastPositions = copy(positions);
+        lastRawPositions = copy(rawPositions);
         lastSampleTime = timestampSeconds;
+        tagEkf.addOdometry(timestampSeconds, gyro, positions);
         if (!haveOdometry) {
             // The estimators were built before any sample existed, with a zero gyro and zero
             // wheel distances. Re-baseline them on the first real sample without moving the pose,
@@ -200,7 +228,7 @@ public class PoseFusion {
             // as motion.
             haveOdometry = true;
             fused.resetPosition(gyro, positions, fused.getEstimatedPosition());
-            odometry.resetPosition(gyro, positions, odometry.getPose());
+            odometry.resetPosition(gyro, rawPositions, odometry.getPose());
             clearVisionHistory();
             for (SwerveDrivePoseEstimator shadow : shadows.values()) {
                 shadow.resetPosition(gyro, positions, shadow.getEstimatedPosition());
@@ -208,7 +236,7 @@ public class PoseFusion {
             return;
         }
         fused.updateWithTime(timestampSeconds, gyro, positions);
-        odometry.update(gyro, positions);
+        odometry.update(gyro, rawPositions);
         if (includeShadows) {
             for (SwerveDrivePoseEstimator shadow : shadows.values()) {
                 shadow.updateWithTime(timestampSeconds, gyro, positions);
@@ -273,8 +301,8 @@ public class PoseFusion {
     }
 
     /**
-     * Adds one measurement straight to the fused pose and every shadow. For seeding: the one event
-     * every track should share.
+     * Adds one measurement straight to the fused pose and every shadow. Used for seeding, the one
+     * event every track should share.
      *
      * <p>It goes through the same ordered buffers as camera measurements, so when an older frame
      * arrives later and newer measurements are re-applied, the seed is re-applied with them, in its
@@ -291,6 +319,7 @@ public class PoseFusion {
         for (OrderedVisionUpdates shadow : shadowVision.values()) {
             shadow.add(pose, timestampSeconds, std, lastSampleTime);
         }
+        tagEkf.addPose(pose, timestampSeconds, xyStd, thetaStd);
     }
 
     /**
@@ -300,11 +329,12 @@ public class PoseFusion {
      */
     public void resetPose(Pose2d pose) {
         fused.resetPosition(lastGyro, lastPositions, pose);
-        odometry.resetPosition(lastGyro, lastPositions, pose);
+        odometry.resetPosition(lastGyro, lastRawPositions, pose);
         clearVisionHistory();
         for (SwerveDrivePoseEstimator shadow : shadows.values()) {
             shadow.resetPosition(lastGyro, lastPositions, pose);
         }
+        tagEkf.reset(pose);
     }
 
     /** The fused robot pose. */
@@ -343,8 +373,8 @@ public class PoseFusion {
         Logger.recordOutput(PREFIX + "FusedPose", fusedPose);
         Logger.recordOutput(PREFIX + "OdometryPose", getOdometryPose());
         Logger.recordOutput(PREFIX + "OutOfOrderReapplied", fusedVision.reapplied());
-        // Shadow tracks at the 10 Hz tier: they were a fifth of the log at 100 Hz, and every value
-        // here is computed from logged inputs, so replay regenerates them at any rate wanted.
+        // Shadow tracks use the 10 Hz tier. At 100 Hz they were a fifth of the log. Every value
+        // here comes from logged inputs, so replay regenerates them at any rate.
         if (frc.spectrumLib.telemetry.Telemetry.slowLogThisLoop()) {
             for (var e : shadows.entrySet()) {
                 Keys k = keys.get(e.getKey());
@@ -363,6 +393,7 @@ public class PoseFusion {
                 }
             }
         }
+        logTagEkf(fusedPose);
         if (truth.isPresent()) {
             Pose2d t = truth.get();
             Logger.recordOutput(PREFIX + "SimTruthPose", t);
@@ -373,6 +404,59 @@ public class PoseFusion {
                     PREFIX + "OdometryErrorVsTruthMeters",
                     getOdometryPose().getTranslation().getDistance(t.getTranslation()));
         }
+    }
+
+    private long lastEkfAccepted = -1;
+    private long lastEkfRejected = -1;
+
+    private void logTagEkf(Pose2d fusedPose) {
+        String p = PREFIX + "EKF/";
+        Pose2d ekf = tagEkf.getPose();
+        double[] std = tagEkf.getStdDevs();
+        Logger.recordOutput(p + "Pose", ekf);
+        Logger.recordOutput(p + "Seeded", tagEkf.isSeeded());
+        Logger.recordOutput(
+                p + "StdDevs", new double[] {std[0], std[1], Math.toDegrees(std[2])}); // m, m, deg
+        Logger.recordOutput(
+                p + "ErrorVsFusedMeters",
+                ekf.getTranslation().getDistance(fusedPose.getTranslation()));
+        Logger.recordOutput(
+                p + "HeadingErrorVsFusedDeg",
+                ekf.getRotation().minus(fusedPose.getRotation()).getDegrees());
+        truth.ifPresent(
+                t ->
+                        Logger.recordOutput(
+                                p + "ErrorVsTruthMeters",
+                                ekf.getTranslation().getDistance(t.getTranslation())));
+        if (tagEkf.getAcceptedCount() != lastEkfAccepted
+                || tagEkf.getRejectedCount() != lastEkfRejected) {
+            lastEkfAccepted = tagEkf.getAcceptedCount();
+            lastEkfRejected = tagEkf.getRejectedCount();
+            Logger.recordOutput(p + "AcceptedCount", lastEkfAccepted);
+            Logger.recordOutput(p + "RejectedCount", lastEkfRejected);
+            Logger.recordOutput(p + "Relocalizations", tagEkf.getRelocalizations());
+            for (var e : tagEkf.getRejectionCounts().entrySet()) {
+                Logger.recordOutput(p + "RejectionCounts/" + e.getKey(), e.getValue());
+            }
+            for (var e : tagEkf.getCameraStats().entrySet()) {
+                String c = p + "Cameras/" + e.getKey() + "/";
+                TagEkf.CameraStats st = e.getValue();
+                Logger.recordOutput(c + "AcceptedCount", st.accepted);
+                Logger.recordOutput(c + "RejectedCount", st.rejected);
+            }
+        }
+        // Residuals of tags that passed, this loop: a camera whose bearing residual sits off zero
+        // has a mount yaw error.
+        for (var e : tagEkf.getCameraStats().entrySet()) {
+            TagEkf.CameraStats st = e.getValue();
+            if (st.loopCount() > 0 || st.loggedResiduals) {
+                String c = p + "Cameras/" + e.getKey() + "/";
+                Logger.recordOutput(c + "BearingResidualsDeg", st.bearingResidualsDeg());
+                Logger.recordOutput(c + "RangeResidualsMeters", st.rangeResidualsM());
+                st.loggedResiduals = st.loopCount() > 0;
+            }
+        }
+        tagEkf.clearLoopStats();
     }
 
     private static SwerveModulePosition[] copy(SwerveModulePosition[] positions) {

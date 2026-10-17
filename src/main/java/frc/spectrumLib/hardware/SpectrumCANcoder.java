@@ -74,7 +74,7 @@ public class SpectrumCANcoder {
                             true,
                             timeout -> canCoder.getConfigurator().apply(canCoderConfigs, timeout));
             if (canCoderResponseOK(entry.isApplied() ? StatusCode.OK : StatusCode.ConfigFailed)) {
-                // Modify configuration to use remote CANcoder fused
+                // Point the motor's feedback at this CANcoder.
                 modifyMotorConfig(motor, mechConfig);
             }
         }

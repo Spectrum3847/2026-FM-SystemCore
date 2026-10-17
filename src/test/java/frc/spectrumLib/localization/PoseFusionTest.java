@@ -185,4 +185,22 @@ class PoseFusionTest {
                 0.1,
                 "shadow heading");
     }
+
+    private static SwerveModulePosition[] straight(double meters) {
+        SwerveModulePosition[] p = new SwerveModulePosition[4];
+        for (int i = 0; i < 4; i++) {
+            p[i] = new SwerveModulePosition(meters, Rotation2d.kZero);
+        }
+        return p;
+    }
+
+    @Test
+    void resetPoseKeepsOdometryTrackFromJumping() {
+        PoseFusion f = fusion();
+        f.addOdometry(0.4, Rotation2d.kZero, straight(0.5), straight(1.0), true);
+        f.resetPose(Pose2d.kZero);
+        f.addOdometry(0.42, Rotation2d.kZero, straight(0.5), straight(1.0), true);
+        assertEquals(0.0, f.getOdometryPose().getTranslation().getNorm(), 1e-9);
+        assertEquals(0.0, f.getPose().getTranslation().getNorm(), 1e-9);
+    }
 }

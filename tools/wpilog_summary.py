@@ -5,7 +5,7 @@ Usage:
     python tools/wpilog_summary.py logs/akit_XXXX.wpilog [--keys]
 
 Prints, for every pose source, how many observations it produced, how many were accepted, the
-most common rejection reasons, and (in simulation) its error against the truth pose -- both per
+most common rejection reasons, and (in simulation) its error against the truth pose, both per
 frame and for its shadow track. That is the "which source do we trust" table; AdvantageScope is
 the place to look at the tracks themselves.
 
@@ -26,8 +26,8 @@ def read_wpilog(path):
         raise ValueError("not a wpilog")
     extra_len = struct.unpack_from("<I", data, 8)[0]
     pos = 12 + extra_len
-    entries = {}  # id -> (name, type)
-    records = collections.defaultdict(list)  # name -> [(t, payload)]
+    entries = {}  # id to (name, type)
+    records = collections.defaultdict(list)  # name to list of (t, payload)
     n = len(data)
     while pos < n:
         hdr = data[pos]
@@ -92,6 +92,10 @@ def _decode(typ, payload):
         return struct.unpack("<3d", payload)
     if typ == "struct:Pose2d[]":
         return [struct.unpack_from("<3d", payload, i) for i in range(0, len(payload), 24)]
+    if typ == "struct:Pose3d":
+        return struct.unpack("<7d", payload)  # x, y, z, qw, qx, qy, qz
+    if typ == "struct:Pose3d[]":
+        return [struct.unpack_from("<7d", payload, i) for i in range(0, len(payload), 56)]
     return None
 
 
@@ -146,7 +150,7 @@ def main():
         top = ", ".join(f"{r} x{c}" for r, c in rejections.most_common(3))
         print(f"{s:<16}{total:>8}{accepted:>10}{fused_loops:>7}{fe:>13}{se:>14}  {top}")
 
-    for key in ("FusedErrorVsTruthMeters", "OdometryErrorVsTruthMeters"):
+    for key in ("FusedErrorVsTruthMeters", "EKF/ErrorVsTruthMeters", "OdometryErrorVsTruthMeters"):
         vals = [v for _, v in series(records, types, "Localization/" + key) if v is not None]
         if vals:
             print(f"{key}: mean {statistics.mean(vals):.3f} m, max {max(vals):.3f} m, final {vals[-1]:.3f} m")

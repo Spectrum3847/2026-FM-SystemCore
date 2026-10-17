@@ -29,7 +29,7 @@ import org.wpilib.util.Color;
 import org.wpilib.util.Color8Bit;
 
 // General Sim principles
-// Always move the root/origin to change it's display position
+// Always move the root/origin to change its display position
 // Looking at the robot from the left view (right side of the robot)
 public class RobotSim {
     @Getter public static final double topViewHeight = 150;

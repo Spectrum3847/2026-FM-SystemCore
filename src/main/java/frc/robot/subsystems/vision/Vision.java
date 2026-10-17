@@ -11,6 +11,9 @@ import frc.spectrumLib.localization.PoseObservation;
 import frc.spectrumLib.localization.PoseObservation.Kind;
 import frc.spectrumLib.localization.PoseSource;
 import frc.spectrumLib.localization.PoseSourceIO;
+import frc.spectrumLib.localization.PoseSourceInputs;
+import frc.spectrumLib.localization.TagEkf;
+import frc.spectrumLib.localization.TagSighting;
 import frc.spectrumLib.localization.YawRateHistory;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
@@ -21,14 +24,19 @@ import frc.spectrumLib.vision.Limelight.LimelightConfig;
 import frc.spectrumLib.vision.LimelightHelpers;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 import lombok.Getter;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
+import org.photonvision.targeting.PhotonPipelineResult;
+import org.photonvision.targeting.PhotonTrackedTarget;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Subsystem;
 import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.math.geometry.Pose2d;
+import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.geometry.Rotation3d;
 import org.wpilib.math.geometry.Transform3d;
@@ -84,32 +92,35 @@ public class Vision implements Subsystem {
     public static class VisionConfig {
         @Getter final String name = "Vision";
 
-        // -- Limelights (FM, from 2026 main) ----------------------------------
+        // -- Limelights ---------------------------------------------------------
+        //
+        // Web UI convention: forward, right, up; pitch positive up; yaw positive clockwise.
+        // Left and right positions are from CAD (Camera Pose feature), the back camera's from its
+        // flash. Pitch and yaw were solved from TXMAN1 Q13 rewinds against the fused pose.
 
         @Getter
         final LimelightConfig backConfig =
                 new LimelightConfig("limelight-back")
-                        .withTranslation(-0.3084987734, 0.2134100126, 0.6502249886)
-                        .withRotation(0, 0, 180);
+                        .withTranslation(-0.3318, 0.0, 0.4465)
+                        .withRotation(0, 13.5, 177);
 
         @Getter
         final LimelightConfig leftConfig =
                 new LimelightConfig("limelight-left")
-                        .withTranslation(0, 0.215, 0.188)
-                        .withRotation(0, 0, 90);
+                        .withTranslation(0.0079, -0.3350, 0.5007)
+                        .withRotation(0, 20, -90);
 
         @Getter
         final LimelightConfig rightConfig =
                 new LimelightConfig("limelight-right")
-                        .withTranslation(-0.04445, 0.3027487722, 0.7137249886)
-                        .withRotation(0, 0, -90);
+                        .withTranslation(0.0084, 0.3337, 0.5004)
+                        .withRotation(0, 20, 84.5);
 
         /**
-         * Whether to push the mounts above to the cameras. Off: FM's 2026 code never pushed them,
-         * so the values in each camera's flash are the ones that were validated all season and the
-         * values above are unverified. Turn on once they have been checked against the web UI.
+         * Whether to push the mounts above to the cameras, so a reflashed or swapped camera still
+         * gets the right mount.
          */
-        @Getter final boolean pushLimelightMounts = false;
+        @Getter final boolean pushLimelightMounts = true;
 
         @Getter final int tagPipeline = 0;
 
@@ -117,9 +128,9 @@ public class Vision implements Subsystem {
         //
         // The SystemCore image runs the Limelight vision stack for cameras plugged into it,
         // publishing them as limelightsc0/1/2 and reading MegaTag2 orientation from
-        // limelightshared. It only ever connects to 127.0.0.1:5810 -- which, with FM's code
-        // running on the SystemCore, is this program (see Spectrum3847/SystemCoreVision; the
-        // NT bridge that repo provides is only needed when a roboRIO is the controller).
+        // limelightshared. It only ever connects to 127.0.0.1:5810. With FM's code running on the
+        // SystemCore, that address is this program (see Spectrum3847/SystemCoreVision; the NT
+        // bridge that repo provides is only needed when a roboRIO is the controller).
 
         @Getter
         final LimelightConfig[] systemCoreCameras = {
@@ -134,23 +145,50 @@ public class Vision implements Subsystem {
         /** Table the SystemCore vision stack reads robot orientation from, for MegaTag2. */
         @Getter final String systemCoreSharedTable = "limelightshared";
 
-        // -- Orin / PhotonVision (CALIBRATE: placeholders until mounted) --------
+        // -- Orin / PhotonVision on the Jetson (issue #10) ------------------------
 
-        /** Camera names in the PhotonVision UI, and their mounts (x fwd, y left, z up). */
-        @Getter final String[] orinCameraNames = {"orin-front", "orin-left", "orin-right"};
+        /**
+         * Camera names in PhotonVision. FM's Jetson has two cameras; add a name, mount, installed
+         * flag and factor to run another.
+         */
+        @Getter final String[] orinCameraNames = {"orin-left", "orin-right"};
 
+        /** Which cameras are plugged in. Only these raise camera alerts. */
+        @Getter final boolean[] orinCameraInstalled = {true, true};
+
+        /**
+         * Camera mounts, robot frame (x fwd, y left, z up; negative pitch tilts up). Position from
+         * CAD. Pitch, and orin-right's yaw, solved from TXMAN1 logs (Q13: 1318 multi-tag frames);
+         * the right bracket is toed 5.5 deg forward, as limelight-right's solve also shows. The
+         * Jetson's mount estimate ({@code Vision/Orin/<camera>/Mount/*}) checks height, pitch and
+         * roll.
+         */
         @Getter
         final Transform3d[] orinRobotToCamera = {
             new Transform3d(
-                    new Translation3d(0.30, 0.0, 0.25),
-                    new Rotation3d(0, Units.degreesToRadians(-15), 0)),
+                    new Translation3d(0.0836, 0.3231, 0.4883),
+                    new Rotation3d(0, Units.degreesToRadians(-18), Units.degreesToRadians(90))),
             new Transform3d(
-                    new Translation3d(0.0, 0.30, 0.25),
-                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(90))),
-            new Transform3d(
-                    new Translation3d(0.0, -0.30, 0.25),
-                    new Rotation3d(0, Units.degreesToRadians(-15), Units.degreesToRadians(-90)))
+                    new Translation3d(0.0836, -0.3231, 0.4883),
+                    new Rotation3d(0, Units.degreesToRadians(-18), Units.degreesToRadians(-84.5)))
         };
+
+        /** Per-camera std-dev multiplier (6328's camera factor); 1 until logs say otherwise. */
+        @Getter final double[] orinCameraFactors = {1.0, 1.0};
+
+        /** The Jetson's image size, for the image-edge std-dev scaling. */
+        @Getter final int orinImageWidth = 1280;
+
+        @Getter final int orinImageHeight = 800;
+
+        /**
+         * Tags every Orin camera should ignore at this event (a tag mounted wrong), until changed
+         * on the dashboard at {@code /Vision/Orin/ExcludedTags}.
+         */
+        @Getter final int[] orinExcludedTags = {};
+
+        /** Whether the Jetson is on the robot; its alerts are off without it. */
+        @Getter final boolean jetsonInstalled = true;
 
         // -- QuestNav (CALIBRATE: placeholder until mounted) --------------------
 
@@ -181,9 +219,8 @@ public class Vision implements Subsystem {
         /**
          * Consecutive seeding frames in which the best Limelight must have seeded the pose from two
          * or more tags, with its heading holding within {@link #seedConfirmSpreadDeg}, before the
-         * seed counts as confirmed. About a second at Limelight frame rates. (2026 counted loops
-         * and re-read the same frame each loop; frames are now reported once, so this counts frames
-         * and loops without a new frame neither extend nor break the run.)
+         * seed counts as confirmed. About a second at Limelight frame rates. This counts frames,
+         * not loops: a loop with no new frame neither extends nor breaks the run.
          */
         @Getter final int seedConfirmLoops = 50;
 
@@ -195,11 +232,11 @@ public class Vision implements Subsystem {
         @Getter final double seedConfirmSpreadDeg = 3.0;
 
         /**
-         * Gross heading correction while enabled. 20 deg sits clear of two-tag MegaTag1 heading
-         * noise (15 deg tail) while staying far below the 90 and 180 deg boot-heading errors this
-         * exists to catch. See the offseason {@code Vision.VisionConfig} for the log evidence.
+         * Gross heading correction while enabled. 10 deg sits above the 5 to 8 deg that one
+         * camera's mount error can show. A single two-tag frame can read 15 deg off, so every
+         * multi-tag frame across the hold must be past the threshold.
          */
-        @Getter final double grossHeadingErrorDeg = 20.0;
+        @Getter final double grossHeadingErrorDeg = 10.0;
 
         @Getter final double grossHeadingHoldSeconds = 1.0;
         @Getter final double grossHeadingMaxLinearSpeed = 0.2; // m/s
@@ -222,6 +259,15 @@ public class Vision implements Subsystem {
     @Getter private final List<PoseSource> scMt1Sources = new ArrayList<>();
     @Getter private final List<PoseSource> scMt2Sources = new ArrayList<>();
     @Getter private final List<PoseSource> orinSources = new ArrayList<>();
+    private final List<OrinPoseSourceIO> orinIos = new ArrayList<>();
+    private final List<Transform3d> orinMounts = new ArrayList<>();
+    private final List<Transform3d> chassisLimelightMounts = new ArrayList<>();
+
+    /** Orin sources built on the main ones: gyro-held PnP and tx/ty (issue #10, 3 and 8c). */
+    @Getter private final List<PoseSource> orinGyroSources = new ArrayList<>();
+
+    @Getter private Jetson jetson;
+    private double autoStartSeconds = Double.NaN;
     @Getter private PoseSource questSource;
     @Getter private final List<PoseSource> allSources = new ArrayList<>();
 
@@ -280,7 +326,8 @@ public class Vision implements Subsystem {
         this.config = config;
         this.swerve = swerve;
         this.fusion = swerve.getPoseFusion();
-        tagLayout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded);
+        // Must match the Jetson's and Limelights' layout and the event field (#10, sec. 5).
+        tagLayout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltAndymark);
 
         boolean sim = Constants.currentMode == Constants.Mode.SIM;
         boolean replay = Constants.currentMode == Constants.Mode.REPLAY;
@@ -292,33 +339,77 @@ public class Vision implements Subsystem {
         LimelightConfig[] lls = {config.backConfig, config.leftConfig, config.rightConfig};
         for (LimelightConfig llConfig : lls) {
             addLimelight(llConfig, true, mt1Sources, mt2Sources, sim, replay);
+            chassisLimelightMounts.add(SimVision.robotToCamera(llConfig));
         }
         // SystemCore's own cameras: logged and shadowed, fused only when enabled on the dashboard.
         for (LimelightConfig llConfig : config.systemCoreCameras) {
             addLimelight(llConfig, false, scMt1Sources, scMt2Sources, sim, replay);
         }
 
-        // Orin cameras.
+        // Orin cameras. The source is derived: in replay the camera IO is NONE and the logged raw
+        // results are solved again.
+        List<Jetson.Camera> jetsonCameras = new ArrayList<>();
         for (int i = 0; i < config.orinCameraNames.length; i++) {
             String name = config.orinCameraNames[i];
             Transform3d mount = config.orinRobotToCamera[i];
-            PoseSourceIO io;
+            OrinCameraIO cameraIo;
             if (replay) {
-                io = PoseSourceIO.NONE;
+                cameraIo = OrinCameraIO.NONE;
             } else {
                 if (sim) {
                     simVision.addCamera(name, SimVision.thriftiestCam(), mount);
                 }
-                io = new PhotonIO(name, mount, tagLayout);
+                cameraIo = new PhotonOrinIO(name);
             }
+            OrinPoseSourceIO io =
+                    new OrinPoseSourceIO(
+                            name,
+                            cameraIo,
+                            new OrinSolver(
+                                    mount,
+                                    tagLayout,
+                                    config.orinCameraFactors[i],
+                                    config.orinImageWidth,
+                                    config.orinImageHeight),
+                            () -> jetson == null ? java.util.Set.of() : jetson.getExcludedTags(),
+                            this::orinHeadingAt);
+            jetsonCameras.add(new Jetson.Camera(name, io, mount, config.orinCameraInstalled[i]));
+            orinIos.add(io);
+            orinMounts.add(mount);
             orinSources.add(
                     new PoseSource(
-                            shortName(name),
+                            orinSourceName(name),
                             io,
-                            VisionGates.aprilTagGates(),
-                            VisionGates.PHOTON_MODEL,
-                            false));
+                            VisionGates.orinGates(this::secondsSinceAutoStart),
+                            VisionGates.ORIN_MODEL,
+                            true));
+            for (OrinGyroSourceIO.Mode mode : OrinGyroSourceIO.Mode.values()) {
+                orinGyroSources.add(
+                        new PoseSource(
+                                orinSourceName(name)
+                                        + (mode == OrinGyroSourceIO.Mode.TXTY ? "/TxTy" : "/Gyro"),
+                                new OrinGyroSourceIO(
+                                        mode,
+                                        name,
+                                        io,
+                                        mount,
+                                        tagLayout,
+                                        () ->
+                                                jetson == null
+                                                        ? java.util.Set.of()
+                                                        : jetson.getExcludedTags(),
+                                        this::orinFusedPoseAt),
+                                VisionGates.orinGyroGates(this::secondsSinceAutoStart),
+                                VisionGates.ORIN_MODEL,
+                                false));
+            }
         }
+        jetson =
+                new Jetson(
+                        replay ? JetsonIO.NONE : new JetsonNTIO(),
+                        jetsonCameras,
+                        config.orinExcludedTags,
+                        config.jetsonInstalled && Constants.hasHardware() && !sim);
 
         // QuestNav.
         PoseSourceIO questIo;
@@ -341,6 +432,7 @@ public class Vision implements Subsystem {
         allSources.addAll(scMt1Sources);
         allSources.addAll(scMt2Sources);
         allSources.addAll(orinSources);
+        allSources.addAll(orinGyroSources); // after orinSources: they read this loop's results
         allSources.add(questSource);
         for (PoseSource s : allSources) {
             fusion.register(s);
@@ -351,9 +443,7 @@ public class Vision implements Subsystem {
         for (int i = 0; i < scMt1Sources.size(); i++) {
             addCameraAlert(List.of(scMt1Sources.get(i), scMt2Sources.get(i)), false);
         }
-        for (PoseSource s : orinSources) {
-            addCameraAlert(List.of(s), false);
-        }
+        // (The Orin cameras' alerts are in Jetson.)
         addCameraAlert(List.of(questSource), false);
 
         if (!replay) {
@@ -428,9 +518,34 @@ public class Vision implements Subsystem {
         return name;
     }
 
+    /** "orin-left" becomes "Orin-Left". */
+    private static String orinSourceName(String camera) {
+        String side = camera.startsWith("orin-") ? camera.substring("orin-".length()) : camera;
+        return "Orin-" + Character.toUpperCase(side.charAt(0)) + side.substring(1);
+    }
+
     @Override
     public String getName() {
         return config.getName();
+    }
+
+    /** The fused heading at a capture time for the Orin solver, or null before it is seeded. */
+    private Rotation2d orinHeadingAt(double timestampSeconds) {
+        return poseHeadingSeeded ? headingAt(timestampSeconds) : null;
+    }
+
+    /** The fused pose at a capture time for the gyro-based Orin sources, or null before seeding. */
+    private Pose2d orinFusedPoseAt(double timestampSeconds) {
+        return poseHeadingSeeded
+                ? fusion.sampleAt(timestampSeconds).orElse(fusion.getPose())
+                : null;
+    }
+
+    /** Seconds since auto started, or infinity outside auto. From replayed robot state. */
+    private double secondsSinceAutoStart() {
+        return Double.isNaN(autoStartSeconds)
+                ? Double.POSITIVE_INFINITY
+                : Timer.getTimestamp() - autoStartSeconds;
     }
 
     /** The fused heading at a capture time: what a Limelight was told the robot's yaw was. */
@@ -511,7 +626,15 @@ public class Vision implements Subsystem {
             ll.invalidate();
         }
 
-        // 1. Read every device.
+        boolean auto = Util.autoMode.getAsBoolean() && !disabled;
+        if (auto && Double.isNaN(autoStartSeconds)) {
+            autoStartSeconds = now;
+        } else if (!auto) {
+            autoStartSeconds = Double.NaN;
+        }
+
+        // 1. Read every device (the Jetson first: the Orin solves use its excluded-tag list).
+        jetson.updateInputs();
         for (PoseSource s : allSources) {
             s.update();
         }
@@ -526,7 +649,8 @@ public class Vision implements Subsystem {
                         swerve.getCurrentRobotChassisSpeeds(),
                         yawRates.peak(now, VisionGates.YAW_RATE_LOOKBACK_SECONDS),
                         disabled,
-                        poseHeadingSeeded);
+                        poseHeadingSeeded,
+                        swerve.getTilt().tiltDeg());
         for (PoseSource s : allSources) {
             s.process(context);
         }
@@ -536,7 +660,7 @@ public class Vision implements Subsystem {
         // the fusing below.
         seededThisLoop = null;
         if (disabled) {
-            seedWhileDisabled();
+            seedWhileDisabled(context);
         } else {
             seedWhileEnabled(context);
             checkGrossHeadingError(context);
@@ -562,14 +686,20 @@ public class Vision implements Subsystem {
         for (PoseSource s : orinSources) {
             applyWithPolicy(s, !disabled);
         }
+        for (PoseSource s : orinGyroSources) {
+            applyWithPolicy(s, !disabled);
+        }
         applyWithPolicy(questSource, !disabled);
 
+        feedTagEkf();
         // 4. Keep the Limelights and the Quest aligned with the fused pose.
         if (Constants.currentMode != Constants.Mode.REPLAY) {
             sendCameraSettings(now);
         }
         pushHeadingToLimelights();
         resetQuestAfterSeed();
+        jetson.periodic(
+                context.linearSpeed() < 0.05 && Math.abs(context.robotVelocity().omega) < 0.05);
 
         logStatus(disabled, useMt2);
         swerve.afterVision();
@@ -634,6 +764,89 @@ public class Vision implements Subsystem {
     }
 
     // =========================================================================
+    // Tag EKF (logged only; never moves the robot pose)
+    // =========================================================================
+
+    /** Every Orin and chassis-Limelight tag this loop, frame by frame, into the tag EKF. */
+    private void feedTagEkf() {
+        TagEkf ekf = fusion.getTagEkf();
+        Set<Integer> excluded = jetson.getExcludedTags();
+        // The 2-D model assumes a level robot.
+        boolean tilted = swerve.isTilted();
+        long start = System.nanoTime();
+        for (int i = 0; i < orinIos.size(); i++) {
+            OrinPoseSourceIO io = orinIos.get(i);
+            String camera = orinSources.get(i).getName();
+            for (PhotonPipelineResult r : io.getSolver().decoded) {
+                List<TagSighting> frame = new ArrayList<>();
+                for (PhotonTrackedTarget t : r.getTargets()) {
+                    if (t.fiducialId < 0 || excluded.contains(t.fiducialId)) {
+                        continue;
+                    }
+                    Optional<Pose3d> tag = tagLayout.getTagPose(t.fiducialId);
+                    if (tag.isEmpty()) {
+                        continue;
+                    }
+                    frame.add(
+                            new TagSighting(
+                                    camera,
+                                    r.getTimestampSeconds(),
+                                    t.fiducialId,
+                                    tag.get().getTranslation(),
+                                    orinMounts.get(i),
+                                    t.bestCameraToTarget.getTranslation(),
+                                    io.getSolver().cameraFactor()));
+                }
+                addTagFrame(ekf, frame, tilted);
+            }
+        }
+        int stride = PoseSourceInputs.FIDUCIAL_STRIDE;
+        for (int i = 0; i < mt1Sources.size(); i++) {
+            PoseSourceInputs in = mt1Sources.get(i).getInputs();
+            if (in.count() == 0 || in.fiducials.length == 0) {
+                continue;
+            }
+            String camera = mt1Sources.get(i).getName().split("/")[0];
+            double timestamp = in.timestamps[in.count() - 1];
+            List<TagSighting> frame = new ArrayList<>();
+            for (int f = 0; f + stride <= in.fiducials.length; f += stride) {
+                int id = (int) in.fiducials[f];
+                if (excluded.contains(id)) {
+                    continue;
+                }
+                Optional<Pose3d> tag = tagLayout.getTagPose(id);
+                if (tag.isEmpty()) {
+                    continue;
+                }
+                frame.add(
+                        new TagSighting(
+                                camera,
+                                timestamp,
+                                id,
+                                tag.get().getTranslation(),
+                                chassisLimelightMounts.get(i),
+                                TagSighting.fromAngles(
+                                        in.fiducials[f + 1],
+                                        in.fiducials[f + 2],
+                                        in.fiducials[f + 3]),
+                                1.0));
+            }
+            addTagFrame(ekf, frame, tilted);
+        }
+        Logger.recordOutput("Localization/EKF/FeedMicros", (System.nanoTime() - start) / 1000);
+    }
+
+    private static void addTagFrame(TagEkf ekf, List<TagSighting> frame, boolean tilted) {
+        if (tilted) {
+            for (TagSighting t : frame) {
+                ekf.skip(t.camera(), "Tilted");
+            }
+        } else {
+            ekf.addFrame(frame);
+        }
+    }
+
+    // =========================================================================
     // Seeding (offseason)
     // =========================================================================
 
@@ -656,16 +869,6 @@ public class Vision implements Subsystem {
         return best;
     }
 
-    /** Whether any Limelight reported a MegaTag1 frame this loop. */
-    private boolean anyMt1Frames() {
-        for (PoseSource s : mt1Sources) {
-            if (!s.getResults().isEmpty()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /** The best Limelight's latest accepted MegaTag1 result this loop, or {@code null}. */
     private PoseSource.Result bestAcceptedMt1() {
         int best = bestLimelightIndex();
@@ -686,19 +889,19 @@ public class Vision implements Subsystem {
      * MegaTag1 only. MegaTag2 is deliberately not used here: it depends on the heading we push to
      * the camera, which is the very thing seeding is trying to fix.
      */
-    private void seedWhileDisabled() {
+    private void seedWhileDisabled(GateContext c) {
         PoseSource.Result best = bestAcceptedMt1();
         if (best == null) {
-            // A loop with no new frame from any camera is not evidence either way (the cameras run
-            // slower than the loop, and each frame is reported once); a loop whose frames were all
-            // rejected breaks the run.
-            if (anyMt1Frames()) {
-                seedConfirmStreak = 0;
-                Telemetry.log("Vision/SeedConfirmBreak", "Best frame rejected");
-            }
             return;
         }
         PoseObservation o = best.observation();
+        // A robot rolling after auto, or a single tag, can seed a heading many degrees off.
+        boolean still =
+                c.linearSpeed() <= config.grossHeadingMaxLinearSpeed
+                        && Math.abs(c.robotVelocity().omega) <= config.grossHeadingMaxOmega;
+        if (!still || !o.multiTag()) {
+            return;
+        }
         seedFrom(o);
         poseHeadingSeeded = true;
         trackSeedConfirmation(o);
@@ -719,7 +922,7 @@ public class Vision implements Subsystem {
      * <p>Seeding takes the first multi-tag MegaTag1 solve from the best Limelight while the robot
      * is slow enough for the gross-heading net ({@link VisionConfig#grossHeadingMaxLinearSpeed},
      * {@link VisionConfig#grossHeadingMaxOmega}). Single-tag headings are where the large MegaTag1
-     * heading errors come from, and a wrong seed while enabled aims wrong with confidence.
+     * heading errors come from, and a wrong seed taken while enabled gives confident, wrong aims.
      * Confirmation (which lets the chassis cameras move on to MegaTag2) is stricter than the
      * disabled version: each counted frame's heading must also agree with the fused heading.
      */
@@ -729,9 +932,6 @@ public class Vision implements Subsystem {
         }
         PoseSource.Result best = bestAcceptedMt1();
         if (best == null) {
-            if (poseHeadingSeeded && anyMt1Frames()) {
-                seedConfirmStreak = 0;
-            }
             return;
         }
         PoseObservation o = best.observation();
@@ -752,6 +952,9 @@ public class Vision implements Subsystem {
                                     + " seeded it before enable.",
                             o.source(), o.tagCount()),
                     PrintPriority.HIGH);
+            return;
+        }
+        if (!o.multiTag()) {
             return;
         }
         double errorDeg =
@@ -775,8 +978,6 @@ public class Vision implements Subsystem {
             return;
         }
         if (!o.multiTag()) {
-            seedConfirmStreak = 0;
-            Telemetry.log("Vision/SeedConfirmBreak", "Single tag");
             return;
         }
         Rotation2d heading = o.pose2d().getRotation();
@@ -820,7 +1021,11 @@ public class Vision implements Subsystem {
         boolean still =
                 c.linearSpeed() <= config.grossHeadingMaxLinearSpeed
                         && Math.abs(c.robotVelocity().omega) <= config.grossHeadingMaxOmega;
-        if (best == null || !best.observation().multiTag() || !still) {
+        // Loops without a new multi-tag frame are common and do not break the hold.
+        if (best == null || !best.observation().multiTag()) {
+            return;
+        }
+        if (!still) {
             grossHeadingSince = Double.NaN;
             return;
         }
@@ -1038,15 +1243,27 @@ public class Vision implements Subsystem {
         return false;
     }
 
+    /** End of auto: auto's 20 s plus a few seconds either side. */
+    public static final double AUTO_REWIND_SECONDS = 25;
+
     /**
-     * Saves the last 165 s (the most a Limelight keeps) of each of FM's Limelights' rewind buffer:
-     * video plus every frame's results, reviewable frame by frame afterwards. Rewind is a Limelight
-     * 4 feature; the camera writes the capture to its own storage and manages that space itself.
+     * End of teleop: the most a Limelight keeps. Teleop's 140 s plus the gap after auto, so it also
+     * reaches back into the end of auto.
+     */
+    public static final double TELEOP_REWIND_SECONDS = 165;
+
+    /**
+     * Saves the last {@code seconds} of the rewind buffer of each FM Limelight: video plus every
+     * frame's results, reviewable frame by frame afterwards. Rewind is a Limelight 4 feature; the
+     * camera writes the capture to its own storage, which survives a power cycle (checked
+     * 2026-10-16), so the robot can be powered off after a match.
      *
      * <p>Not the SystemCore's own cameras: their "camera storage" is the robot controller's
      * internal disk, which {@link frc.spectrumLib.telemetry.LogStorage} is keeping free.
+     *
+     * @param seconds how much to save, at most 165
      */
-    public void triggerRewindCaptureForAllCameras() {
+    public void triggerRewindCaptureForAllCameras(double seconds) {
         if (!Constants.hasHardware() || simVision != null) {
             return;
         }
@@ -1054,7 +1271,7 @@ public class Vision implements Subsystem {
             if (limelight.getName().startsWith("limelightsc")) {
                 continue;
             }
-            LimelightHelpers.triggerRewindCapture(limelight.getName(), 165);
+            LimelightHelpers.triggerRewindCapture(limelight.getName(), seconds);
         }
     }
 

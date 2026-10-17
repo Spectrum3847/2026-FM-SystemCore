@@ -8,11 +8,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
- * Runs slow reads -- files under {@code /proc}, CAN bus status -- on one low-priority daemon
- * thread, so the robot loop only ever picks up the latest result.
+ * Runs slow reads, such as files under {@code /proc} and CAN bus status, on one low-priority daemon
+ * thread. The robot loop only ever picks up the latest result.
  *
- * <p>On SystemCore the main thread runs at real-time priority, and a read that blocks for a
- * millisecond there (CANBus.getStatus() can) or walks sixty {@code /proc} files is a late loop. The
+ * <p>On SystemCore the main thread runs at real-time priority. A read that blocks for a millisecond
+ * there (CANBus.getStatus() can) or walks sixty {@code /proc} files makes the loop late. The
  * results are telemetry and alerts, which are outputs, so where they are computed does not matter
  * to AdvantageKit replay.
  *
@@ -97,7 +97,7 @@ public final class BackgroundSampler {
                             try {
                                 latest.set(read.get());
                             } catch (RuntimeException e) {
-                                // keep sampling; the value simply does not update this time
+                                // Keep sampling. The value does not update this time.
                             }
                         },
                         0,

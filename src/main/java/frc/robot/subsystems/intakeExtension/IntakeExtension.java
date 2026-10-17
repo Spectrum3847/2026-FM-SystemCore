@@ -2,7 +2,9 @@ package frc.robot.subsystems.intakeExtension;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfigurator;
+import com.ctre.phoenix6.controls.StaticBrake;
 import com.ctre.phoenix6.hardware.TalonFX;
+import frc.robot.Constants;
 import frc.robot.RobotSim;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
@@ -12,6 +14,7 @@ import frc.spectrumLib.telemetry.Telemetry;
 import lombok.Getter;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.InstantCommand;
+import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.util.Units;
 import org.wpilib.smartdashboard.Mechanism2d;
 import org.wpilib.system.Timer;
@@ -80,6 +83,27 @@ public class IntakeExtension extends Mechanism {
         @Getter private final double homingStallDebounceSecs = 0.15;
         @Getter private final double homingTimeoutSecs = 3.0;
 
+        /*
+         * Full extend stops pushing once both sides are still, so a side that stops short of the
+         * other does not sit at its stator limit. 1 rot is about 3 in of travel.
+         */
+        @Getter private final double extendSteadySecs = 0.3;
+
+        @Getter private final double extendSteadyMaxRPM = 18;
+        @Getter private final double extendAtTargetToleranceRotations = 0.08;
+
+        /** While holding, pushed back in by this much (about 2 in) drives out again. */
+        @Getter private final double extendReextendRotations = 0.67;
+
+        /**
+         * Out-point relearn only when the extend moved less than this: a power-on with the intake
+         * out cannot move, while a jam part way out moves first (RESYNC handles those).
+         */
+        @Getter private final double relearnMaxTravelRotations = 0.25;
+
+        /** Both sides must read within this of each other, or one is bound up short. */
+        @Getter private final double relearnMaxSkewRotations = 0.33;
+
         /* Sim Configs */
         @Getter private final double intakeX = Units.inchesToMeters(70);
         @Getter private final double intakeY = Units.inchesToMeters(23);
@@ -107,7 +131,9 @@ public class IntakeExtension extends Mechanism {
             configReverseTorqueCurrentLimit(statorCurrentLimit);
             configForwardSoftLimit(maxRotations, true);
             configReverseSoftLimit(minRotations, true);
-            configNeutralBrakeMode(true);
+            // Coast so it moves by hand while disabled; enabled, StaticBrake holds it. Switching
+            // the neutral mode at enable timed out on the CANivore.
+            configNeutralBrakeMode(false);
             configClockwise_Positive();
         }
 
@@ -122,7 +148,7 @@ public class IntakeExtension extends Mechanism {
     }
 
     // ================================================================================
-    // Right Axis — independent, closed-loop, mirror-mounted
+    // Right Axis. Independent, closed-loop, mirror-mounted.
     // ================================================================================
 
     /**
@@ -156,7 +182,7 @@ public class IntakeExtension extends Mechanism {
                 configReverseTorqueCurrentLimit(left.getStatorCurrentLimit());
                 configForwardSoftLimit(left.getMaxRotations(), true);
                 configReverseSoftLimit(left.getMinRotations(), true);
-                configNeutralBrakeMode(true);
+                configNeutralBrakeMode(false);
                 configCounterClockwise_Positive();
             }
         }
@@ -203,6 +229,15 @@ public class IntakeExtension extends Mechanism {
             stop();
         }
 
+        /** Brakes the axis; its neutral mode is coast. */
+        public void holdAxis() {
+            if (isAttached()) {
+                motor.setControl(staticBrake);
+            }
+        }
+
+        private final StaticBrake staticBrake = new StaticBrake();
+
         @Override
         public void periodic() {
             logBatteryUsage();
@@ -226,7 +261,8 @@ public class IntakeExtension extends Mechanism {
         this.config = config;
         this.right = new IntakeExtensionRight(config);
 
-        setInitialPosition();
+        // No encoder zeroing: the TalonFX keeps its position across code restarts. If it powered
+        // on with the intake out, the first full extend relearns the out point.
 
         simulationInit();
         Telemetry.print(getName() + " Subsystem Initialized");
@@ -311,7 +347,7 @@ public class IntakeExtension extends Mechanism {
     private void applyStates() {
         switch (systemState) {
             case FULL_EXTEND:
-                commandBoth(100, false);
+                applyFullExtend();
                 break;
             case FULL_RETRACT:
                 commandBoth(0, false);
@@ -323,8 +359,7 @@ public class IntakeExtension extends Mechanism {
                 applyHoming();
                 break;
             case STOPPED:
-                stop();
-                if (right.isAttached()) right.stopAxis();
+                holdBoth();
                 return;
         }
     }
@@ -332,7 +367,7 @@ public class IntakeExtension extends Mechanism {
     /**
      * Commands both axes to the same position.
      *
-     * @param percent target as a percentage of max rotations (0–100)
+     * @param percent target as a percentage of max rotations (0 to 100)
      * @param slow whether to use the slow (dynamic Motion Magic voltage) profile
      */
     private void commandBoth(double percent, boolean slow) {
@@ -356,6 +391,103 @@ public class IntakeExtension extends Mechanism {
         }
     }
 
+    // ---- Full extend: drive out, then stop pushing ----
+
+    private enum ExtendPhase {
+        DRIVING,
+        HOLDING
+    }
+
+    private ExtendPhase extendPhase = ExtendPhase.DRIVING;
+    private final Timer extendSteadyTimer = new Timer();
+    private boolean extendSteadyTiming = false;
+    private double extendStartRotations = 0;
+    private double holdStartRotations = 0;
+    private int outPointRelearns = 0;
+
+    /**
+     * Drives out until both sides are still, then holds. A stall short of the target that barely
+     * moved, with both sides agreeing, means the motors powered on with the intake out, so the stop
+     * is taken as max.
+     */
+    private void applyFullExtend() {
+        // The sim has no right-axis physics.
+        boolean useRight = right.isAttached() && Constants.currentMode != Constants.Mode.SIM;
+        double leftPos = getPositionRotations();
+        double rightPos = useRight ? right.getPositionRotations() : leftPos;
+        double position = (leftPos + rightPos) / 2.0;
+
+        // Disabled, every extend looks like a stall.
+        if (previousSystemState != SystemState.FULL_EXTEND || !RobotState.isEnabled()) {
+            extendPhase = ExtendPhase.DRIVING;
+            extendStartRotations = position;
+            extendSteadyTiming = false;
+        }
+
+        boolean still =
+                Math.abs(getVelocityRPM()) < config.getExtendSteadyMaxRPM()
+                        && (!useRight
+                                || Math.abs(right.getVelocityRPM())
+                                        < config.getExtendSteadyMaxRPM());
+        boolean steady = false;
+        if (still && RobotState.isEnabled()) {
+            if (!extendSteadyTiming) {
+                extendSteadyTiming = true;
+                extendSteadyTimer.restart();
+            }
+            steady = extendSteadyTimer.hasElapsed(config.getExtendSteadySecs());
+        } else {
+            extendSteadyTiming = false;
+        }
+
+        switch (extendPhase) {
+            case DRIVING -> {
+                if (!steady) {
+                    commandBoth(100, false);
+                    return;
+                }
+                boolean atTarget =
+                        position
+                                >= config.getMaxRotations()
+                                        - config.getExtendAtTargetToleranceRotations();
+                boolean barelyMoved =
+                        Math.abs(position - extendStartRotations)
+                                < config.getRelearnMaxTravelRotations();
+                boolean sidesAgree =
+                        Math.abs(leftPos - rightPos) <= config.getRelearnMaxSkewRotations();
+                if (!atTarget && barelyMoved && sidesAgree) {
+                    resetCurrentPositionToMax();
+                    outPointRelearns++;
+                    Telemetry.print("IntakeExtension: out point relearned at the stop");
+                    position = config.getMaxRotations();
+                }
+                extendPhase = ExtendPhase.HOLDING;
+                holdStartRotations = position;
+                holdBoth();
+            }
+            case HOLDING -> {
+                if (holdStartRotations - position >= config.getExtendReextendRotations()) {
+                    extendPhase = ExtendPhase.DRIVING;
+                    extendStartRotations = position;
+                    extendSteadyTiming = false;
+                    commandBoth(100, false);
+                } else {
+                    holdBoth();
+                }
+            }
+        }
+    }
+
+    /** Brakes both axes; their neutral mode is coast. */
+    private void holdBoth() {
+        if (isAttached()) {
+            motor.setControl(staticBrake);
+        }
+        right.holdAxis();
+    }
+
+    private final StaticBrake staticBrake = new StaticBrake();
+
     // ---- Resync / stall homing ----
 
     private final Timer homingTimer = new Timer();
@@ -368,9 +500,9 @@ public class IntakeExtension extends Mechanism {
     /**
      * Drives each side independently into the fully-extended hard stop, re-zeroing that side's
      * encoder at {@code maxRotations} once it stalls. A tooth skip corrupts the motor encoder, so
-     * the hard stop is the only reliable position truth; homing uses a soft-limit-bypassing voltage
-     * so it can reach the physical stop even when the (stale) encoder thinks the soft limit is
-     * already reached.
+     * the hard stop is the only reliable position reference. Homing uses a soft-limit-bypassing
+     * voltage so it can reach the physical stop even when the (stale) encoder thinks the soft limit
+     * is already reached.
      */
     private void applyHoming() {
         // Re-arm on entry to the HOMING state.
@@ -419,7 +551,7 @@ public class IntakeExtension extends Mechanism {
                 right.stopAxis();
             }
         } else {
-            rightHomed = true; // no right axis attached → nothing to resync
+            rightHomed = true; // No right axis attached, so nothing to resync.
         }
     }
 
@@ -485,6 +617,8 @@ public class IntakeExtension extends Mechanism {
         Telemetry.log("IntakeExtension/RPM", getVelocityRPM(), "RPM");
         Telemetry.log("IntakeExtension/LeftHomed", leftHomed);
         Telemetry.log("IntakeExtension/RightHomed", rightHomed);
+        Telemetry.log("IntakeExtension/OutPointRelearns", outPointRelearns);
+        Telemetry.log("IntakeExtension/ExtendPhase", extendPhase.toString());
 
         previousSystemState = systemState;
     }
@@ -496,10 +630,21 @@ public class IntakeExtension extends Mechanism {
         if (isAttached()) {
             sim = new IntakeExtensionSim(RobotSim.leftView, motor);
         }
+        // The right axis gets no model yet: in sim it is the same device as the intake roller
+        // (both CAN id 5, and the sim does not keep SystemCore ports apart), so a second model
+        // would fight the roller's for that one motor.
     }
 
-    // Simulation steps itself on spectrumLib SimLoop (200 Hz) since the offseason port.
+    // Simulation steps itself on spectrumLib SimLoop (200 Hz).
 
+    /**
+     * The left deploy axis in simulation. The deploy slides horizontally, so gravity is off and
+     * nothing pulls it back in when the motor stops.
+     *
+     * <p>The left motor is Clockwise_Positive, so the model runs mirrored ({@code
+     * setReversedLinkage(true)}). Without that the model is driven toward 0, sits on its bottom
+     * stop, and the axis never moves.
+     */
     class IntakeExtensionSim extends LinearSim {
         public IntakeExtensionSim(Mechanism2d mech, TalonFX intakeExtensionMotorSim) {
             super(
@@ -513,7 +658,10 @@ public class IntakeExtension extends Mechanism {
                             .setStaticLength(config.getStaticLength())
                             .setMaxHeight(config.getMaxExtensionHeight())
                             .setLineWidth(config.getLineWidth())
-                            .setColor(new Color8Bit(Color.LIGHT_GRAY)),
+                            .setColor(new Color8Bit(Color.LIGHT_GRAY))
+                            .setCarriageMass(config.getExtensionMass())
+                            .setSimulateGravity(false)
+                            .setReversedLinkage(true),
                     mech,
                     intakeExtensionMotorSim,
                     config.getName());

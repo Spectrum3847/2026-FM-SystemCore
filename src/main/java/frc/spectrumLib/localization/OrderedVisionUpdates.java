@@ -16,8 +16,8 @@ import org.wpilib.math.numbers.N3;
  *
  * <p>{@link PoseEstimator#addVisionMeasurement} discards every stored measurement newer than the
  * one being added (its step 7, "matches previous behavior"). FM fuses several sources with
- * different latencies -- three Limelights, the Orin cameras, the Quest -- one source after another,
- * so whenever a slower camera's frame was added after a faster source's newer one, the newer
+ * different latencies (three Limelights, the Orin cameras, the Quest), one source after another. So
+ * whenever a slower camera's frame was added after a faster source's newer one, the newer
  * correction was thrown away. A Limelight frame from last loop landing after this loop's Quest
  * update did the same across loops.
  *

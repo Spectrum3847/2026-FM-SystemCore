@@ -39,7 +39,7 @@ public class PoseSource {
     private final LoggedNetworkBoolean enabled;
     private final String logPrefix;
 
-    // Log keys, built once: 14 sources times a dozen keys was a lot of string building per loop.
+    // Built once, so no string concatenation runs per loop.
     private final String acceptedPosesKey;
     private final String rejectedPosesKey;
     private final String verdictsKey;
@@ -131,10 +131,18 @@ public class PoseSource {
         return inputs;
     }
 
-    /** Reads the device and records (or, in replay, restores) the raw inputs. */
+    /**
+     * Reads the device and records (or, in replay, restores) the raw inputs. A {@link
+     * PoseSourceIO#derived() derived} source's observations are recomputed every run, replay
+     * included, and recorded as outputs.
+     */
     public void update() {
         io.updateInputs(inputs);
-        Logger.processInputs(logPrefix, inputs);
+        if (io.derived()) {
+            inputs.recordAsOutputs(logPrefix + "/Observations");
+        } else {
+            Logger.processInputs(logPrefix, inputs);
+        }
     }
 
     /**

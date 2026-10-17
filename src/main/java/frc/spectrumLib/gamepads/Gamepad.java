@@ -46,7 +46,6 @@ import org.wpilib.math.geometry.Rotation2d;
  * <p>Each loop it logs the controller's raw data and what the code reads from it under {@code
  * Gamepads/<name>/} (dashboard keys), for checking the mapping on the bench (see the README).
  */
-// Gamepad class
 public abstract class Gamepad implements Subsystem {
     /** WPILib alert displayed on the driver station when this gamepad is disconnected. */
     private Alert disconnectedAlert;
@@ -173,13 +172,10 @@ public abstract class Gamepad implements Subsystem {
      * {@code true} once the gamepad has been detected as connected and its triggers have been
      * configured.
      */
-    private boolean configured =
-            false; // Used to determine if we detected the gamepad is plugged and we have configured
-
-    // it
+    private boolean configured = false;
 
     /** {@code true} after the "gamepad not connected" warning has been printed once. */
-    private boolean printed = false; // Used to only print Gamepad Not Detected once
+    private boolean printed = false;
 
     /** Exponential response curve applied to both left-stick axes. */
     @Getter protected final ExpCurve leftStickCurve;
@@ -265,8 +261,8 @@ public abstract class Gamepad implements Subsystem {
         @Getter @Setter double triggersScalar = 1.0;
 
         /**
-         * Which Driver Station's controller layout to read. {@link Mapping#NI_DS}: the 2026 NI DS
-         * is what the October 2026 event's FMS runs.
+         * Which Driver Station's controller layout to read. {@link Mapping#NI_DS}: the event's FMS
+         * runs the 2026 NI DS. Use {@link Mapping#WPILIB_DS} when driving from the 2027 DS.
          */
         @Getter @Setter Mapping mapping = Mapping.NI_DS;
 
@@ -287,17 +283,17 @@ public abstract class Gamepad implements Subsystem {
     /**
      * Constructs a Gamepad object with the specified configuration.
      *
+     * <p>Sets the port and attachment status from the configuration and builds exponential curves
+     * for the left stick, right stick, and triggers. If the gamepad is attached, it also binds the
+     * buttons, triggers, sticks, and D-pad.
+     *
      * @param config the configuration object containing settings for the gamepad
-     *     <p>The constructor initializes the following: - Superclass with port and attachment
-     *     status from the configuration. - Curve objects for left stick, right stick, and triggers
-     *     using exponential curves. - If the gamepad is attached, initializes the Xbox controller
-     *     and its buttons, triggers, sticks, and D-pad.
      */
     protected Gamepad(Config config) {
         this.config = config;
         disconnectedAlert = new Alert(config.name + " Gamepad Disconnected", Alert.Level.HIGH);
 
-        // Curve objects that we use to configure the controller axis objects
+        // Curves applied to the axes.
         leftStickCurve =
                 new ExpCurve(
                         config.getLeftStickExp(),
@@ -350,7 +346,7 @@ public abstract class Gamepad implements Subsystem {
             rightStickY = rightYTrigger(Threshold.ABS_GREATER, config.rightStickDeadzone);
             rightStickX = rightXTrigger(Threshold.ABS_GREATER, config.rightStickDeadzone);
 
-            // Setup function bumper and trigger buttons
+            // Combined bumper and trigger modifiers.
             noBumpers = rightBumper.negate().and(leftBumper.negate());
             leftBumperOnly = leftBumper.and(rightBumper.negate());
             rightBumperOnly = rightBumper.and(leftBumper.negate());
@@ -611,7 +607,7 @@ public abstract class Gamepad implements Subsystem {
      * (toward positive Y), and 90° points to the left (toward negative X). The last non-zero
      * direction is retained when the stick is released.
      *
-     * @return left-stick direction; zero-up / 90-left convention
+     * @return left-stick direction, with zero pointing up and 90 degrees pointing left
      */
     public Rotation2d getLeftStickDirection() {
         double x = -1 * getLeftX();
@@ -676,8 +672,8 @@ public abstract class Gamepad implements Subsystem {
     }
 
     /**
-     * Returns the Euclidean magnitude of the left stick deflection (0–√2 before curve, 0–1 after
-     * typical scalar).
+     * Returns the Euclidean magnitude of the left stick deflection. It ranges from 0 to √2 before
+     * the curve, and from 0 to 1 after a typical scalar.
      *
      * @return left-stick vector magnitude
      */
@@ -701,7 +697,7 @@ public abstract class Gamepad implements Subsystem {
     /**
      * Get proper stick angles for each alliance
      *
-     * @return
+     * @return the snapped heading in radians, for the current alliance
      */
     public double chooseCardinalDirections() {
         // hotfix
@@ -735,15 +731,14 @@ public abstract class Gamepad implements Subsystem {
         } else if (stickAngle < -5 * Math.PI / 8 && stickAngle >= -7 * Math.PI / 8) {
             return -3 * Math.PI / 4;
         } else {
-            return Math.PI; // greater than 7 * Math.PI / 8 or less than -7 * Math.PI / 8 (bottom of
-            // circle)
+            return Math.PI; // Bottom of the circle.
         }
     }
 
     /**
      * Flips the stick direction for the red alliance.
      *
-     * @return
+     * @return the snapped heading in radians, for the red alliance perspective
      */
     public double getRedAllianceStickCardinals() {
         double stickAngle = getRightStickDirection().getRadians();
@@ -764,8 +759,7 @@ public abstract class Gamepad implements Subsystem {
         } else if (stickAngle < -5 * Math.PI / 8 && stickAngle >= -7 * Math.PI / 8) {
             return Math.PI / 4;
         } else {
-            return 0; // greater than 7 * Math.PI / 8 or less than -7 * Math.PI / 8 (bottom of
-            // circle)
+            return 0; // Bottom of the circle.
         }
     }
 
@@ -934,7 +928,7 @@ public abstract class Gamepad implements Subsystem {
     }
 
     /**
-     * Returns the raw right-trigger axis value (0–1), or {@code 0.0} if not connected.
+     * Returns the raw right-trigger axis value (0 to 1), or {@code 0.0} if not connected.
      *
      * @return right-trigger axis value
      */
@@ -946,7 +940,7 @@ public abstract class Gamepad implements Subsystem {
     }
 
     /**
-     * Returns the raw left-trigger axis value (0–1), or {@code 0.0} if not connected.
+     * Returns the raw left-trigger axis value (0 to 1), or {@code 0.0} if not connected.
      *
      * @return left-trigger axis value
      */
@@ -1048,8 +1042,8 @@ public abstract class Gamepad implements Subsystem {
      * Immediately sets the left and right rumble motor intensities. Use {@link
      * #rumbleCommand(double, double, double)} for timed rumble sequences.
      *
-     * @param leftIntensity left rumble motor intensity (0–1)
-     * @param rightIntensity right rumble motor intensity (0–1)
+     * @param leftIntensity left rumble motor intensity (0 to 1)
+     * @param rightIntensity right rumble motor intensity (0 to 1)
      */
     public void rumbleController(double leftIntensity, double rightIntensity) {
         if (!isConnected()) {

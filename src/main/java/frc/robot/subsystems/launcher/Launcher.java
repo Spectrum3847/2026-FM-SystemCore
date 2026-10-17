@@ -20,9 +20,10 @@ public class Launcher extends Mechanism {
     public static class LauncherConfig extends Config {
 
         /* Launcher config values */
-        @Getter private final double supplyCurrentLimit = 80;
+        // Spin-up is the largest draw; limited to keep the battery up while driving.
+        @Getter private final double supplyCurrentLimit = 60;
         @Getter private final double statorCurrentLimit = 180;
-        @Getter private final double lowerSupplyCurrentLimit = 80;
+        @Getter private final double lowerSupplyCurrentLimit = 60;
         @Getter private final double lowerSupplyCurrentTime = 0;
         @Getter private final double forwardTorqueCurrentLimit = statorCurrentLimit;
         @Getter private final double reverseTorqueCurrentLimit = 10;
@@ -30,16 +31,6 @@ public class Launcher extends Mechanism {
         @Getter private final double velocityKp = 10;
         @Getter private final double velocityKv = 0;
         @Getter private final double velocityKs = 20;
-
-        /**
-         * Flywheel error inside which a volley may start (the shot gate, {@code ShotGate}). Was 100
-         * and unused in 2026. Velocity TorqueCurrentFOC with kS 20 A and kP 10 A/rps settles 2 rps
-         * (120 RPM) off target wherever friction does not cancel kS; the sim sits 124 RPM fast, so
-         * 100 could never be met there. 9470 uses 150 for feed shots, the offseason bot 200.
-         * CALIBRATE: tighten once {@code Shot/FlywheelErrorRPM} from the real robot shows its
-         * steady-state error.
-         */
-        @Getter private final double onTargetToleranceRPM = 150;
 
         /* Sim Configs */
         @Getter private final double launcherX = Units.inchesToMeters(62.5);
@@ -184,9 +175,9 @@ public class Launcher extends Mechanism {
         }
     }
 
-    // Must be called to enable the simulation
-    // if roller position changes configure x and y to set position.
-    // Simulation steps itself on spectrumLib SimLoop (200 Hz) since the offseason port.
+    // Must be called to enable the simulation.
+    // Set x and y when the roller position changes.
+    // Simulation steps itself on spectrumLib SimLoop (200 Hz).
 
     class LauncherSim extends RollerSim {
         public LauncherSim(Mechanism2d mech, TalonFX rollerMotorSim) {

@@ -14,13 +14,12 @@ import org.wpilib.system.Timer;
 /**
  * A WPILib {@link org.wpilib.driverstation.Alert} that is also logged and shown on Elastic.
  *
- * <p>In WPILib 2027 alpha-6 alerts go to the Driver Station through the HAL. They are no longer
- * published to {@code /SmartDashboard/Alerts}, so Elastic's Alerts widget stayed empty, and there
- * is no API to list them, so AdvantageKit's alert logger has nothing to read and alerts never
- * reached the log either. This subclass keeps its own registry: {@link #periodic()} records the
- * active alerts as outputs ({@code Alerts/Errors}, {@code Alerts/Warnings}, {@code Alerts/Infos},
- * newest first, as the 2026 dashboard showed them) and republishes them in the {@code
- * /SmartDashboard/Alerts} group Elastic reads.
+ * <p>WPILib 2027 alpha-6 sends alerts to the Driver Station through the HAL only. They are not
+ * published to {@code /SmartDashboard/Alerts}, so Elastic's Alerts widget stays empty. There is no
+ * API to list them, so AdvantageKit's alert logger never sees them either. This subclass keeps its
+ * own registry: {@link #periodic()} records the active alerts as outputs ({@code Alerts/Errors},
+ * {@code Alerts/Warnings}, {@code Alerts/Infos}, newest first, as the 2026 dashboard showed them)
+ * and republishes them in the {@code /SmartDashboard/Alerts} group Elastic reads.
  *
  * <p>A drop-in replacement: same constructors and methods, and {@code Alert.Level} still refers to
  * WPILib's levels.
@@ -40,9 +39,8 @@ public class Alert extends org.wpilib.driverstation.Alert {
     private static StringPublisher type;
 
     /**
-     * Set when any alert turns on or off or changes text; {@link #periodic()} rebuilds and
-     * publishes only then. Most loops nothing changes, and rebuilding three sorted arrays and
-     * publishing them to NetworkTables every loop was work for nothing.
+     * Set when an alert turns on or off or changes text. {@link #periodic()} rebuilds and publishes
+     * only then, since most loops nothing changes.
      */
     private static volatile boolean dirty = true;
 
@@ -121,7 +119,7 @@ public class Alert extends org.wpilib.driverstation.Alert {
      */
     public static void periodic() {
         if (!dirty) {
-            return; // the log keeps the last value; NetworkTables keeps the last one published
+            return; // The log and NetworkTables keep the last published values.
         }
         dirty = false;
         String[] e = active(Level.HIGH);

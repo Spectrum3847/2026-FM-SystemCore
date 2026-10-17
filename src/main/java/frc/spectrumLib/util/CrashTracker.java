@@ -16,13 +16,8 @@ public class CrashTracker {
     private static String filePath = "/home/systemcore/crash_tracking.txt";
 
     /**
-     * Logs details of a Throwable exception to a designated file. This method captures the unique
-     * run instance UUID, the type of marker (in this case, "Exception"), the current date and time,
-     * and the stack trace of the Throwable, if present. The log entry is appended to the file
-     * '/home/systemcore/crash_tracking.txt', ensuring that each incident is recorded sequentially
-     * without overwriting previous entries. This method is typically used to record unexpected
-     * exceptions or crashes that occur during the runtime of the application, aiding in post-event
-     * analysis and debugging.
+     * Appends the run UUID, an "Exception" marker, the current time, and the stack trace to
+     * '/home/systemcore/crash_tracking.txt'. Entries are appended, never overwritten.
      *
      * @param throwable The Throwable exception to log. Can be any subclass of Throwable, capturing
      *     errors and exceptions that occur during the application's execution.
@@ -31,8 +26,7 @@ public class CrashTracker {
         logMarker("Exception", throwable);
     }
 
-    // used to just log a message to the file
-    /** Logs the marker. */
+    /** Logs a marker with no exception attached. */
     @SuppressWarnings("unused")
     private static void logMarker(String mark) {
         logMarker(mark, null);

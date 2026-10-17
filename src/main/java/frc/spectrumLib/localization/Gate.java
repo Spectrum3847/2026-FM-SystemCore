@@ -5,9 +5,8 @@ package frc.spectrumLib.localization;
  *
  * <p>Gates are per source <em>type</em>, not universal: AprilTag sources declare the 2026 tag-flip,
  * tilt, height and spin gates; QuestNav declares tracking-loss, jump and time-since-reset gates.
- * Every gate has a name, and a rejection is recorded under that name, which is the single most
- * valuable thing the 2026 {@code Vision.java} did: a log says <em>why</em> a frame was thrown out,
- * not just that it was.
+ * Every gate has a name, and a rejection is recorded under that name. A log then says <em>why</em>
+ * a frame was thrown out, not just that it was. The 2026 {@code Vision.java} did this too.
  */
 @FunctionalInterface
 public interface Gate {

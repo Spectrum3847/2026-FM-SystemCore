@@ -471,12 +471,12 @@ public abstract class Mechanism implements Subsystem {
      * uninterrupted fault window would have watched that tower run all day on one motor and said
      * nothing. Short bursts add up instead.
      *
-     * <p>Replayed against that day's logs, 1.5 s trips the dead tower follower in both logs while
-     * the two healthy followers reach 0.00 s and 0.50 s -- three times the margin.
+     * <p>Replayed against that day's logs, 1.5 s trips the dead tower follower in both logs, while
+     * the two healthy followers reach only 0.00 s and 0.50 s. That leaves three times the margin.
      */
     private static final double FOLLOWER_DEAD_SECONDS = 1.5;
 
-    /** Ceiling on one loop's contribution, so a disabled stretch cannot bank a fault. */
+    /** Ceiling on one loop's contribution, so a disabled stretch cannot add up to a fault. */
     private static final double FOLLOWER_MAX_LOOP_SECONDS = 0.5;
 
     /**
@@ -493,7 +493,7 @@ public abstract class Mechanism implements Subsystem {
      * that draws nothing while its leader is loaded raises a Driver Station error.
      *
      * <p>Note this only catches a dead <em>power</em> path. A follower off the CAN bus entirely
-     * never updates its signal, so it reads a constant zero and trips this the same way -- which is
+     * never updates its signal, so it reads a constant zero and trips this the same way. That is
      * the right outcome, even if the message names the wrong wire.
      *
      * @param index which follower, indexing {@code config.followerConfigs}
@@ -845,9 +845,9 @@ public abstract class Mechanism implements Subsystem {
         inputs.statorCurrentAmps = statorCurrentSignal.getValueAsDouble();
         inputs.supplyCurrentAmps = supplyCurrentSignal.getValueAsDouble();
         inputs.tempCelsius = tempSignal.getValueAsDouble();
-        // New arrays every loop, never written in place: AdvantageKit holds a reference to an
+        // New arrays every loop, never written in place. AdvantageKit holds a reference to an
         // input array and serializes it after this cycle, so reusing one logged whatever the next
-        // loop wrote into it -- the log disagreed with what the code used, and replay diverged.
+        // loop wrote into it. The log then disagreed with what the code used, and replay diverged.
         double[] followerAmps = new double[followerSupplySignals.length];
         boolean[] followerOk = new boolean[followerSupplySignals.length];
         for (int i = 0; i < followerSupplySignals.length; i++) {
@@ -919,8 +919,8 @@ public abstract class Mechanism implements Subsystem {
 
     /**
      * Logs voltage, stator and supply current, temperature and connection under {@code prefix/...},
-     * at 10 Hz. Subclasses call this from {@code periodic()} in place of the five log lines each
-     * used to carry; the keys are built on the first call.
+     * at 10 Hz. Subclasses call this from {@code periodic()} instead of logging these five values
+     * themselves. The keys are built on the first call.
      *
      * @param prefix log key prefix, e.g. {@code "Hood"}
      */
@@ -971,7 +971,7 @@ public abstract class Mechanism implements Subsystem {
     /**
      * Converts a percentage of the mechanism's maximum range into an absolute rotation count.
      *
-     * @param percent position as a percentage of max rotations (0–100)
+     * @param percent position as a percentage of max rotations (0 to 100)
      * @return the equivalent position in rotations
      */
     public double percentToRotations(DoubleSupplier percent) {
@@ -982,7 +982,7 @@ public abstract class Mechanism implements Subsystem {
      * Converts an absolute rotation count into a percentage of the mechanism's maximum range.
      *
      * @param rotations position in rotations
-     * @return the equivalent percentage of max rotations (0–100)
+     * @return the equivalent percentage of max rotations (0 to 100)
      */
     public double rotationsToPercent(DoubleSupplier rotations) {
         return (rotations.getAsDouble() / config.maxRotations) * 100;
@@ -1046,7 +1046,7 @@ public abstract class Mechanism implements Subsystem {
     /**
      * Returns the motor position as a percentage of max rotations as of this loop.
      *
-     * @return motor position in percentage of max rotations (0–100)
+     * @return motor position in percentage of max rotations (0 to 100)
      */
     public double getPositionPercentage() {
         return rotationsToPercent(this::getPositionRotations);
@@ -1168,7 +1168,7 @@ public abstract class Mechanism implements Subsystem {
      * Returns a {@link Command} that continuously moves the mechanism to the specified position
      * using Motion Magic Torque Current FOC control (requires Phoenix Pro).
      *
-     * @param percent the target position as a percentage of max rotations (0–100)
+     * @param percent the target position as a percentage of max rotations (0 to 100)
      * @return a command that moves the mechanism to the given percentage position
      */
     public Command moveToPercentage(DoubleSupplier percent) {
@@ -1192,7 +1192,7 @@ public abstract class Mechanism implements Subsystem {
      * Returns a {@link Command} that continuously moves the mechanism to the specified position
      * using Motion Magic Torque Current FOC control (requires Phoenix Pro).
      *
-     * <p>Equivalent to {@link #moveToRotations(DoubleSupplier)} — prefer that method for clarity.
+     * <p>Equivalent to {@link #moveToRotations(DoubleSupplier)}. Prefer that method for clarity.
      *
      * @param rotations the target position in rotations
      * @return a command that moves the mechanism to the given position
@@ -1582,7 +1582,7 @@ public abstract class Mechanism implements Subsystem {
     }
 
     /**
-     * Open-loop voltage control — applies the requested voltage directly without compensation
+     * Open-loop voltage control. It applies the requested voltage directly, without compensation
      * scaling.
      *
      * @param voltage the desired voltage in volts
@@ -1595,7 +1595,7 @@ public abstract class Mechanism implements Subsystem {
     }
 
     /**
-     * Open-loop voltage control that ignores software limit switches. Use with caution — this can
+     * Open-loop voltage control that ignores software limit switches. Use with caution. This can
      * drive the mechanism past its configured travel limits.
      *
      * @param voltage the desired voltage in volts
@@ -1937,7 +1937,7 @@ public abstract class Mechanism implements Subsystem {
         /** Configurations for follower motors. Empty by default (no followers). */
         @Getter private FollowerConfig[] followerConfigs = new FollowerConfig[0];
 
-        // Pre-built control request objects — reused each loop to avoid GC pressure.
+        // Prebuilt control requests, reused each loop to avoid allocation.
 
         @Getter
         private MotionMagicVelocityTorqueCurrentFOC mmVelocityFOC =
@@ -1974,7 +1974,7 @@ public abstract class Mechanism implements Subsystem {
 
         @Getter private TorqueCurrentFOC torqueCurrentFOC = new TorqueCurrentFOC(0);
 
-        /** Percent (duty-cycle) output control — prefer {@link #voltageControl} in most cases. */
+        /** Percent (duty-cycle) output control. Prefer {@link #voltageControl} in most cases. */
         @Getter private DutyCycleOut percentOutput = new DutyCycleOut(0);
 
         // ── Constructor ───────────────────────────────────────────────────────

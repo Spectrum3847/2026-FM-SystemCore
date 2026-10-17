@@ -3,11 +3,10 @@
 FRC Team 3847 Spectrum's 2026 robot **FM** ("Final Machine"), converted to run on **SystemCore**,
 for an October 2026 offseason event where it competes as **8515**.
 
-It is also a testbed: FM carries several independent robot-pose sources — Limelights, a Jetson Orin
-running PhotonVision, a Meta Quest running QuestNav, and the SystemCore's own cameras — and every one
-of them is gated on its own, logged before and after gating, and given its own "shadow" pose track,
-so the question *which source do we actually trust, when, and how do we know* can be answered with
-logs rather than opinions.
+It is also a testbed for robot-pose sources. FM has Limelights, a Jetson Orin running PhotonVision,
+a Meta Quest running QuestNav, and the SystemCore's own cameras. Each source is gated on its own,
+logged before and after gating, and given its own "shadow" pose track. The logs then show which
+source to trust, and when.
 
 | | |
 |---|---|
@@ -43,7 +42,7 @@ Joystick 0 with "Map gamepad" on reads correctly, see [Controllers](#controllers
 ./gradlew simulateJava
 ```
 
-Or run the scripted demo drive — no driver needed. It seeds the pose while disabled, re-origins the
+Or run the scripted demo drive, which needs no driver. It seeds the pose while disabled, re-origins the
 QuestNav, then drives a lap of straights, spins and strafes in teleop:
 
 ```bash
@@ -67,8 +66,8 @@ Add `FM_SIM_EXIT=1` to any scripted run to have the program close its log and ex
 ends, so the run is one command.
 
 All 32 autos and 26 paths from 2026 `main` are in `src/main/deploy/pathplanner`, unchanged. The Auto
-Chooser is now an AdvantageKit `LoggedDashboardChooser` (same dashboard key), so the selected auto
-is logged and replays.
+Chooser is an AdvantageKit `LoggedDashboardChooser` (same dashboard key as 2026), so the selected
+auto is logged and replays.
 
 Open AdvantageScope (2027), connect to `localhost` (or open the `logs/akit_*.wpilog` the sim wrote),
 and install the FM model from [advantagescope-custom-assets/Robot_FM](advantagescope-custom-assets/Robot_FM).
@@ -85,10 +84,10 @@ The 2026 code lives in [Spectrum3847/2026-Spectrum](https://github.com/Spectrum3
 
 | Area | Source |
 |---|---|
-| FM's robot code (subsystems, SuperStructure, bindings, autos, `frc.rebuilt`) | `main` — the competition FM |
+| FM's robot code (subsystems, SuperStructure, bindings, autos, `frc.rebuilt`) | `main` (the competition FM) |
 | `spectrumLib` (Mechanism, telemetry, CAN budget, battery logger, system load, sims) | `2026-offseason-bot` |
 | Swerve logging and robustness, Vision gates and seeding, Robot loop order, CAN/match logging, start-pose checks | `2026-offseason-bot`, adapted to FM |
-| FM physical constants (gear ratios, wheel radius, module positions, CAN IDs, encoder offsets, camera mounts) | `main` — the offseason bot is a different drivetrain |
+| FM physical constants (gear ratios, wheel radius, module positions, CAN IDs, encoder offsets, camera mounts) | `main`, because the offseason bot is a different drivetrain |
 | Not brought over | dye rotor, feeder, turret, launcher tower (the offseason bot's, which stays on a roboRIO) |
 
 ## What changed for SystemCore
@@ -98,8 +97,8 @@ The 2026 code lives in [Spectrum3847/2026-Spectrum](https://github.com/Spectrum3
   `ChassisVelocities`, test mode → *utility* mode, …). Gamepads read raw indices through a
   Driver Station layout table, see [Controllers](#controllers-and-the-driver-station).
 - **CAN** ([CanBuses.java](src/main/java/frc/spectrumLib/hardware/CanBuses.java)): one switch,
-  `CanBuses.USE_CANIVORE`, picks the wiring. **This branch sets it to `false`: no CANivore, only the
-  SystemCore's native CAN FD ports.**
+  `CanBuses.USE_CANIVORE`, picks the wiring. **FM runs with it `true`: drivetrain, shooter and mechanisms on the
+  CANivore, only the intake rollers on `systemcore:0`.**
 
   | Port | Devices | With `USE_CANIVORE = true` |
   |---|---|---|
@@ -107,18 +106,18 @@ The 2026 code lives in [Spectrum3847/2026-Spectrum](https://github.com/Spectrum3
   | `systemcore:1` | swerve: 8 TalonFX, 4 CANcoders, Pigeon (its own bus for 250 Hz odometry) | CANivore |
   | `systemcore:2` | launcher (46–49), hood (15) | CANivore |
   | `systemcore:3` | intake extension (4, 5), indexer bed (8, 9), indexer tower (51, 52), CANdle (1) | CANivore |
-  | `systemcore:4` | spare | — |
+  | `systemcore:4` | spare | |
 
   Bus health is logged as `SystemCoreCAN<n>/…` (and `CANivore/…` with it on). After flipping the
   switch, rerun `python tools/make_elastic_layout.py`; the dashboard's main-bus widgets follow it.
   A CANivore on SystemCore needs CTRE's `canivore-usb` package (wpilibsuite/SystemcoreTesting
   `CTR-Phoenix.md`). *Check the port assignment against the wiring.*
-- **Logging**: AdvantageKit. `Telemetry.log(...)` keeps its 2026 API and now records AKit outputs.
+- **Logging**: AdvantageKit. `Telemetry.log(...)` keeps its 2026 API and records AKit outputs.
   Logs go to a USB stick (`/U/logs`) if one is inserted, else `/home/systemcore/logs`.
 - **Replay**: every motor's status signals are AKit inputs ([MotorInputs](src/main/java/frc/spectrumLib/mechanism/MotorInputs.java)),
   the drivetrain's odometry samples are AKit inputs ([SwerveInputs](src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java)),
   every pose source's raw frames are AKit inputs, and the robot pose is computed on the main loop
-  from them — so a match log can be replayed through changed code.
+  from them, so a match log can be replayed through changed code.
 - **Swerve**: CTRE's `SwerveDrivetrain` still does control and 250 Hz odometry. Its odometry samples
   are copied off its thread and fused on the main loop by [PoseFusion](src/main/java/frc/spectrumLib/localization/PoseFusion.java);
   CTRE's own estimate is kept aligned for its field-centric requests.
@@ -137,18 +136,22 @@ Sources (names are the log paths under `Localization/Sources/`):
 | `LL-Back/MT1`, `LL-Left/MT1`, `LL-Right/MT1` | FM's Limelights, MegaTag1 | yes, until the seed is confirmed |
 | `LL-Back/MT2`, `LL-Left/MT2`, `LL-Right/MT2` | FM's Limelights, MegaTag2 | yes, once the seed is confirmed |
 | `SC0/MT1`, `SC0/MT2`, `SC1/…` | cameras plugged into the SystemCore (its built-in Limelight stack) | no |
-| `orin-front`, `orin-left`, `orin-right` | Jetson Orin + PhotonVision | no |
+| `Orin-Left`, `Orin-Right` | Jetson Orin + PhotonVision (`orin-left`, `orin-right`) | yes |
 | `Quest` | Meta Quest + QuestNav | no |
 
 **Every source runs all the time.** "Fuses" only decides whether its accepted measurements move the
 robot's pose. Toggle any of them live from a dashboard at
 `/Localization/Sources/<name>/Enabled` (an AdvantageKit dashboard input, so replay knows too).
 
+**All-camera EKF** (`Localization/EKF/Pose`): every tag from both Orin cameras and the three
+Limelights, one at a time, in one EKF. Logged next to the fused pose for comparison; it never moves
+the robot. See [docs/pose-sources.md](docs/pose-sources.md#ekf-alongside-wpilib).
+
 What gets logged, per source:
 
 | Key | Meaning |
 |---|---|
-| `Localization/Sources/<name>/*` (inputs) | the raw frames: poses, timestamps, tag counts, distances, ambiguity, tracking — **before** any gate |
+| `Localization/Sources/<name>/*` (inputs) | the raw frames: poses, timestamps, tag counts, distances, ambiguity, tracking, all **before** any gate |
 | `…/Verdicts` | per frame: the trust tier if accepted, the rejection reason if not |
 | `…/RejectionCounts/<reason>` | running count per reason |
 | `…/AcceptedPoses`, `…/RejectedPoses` | for plotting on the field |
@@ -181,29 +184,172 @@ The replay log (`*_sim.wpilog`) holds both `RealOutputs` (what the robot did) an
 From the scripted drive (see [docs/pose-sources.md](docs/pose-sources.md#simulation-results) for the table):
 odometry alone drifts to ~0.16 m while the fused pose averages ~0.014 m error. MegaTag2's shadow
 tracks come out slightly worse than MegaTag1's, because MegaTag2 inherits the simulated gyro drift
-through the heading the robot pushes to the camera — exactly the kind of finding the testbed exists
-to surface, and worth checking on the real robot.
+through the heading the robot pushes to the camera. Check this on the real robot.
+
+## Orin and the Jetson
+
+The Orin cameras run PhotonVision on the Jetson ([SpectrumJetson](https://github.com/Spectrum3847/SpectrumJetson)).
+This section is issue #10's robot side. Everything that talks to NetworkTables is in an IO class,
+so replay stays clean.
+
+**Cameras.** FM's Jetson has two cameras, `orin-left` and `orin-right`, logged as `Orin-Left` and
+`Orin-Right`. Adding one means a name, mount, installed flag and factor in `VisionConfig`. The
+field layout is **2026 Rebuilt AndyMark**, for the Jetson and the Limelights alike, and it must
+match the event field.
+
+**The whole Orin pipeline replays.**
+- [PhotonOrinIO](src/main/java/frc/robot/subsystems/vision/PhotonOrinIO.java) logs every PhotonLib
+  result as raw bytes (`Vision/Orin/<camera>/Results`). Empty results are included, so the frame
+  rate and dropouts are in the log. It also logs the calibration and the Jetson's per-camera topics.
+- [OrinSolver](src/main/java/frc/robot/subsystems/vision/OrinSolver.java) solves poses from those
+  inputs only, so in replay it runs again. Change a mount, the solver or a gate, replay a match, and
+  the Orin poses move. The sim run was checked both ways: an unchanged replay matched exactly, and a
+  0.5 m mount change moved only that camera's poses by 0.5 m.
+- The solved observations are outputs now, at `Localization/Sources/Orin-<camera>/Observations/*`.
+  Logs from before this change have no raw results, so their Orin data doesn't replay.
+
+**How each frame is used** (6328 and AOS, issue #10 section 8b):
+- **Multi-tag:** the Jetson's solve. Tag count and distance come from the tags it used, not from
+  every tag in view (PhotonLib alpha-2 bug, section 10a).
+- **Single tag:** the least ambiguous tag. Of its two candidate poses, the one whose heading is
+  closer to the gyro wins.
+- **Never used:** game pieces (`fiducialId < 0`), tags not in the layout, and excluded tags.
+- **Trust:** std dev xy = 0.01 · d² / n², times the camera factor and an image-edge scale. A tag near
+  the image edge gets up to 4x the std dev; it is not dropped. Heading stays with the gyro, as for
+  every other source.
+- **Extra rejections, each with its own counter:**
+  - single-tag ambiguity ≥ 0.4
+  - z outside −0.5 to 1.0 m
+  - a single tag farther than 5 m
+  - heading more than 20° from the fused heading
+  - the first 2 s of auto
+- A bad PhotonLib packet is counted and dropped (`DecodeFailures`), so it can't stop the loop
+  (section 10b).
+
+**Two more estimates per camera**, logged and shadowed, not fused. Both are built from the same
+logged results, so they replay too, and both need the pose seeded first:
+- **`Orin-<camera>/Gyro`** (#10 section 3) solves on the robot with the heading held to the gyro at the frame's
+  timestamp. With 2+ tags it uses PhotonLib's constrained SolvePnP, seeded from the fused pose. With
+  one tag, or if the constrained solve lands more than 1 m from its seed, it uses the distance-trig
+  solve instead. It runs on the newest frame per camera only. `Vision/Orin/<camera>/GYRO_PNP/SolveMicros` is the
+  time to watch on the SystemCore. PhotonLib's native solver is loaded explicitly, so it also works in replay.
+- **`Orin-<camera>/TxTy`** (#10 section 8c, 6328's final-alignment estimate) takes the closest tag's angles and
+  solved distance, plus the gyro heading, and gives the robot's position.
+- In the sim both come within 2–4 cm of the true pose, about the same as the main Orin source.
+
+**Dashboard controls** (NetworkTables, recorded by AdvantageKit):
+
+| Topic | What it does |
+|---|---|
+| `/Vision/Orin/ExcludedTags` | Comma list of bad tags, e.g. `7,12`. It is sent to the Jetson (multi-tag ignores them), and single-tag solves skip them too. Default: `VisionConfig.orinExcludedTags`. The Jetson's combined list is logged as `Vision/Jetson/ExcludedTagsActive`. |
+| `/Vision/Orin/PracticeFieldProfile` | Off = pipeline 0 (event), on = pipeline 1 (practice field), on every camera. Default off, so a forgotten switch can't carry practice settings into a match. |
+| `/Vision/Orin/Rewind/ManualRecord`, `.../ManualLabel` | Bench recordings without the FMS. |
+
+**Rewind.** With the FMS attached, the Jetson records from enable until 10 s after the last disable.
+That makes each match one recording (auto, the gap and teleop), named `<event>-Q12-r0`. Without
+the FMS, the robot leaves `record` alone unless the manual switch changes. FM's Limelights still
+save their own 165 s buffers at auto and teleop end.
+
+**Clock.** The robot publishes its wall clock (`/photonvision/clock/unixMs`) every loop once the DS
+has set it. The Jetson has no clock battery, and this gives it the right date offline. Still to check
+on the robot: does SystemCore get its clock from the DS the way the roboRIO does?
+
+**Logged** under `Vision/Jetson/*` and `Vision/Orin/<camera>/*`:
+- Jetson health: temperatures, fan, power, GPU load, throttle reason, over-current events, JPEG
+  decoder checks and heartbeat.
+- Rewind: `Recording`, `Session`, `FreeGB`, `FramesDropped`.
+- Per camera: `Health/*` (fps, pipeline ms, latency, frames, decode failures, recoveries), `Mount/*`
+  (the Jetson's estimate) and `SettingsJson` (full pipeline and calibration, written on change).
+- Robot side: `ResultsPerSecond`, `LatencyMs` and `ResultAgeSeconds`.
+
+**Alerts** (only for installed cameras, on the real robot):
+
+| Condition | Level |
+|---|---|
+| Jetson heartbeat stale > 3 s | error |
+| Camera not on NetworkTables (2 s), connected but no frames for 1.5 s, or 0 fps for 1 s | error |
+| Camera under 100 fps for 2 s | warning |
+| Camera JPEG decode failures rising, or the camera was reset during the match | warning |
+| Result timestamps more than 0.5 s from now for 2 s (time sync / timebase) | warning |
+| Jetson tj temp > 75 °C, fan < 1000 rpm, throttling, over-current during the match, CPU JPEG fallback | warning |
+| Rewind SSD < 20 GB, dropping frames while recording, or should be recording but isn't (FMS) | warning |
+| Disabled and still, 60+ multi-tag samples: measured mount differs from config by > 1° or > 2 cm | warning |
+
+A camera turned off with `setEnabled(false)` raises none of its alerts.
+
+**During matches**, keep dashboards off the high-rate vision topics. PhotonVision publishes every
+frame's result, a few Mbps for four cameras, and anything the Driver Station subscribes to crosses
+the field radio. Subscribe only to the topics you display. Don't open the camera streams
+(ports 1181+) or the PhotonVision UI (5800) from the DS during a match.
+
+**Jetson uptime** is read from PhotonVision's metrics protobuf (`/photonvision//metrics/photonvision-3847`;
+check the host name on the robot network). If uptime drops, the Jetson rebooted, and a "Jetson rebooted"
+warning stays up until the next enable.
+
+**Log size.** The raw Orin results are the biggest thing in the log:
+- With the robot enabled, every result is kept. A 5-minute session with four cameras at 122 fps is
+  about 160–330 MB, versus about 60 MB without the Orin.
+- With the robot disabled, only the newest result with targets is kept, at 10 Hz per camera.
+  `ResultCount` still records every frame, for the frame rate and the no-frames alert.
+- The unused min-area-rect corners are dropped before logging.
+- Use a USB stick at events: the internal-storage cap (2 GB) holds only about 6–12 such matches.
+- If the log writer ever falls behind, AdvantageKit drops that loop's data and prints a warning. It
+  never blocks the robot loop. Watch `Logger/QueuedCycles` on the robot.
+
+**Replay is exact up to floating-point noise.** A replayed run can drift by a centimetre or so from
+the original. Replay's first difference is in the last bit (about 1e-18) around seeding: Java's
+`Math.sin`/`cos` may round differently in interpreted and JIT-compiled code, and a threshold then
+amplifies it. Orin observations that don't depend on the fused pose replay bit-exact.
+
+**Not done yet** (issue #10): a game-piece map (8e).
+
+**To check on the robot:**
+- the Jetson topic names (AdvantageScope on `/photonvision`)
+- timestamps (spin in front of a tag and look for smear)
+- NetworkTables reconnects (Jetson booting first, robot reboot, cable pulls)
+- a multi-tag frame with an excluded tag in view
+
+## Tilt and knocks (Pigeon)
+
+The Pigeon's pitch, roll, pitch and roll rates, and 3-axis acceleration are logged inputs
+(`Swerve/Gyro*`, `Swerve/Accel*G`). [TiltState](src/main/java/frc/robot/subsystems/swerve/TiltState.java)
+derives the following, logged under `Swerve/Tilt/*`:
+- **`TiltDegrees`:** the angle from level, from pitch and roll.
+- **`TiltRateDegPerSec`**
+- **`ImpactG`:** how far the total acceleration is from 1 g. It stays near 0 whether the robot is still, tilted or driving smoothly, and spikes on a collision or a bump landing.
+- **`BumpedRecently`:** an impact above 0.5 g in the last 0.5 s.
+- **`Tilted`:** above 5°.
+
+How they're used:
+- **Odometry** (#10 section 8g, 6328): wheel travel is scaled by `OdometryScale`. The scale is 1 up to 2° of tilt,
+  falls linearly to 0 at 25°, and is switched at `/Localization/TiltScaledOdometry` (on by default). On a bump the
+  wheels slip, lift or climb, so they overstate travel across the floor. `Localization/OdometryPose` is never
+  scaled, so replay can compare the two.
+- **Vision:** "Robot Tilted Rejection" drops Limelight MegaTag2 and the Orin gyro and tx/ty frames while the
+  robot is tilted more than 5°. Those take only the robot's yaw, so on a bump the camera isn't where they think.
+  Full 3-D solves (MegaTag1, the Orin's main source) are unaffected.
+- **Shooting:** `Swerve.isTilted()` and `Swerve.wasBumpedRecently()` are available to the shot readiness gate,
+  but are not wired in yet. That's a driver-feel decision to make with logs.
 
 ## Shooting
 
 ### Aim feedforward
 
 While aiming (`PILOT_AIM_AT_TARGET`: pilot X, every RT launch, and every auto `launch()`), the
-heading request now gets a feedforward: how fast the bearing to the hub is turning, `-v_tangential
+heading request gets a feedforward: how fast the bearing to the hub is turning, `-v_tangential
 / distance` (581's form), in rad/s counter-clockwise, clamped to +/-2 rad/s (2910's clamp). The
 heading PID alone only turns once it has fallen behind. In the `shoot` sim, strafing past the hub
 at about 1 m/s from 2.5 m, the heading error went from a steady 4-5 deg to about 1 deg.
 
-`ShotCalculator` used to differentiate its own drive angle for this, in rotations per second (2 pi
-too small; nothing read it). Fixed to rad/s and used, that made the aim oscillate (6-9 deg mean
-error): it differentiates the shoot-on-move yaw offset too, and that follows the measured velocity,
-which the turning itself disturbs. Logged as `Swerve/Aim/TargetRateFeedforward` (deg/s) and
+Differentiating `ShotCalculator`'s drive angle instead makes the aim oscillate (6-9 deg mean
+error). That angle includes the shoot-on-move yaw offset, which follows the measured velocity, and
+the turning itself disturbs that velocity. Logged as `Swerve/Aim/TargetRateFeedforward` (deg/s) and
 `Swerve/Aim/HeadingErrorDeg`.
 
 ### Shot readiness gate (drivers: this changes how RT feels)
 
 **FM on 2026 `main` fed the moment RT was pulled**, whether or not the flywheel was up to speed,
-the hood had arrived or the robot had finished turning to the hub. Now the indexers hold the fuel
+the hood had arrived or the robot had finished turning to the hub. With the gate, the indexers hold the fuel
 (tower stopped, bed slow-indexing as when intaking) until the shot is ready, then feed at full
 speed. Drivers should practise with it: the first ball can come a few tenths later than they are
 used to, and pre-spinning with X (track target) before RT takes most of that away. Logic in
@@ -221,7 +367,7 @@ used to, and pre-spinning with X (track target) before RT takes most of that awa
 - **Timeout**: held for 1.0 s in a launch state, it feeds anyway for the rest of that launch, so a
   stuck sensor or an unreachable target can delay a shot by a second but never stop one. This is
   what keeps autos safe (their `launch()` window is 2.5 s).
-- **Bypass**: **operator Y** (without LB; LB+Y is still the intake reset) feeds while held.
+- **Bypass**: **operator Y** (without LB; LB+Y is the intake reset) feeds while held.
 - Leaving the launch state resets it: the next volley re-earns the start window.
 
 On the dashboard (Match and Shooting tabs): `Shot/Ready` (also lit while tracking with X, before
@@ -315,8 +461,8 @@ until unjam takes over, with no IDLE in between.
 
 ## Loop rate, logging and the dashboard
 
-- **100 Hz.** `Constants.LOOP_PERIOD_SECONDS = 0.01` (FM ran 50 Hz on the roboRIO). Anything that
-  was "every N loops" is now `RobotLoop.everySeconds(...)`, so slow-tier logging stays at 10 Hz / 1 Hz
+- **100 Hz.** `Constants.LOOP_PERIOD_SECONDS = 0.01` (FM ran 50 Hz on the roboRIO). Periodic work
+  uses `RobotLoop.everySeconds(...)`, not "every N loops", so slow-tier logging stays at 10 Hz / 1 Hz
   whatever the period.
 - **The main thread is real-time** (`Constants.MAIN_THREAD_RT_PRIORITY = 1`, set at the end of
   robot init, real robot only). SystemCore's cores are ~85% busy with its own camera servers and
@@ -325,8 +471,8 @@ until unjam takes over, with no IDLE in between.
   loops (over 12.5 ms) from 1.7% to 0.1%. System CPU stays ~88%.
   - **Why 1 and not higher:** Phoenix's CAN threads run at real-time 1–3 on SystemCore, and 1 is
     the lowest real-time level. The 2026 offseason bot ran its main thread at 99 on the roboRIO
-    and starved Phoenix's frame dispatch ("CAN message is stale", `WaitForAll -1003`), and that
-    was reverted (2026-Spectrum `704030d`). Priority 15 measured the same here as 1, so there is
+    and starved Phoenix's frame dispatch ("CAN message is stale", `WaitForAll -1003`), and the team
+    reverted it (2026-Spectrum `704030d`). Priority 15 measured the same here as 1, so there is
     nothing to gain by outranking Phoenix.
   - **Before the event:** with the swerve powered, watch for stale-signal warnings and check
     `Swerve/FailedDaqs`.
@@ -335,17 +481,17 @@ until unjam takes over, with no IDLE in between.
     `./gradlew deployrobotLogsystemcore -ProbotLog -ProbotThreads --info` lists them all.
   - **To turn it off:** set the constant to 0.
 - **The log gets everything; NetworkTables gets the dashboard.** [DashboardReceiver](src/main/java/frc/spectrumLib/telemetry/DashboardReceiver.java)
-  sits in front of AdvantageKit's NT publisher and passes only dashboard keys (`Telemetry.logDash`
-  keys, plus every key [elastic-layout.json](src/main/deploy/elastic-layout.json) reads) at 50 Hz (every 20 ms, as before). The sim mirrors everything by default.
-  This is the offseason rule (it stopped mirroring the whole log to NT because of the CPU cost). Skipped
+  wraps AdvantageKit's NT publisher and passes only dashboard keys (`Telemetry.logDash`
+  keys, plus every key [elastic-layout.json](src/main/deploy/elastic-layout.json) reads) at 50 Hz (every 20 ms). The sim mirrors everything by default.
+  The offseason bot does the same, because mirroring the whole log to NT costs CPU. Skipped
   cycles are merged, not dropped, so a value logged once a second still reaches the dashboard.
 - **`/SmartDashboard/Telemetry/MirrorLogsToNT`** (Diagnostics tab) sends *every* output to NT for a
   live AdvantageScope session on the bench. It is ignored with the FMS attached. Measured on the bench
   unit: 154 topics become 966, and AdvantageKit's receiver thread goes from ~11% to ~14% of one core.
   The main loop doesn't move, because the publisher runs off it.
 - **Alerts** are logged (`Alerts/Errors|Warnings|Infos`) and republished to `/SmartDashboard/Alerts`
-  for Elastic by [Alert](src/main/java/frc/spectrumLib/telemetry/Alert.java). WPILib alpha-6 no longer
-  does either. Use `frc.spectrumLib.telemetry.Alert`, not WPILib's.
+  for Elastic by [Alert](src/main/java/frc/spectrumLib/telemetry/Alert.java). WPILib alpha-6 does
+  neither. Use `frc.spectrumLib.telemetry.Alert`, not WPILib's.
 - **Alliance**: everything (drive direction, aim and shot targets, field flipping, PathPlanner's
   flip, the auto preview) asks [AllianceSource](src/main/java/frc/spectrumLib/util/AllianceSource.java),
   never `MatchState.getAlliance()`. Order: the Pre-Match tab's **Alliance Override** chooser (Auto /
@@ -371,8 +517,8 @@ The October event runs the 2026 FMS, so FM is driven from the **2026 NI FRC Driv
 DS compatible with images 10-13 on alpha-5/6).
 
 The two Driver Stations send an Xbox controller's data in different orders, and nothing between
-the DS and robot code reorders it. So WPILib 2027's `Gamepad` / `CommandGamepad`, which this port
-used first, reads the wrong controls on the NI DS:
+the DS and robot code reorders it. So WPILib 2027's `Gamepad` / `CommandGamepad` reads the wrong controls on
+the NI DS:
 
 | Control | NI DS (index) | 2027 DS / `Gamepad` (index) | What `CommandGamepad` read on the NI DS |
 |---|---|---|---|
@@ -389,7 +535,7 @@ used first, reads the wrong controls on the NI DS:
 [Gamepad](src/main/java/frc/spectrumLib/gamepads/Gamepad.java) reads raw indices through one of
 them. Pilot and Operator bindings did not change. The layout is picked by `Gamepad.Config.mapping`:
 
-- **`NI_DS`** is the default, and is what the event needs.
+- **`NI_DS`** is the default, and is what the event needs (the FMS runs the 2026 NI DS).
 - **`WPILIB_DS`** is for driving from the 2027 DS.
 - **`AUTO`** guesses from what the DS says the controller has: button 14 present means the 2027
   layout, and a POV with no button 14 means the NI layout. If it can't tell, it keeps the last
@@ -458,8 +604,8 @@ other layout ("Pilot controller looks like the WPILIB_DS layout, but is read as 
   - Alerts: "Logging to internal storage" (info), and "Robot storage low" (red, below 500 MB).
   - `System/Storage/FreeMB` is on the dashboard.
 - **Robot identity** (`Rio.id`). On alpha-6, `RobotController.getSerialNumber()` returns ""
-  (SystemcoreTesting #38), so the serial is read from the device tree instead. Empty serials no
-  longer map to `SIM`. The serial prints at boot as `RIO SERIAL:` and is logged as
+  (SystemcoreTesting #38), so the serial is read from the device tree instead. An empty serial
+  does not map to `SIM`. The serial prints at boot as `RIO SERIAL:` and is logged as
   `ControllerSerial`. FM's SystemCore is `FB0687C7EC47BDC4` (`Rio.FM_2026`).
 - **Pre-match alerts:**
   - **Battery low:** under 11.8 V for 3 s while disabled. CALIBRATE this against a meter, since
@@ -481,18 +627,18 @@ other layout ("Pilot controller looks like the WPILIB_DS layout, but is read as 
   `getStatus()`, which can block for up to 1 ms. Start any new sampler during robot init, before
   the main thread goes real-time.
 - **Boot on a dead bus:** if every CAN bus reads zero utilization twice, 0.3 s apart, the CAN
-  config budget is spent at once. The robot then skips a minute of device timeouts, as it already
-  did for a missing CANivore. The 0.1 s pauses between subsystem constructors are gone.
-- **Log size.** In the scripted sim, localization was 84% of the log. Now:
+  config budget is spent at once. The robot then skips a minute of device timeouts, as it does for
+  a missing CANivore. Subsystem constructors run without pauses between them.
+- **Log size.** Localization was 84% of the scripted sim's log, so:
   - Shadow tracks are logged at 10 Hz.
   - Each pose source's `Kind` is one number, not an array, and `Tracking` is written only when
     some frame wasn't tracking. AdvantageKit writes only changes, and those arrays changed every
     frame.
-  - `Swerve/State/*` duplicated `Localization/FusedPose` and the swerve inputs, so it's gone.
+  - There is no `Swerve/State/*`, since it duplicated `Localization/FusedPose` and the swerve inputs.
   - Replay regenerates every output at any rate, and old logs still replay.
 - **NetworkTables:**
-  - The dashboard filter walks AdvantageKit's table without copying it (~1,100 entries every
-    10 ms before).
+  - The dashboard filter walks AdvantageKit's table without copying it (copying was ~1,100 entries
+    every 10 ms).
   - The Limelight heading is flushed at 50 Hz instead of every loop.
   - Alerts are rebuilt and published only when one changes.
 - **SystemCore cameras:** Limelight's `throttle_set` has no effect on SystemCore's built-in camera
@@ -518,14 +664,14 @@ Deployed to the bench SystemCore (no CAN devices, two cameras):
     busiest thread is the main loop at ~25% of one core. Not yet checked: whether the spin also
     happens with a real CANivore attached. **Check `System/TopThreads` on the real robot.**
   - Native layout, bench unit: mean period 10.1–10.3 ms, 1–5% of loops over 12.5 ms, worst
-    14–30 ms, versus 20–45 ms before.
+    14–30 ms, versus 20–45 ms with the CANivore layout.
   - Unplug or disable the SystemCore cameras when they aren't being tested.
 - `System/TopThreads` lists this program's busiest threads from `/proc`, native ones included. A
   native thread that never named itself shows as `java/<tid>`. The boot console prints
   `[Threads] <step>: <new tids> | cpu ticks: ...` to tie each tid to what created it.
   `./gradlew deployrobotLogsystemcore -ProbotLog -ProbotThreads --info` samples them from the
   robot itself ([tools/robot_threads.sh](tools/robot_threads.sh)).
-- The SystemCore's own cameras connect straight to this program as `limelightsc0/1` — no NT bridge
+- The SystemCore's own cameras connect straight to this program as `limelightsc0/1`. No NT bridge
   is needed when the SystemCore is the robot controller. (Deploying this code replaced the
   SystemCoreVision bridge program on that unit; redeploy that repo to get it back.)
 - `RobotController.setBrownoutVoltage` fails (HAL -1098) on that image; the code carries on
@@ -547,18 +693,19 @@ Read its NetworkTables from a laptop:
 longer. From Git Bash, prefix with `MSYS_NO_PATHCONV=1` or the leading `/` is turned into a
 Windows path.
 
-## Before the event — CALIBRATE / check
+## Before the event: calibrate and check
 
 - [ ] **CAN wiring** matches `CanBuses` (`USE_CANIVORE` and the port table above). With a CANivore:
       `canivore-usb` installed on the SystemCore. `SystemCoreCAN<n>/StatusOK` (and
       `CANivore/StatusOK`) in the log, and nonzero `BusUtilization` on every port in use.
 - [ ] **Swerve encoder offsets**: FM's 2026 values are in `FM2026`; re-check with the alignment page.
-- [ ] **Limelight mounts**: FM's 2026 code never pushed mounts from code, so `pushLimelightMounts` is
-      off and the cameras' own flash is trusted. Verify, then turn it on.
-- [ ] **Orin camera names and mounts** (`VisionConfig.orinCameraNames` / `orinRobotToCamera`) — placeholders.
-- [ ] **QuestNav mount** (`VisionConfig.robotToQuest`) — placeholder; check the protocol against the
+- [x] **Limelight mounts**: pushed from code (`pushLimelightMounts`); positions from CAD, angles solved from Q13 rewinds
+- [ ] **Orin camera mounts** (`VisionConfig.orinRobotToCamera`): position and yaw from CAD, pitch
+      from the Q17 Jetson video. Check height, pitch and roll against `Vision/Orin/<camera>/Mount/*`
+      with 2+ tags in view. See [Orin and the Jetson](#orin-and-the-jetson).
+- [ ] **QuestNav mount** (`VisionConfig.robotToQuest`): placeholder. Check the protocol against the
       headset's QuestNav version ([QuestNavProtocol](src/main/java/frc/robot/subsystems/vision/QuestNavProtocol.java)).
-- [ ] **SystemCore camera mounts** (`VisionConfig.systemCoreCameras`) — placeholders.
+- [ ] **SystemCore camera mounts** (`VisionConfig.systemCoreCameras`): placeholders.
 - [ ] **Rio.java**: add the SystemCore's serial so it selects `FM2026` by identity (it defaults to FM anyway).
 - [ ] **2026 NI Driver Station** (the event's FMS needs it) and a SystemCore image that matches
       WPILib alpha-6. Run the [controller bench test](#bench-test-ni-ds-about-5-minutes) on it.
@@ -568,7 +715,7 @@ Windows path.
 - **Offseason mechanism behaviour is not ported, only its infrastructure.** Every FM mechanism runs
   on the offseason `Mechanism` (status-signal rates, per-loop batched reads, CAN budget, follower
   health alerts, 10 Hz diagnostics) and AKit inputs, but FM keeps its own state machines and tuning.
-  The offseason intake is different hardware now (extension 3.5:1 over 3.65 rot vs FM's 11.25:1
+  The offseason intake is different hardware (extension 3.5:1 over 3.65 rot vs FM's 11.25:1
   over 2.8; a kicker roller FM does not have; a hood at 59.4:1 on a different CAN ID). Candidates to
   bring over with bench time: extension tooth-skip RESYNC, clamp-past-max and hold-when-retracted
   (`b25ec09`, `d3bd875`), current-aware agitate and unjam modes (`5b6cfca`), and the hood's
@@ -576,7 +723,7 @@ Windows path.
 
 - Offseason Vision's placement-heading vote and two-camera consensus heading correction are not
   ported (they are tied to that bot's camera layout).
-- maple-sim's field collisions and `RobotBumpSim` are gone with maple-sim.
+- maple-sim has no 2027 build, so there are no field collisions and `RobotBumpSim` is unused.
 - The scripted sim changes the sim Driver Station mid-loop, so replaying a *scripted* run is exact
   except on the loop where the robot enables. Real Driver Station logs do not have this.
 - The 2026 `tools/robot-app`, log archiving and other repo tooling were not brought over.

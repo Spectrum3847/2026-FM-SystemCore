@@ -54,7 +54,7 @@ public class LinearSim implements Mount, Mountable {
                         config.getDrumRadius(),
                         config.getMinHeight(),
                         config.getMaxHeight(),
-                        true,
+                        config.isSimulateGravity(),
                         0);
 
         staticRoot =

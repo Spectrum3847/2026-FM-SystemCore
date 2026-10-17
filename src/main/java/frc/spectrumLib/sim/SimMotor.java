@@ -17,7 +17,7 @@ public final class SimMotor {
      * through {@code setRawRotorPosition()}; {@code Orientation} negates both as a matched pair, so
      * flipping it mirrors the whole loop and leaves it self-consistent.
      *
-     * <p>Deliberately <em>not</em> derived from the motor's invert — CTRE documents {@code
+     * <p>Deliberately <em>not</em> derived from the motor's invert. CTRE documents {@code
      * Orientation} as describing mechanical linkage, not the invert, and the invert alone does not
      * determine the sign. What matters is the direction each sim's geometry produces:
      *

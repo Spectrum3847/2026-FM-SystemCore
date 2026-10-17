@@ -36,6 +36,9 @@ public class SuperStructure extends SubsystemBase {
     private static final double REGULAR_TELEOP_TRANSLATION_COEFFICIENT = 1.0;
     private static final double SHOOTING_TELEOP_TRANSLATION_COEFFICIENT = 0.1;
 
+    /** Slower while tracking, so driving and flywheel spin-up don't overlap at full draw. */
+    private static final double TRACKING_TELEOP_TRANSLATION_COEFFICIENT = 0.5;
+
     public enum WantedSuperState {
         IDLE,
         INTAKE_FUEL,
@@ -92,9 +95,7 @@ public class SuperStructure extends SubsystemBase {
         this.indexerBed = indexerBed;
         this.launcher = launcher;
         this.hood = hood;
-        this.shotGate =
-                new ShotGate(
-                        ShotGate.Tolerances.fm(launcher.getConfig().getOnTargetToleranceRPM()));
+        this.shotGate = new ShotGate(ShotGate.Tolerances.fm());
     }
 
     private final Timer intakeSqueezeTimer = new Timer();
@@ -129,11 +130,10 @@ public class SuperStructure extends SubsystemBase {
 
     // -- Shot readiness gate ------------------------------------------------------
     //
-    // FM on 2026 main fed the moment RT was pulled, whether or not the flywheel was up to speed,
-    // the
-    // hood had arrived or the robot had finished turning to the hub. Now the indexers hold fuel
-    // short of the flywheel until ShotGate says the shot is ready, and time out to feeding anyway
-    // after a second, so the gate can delay a shot but never stop one. Operator Y bypasses it.
+    // On 2026 main, FM fed the moment RT was pulled, whether or not the flywheel was up to speed,
+    // the hood had arrived, or the robot had finished turning to the hub. Now the indexers hold
+    // fuel short of the flywheel until ShotGate says the shot is ready. After a second it feeds
+    // anyway, so the gate can delay a shot but never stop one. Operator Y bypasses it.
 
     private final ShotGate shotGate;
 
@@ -215,7 +215,7 @@ public class SuperStructure extends SubsystemBase {
         double sinceVision = Robot.getVision().secondsSinceFusedEstimate();
         // The set shot is the deliberate exception to range (and to aim: the drivetrain is not
         // aiming, so checkAim is false): it exists for when there is no pose to compute them from,
-        // and the driver has taken responsibility for parking. Flywheel and hood still vote.
+        // and the driver has taken responsibility for parking. The hood still votes.
         boolean poseTrusted = sinceVision <= POSE_TRUST_TIMEOUT_SECONDS;
         boolean feedShot = params != null && isRobotInFeedZone();
         double aimTolerance =
@@ -234,7 +234,6 @@ public class SuperStructure extends SubsystemBase {
                                 launching,
                                 override,
                                 Timer.getTimestamp(),
-                                launcher.getVelocityRPM(),
                                 shotTargetRpm,
                                 hood.getPositionDegrees(),
                                 hood.getVelocityRPM() * 6.0, // mechanism RPM to deg/s
@@ -428,7 +427,7 @@ public class SuperStructure extends SubsystemBase {
 
     private void trackTarget() {
         swerve.setWantedState(Swerve.WantedState.PILOT_AIM_AT_TARGET);
-        swerve.setTeleopVelocityCoefficient(REGULAR_TELEOP_TRANSLATION_COEFFICIENT);
+        swerve.setTeleopVelocityCoefficient(TRACKING_TELEOP_TRANSLATION_COEFFICIENT);
         fuelIntake.setWantedState(FuelIntake.WantedState.NEUTRAL);
         indexerTower.setWantedState(IndexerTower.WantedState.OFF);
         indexerBed.setWantedState(IndexerBed.WantedState.OFF);
@@ -462,12 +461,12 @@ public class SuperStructure extends SubsystemBase {
      * on the robot can detect. This state asks nothing: the hood and flywheel go to the pair of
      * numbers the spot's range works out to, and the driver aims by parking, as on the offseason
      * bot. The drivetrain stays in teleop drive at the launch states' slowed translation, so the
-     * driver can square up; heading is theirs. Deliberately not a drive-to-pose or a held heading:
-     * a pose good enough to drive to is a pose good enough to aim with, and this is for not having
-     * one.
+     * driver can square up; heading is theirs. Not a drive-to-pose or a held heading: a pose good
+     * enough to drive to is good enough to aim with, and this state is for when there is no such
+     * pose.
      *
-     * <p>Otherwise it is RT's launch (intake running, squeeze after a second) behind the shot gate
-     * with flywheel and hood voting and aim and range not.
+     * <p>Otherwise it is RT's launch (intake running, squeeze after a second) behind the shot gate,
+     * with the flywheel and hood checks voting, and aim and range not.
      */
     private void setShot() {
         swerve.setWantedState(Swerve.WantedState.TELEOP_DRIVE);
@@ -595,7 +594,7 @@ public class SuperStructure extends SubsystemBase {
                 .ignoringDisable(true);
     }
 
-    // Allocation-free boolean checks — use these in per-loop code (e.g. ShotCalculator).
+    // Allocation-free boolean checks. Use these in per-loop code (e.g. ShotCalculator).
     public boolean isRobotInNeutralZone() {
         return swerve.isInNeutralZone();
     }
@@ -612,7 +611,7 @@ public class SuperStructure extends SubsystemBase {
         return !isRobotInFeedZone();
     }
 
-    // Trigger factories — use these for binding-time composition only.
+    // Trigger factories. Use these for binding-time composition only.
     public Trigger robotInNeutralZone() {
         return new Trigger(this::isRobotInNeutralZone);
     }

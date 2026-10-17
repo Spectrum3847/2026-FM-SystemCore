@@ -40,11 +40,11 @@ import org.wpilib.util.Color;
  * <ul>
  *   <li><b>Hardware animation patterns</b> ({@link #blink}, {@link #breathe}, {@link #rainbow},
  *       {@link #scrollingRainbow}, {@link #chase}, {@link #bounce}, {@link #fire}, {@link
- *       #rgbCycle}) — these use {@code setControl()} with CANdle's built-in animation engine. They
+ *       #rgbCycle}). These use {@code setControl()} with CANdle's built-in animation engine. They
  *       run autonomously in firmware and require no per-loop CPU work.
  *   <li><b>Software patterns</b> ({@link #solid}, {@link #stripe}, {@link #gradient}, {@link
- *       #ombre}, {@link #wave}, {@link #countdown}, {@link #switchCountdown}, {@link #edges}) —
- *       these use {@code setControl(SolidColor)} which is a one-shot command resent each loop. When
+ *       #ombre}, {@link #wave}, {@link #countdown}, {@link #switchCountdown}, {@link #edges}).
+ *       These use {@code setControl(SolidColor)}, a one-shot command resent each loop. When
  *       switching from a hardware animation to a software pattern, all animations are automatically
  *       cleared.
  * </ul>
@@ -83,9 +83,9 @@ public class SpectrumLEDs implements Subsystem {
     }
 
     /**
-     * Internal marker wrapper — returned by animation factory methods so that {@link
-     * #setPattern(CANdlePattern, int)} can detect when a transition from animation to software
-     * pattern occurs and clear the animation slots.
+     * Internal marker wrapper. Animation factory methods return it so that {@link
+     * #setPattern(CANdlePattern, int)} can detect a transition from animation to software pattern
+     * and clear the animation slots.
      */
     private static final class HardwareAnimPattern implements CANdlePattern {
         private final CANdlePattern impl;
@@ -99,7 +99,6 @@ public class SpectrumLEDs implements Subsystem {
             this.impl = impl;
         }
 
-        /** Apply to. */
         @Override
         public void applyTo(CANdle candle, int startIdx, int numLeds) {
             impl.applyTo(candle, startIdx, numLeds);
@@ -151,7 +150,7 @@ public class SpectrumLEDs implements Subsystem {
         @Getter @Setter private int numLeds;
 
         /**
-         * CANdle hardware animation slot (0–7) used by this instance's animation patterns. Each
+         * CANdle hardware animation slot (0 to 7) used by this instance's animation patterns. Each
          * {@link SpectrumLEDs} instance sharing a single {@link CANdle} must use a distinct slot,
          * otherwise their animations overwrite each other.
          */
@@ -161,7 +160,7 @@ public class SpectrumLEDs implements Subsystem {
         @Getter @Setter private StripTypeValue stripType = StripTypeValue.RGB;
 
         /**
-         * Overall brightness scalar applied in hardware (0.0–1.0). Ignored when {@link
+         * Overall brightness scalar applied in hardware (0.0 to 1.0). Ignored when {@link
          * #sharedCandle} is set.
          */
         @Getter @Setter private double brightness = 1.0;
@@ -238,8 +237,8 @@ public class SpectrumLEDs implements Subsystem {
     protected final Command defaultCommand;
 
     /**
-     * Trigger that is active while the currently installed default command (whichever one that is)
-     * is the one running — i.e. no higher-priority pattern owns the subsystem.
+     * Trigger that is active while the currently installed default command is running. That is, no
+     * higher-priority pattern owns the subsystem.
      */
     public final Trigger defaultTrigger;
 
@@ -396,7 +395,7 @@ public class SpectrumLEDs implements Subsystem {
     // -------------------------------------------------------------------------
 
     /**
-     * Converts a WPILib {@link Color} (0.0–1.0 double components) to a {@link RGBWColor} with
+     * Converts a WPILib {@link Color} (0.0 to 1.0 double components) to a {@link RGBWColor} with
      * {@code W = 0}.
      */
     private static RGBWColor toRGBW(Color color) {
@@ -409,8 +408,8 @@ public class SpectrumLEDs implements Subsystem {
     // -------------------------------------------------------------------------
 
     /**
-     * Blinking (strobe) pattern — alternates between {@code color} and off. Each half-cycle (on and
-     * off) lasts {@code onTimeSecs} seconds.
+     * Blinking (strobe) pattern. It alternates between {@code color} and off. Each half-cycle (on
+     * and off) lasts {@code onTimeSecs} seconds.
      *
      * <p>Implemented using {@link StrobeAnimation}. Frame rate = {@code 1 / onTimeSecs} Hz.
      *
@@ -436,10 +435,11 @@ public class SpectrumLEDs implements Subsystem {
     }
 
     /**
-     * Breathing (sinusoidal fade-in/out) pattern — fades between the peak {@code color} and off.
+     * Breathing (sinusoidal fade-in/out) pattern. It fades between the peak {@code color} and off.
      *
      * <p>Implemented using {@link SingleFadeAnimation}. Each animation frame changes brightness by
-     * 1%, so frame rate = {@code 200 / periodSecs} Hz for a complete 0→100→0% cycle.
+     * 1%, so frame rate = {@code 200 / periodSecs} Hz for a complete cycle from 0 to 100 percent
+     * and back to 0.
      *
      * @param color the peak color at full brightness
      * @param periodSecs duration in seconds of one full breathe cycle
@@ -462,7 +462,7 @@ public class SpectrumLEDs implements Subsystem {
     }
 
     /**
-     * Static rainbow — hue distributed evenly across the strip, advancing very slowly.
+     * Static rainbow. Hue is distributed evenly across the strip and advances very slowly.
      *
      * @return a hardware animation {@link CANdlePattern}
      */
@@ -473,7 +473,7 @@ public class SpectrumLEDs implements Subsystem {
     /**
      * Static rainbow with configurable brightness.
      *
-     * @param brightness brightness scalar (0.0–1.0)
+     * @param brightness brightness scalar (0.0 to 1.0)
      * @return a hardware animation {@link CANdlePattern}
      */
     public CANdlePattern rainbow(double brightness) {
@@ -512,8 +512,7 @@ public class SpectrumLEDs implements Subsystem {
     }
 
     /**
-     * Chase / color-flow pattern — progressively lights LEDs one at a time across the strip and
-     * repeats.
+     * Chase / color-flow pattern. Lights LEDs one at a time across the strip and repeats.
      *
      * <p>Implemented using {@link ColorFlowAnimation}. Frame rate = {@code numLeds × speed} Hz so
      * that {@code speed} full cycles occur per second.
@@ -539,7 +538,7 @@ public class SpectrumLEDs implements Subsystem {
     }
 
     /**
-     * Bouncing dot pattern — a pocket of light travels back and forth across the strip.
+     * Bouncing dot pattern. A small group of lit LEDs travels back and forth across the strip.
      *
      * <p>Implemented using {@link LarsonAnimation} with {@link LarsonBounceValue#Back}. Frame rate
      * is computed so one back-and-forth cycle takes {@code durationSecs} seconds.
@@ -635,7 +634,7 @@ public class SpectrumLEDs implements Subsystem {
      *
      * <p>Uses two {@link SolidColor} controls (one-shot each, resent each loop).
      *
-     * @param percent fraction of the strip (0.0–1.0) assigned to {@code color1}
+     * @param percent fraction of the strip (0.0 to 1.0) assigned to {@code color1}
      * @param color1 color for the leading segment
      * @param color2 color for the trailing segment
      * @return a software {@link CANdlePattern} showing the two-color stripe
@@ -697,8 +696,8 @@ public class SpectrumLEDs implements Subsystem {
     }
 
     /**
-     * Edge-highlight pattern — lights the first and last {@code length} LEDs with {@code color} and
-     * turns off the center LEDs.
+     * Edge-highlight pattern. It lights the first and last {@code length} LEDs with {@code color}
+     * and turns off the center LEDs.
      *
      * <p>Uses two or three {@link SolidColor} controls (one-shot, resent each loop).
      *
@@ -738,8 +737,8 @@ public class SpectrumLEDs implements Subsystem {
     }
 
     /**
-     * Animated ombre — transitions smoothly between two colors across the strip and scrolls the
-     * blend point over time.
+     * Animated ombre. It transitions between two colors across the strip and scrolls the blend
+     * point over time.
      *
      * <p>Uses N {@link SolidColor} controls (one per LED, one-shot, resent each loop with updated
      * colors). {@link RGBWColor} objects are created each loop since the type is immutable.
@@ -812,8 +811,8 @@ public class SpectrumLEDs implements Subsystem {
     }
 
     /**
-     * Countdown pattern — LEDs transition from yellow to red and progressively turn off from the
-     * end of the segment toward the beginning as time elapses.
+     * Countdown pattern. LEDs transition from yellow to red and progressively turn off from the end
+     * of the segment toward the beginning as time elapses.
      *
      * <p>Uses N {@link SolidColor} controls (one per LED, one-shot, resent each loop).
      *
@@ -847,18 +846,18 @@ public class SpectrumLEDs implements Subsystem {
     }
 
     /**
-     * Alliance switch countdown — cycles through alliance colors (and purple) on a hard-coded
+     * Alliance switch countdown. Cycles through alliance colors (and purple) on a hard-coded
      * match-time schedule, progressively turning off LEDs within each segment as time elapses.
      *
-     * <p>Segment schedule (seconds remaining → color):
+     * <p>Segment schedule (seconds remaining, and the color for each):
      *
      * <pre>
-     *  140–130  purple
-     *  130–105  startingColor
-     *  105–80   opponent color
-     *   80–55   startingColor
-     *   55–30   opponent color
-     *   30–0    purple
+     *  140 to 130  purple
+     *  130 to 105  startingColor
+     *  105 to 80   opponent color
+     *   80 to 55   startingColor
+     *   55 to 30   opponent color
+     *   30 to 0    purple
      * </pre>
      *
      * <p>Uses N {@link SolidColor} controls (one per LED, one-shot, resent each loop).

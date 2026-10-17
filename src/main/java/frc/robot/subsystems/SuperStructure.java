@@ -184,6 +184,13 @@ public class SuperStructure extends SubsystemBase {
         return isLaunchState(currentSuperState);
     }
 
+    /** Whether the robot is tracking or launching at a target. */
+    public boolean isAiming() {
+        return currentSuperState == CurrentSuperState.TRACK_TARGET
+                || currentSuperState == CurrentSuperState.AUTON_TRACK_TARGET
+                || isLaunchState(currentSuperState);
+    }
+
     private static boolean isLaunchState(CurrentSuperState state) {
         return state == CurrentSuperState.LAUNCH_WITH_SQUEEZE
                 || state == CurrentSuperState.LAUNCH_WITH_SQUEEZE_WITH_NO_DELAY

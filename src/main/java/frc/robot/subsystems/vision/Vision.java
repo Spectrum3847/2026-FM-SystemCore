@@ -12,6 +12,7 @@ import frc.spectrumLib.localization.PoseObservation.Kind;
 import frc.spectrumLib.localization.PoseSource;
 import frc.spectrumLib.localization.PoseSourceIO;
 import frc.spectrumLib.localization.PoseSourceInputs;
+import frc.spectrumLib.localization.StdDevModel;
 import frc.spectrumLib.localization.TagEkf;
 import frc.spectrumLib.localization.TagSighting;
 import frc.spectrumLib.localization.YawRateHistory;
@@ -243,6 +244,19 @@ public class Vision implements Subsystem {
         @Getter final double grossHeadingHoldSeconds = 1.0;
         @Getter final double grossHeadingMaxLinearSpeed = 0.2; // m/s
         @Getter final double grossHeadingMaxOmega = 0.1; // rad/s
+
+        /**
+         * TXMAN1: the Pigeon drifted about 10 deg a match, under the gross threshold, and shots
+         * went 5-9 deg right. The median keeps one bad two-tag frame from setting the heading.
+         */
+        @Getter final double backHeadingErrorDeg = 2.0;
+
+        @Getter final double backHeadingHoldSeconds = 0.25;
+        @Getter final int backHeadingMinFrames = 3;
+        @Getter final double backHeadingMaxErrorDeg = 20.0;
+
+        /** LL-Back MT2 multi-tag trust while aiming; its far frames otherwise get 1.5 m. */
+        @Getter final double aimBackXyStdDev = 0.1;
     }
 
     // =========================================================================
@@ -272,6 +286,8 @@ public class Vision implements Subsystem {
     private double autoStartSeconds = Double.NaN;
     @Getter private PoseSource questSource;
     @Getter private final List<PoseSource> allSources = new ArrayList<>();
+    private PoseSource backMt1;
+    private PoseSource backMt2;
 
     private QuestNavControl questControl = QuestNavControl.NONE;
     private SimVision simVision;
@@ -288,6 +304,9 @@ public class Vision implements Subsystem {
     private double seedConfirmSpreadLow = 0;
     private double seedConfirmSpreadHigh = 0;
     private double grossHeadingSince = Double.NaN;
+    private double backHeadingSince = Double.NaN;
+    private final List<Double> backHeadingErrors = new ArrayList<>();
+    private int backHeadingCorrections = 0;
     private int grossHeadingCorrections = 0;
 
     /**
@@ -343,6 +362,8 @@ public class Vision implements Subsystem {
             addLimelight(llConfig, true, mt1Sources, mt2Sources, sim, replay);
             chassisLimelightMounts.add(SimVision.robotToCamera(llConfig));
         }
+        backMt1 = mt1Sources.get(0);
+        backMt2 = mt2Sources.get(0);
         // SystemCore's own cameras: logged and shadowed, fused only when enabled on the dashboard.
         for (LimelightConfig llConfig : config.systemCoreCameras) {
             addLimelight(llConfig, false, scMt1Sources, scMt2Sources, sim, replay);
@@ -668,25 +689,36 @@ public class Vision implements Subsystem {
                                 || Auton.autonPoseUpdate.getAsBoolean()
                                 || Auton.autonLaunching.getAsBoolean());
         boolean useMt2 = poseSeedConfirmed && chassisUseMt2.get();
+        if (llWindow) {
+            checkBackHeading(context);
+        }
+        // TXMAN1: while aiming, the side cameras pulled the pose 15-35 cm off LL-Back's.
+        boolean aiming = Robot.getSuperStructure() != null && Robot.getSuperStructure().isAiming();
+        boolean backOnly = llWindow && useMt2 && aiming && acceptedMultiTag(backMt2);
+        Logger.recordOutput("Vision/AimBackMT2Only", backOnly);
         for (PoseSource s : mt1Sources) {
-            applyWithPolicy(s, llWindow && !useMt2);
+            applyWithPolicy(s, llWindow && !useMt2 && !backOnly);
         }
         for (PoseSource s : mt2Sources) {
-            applyWithPolicy(s, llWindow && useMt2);
+            if (backOnly && s == backMt2) {
+                applyWithPolicy(s, true, tightMultiTag(s.getResults()));
+            } else {
+                applyWithPolicy(s, llWindow && useMt2 && !backOnly);
+            }
         }
         for (PoseSource s : scMt1Sources) {
-            applyWithPolicy(s, llWindow && !useMt2);
+            applyWithPolicy(s, llWindow && !useMt2 && !backOnly);
         }
         for (PoseSource s : scMt2Sources) {
-            applyWithPolicy(s, llWindow && useMt2);
+            applyWithPolicy(s, llWindow && useMt2 && !backOnly);
         }
         for (PoseSource s : orinSources) {
-            applyWithPolicy(s, !disabled);
+            applyWithPolicy(s, !disabled && !backOnly);
         }
         for (PoseSource s : orinGyroSources) {
-            applyWithPolicy(s, !disabled);
+            applyWithPolicy(s, !disabled && !backOnly);
         }
-        applyWithPolicy(questSource, !disabled);
+        applyWithPolicy(questSource, !disabled && !backOnly);
 
         if (!disabled) {
             checkGrossHeadingError(context);
@@ -706,6 +738,82 @@ public class Vision implements Subsystem {
         swerve.afterVision();
     }
 
+    /** Re-seeds the heading from LL-Back MT1 multi-tag when it holds off the fused heading. */
+    private void checkBackHeading(GateContext c) {
+        PoseObservation o = null;
+        for (PoseSource.Result r : backMt1.getResults()) {
+            // Far multi-tag frames fail the std-dev tiers but still hold a good heading.
+            boolean gated = r.accepted() || StdDevModel.NO_TIER.equals(r.rejection());
+            if (gated && r.observation().multiTag()) {
+                o = r.observation();
+            }
+        }
+        if (o == null) {
+            return;
+        }
+        Pose2d fused = fusion.sampleAt(o.timestampSeconds()).orElse(fusion.getPose());
+        double errorDeg = o.pose2d().getRotation().minus(fused.getRotation()).getDegrees();
+        Logger.recordOutput("Vision/BackHeadingErrorDeg", errorDeg);
+        if (Math.abs(errorDeg) > config.backHeadingMaxErrorDeg) {
+            return;
+        }
+        if (Double.isNaN(backHeadingSince)
+                || c.nowSeconds() - backHeadingSince > 4 * config.backHeadingHoldSeconds) {
+            backHeadingSince = c.nowSeconds();
+            backHeadingErrors.clear();
+        }
+        backHeadingErrors.add(errorDeg);
+        if (c.nowSeconds() - backHeadingSince < config.backHeadingHoldSeconds
+                || backHeadingErrors.size() < config.backHeadingMinFrames) {
+            return;
+        }
+        List<Double> sorted = new ArrayList<>(backHeadingErrors);
+        sorted.sort(null);
+        double medianDeg = sorted.get(sorted.size() / 2);
+        backHeadingSince = Double.NaN;
+        if (Math.abs(medianDeg) < config.backHeadingErrorDeg) {
+            return;
+        }
+        fusion.seed(
+                new Pose2d(
+                        fused.getTranslation(),
+                        fused.getRotation().plus(Rotation2d.fromDegrees(medianDeg))),
+                o.timestampSeconds(),
+                config.seedXyStdDev,
+                Units.degreesToRadians(config.seedThetaStdDevDeg));
+        backHeadingCorrections++;
+        Logger.recordOutput("Vision/BackHeadingCorrections", backHeadingCorrections);
+        resetQuestToRobotPose();
+    }
+
+    private List<PoseSource.Result> tightMultiTag(List<PoseSource.Result> results) {
+        List<PoseSource.Result> out = new ArrayList<>(results.size());
+        for (PoseSource.Result r : results) {
+            if (r.accepted() && r.observation().multiTag()) {
+                out.add(
+                        new PoseSource.Result(
+                                r.observation(),
+                                null,
+                                new StdDevModel.StdDevs(
+                                        config.aimBackXyStdDev,
+                                        r.stdDevs().thetaRadians(),
+                                        "Aim LL-Back multi-tag")));
+            } else {
+                out.add(r);
+            }
+        }
+        return out;
+    }
+
+    private static boolean acceptedMultiTag(PoseSource source) {
+        for (PoseSource.Result r : source.getResults()) {
+            if (r.accepted() && r.observation().multiTag()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** When a measurement last moved the fused pose; NaN until one has. */
     private double lastFusedSeconds = Double.NaN;
 
@@ -714,17 +822,22 @@ public class Vision implements Subsystem {
      * is enabled and {@code policyAllows}. Logs which it was.
      */
     private void applyWithPolicy(PoseSource source, boolean policyAllows) {
+        applyWithPolicy(source, policyAllows, source.getResults());
+    }
+
+    private void applyWithPolicy(
+            PoseSource source, boolean policyAllows, List<PoseSource.Result> results) {
         boolean fuse = policyAllows && source.isEnabled();
         source.logPolicy(policyAllows);
         if (fuse) {
-            for (PoseSource.Result r : source.getResults()) {
+            for (PoseSource.Result r : results) {
                 if (r.accepted()) {
                     lastFusedSeconds = Timer.getTimestamp();
                     break;
                 }
             }
         }
-        fusion.apply(source, source.getResults(), fuse);
+        fusion.apply(source, results, fuse);
     }
 
     // =========================================================================

@@ -117,8 +117,7 @@ public class SimVision {
 
     /**
      * A Limelight's mount in WPILib's robot frame (x forward, y left, z up). Limelight's own
-     * convention is forward, right, up, pitch positive up and yaw positive clockwise; WPILib's
-     * pitch is positive down and its yaw counter-clockwise.
+     * convention is forward, right, up and pitch positive up; WPILib's pitch is positive down.
      */
     public static Transform3d robotToCamera(LimelightConfig c) {
         return new Transform3d(
@@ -126,7 +125,7 @@ public class SimVision {
                 new Rotation3d(
                         Units.degreesToRadians(c.getRoll()),
                         Units.degreesToRadians(-c.getPitch()),
-                        Units.degreesToRadians(-c.getYaw())));
+                        Units.degreesToRadians(c.getYaw())));
     }
 
     // ── Limelight emulation ────────────────────────────────────────────────

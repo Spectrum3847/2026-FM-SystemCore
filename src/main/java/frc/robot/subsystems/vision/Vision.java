@@ -94,7 +94,8 @@ public class Vision implements Subsystem {
 
         // -- Limelights ---------------------------------------------------------
         //
-        // Web UI convention: forward, right, up; pitch positive up; yaw positive clockwise.
+        // Web UI convention: forward, right, up; pitch positive up; yaw positive counter-clockwise
+        // (Q30: clockwise flipped the side cameras 180 deg).
         // Left and right positions are from CAD (Camera Pose feature), the back camera's from its
         // flash. Pitch and yaw were solved from TXMAN1 Q13 rewinds against the fused pose.
 
@@ -108,13 +109,13 @@ public class Vision implements Subsystem {
         final LimelightConfig leftConfig =
                 new LimelightConfig("limelight-left")
                         .withTranslation(0.0079, -0.3350, 0.5007)
-                        .withRotation(0, 20, -90);
+                        .withRotation(0, 20, 90);
 
         @Getter
         final LimelightConfig rightConfig =
                 new LimelightConfig("limelight-right")
                         .withTranslation(0.0084, 0.3337, 0.5004)
-                        .withRotation(0, 20, 84.5);
+                        .withRotation(0, 20, -84.5);
 
         /**
          * Whether to push the mounts above to the cameras, so a reflashed or swapped camera still
@@ -382,7 +383,7 @@ public class Vision implements Subsystem {
                             io,
                             VisionGates.orinGates(this::secondsSinceAutoStart),
                             VisionGates.ORIN_MODEL,
-                            true));
+                            false));
             for (OrinGyroSourceIO.Mode mode : OrinGyroSourceIO.Mode.values()) {
                 orinGyroSources.add(
                         new PoseSource(

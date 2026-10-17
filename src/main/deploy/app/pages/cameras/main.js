@@ -647,6 +647,10 @@ async function applyImageSettings(cam, all) {
     }
 
     const targets = all ? state.cameras : [cam];
+    if (targets.some((t) => t.tuning)) {
+        d.setOut.textContent = "Not sent: wait for the auto-tune to finish.";
+        return;
+    }
     d.setBtn.disabled = true;
     d.setAllBtn.disabled = true;
     d.setOut.textContent = `saving to ${targets.length} camera${targets.length === 1 ? "" : "s"}...`;
@@ -689,7 +693,7 @@ async function autoTune(cam) {
     refreshCard(cam);
 
     const current = { ...original };
-    const restore = () => cam.client.updatePipeline(original, false).catch(() => {});
+    const restore = () => cam.client.updatePipeline(original, false).then(() => true, () => false);
     const onUnload = () => cam.client.updatePipeline(original, false).catch(() => {});
     window.addEventListener("beforeunload", onUnload);
 
@@ -720,11 +724,11 @@ async function autoTune(cam) {
     } catch (e) {
         cam.tuning.error = e.message;
     } finally {
-        await restore();
+        const restored = await restore();
         window.removeEventListener("beforeunload", onUnload);
         cam.pipelineAt = 0;
         d.abortBtn.disabled = true;
-        d.tuneProgress.textContent = cam.tuning.error ? `Failed: ${cam.tuning.error}` : cam.tuning.aborted ? "Stopped; original settings restored." : "Done; original settings restored until you apply.";
+        d.tuneProgress.textContent = !restored ? "Could not restore the original settings; the camera may still run a test value. Apply or reboot it." : cam.tuning.error ? `Failed: ${cam.tuning.error}` : cam.tuning.aborted ? "Stopped; original settings restored." : "Done; original settings restored until you apply.";
         cam.tuning.done = true;
         renderTuning(cam);
         cam.tuning = null;

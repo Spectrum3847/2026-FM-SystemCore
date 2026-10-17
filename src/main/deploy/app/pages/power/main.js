@@ -54,7 +54,7 @@ function render(log, name) {
     const energy = m.totalEnergyWh();
     const resistance = fitInternalResistance(volts, amps);
     const breaker = amps.length ? simulateBreaker(amps, { ratedAmps: BREAKER_AMPS }) : null;
-    const brownout = m.brownoutVolts() ?? 6.3;
+    const brownout = m.brownoutVolts() ?? 6.0;
 
     const blocks = [];
 

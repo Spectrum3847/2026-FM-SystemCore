@@ -1,24 +1,4 @@
-/**
- * CAN-health analyses that go beyond reading a channel out of the log.
- *
- * The motivating case is 2026-09-04 on the offseason bot: the hood was commanded to 18-20 degrees
- * in eleven launch windows and reported exactly 0 V and 0 A in nine of them.
- */
-import { inWindows } from "./log-model.js";
-
-/** Sample a step-series (AdvantageKit logs only changes) at time t. */
-function valueAt(series, t) {
-    if (!series.length) return null;
-    let lo = 0;
-    let hi = series.length - 1;
-    if (t < series[0][0]) return null;
-    while (lo < hi) {
-        const mid = (lo + hi + 1) >> 1;
-        if (series[mid][0] <= t) lo = mid;
-        else hi = mid - 1;
-    }
-    return series[lo][1];
-}
+/** CAN-health analyses that go beyond reading a channel out of the log. */
 
 /** Merge [start, end] windows that are closer together than `gap`. */
 function coalesce(windows, gap = 0.25) {
@@ -59,75 +39,6 @@ export function connectionDropouts(model) {
         }
     }
     return out;
-}
-
-/**
- * Motors reporting zero output while something was asking them to move.
- *
- * A controller that is commanded to a position and reports exactly 0 V and 0 A is not a motor
- * that decided to rest. It is a motor that is not receiving or executing control frames. This
- * needs a commanded-vs-measured output pair (<name>/CommandedDegrees against PositionDegrees, or
- * CommandedRPM against RPM), so it only covers mechanisms that log one.
- */
-export function zeroOutputWhileCommanded(model, { minSec = 0.25, tolerance = { degrees: 1.5, rpm: 150 } } = {}) {
-    const pairs = [
-        { cmd: "CommandedDegrees", actual: "PositionDegrees", tol: tolerance.degrees, unit: "deg" },
-        { cmd: "CommandedRPM", actual: "RPM", tol: tolerance.rpm, unit: "RPM" },
-    ];
-    const findings = [];
-
-    for (const mech of model.mechanisms) {
-        const volts = mech.voltage;
-        if (!volts.length) continue;
-
-        const chFor = (suffix) => model.ch(`${mech.name}/${suffix}`);
-        for (const { cmd, actual, tol, unit } of pairs) {
-            const cmdSeries = chFor(cmd);
-            const actSeries = chFor(actual);
-            if (!cmdSeries.length || !actSeries.length) continue;
-
-            const windows = [];
-            let open = null;
-            for (let i = 0; i < volts.length; i++) {
-                const [t, v] = volts[i];
-                const next = volts[i + 1]?.[0] ?? t + 0.02;
-                const enabled = inWindows(t, model.enabled);
-                const c = valueAt(cmdSeries, t);
-                const a = valueAt(actSeries, t);
-                const stator = valueAt(mech.stator, t);
-
-                const dead =
-                    enabled &&
-                    c !== null &&
-                    a !== null &&
-                    Math.abs(v) < 0.05 &&
-                    (stator === null || Math.abs(stator) < 0.5) &&
-                    Math.abs(c - a) > tol;
-
-                if (dead && open === null) open = t;
-                else if (!dead && open !== null) {
-                    if (next - open >= minSec) windows.push([open, t]);
-                    open = null;
-                }
-            }
-            if (open !== null) windows.push([open, model.log.lastTs]);
-
-            const merged = coalesce(windows).filter(([s, e]) => e - s >= minSec);
-            if (merged.length) {
-                findings.push({
-                    motor: mech.displayName,
-                    signal: `${cmd} vs ${actual}`,
-                    unit,
-                    windows: merged,
-                    totalSec: merged.reduce((a, [s, e]) => a + (e - s), 0),
-                    worstErr: Math.max(
-                        ...merged.map(([s]) => Math.abs((valueAt(cmdSeries, s) ?? 0) - (valueAt(actSeries, s) ?? 0)))
-                    ),
-                });
-            }
-        }
-    }
-    return findings;
 }
 
 /**

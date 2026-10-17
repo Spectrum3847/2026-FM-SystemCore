@@ -2,7 +2,7 @@ import { mountHeader, el } from "../../lib/ui.js";
 import { logPicker, LogModel } from "../../lib/log-loader.js";
 import { clipToEnabled, seriesStats } from "../../lib/log-model.js";
 import { timeChart, xy, decimate, enabledShadePlugin, limitLinePlugin, seriesColor, theme, withAlpha } from "../../lib/charts.js";
-import { connectionDropouts, zeroOutputWhileCommanded, staleTraces, alertEvents, counterSteps } from "../../lib/analyze-can.js";
+import { connectionDropouts, staleTraces, alertEvents, counterSteps } from "../../lib/analyze-can.js";
 
 mountHeader();
 const root = document.getElementById("app");
@@ -13,7 +13,7 @@ root.replaceChildren(
     el("h1", {}, "CAN bus health"),
     el("p", { class: "lede" },
         "Bus load and error counters for each CAN bus, and motors that stopped answering. ",
-        "Leaders log a connection flag and followers a connection array; the rest is inferred from what motors reported while commanded."),
+        "From each leader's Connected flag and each follower's FollowerConnected array."),
     el("div", { class: "card", style: "margin-bottom:20px" }, logPicker({ onLoad: render })),
     content
 );
@@ -53,7 +53,6 @@ function render(log) {
     const loop = m.ch("LoggedRobot/FullCycleMS");
 
     const dropouts = connectionDropouts(m);
-    const commanded = zeroOutputWhileCommanded(m);
     const stale = staleTraces(m);
     const alerts = alertEvents(m);
 
@@ -77,7 +76,7 @@ function render(log) {
     const maxRec = maxAcross((b) => b.rec);
     const busOffCount = buses.reduce((n, b) => n + b.busOffSteps.length, 0);
     const txFullCount = buses.reduce((n, b) => n + b.txFullSteps.length, 0);
-    const deadMotors = new Set([...dropouts.map((d) => d.motor), ...commanded.map((c) => c.motor)]);
+    const deadMotors = new Set(dropouts.map((d) => d.motor));
 
     blocks.push(
         el("div", { class: "grid cols-4", style: "margin-bottom:6px" },
@@ -95,23 +94,6 @@ function render(log) {
             tile("Motors that went dark", deadMotors.size, deadMotors.size ? [...deadMotors].join(", ") : "none detected",
                 deadMotors.size ? "bad" : "ok"))
     );
-
-    // ------------------------------------------------------------ the headline finding
-    if (commanded.length) {
-        blocks.push(
-            el("section", {},
-                el("h2", {}, "Motors that reported nothing while being commanded"),
-                el("div", { class: "section-note" },
-                    "Zero volts and zero amps with a setpoint pending is not a resting motor. It is a controller that is not receiving or executing control frames. " +
-                    "This is the signature that found the dead hood on 2026-09-04."),
-                ...commanded.map((c) =>
-                    el("div", { class: "notice bad" },
-                        el("strong", {}, `${c.motor}: `),
-                        `${c.totalSec.toFixed(1)}s across ${c.windows.length} window${c.windows.length === 1 ? "" : "s"} `,
-                        `at 0 V / 0 A while ${c.signal} disagreed by up to ${c.worstErr.toFixed(1)} ${c.unit}. `,
-                        el("div", { style: "margin-top:5px;color:var(--tx-faint);font-size:0.8rem" }, fmtWindows(c.windows)))))
-        );
-    }
 
     const deadFollowers = m.mechanisms.filter((x) => x.deadFollowers.length);
     if (deadFollowers.length) {
@@ -139,10 +121,10 @@ function render(log) {
         );
     }
 
-    if (!commanded.length && !dropouts.length && !deadFollowers.length) {
+    if (!dropouts.length && !deadFollowers.length) {
         blocks.push(el("div", { class: "notice" },
             el("strong", {}, "No motor dropouts detected. "),
-            "No motor reported zero output while commanded, and no leader or follower read disconnected."));
+            "No leader or follower read disconnected."));
     }
 
     // ------------------------------------------------------------ utilization

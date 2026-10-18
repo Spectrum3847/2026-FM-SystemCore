@@ -262,8 +262,8 @@ public abstract class Gamepad implements Subsystem {
         @Getter @Setter double triggersScalar = 1.0;
 
         /**
-         * Which Driver Station's controller layout to read. {@link Mapping#NI_DS}: the 2026 NI DS
-         * is what the October 2026 event's FMS runs.
+         * Which Driver Station's controller layout to read. {@link Mapping#NI_DS}: the event's FMS
+         * runs the 2026 NI DS. Use {@link Mapping#WPILIB_DS} when driving from the 2027 DS.
          */
         @Getter @Setter Mapping mapping = Mapping.NI_DS;
 

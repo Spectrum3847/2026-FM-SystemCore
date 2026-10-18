@@ -35,9 +35,9 @@ import org.wpilib.vision.apriltag.AprilTagFieldLayout;
  * <p>One PhotonLib vision system holds every AprilTag camera on the robot, the Limelights as well
  * as the Orin's cameras, each with its own mount and camera properties. All of them look at the
  * 2026 field from the simulated <em>truth</em> pose (see {@code Swerve.SimErrors}). The Orin
- * cameras are read exactly as on the robot, by {@link PhotonIO} over NetworkTables. The Limelights
- * are read by {@link LimelightSimIO}, which turns the same PhotonLib results into what a Limelight
- * reports:
+ * cameras are read exactly as on the robot, by {@link PhotonOrinIO} over NetworkTables. The
+ * Limelights are read by {@link LimelightSimIO}, which turns the same PhotonLib results into what a
+ * Limelight reports:
  *
  * <ul>
  *   <li><b>MegaTag1</b> uses the multi-tag (or single-tag) solve, heading included.
@@ -117,7 +117,7 @@ public class SimVision {
 
     /**
      * A Limelight's mount in WPILib's robot frame (x forward, y left, z up). Limelight's own
-     * convention is forward, right, up, and pitch positive up; WPILib's pitch is positive down.
+     * convention is forward, right, up and pitch positive up; WPILib's pitch is positive down.
      */
     public static Transform3d robotToCamera(LimelightConfig c) {
         return new Transform3d(
@@ -173,6 +173,7 @@ public class SimVision {
             inputs.connected = true;
             List<PoseObservation> out = new ArrayList<>();
             List<Integer> ids = new ArrayList<>();
+            double[] fiducials = new double[0];
             for (PhotonPipelineResult r : cam.results) {
                 if (!r.hasTargets()) {
                     continue;
@@ -196,6 +197,9 @@ public class SimVision {
                 if (pose == null) {
                     continue;
                 }
+                if (kind == Kind.LIMELIGHT_MT1) {
+                    fiducials = fiducials(r);
+                }
                 out.add(
                         new PoseObservation(
                                 "",
@@ -213,7 +217,25 @@ public class SimVision {
                 inputs.set(i, out.get(i));
             }
             inputs.tagIds = ids.stream().mapToInt(Integer::intValue).distinct().toArray();
+            inputs.fiducials = fiducials;
             inputs.health = new double[0];
+        }
+
+        /** The frame's tags as a Limelight's raw fiducials (the newest frame's, as on a robot). */
+        private static double[] fiducials(PhotonPipelineResult r) {
+            int stride = PoseSourceInputs.FIDUCIAL_STRIDE;
+            List<PhotonTrackedTarget> targets = r.getTargets();
+            double[] out = new double[targets.size() * stride];
+            for (int i = 0; i < targets.size(); i++) {
+                PhotonTrackedTarget target = targets.get(i);
+                Translation3d v = target.bestCameraToTarget.getTranslation();
+                out[i * stride] = target.fiducialId;
+                out[i * stride + 1] = Math.toDegrees(Math.atan2(-v.getY(), v.getX()));
+                out[i * stride + 2] = Math.toDegrees(Math.atan2(v.getZ(), v.getX()));
+                out[i * stride + 3] = v.getNorm();
+                out[i * stride + 4] = target.poseAmbiguity;
+            }
+            return out;
         }
 
         private Pose3d megaTag1(PhotonPipelineResult r) {

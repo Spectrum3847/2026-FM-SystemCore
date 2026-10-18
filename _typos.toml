@@ -2,6 +2,8 @@
 # Quest "re-origin" is a domain term.
 origined = "origined"
 origining = "origining"
+# PnP: Perspective-n-Point.
+Pn = "Pn"
 
 [default]
 # grep patterns in build.gradle match partial words on purpose.

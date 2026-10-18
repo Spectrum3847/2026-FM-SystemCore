@@ -22,7 +22,6 @@ class ShotGateTest {
     // One loop's inputs, edited by each test before stepping.
     private boolean launching;
     private boolean override;
-    private double rpm;
     private double hood;
     private double hoodSpeed;
     private boolean checkAim;
@@ -32,11 +31,10 @@ class ShotGateTest {
 
     @BeforeEach
     void setUp() {
-        gate = new ShotGate(ShotGate.Tolerances.fm(150));
+        gate = new ShotGate(ShotGate.Tolerances.fm());
         now = 100;
         launching = true;
         override = false;
-        rpm = TARGET_RPM;
         hood = TARGET_HOOD;
         hoodSpeed = 0;
         checkAim = true;
@@ -52,7 +50,6 @@ class ShotGateTest {
                                 launching,
                                 override,
                                 now,
-                                rpm,
                                 TARGET_RPM,
                                 hood,
                                 hoodSpeed,
@@ -95,17 +92,14 @@ class ShotGateTest {
         assertTrue(d.ready());
         assertEquals(FeedReason.NOT_LAUNCHING, d.reason());
 
-        rpm = TARGET_RPM - 400;
+        hood = TARGET_HOOD + 5;
         d = step();
         assertFalse(d.ready());
-        assertEquals(Blocker.FLYWHEEL, d.blocker());
+        assertEquals(Blocker.HOOD, d.blocker());
     }
 
     @Test
     void eachCheckNamesItself() {
-        rpm = TARGET_RPM + 151;
-        assertEquals(Blocker.FLYWHEEL, step().blocker());
-        rpm = TARGET_RPM + 149; // inside 150 either way
         hood = TARGET_HOOD + 1.5;
         assertEquals(Blocker.HOOD, step().blocker());
         hood = TARGET_HOOD - 0.9;
@@ -146,27 +140,11 @@ class ShotGateTest {
     }
 
     @Test
-    void volleyRidesTheFlywheelDipOfEachBallButNotAStall() {
+    void volleyIsNotChoppedByARangeDropout() {
         assertTrue(steps(5).feed());
-        // Each ball pulls the flywheel well outside the 150 RPM start window...
-        rpm = TARGET_RPM * 0.8;
-        Decision dip = step();
-        assertTrue(dip.feed(), "latched through the dip");
-        assertFalse(dip.ready());
-        assertEquals(Blocker.NONE, dip.blocker());
-        // ...and range dropping out mid-volley (one bad pose frame) does not chop it either.
+        // One bad pose frame mid-volley does not chop it.
         valid = false;
         assertTrue(step().feed());
-        valid = true;
-        // Below 75% of target is a stall, not a dip: hold.
-        rpm = TARGET_RPM * 0.7;
-        Decision stall = step();
-        assertFalse(stall.feed());
-        assertEquals(Blocker.FLYWHEEL, stall.blocker());
-        // Back up to speed, the volley has to re-earn the strict window and settle again.
-        rpm = TARGET_RPM;
-        assertFalse(step().feed());
-        assertTrue(steps(4).feed());
     }
 
     @Test
@@ -190,13 +168,11 @@ class ShotGateTest {
         assertTrue(d.feed(), "held for a full second");
         assertEquals(FeedReason.TIMEOUT, d.reason());
         assertEquals(Blocker.AIM, d.blocker(), "and still says what it bypassed");
-        rpm = 0; // even a dead flywheel now: the timeout holds for the rest of the launch
-        assertTrue(steps(50).feed());
+        assertTrue(steps(50).feed()); // the timeout holds for the rest of the launch
         // Leaving the launch state resets it.
         launching = false;
         step();
         launching = true;
-        rpm = TARGET_RPM;
         assertFalse(step().feed());
     }
 
@@ -211,12 +187,12 @@ class ShotGateTest {
 
     @Test
     void overrideFeedsImmediatelyAndOnlyWhileHeld() {
-        rpm = 0;
+        hood = TARGET_HOOD + 5;
         override = true;
         Decision d = step();
         assertTrue(d.feed());
         assertEquals(FeedReason.OVERRIDE, d.reason());
-        assertEquals(Blocker.FLYWHEEL, d.blocker());
+        assertEquals(Blocker.HOOD, d.blocker());
         override = false;
         assertFalse(step().feed());
     }
@@ -230,7 +206,6 @@ class ShotGateTest {
                                 false,
                                 false,
                                 now,
-                                700,
                                 0,
                                 9,
                                 0,

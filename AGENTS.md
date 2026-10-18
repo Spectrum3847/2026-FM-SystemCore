@@ -42,3 +42,29 @@ HTML and JavaScript, shipped by every deploy. Plan: docs/robot-app-plan.md.
   thread, logged as inputs, only while disabled (plan step 3).
 - Test with `node --test tools/app-test/*.test.mjs`. A PR that renames a log key or NT key a page
   reads updates that page in the same PR.
+
+## Comments
+
+Keep comments as short as possible.
+
+- Prefer no comment when the code is self-explanatory.
+- When a comment is necessary, prefer a few words or a few lines at most.
+- Explain why something is non-obvious, rather than describing what obvious code does.
+- Do not add comments merely because code was changed.
+- Do not describe the previous implementation or behavior unless that historical context is necessary to understand the current code.
+- Do not use comments as miniature documentation or change logs.
+- Prefer clear names and straightforward code over explanatory comments.
+
+Comments should describe information that will remain useful after the current change is forgotten.
+
+## Commit messages
+
+Keep commit messages concise and focused.
+
+- Explain what changed and why.
+- Prefer a short subject line and a brief body when additional context is useful.
+- Do not enumerate every changed file or implementation detail.
+- Do not describe intermediate attempts, discarded approaches, or the development process.
+- Do not explain the previous implementation unless it is necessary to understand the change.
+- Keep the complete commit message below approximately 600 words.
+- A commit message is not a changelog or development diary.

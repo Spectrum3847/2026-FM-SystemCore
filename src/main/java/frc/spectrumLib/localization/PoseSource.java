@@ -131,10 +131,18 @@ public class PoseSource {
         return inputs;
     }
 
-    /** Reads the device and records (or, in replay, restores) the raw inputs. */
+    /**
+     * Reads the device and records (or, in replay, restores) the raw inputs. A {@link
+     * PoseSourceIO#derived() derived} source's observations are recomputed every run, replay
+     * included, and recorded as outputs.
+     */
     public void update() {
         io.updateInputs(inputs);
-        Logger.processInputs(logPrefix, inputs);
+        if (io.derived()) {
+            inputs.recordAsOutputs(logPrefix + "/Observations");
+        } else {
+            Logger.processInputs(logPrefix, inputs);
+        }
     }
 
     /**

@@ -35,6 +35,9 @@ public class SuperStructure extends SubsystemBase {
     private static final double REGULAR_TELEOP_TRANSLATION_COEFFICIENT = 1.0;
     private static final double SHOOTING_TELEOP_TRANSLATION_COEFFICIENT = 0.1;
 
+    /** Slower while tracking, so driving and flywheel spin-up don't overlap at full draw. */
+    private static final double TRACKING_TELEOP_TRANSLATION_COEFFICIENT = 0.5;
+
     public enum WantedSuperState {
         IDLE,
         INTAKE_FUEL,
@@ -91,9 +94,7 @@ public class SuperStructure extends SubsystemBase {
         this.indexerBed = indexerBed;
         this.launcher = launcher;
         this.hood = hood;
-        this.shotGate =
-                new ShotGate(
-                        ShotGate.Tolerances.fm(launcher.getConfig().getOnTargetToleranceRPM()));
+        this.shotGate = new ShotGate(ShotGate.Tolerances.fm());
     }
 
     private final Timer intakeSqueezeTimer = new Timer();
@@ -183,6 +184,13 @@ public class SuperStructure extends SubsystemBase {
         return isLaunchState(currentSuperState);
     }
 
+    /** Whether the robot is tracking or launching at a target. */
+    public boolean isAiming() {
+        return currentSuperState == CurrentSuperState.TRACK_TARGET
+                || currentSuperState == CurrentSuperState.AUTON_TRACK_TARGET
+                || isLaunchState(currentSuperState);
+    }
+
     private static boolean isLaunchState(CurrentSuperState state) {
         return state == CurrentSuperState.LAUNCH_WITH_SQUEEZE
                 || state == CurrentSuperState.LAUNCH_WITH_SQUEEZE_WITH_NO_DELAY
@@ -213,7 +221,7 @@ public class SuperStructure extends SubsystemBase {
         double sinceVision = Robot.getVision().secondsSinceFusedEstimate();
         // The set shot is the deliberate exception to range (and to aim: the drivetrain is not
         // aiming, so checkAim is false): it exists for when there is no pose to compute them from,
-        // and the driver has taken responsibility for parking. Flywheel and hood still vote.
+        // and the driver has taken responsibility for parking. The hood still votes.
         boolean poseTrusted = sinceVision <= POSE_TRUST_TIMEOUT_SECONDS;
         boolean feedShot = params != null && isRobotInFeedZone();
         double aimTolerance =
@@ -232,7 +240,6 @@ public class SuperStructure extends SubsystemBase {
                                 launching,
                                 override,
                                 Timer.getTimestamp(),
-                                launcher.getVelocityRPM(),
                                 shotTargetRpm,
                                 hood.getPositionDegrees(),
                                 hood.getVelocityRPM() * 6.0, // mechanism RPM to deg/s
@@ -426,7 +433,7 @@ public class SuperStructure extends SubsystemBase {
 
     private void trackTarget() {
         swerve.setWantedState(Swerve.WantedState.PILOT_AIM_AT_TARGET);
-        swerve.setTeleopVelocityCoefficient(REGULAR_TELEOP_TRANSLATION_COEFFICIENT);
+        swerve.setTeleopVelocityCoefficient(TRACKING_TELEOP_TRANSLATION_COEFFICIENT);
         fuelIntake.setWantedState(FuelIntake.WantedState.NEUTRAL);
         indexerTower.setWantedState(IndexerTower.WantedState.OFF);
         indexerBed.setWantedState(IndexerBed.WantedState.OFF);

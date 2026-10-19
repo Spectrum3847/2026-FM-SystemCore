@@ -1,16 +1,22 @@
 package frc.robot.subsystems.vision;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import org.wpilib.networktables.BooleanPublisher;
 import org.wpilib.networktables.BooleanSubscriber;
 import org.wpilib.networktables.GenericSubscriber;
 import org.wpilib.networktables.IntegerArrayPublisher;
 import org.wpilib.networktables.IntegerArraySubscriber;
 import org.wpilib.networktables.IntegerPublisher;
+import org.wpilib.networktables.MultiSubscriber;
 import org.wpilib.networktables.NetworkTable;
 import org.wpilib.networktables.NetworkTableInstance;
 import org.wpilib.networktables.NetworkTableValue;
 import org.wpilib.networktables.StringPublisher;
 import org.wpilib.networktables.StringSubscriber;
+import org.wpilib.networktables.Topic;
 
 /**
  * The Jetson's NetworkTables topics under {@code /photonvision} (SpectrumJetson docs/TECHNICAL.md
@@ -18,8 +24,15 @@ import org.wpilib.networktables.StringSubscriber;
  * some as integer.
  */
 public class JetsonNTIO implements JetsonIO {
-    /** The Jetson's hostname, the last part of its metrics topic. */
-    private static final String METRICS_HOST = "photonvision-3847";
+    /**
+     * PhotonVision's metrics protobuf is published as {@code <prefix><hostname>}. It builds the
+     * name as {@code getSubTable("/metrics")} under {@code /photonvision}, hence the double slash;
+     * the single-slash form is watched too in case that changes. Any host is read, since the
+     * Jetson's hostname has changed between images.
+     */
+    private static final String[] METRICS_PREFIXES = {
+        "/photonvision//metrics/", "/photonvision/metrics/"
+    };
 
     /** 2026-01-01 UTC: before this the robot's clock has not been set by the Driver Station. */
     private static final long CLOCK_VALID_AFTER_MS = 1_767_225_600_000L;
@@ -51,12 +64,15 @@ public class JetsonNTIO implements JetsonIO {
     private final GenericSubscriber freeGB;
     private final GenericSubscriber framesDropped;
 
-    /**
-     * PhotonVision's metrics protobuf. It builds the name as {@code getSubTable("/metrics")} under
-     * {@code /photonvision}, hence the double slash; the single-slash form is watched too in case
-     * that changes. CHECK the host part on the robot network.
-     */
-    private final GenericSubscriber[] metrics;
+    private final NetworkTableInstance nt = NetworkTableInstance.getDefault();
+
+    /** Keeps the server announcing metrics topics under any host, so they can be found. */
+    @SuppressWarnings("unused")
+    private final MultiSubscriber metricsAnyHost = new MultiSubscriber(nt, METRICS_PREFIXES);
+
+    private final List<GenericSubscriber> metrics = new ArrayList<>();
+    private final Set<String> metricsTopics = new HashSet<>();
+    private long nextMetricsScanNanos = 0;
 
     private final BooleanPublisher record;
     private final StringPublisher label;
@@ -92,13 +108,6 @@ public class JetsonNTIO implements JetsonIO {
         framesDropped = number(rewind, "framesDropped");
         record = rewind.getBooleanTopic("record").publish();
         label = rewind.getStringTopic("label").publish();
-
-        NetworkTableInstance nt = NetworkTableInstance.getDefault();
-        metrics =
-                new GenericSubscriber[] {
-                    nt.getTopic("/photonvision//metrics/" + METRICS_HOST).genericSubscribe(),
-                    nt.getTopic("/photonvision/metrics/" + METRICS_HOST).genericSubscribe()
-                };
 
         clock = pv.getSubTable("clock").getIntegerTopic("unixMs").publish();
         excludedTags = pv.getIntegerArrayTopic("excludedTags").publish();
@@ -151,6 +160,17 @@ public class JetsonNTIO implements JetsonIO {
 
     /** Parses the newest metrics message, if one arrived since the last loop. */
     private void readMetrics(JetsonInputs inputs) {
+        long now = System.nanoTime();
+        if (now >= nextMetricsScanNanos) {
+            nextMetricsScanNanos = now + 1_000_000_000L;
+            for (String prefix : METRICS_PREFIXES) {
+                for (Topic topic : nt.getTopics(prefix)) {
+                    if (metricsTopics.add(topic.getName())) {
+                        metrics.add(topic.genericSubscribe());
+                    }
+                }
+            }
+        }
         for (GenericSubscriber sub : metrics) {
             NetworkTableValue v = sub.get();
             if (!v.isRaw() || v.getTime() == lastMetricsTime) {

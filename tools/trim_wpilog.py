@@ -12,8 +12,6 @@ stamped on the window's first cycle. Replay then starts from the same inputs the
 import struct
 import sys
 
-from wpilog_summary import decode
-
 
 def records(data):
     """Yields (entry id, timestamp us, payload, raw record bytes) for each record."""
@@ -71,7 +69,7 @@ def trim(data, start_s, end_s):
             (out if in_window else controls).append(raw)
             continue
         if eid == timestamp_id:
-            value = decode("int64", payload)
+            (value,) = struct.unpack_from("<q", payload)
             if not in_window and value >= start_us:
                 in_window = True
                 out += controls

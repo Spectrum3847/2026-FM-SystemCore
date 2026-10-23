@@ -33,7 +33,12 @@ def download(url, dest):
             return
         except OSError as e:
             if attempt == 2:
-                raise
+                raise SystemExit(
+                    f"could not download {url}: {e}\n"
+                    "The replay fixtures are cut from that release asset. Check that the release "
+                    "and the asset named in src/test/resources/replay/fixtures.json exist and are "
+                    "public, then rerun."
+                ) from e
             print(f"retrying {url}: {e}")
             time.sleep(5 * (attempt + 1))
 

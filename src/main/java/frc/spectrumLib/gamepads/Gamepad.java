@@ -20,6 +20,7 @@ import org.wpilib.driverstation.GenericHID.RumbleType;
 import org.wpilib.driverstation.MatchState;
 import org.wpilib.driverstation.POVDirection;
 import org.wpilib.math.geometry.Rotation2d;
+import org.wpilib.system.Timer;
 
 /**
  * Abstract base class for robot gamepad (Xbox-compatible) controllers.
@@ -31,7 +32,8 @@ import org.wpilib.math.geometry.Rotation2d;
  *   <li>Pre-built {@link Trigger} fields for every button, bumper, trigger, stick-click, and D-pad
  *       direction.
  *   <li>Composite modifier triggers ({@link #noBumpers}, {@link #bothTriggers}, etc.) for
- *       chord-based bindings.
+ *       chord-based bindings, and {@link #modifierChords()} for face buttons bound both bare and
+ *       with a modifier.
  *   <li>Exponential-curve axis helpers ({@link #leftStickCurve}, etc.) for driver-tuned response.
  *   <li>Stick-direction utilities ({@link #getLeftStickDirection()}, {@link
  *       #chooseCardinalDirections()}) for field-relative driving.
@@ -360,6 +362,17 @@ public abstract class Gamepad implements Subsystem {
         }
 
         CommandScheduler.getInstance().registerSubsystem(this);
+    }
+
+    /**
+     * A group for buttons bound both bare and with a modifier (LB + A, RT + X), so the result does
+     * not depend on press and release order. Uses the robot clock and {@link
+     * ModifierChords#DEFAULT_SETTLE_SECONDS}.
+     *
+     * @return an empty group; add its chords and bare bindings in priority order
+     */
+    protected ModifierChords modifierChords() {
+        return new ModifierChords(Timer::getTimestamp, ModifierChords.DEFAULT_SETTLE_SECONDS);
     }
 
     /** Runs the periodic update. */

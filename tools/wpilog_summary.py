@@ -159,6 +159,53 @@ def main():
         if vals:
             print(f"{key}: final {vals[-1][1]}")
     shot_summary(records, types)
+    prematch_summary(records, types)
+    match_summary(records, types)
+
+
+def prematch_summary(records, types):
+    """The pre-match checks: each change of the GO / NO-GO line, then of each check's verdict."""
+    reasons = series(records, types, "PreMatch/Reason")
+    if not reasons:
+        return
+    print("Pre-match checks:")
+    last = None
+    for t, r in reasons:
+        if r != last and not (r or "").startswith("Checking"):
+            print(f"  t={t:7.2f}s  {r}")
+            last = r
+    prefix = "/PreMatch/Checks/"
+    names = sorted({k.split(prefix, 1)[1].rsplit("/", 1)[0] for k in records if prefix in k})
+    for name in names:
+        status = series(records, types, f"PreMatch/Checks/{name}/Status")
+        reason = series(records, types, f"PreMatch/Checks/{name}/Reason")
+        # Each change of verdict, with the reason logged with it.
+        last = None
+        for t, st in status:
+            if st == last:
+                continue
+            last = st
+            why = [r for rt, r in reason if rt <= t]
+            print(f"  t={t:7.2f}s  {st:<5} {name}: {why[-1] if why else ''}")
+
+
+def match_summary(records, types):
+    """The robot's own match summary: the last value of every Summary/ key (docs/match-summary.md)."""
+    rows = []
+    for k in sorted(records):
+        for prefix in ("/RealOutputs/Summary/", "/ReplayOutputs/Summary/"):
+            if k.startswith(prefix):
+                vals = [v for _, v in series(records, types, k) if v is not None]
+                if vals:
+                    rows.append((prefix.split("/")[1][:-7] + " " + k[len(prefix):], vals[-1]))
+    if not rows:
+        return
+    print()
+    print("Match summary (last values):")
+    for name, v in rows:
+        if isinstance(v, float):
+            v = f"{v:.3f}"
+        print(f"  {name}: {v}")
 
 
 def shot_summary(records, types):

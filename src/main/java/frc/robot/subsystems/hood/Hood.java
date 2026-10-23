@@ -3,6 +3,7 @@ package frc.robot.subsystems.hood;
 import com.ctre.phoenix6.hardware.TalonFX;
 import frc.rebuilt.ShotCalculator;
 import frc.robot.RobotSim;
+import frc.spectrumLib.checks.HomingCheck;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
 import frc.spectrumLib.sim.ArmConfig;
@@ -69,6 +70,11 @@ public class Hood extends Mechanism {
             configReverseSoftLimit(minRotations, true);
             configNeutralBrakeMode(true);
             configClockwise_Positive();
+            // Off until turned on. Against FM's 20 TXMAN1 matches it trips only in Q06, where the
+            // hood stuck above home pushing up to 47 A for 4 and 13 s; the longest normal
+            // excursion is 1.0 s. 1 deg would also trip on the pre-homing hood resting 1 deg under
+            // its home goal (8 matches).
+            configPositionTrackingStop(Units.degreesToRotations(2), 2.0, false);
         }
     }
 
@@ -160,6 +166,20 @@ public class Hood extends Mechanism {
         return homing.isZeroed();
     }
 
+    private HoodHoming.State homingState = HoodHoming.State.NOT_ZEROED;
+
+    /** The homing state for the pre-match check; the hood homes itself at auto start. */
+    public HomingCheck.State getHomingCheckState() {
+        if (!getInputs().connected) {
+            return HomingCheck.State.DISCONNECTED;
+        }
+        return switch (homingState) {
+            case ZEROED -> HomingCheck.State.HOMED;
+            case NOT_ZEROED, HOMING -> HomingCheck.State.HOMES_WHEN_ENABLED;
+            case TIMED_OUT -> HomingCheck.State.FAILED;
+        };
+    }
+
     public Hood(HoodConfig config) {
         super(config);
         this.config = config;
@@ -186,6 +206,7 @@ public class Hood extends Mechanism {
                                 RobotState.isAutonomous(),
                                 RobotState.isTeleop(),
                                 isMotorConnected(),
+                                motorResetThisLoop(),
                                 getPositionDegrees(),
                                 getVelocityRPM() * 6.0, // mechanism RPM to deg/s
                                 wantedState == WantedState.HOME));
@@ -193,6 +214,7 @@ public class Hood extends Mechanism {
             setMotorPosition(() -> degreesToRotations(() -> homing.getParams().stopDeg()));
         }
         homingTimeoutAlert.set(homed.timedOut());
+        homingState = homed.state();
         systemState = handleStateTransition();
         applyStates(homed.action());
         logBatteryUsage();

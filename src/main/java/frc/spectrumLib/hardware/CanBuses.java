@@ -75,6 +75,21 @@ public final class CanBuses {
     }
 
     /**
+     * The label a bus's health is logged under ({@link #inUse()}), for messages.
+     *
+     * @param name a bus name from a config
+     * @return its label, or the name itself if this layout does not use it
+     */
+    public static String label(String name) {
+        for (var e : inUse().entrySet()) {
+            if (e.getValue().equals(name)) {
+                return e.getKey();
+            }
+        }
+        return name;
+    }
+
+    /**
      * Resolves a bus name from a config into a Phoenix {@link CANBus}.
      *
      * @param name {@code "systemcore:n"} for a native SystemCore port, else a CANivore name

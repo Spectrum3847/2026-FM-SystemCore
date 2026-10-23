@@ -16,6 +16,13 @@ import org.littletonrobotics.junction.inputs.LoggableInputs;
  */
 public class MotorInputs implements LoggableInputs, Cloneable {
     public boolean connected = false;
+
+    /**
+     * The motor rebooted since last loop, so its position restarted and its signal rates went back
+     * to defaults. Not set for a device's first report after the program starts.
+     */
+    public boolean resetOccurred = false;
+
     public double positionRotations = 0;
 
     /** Position projected from the frame's own timestamp to the refresh, along the velocity. */
@@ -28,10 +35,12 @@ public class MotorInputs implements LoggableInputs, Cloneable {
     public double tempCelsius = 0;
     public double[] followerSupplyCurrentAmps = new double[0];
     public boolean[] followerConnected = new boolean[0];
+    public boolean[] followerResetOccurred = new boolean[0];
 
     @Override
     public void toLog(LogTable table) {
         table.put("Connected", connected);
+        table.put("ResetOccurred", resetOccurred);
         table.put("PositionRotations", positionRotations);
         table.put("LatencyCompensatedPositionRotations", latencyCompensatedPositionRotations);
         table.put("VelocityRPS", velocityRps);
@@ -41,11 +50,14 @@ public class MotorInputs implements LoggableInputs, Cloneable {
         table.put("TempCelsius", tempCelsius);
         table.put("FollowerSupplyCurrentAmps", followerSupplyCurrentAmps);
         table.put("FollowerConnected", followerConnected);
+        table.put("FollowerResetOccurred", followerResetOccurred);
     }
 
     @Override
     public void fromLog(LogTable table) {
         connected = table.get("Connected", connected);
+        // Logs from before resets were recorded have none: false, never the previous loop's.
+        resetOccurred = table.get("ResetOccurred", false);
         positionRotations = table.get("PositionRotations", positionRotations);
         latencyCompensatedPositionRotations =
                 table.get(
@@ -58,5 +70,7 @@ public class MotorInputs implements LoggableInputs, Cloneable {
         followerSupplyCurrentAmps =
                 table.get("FollowerSupplyCurrentAmps", followerSupplyCurrentAmps);
         followerConnected = table.get("FollowerConnected", followerConnected);
+        followerResetOccurred =
+                table.get("FollowerResetOccurred", new boolean[followerConnected.length]);
     }
 }

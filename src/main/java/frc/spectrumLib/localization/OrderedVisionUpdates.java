@@ -26,15 +26,27 @@ import org.wpilib.math.numbers.N3;
  * every newer one after it, oldest first. The estimator ends up exactly where it would have been
  * had they arrived in time order. It costs one extra estimator update per newer measurement, a
  * handful per loop at most.
+ *
+ * <p>Measurements that share a timestamp are all kept, in the order added, because the estimator
+ * composes them. A seed and the same frame fused as a camera measurement share one capture time,
+ * and keeping only the second would undo the seeded heading on the next redo.
  */
 final class OrderedVisionUpdates {
     /** WPILib's pose estimator buffer (PoseEstimator.kBufferDuration). */
     static final double HISTORY_SECONDS = 1.5;
 
+    /**
+     * Most timestamps kept, since nothing ages out if odometry stalls. Pruning by the newest
+     * measurement instead would let one bad future timestamp keep the map empty.
+     */
+    static final int MAX_TIMESTAMPS = 2048;
+
     private record Measurement(Pose2d pose, Matrix<N3, N1> stdDevs) {}
 
     private final PoseEstimator<?> estimator;
-    private final TreeMap<Double, Measurement> applied = new TreeMap<>();
+
+    /** Applied measurements by capture time, each list in the order added. */
+    private final TreeMap<Double, List<Measurement>> applied = new TreeMap<>();
 
     /** Measurements re-applied because an older one arrived after them, since construction. */
     private long reapplied = 0;
@@ -56,24 +68,39 @@ final class OrderedVisionUpdates {
             double timestampSeconds,
             Matrix<N3, N1> stdDevs,
             double newestOdometrySeconds) {
-        applied.headMap(newestOdometrySeconds - HISTORY_SECONDS, false).clear();
+        prune(newestOdometrySeconds);
         estimator.addVisionMeasurement(pose, timestampSeconds, stdDevs);
-        applied.put(timestampSeconds, new Measurement(pose, stdDevs));
-        Map<Double, Measurement> newer = applied.tailMap(timestampSeconds, false);
+        applied.computeIfAbsent(timestampSeconds, t -> new ArrayList<>(2))
+                .add(new Measurement(pose, stdDevs));
+        Map<Double, List<Measurement>> newer = applied.tailMap(timestampSeconds, false);
         if (newer.isEmpty()) {
             return;
         }
         // Copy first: each add below clears the estimator's newer entries, not this map's.
-        List<Map.Entry<Double, Measurement>> redo = new ArrayList<>(newer.entrySet());
-        for (Map.Entry<Double, Measurement> e : redo) {
-            estimator.addVisionMeasurement(e.getValue().pose(), e.getKey(), e.getValue().stdDevs());
-            reapplied++;
+        List<Map.Entry<Double, List<Measurement>>> redo = new ArrayList<>(newer.entrySet());
+        for (Map.Entry<Double, List<Measurement>> e : redo) {
+            for (Measurement m : e.getValue()) {
+                estimator.addVisionMeasurement(m.pose(), e.getKey(), m.stdDevs());
+                reapplied++;
+            }
+        }
+    }
+
+    private void prune(double newestOdometrySeconds) {
+        applied.headMap(newestOdometrySeconds - HISTORY_SECONDS, false).clear();
+        while (applied.size() >= MAX_TIMESTAMPS) {
+            applied.pollFirstEntry();
         }
     }
 
     /** Forgets every applied measurement; call when the estimator is reset. */
     void clear() {
         applied.clear();
+    }
+
+    /** For tests. */
+    int size() {
+        return applied.size();
     }
 
     long reapplied() {

@@ -38,6 +38,9 @@ public class IndexerTower extends Mechanism {
             configLowerSupplyCurrentTime(lowerSupplyCurrentTime);
             configNeutralBrakeMode(true);
             configClockwise_Positive();
+            // Off until turned on. No trip in FM's 20 TXMAN1 matches: the longest stall, 2.0 s at
+            // 87 A in Q06, cleared itself and the volley went on, so the debounce stays above it.
+            configVelocityTrackingStop(1500.0 / 60, 3.0, false);
             setFollowerConfigs(
                     new FollowerConfig(
                             "IndexerTower Follower",

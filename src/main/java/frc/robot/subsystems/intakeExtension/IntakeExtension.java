@@ -136,6 +136,8 @@ public class IntakeExtension extends Mechanism {
             // the neutral mode at enable timed out on the CANivore.
             configNeutralBrakeMode(false);
             configClockwise_Positive();
+            // No tracking stop: SLOW_CLOSE squeezes the hopper and stalls against fuel 2 rotations
+            // short of its goal by design, for over 1 s in every one of the 20 TXMAN1 matches.
         }
 
         public IntakeExtensionConfig applyMotorConfig(TalonFX motor) {
@@ -215,9 +217,7 @@ public class IntakeExtension extends Mechanism {
 
         /** Seeds this axis's encoder to a known starting position (rotations). */
         public void setInitialPosition(double rotations) {
-            if (isAttached()) {
-                motor.setPosition(rotations);
-            }
+            setMotorPosition(() -> rotations);
         }
 
         /** Re-zeroes this axis at the fully-extended hard stop. */
@@ -255,7 +255,7 @@ public class IntakeExtension extends Mechanism {
 
     @Getter private final IntakeExtensionConfig config;
     @Getter private IntakeExtensionSim sim;
-    private final IntakeExtensionRight right;
+    @Getter private final IntakeExtensionRight right;
 
     public IntakeExtension(IntakeExtensionConfig config) {
         super(config);
@@ -274,7 +274,7 @@ public class IntakeExtension extends Mechanism {
     private void setInitialPosition() {
         double initialRotations = config.getInitPosition();
         if (isMotorConnected()) {
-            motor.setPosition(initialRotations);
+            setMotorPosition(() -> initialRotations);
         }
         if (right.isMotorConnected()) {
             right.setInitialPosition(initialRotations);
@@ -283,7 +283,7 @@ public class IntakeExtension extends Mechanism {
 
     public void resetCurrentPositionToMax() {
         if (isMotorConnected()) {
-            motor.setPosition(config.getMaxRotations());
+            setMotorPosition(() -> config.getMaxRotations());
         }
         if (right.isMotorConnected()) {
             right.zeroAtMax();
@@ -557,6 +557,15 @@ public class IntakeExtension extends Mechanism {
     @Override
     public void periodic() {
         systemState = handleStateTransition();
+        // A rebooted axis restarted its position at 0, so its soft limits and setpoints are off by
+        // wherever it stood. Hold until the resync re-zeroes both at the out stop; a request to
+        // extend runs that resync, and the operator's reset-to-max also clears it.
+        if ((isPositionLost() || right.isPositionLost()) && systemState != SystemState.HOMING) {
+            systemState =
+                    systemState == SystemState.FULL_EXTEND
+                            ? SystemState.HOMING
+                            : SystemState.STOPPED;
+        }
         applyStates();
         logBatteryUsage();
         Telemetry.log("IntakeExtension/WantedState", wantedState.toString());

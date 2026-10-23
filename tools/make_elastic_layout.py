@@ -134,10 +134,10 @@ pre_match = [
     light("CAN Config Budget Spent", out("CANConfig/BudgetExhausted"), 11, 2,
           good_when_true=False),
     text("Vision Age", out("Vision/SecondsSinceFusedEstimate"), 13, 2, 1),
-    light("LL Back", out("Vision/LL-Back/Connected"), 7, 3),
-    light("LL Left", out("Vision/LL-Left/Connected"), 9, 3),
-    light("LL Right", out("Vision/LL-Right/Connected"), 11, 3),
-    light("Auto File", out("Auton/AutoFileFound"), 13, 3, 1),
+    # The pre-match checks' verdict (Limelights and the auto file are among them); each check's
+    # line is on the Pre-Match Checks tab.
+    light("GO", out("PreMatch/Go"), 7, 3),
+    big("Pre-Match", out("PreMatch/Reason"), 9, 3, 5),
     light("Hood", out("Hood/MotorConnected"), 7, 4),
     light("Launcher", out("Launcher/MotorConnected"), 9, 4),
     light("Fuel Intake", out("FuelIntake/MotorConnected"), 11, 4),
@@ -263,7 +263,26 @@ diagnostics = [
     text("Git Dirty", meta("GitDirty"), 11, 5, 3, data_type="string"),
 ]
 
-TABS = [("Pre-Match", pre_match), ("Match", match), ("Shooting", shooting),
+# PreMatch.java's checks, in its order.
+PREMATCH_CHECKS = ["CAN", "Homing", "CameraHeading", "Auto", "Battery", "Coprocessors", "Settings"]
+
+pre_match_checks = [
+    light("GO", out("PreMatch/Go"), 0, 0),
+    big("Pre-Match", out("PreMatch/Reason"), 2, 0, 12),
+]
+for i, name in enumerate(PREMATCH_CHECKS):
+    c, r = 7 * (i // 4), 1 + i % 4
+    pre_match_checks += [
+        text(name, out(f"PreMatch/Checks/{name}/Status"), c, r, 2, data_type="string"),
+        text("why", out(f"PreMatch/Checks/{name}/Reason"), c + 2, r, 5, data_type="string"),
+    ]
+pre_match_checks += [
+    light("Checking (disabled)", out("PreMatch/Active"), 7, 5, 3),
+    text("Start Pose Err (m)", out("Auton/StartPoseErrorMeters"), 10, 5, 2),
+    text("Hdg Err", out("Auton/StartHeadingErrorDeg"), 12, 5, 2),
+]
+
+TABS = [("Pre-Match", pre_match), ("Pre-Match Checks", pre_match_checks), ("Match", match), ("Shooting", shooting),
         ("Localization", localization), ("Power", power), ("Diagnostics", diagnostics)]
 
 

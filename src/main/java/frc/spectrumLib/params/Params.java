@@ -322,6 +322,15 @@ public final class Params {
     }
 
     /**
+     * Whether a params file refused this param's value (wrong type or out of bounds), or its
+     * group's file is unreadable, so the value came from a lower layer. Read-only, for checks.
+     * Judged on the files this run read: in replay, the replaying PC's.
+     */
+    public static boolean refusedInFile(Param<?> p) {
+        return STORE.refusedInFile(p);
+    }
+
+    /**
      * Problems with a params file against the params declared so far: unreadable, a key nobody
      * declares, or a value of the wrong type or out of bounds. For tests and checks; it applies
      * nothing.

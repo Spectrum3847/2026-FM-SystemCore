@@ -186,6 +186,26 @@ class ParamStoreTest {
     }
 
     @Test
+    void refusedInFileNamesTheParamsAFileCouldNotSet() throws IOException {
+        file(deployFile(), "{\"a\": 1, \"ok\": 1}");
+        file(robotFile("FM2026"), "{\"a\": 500}");
+        configure();
+        DoubleParam a = cams.number("a", 0, "", 0, 10);
+        DoubleParam ok = cams.number("ok", 0, "", 0, 10);
+        DoubleParam absent = cams.number("absent", 0, "");
+        assertTrue(store.refusedInFile(a));
+        assertFalse(store.refusedInFile(ok));
+        assertFalse(store.refusedInFile(absent));
+        assertEquals(1.0, a.get(), "unchanged: the accessor only reads");
+
+        ParamStore other = new ParamStore();
+        ParamGroup g = new ParamGroup("cams", other::register);
+        file(localFile(), "not json");
+        other.configure(new ParamStore.Settings(deploy, "FM2026", local));
+        assertTrue(other.refusedInFile(g.number("ok", 0, "", 0, 10)), "unreadable file");
+    }
+
+    @Test
     void unknownKeyIsInfoUntilDeclared() throws IOException {
         file(deployFile(), "{\"a\": 1, \"typo\": 2}");
         configure();

@@ -402,7 +402,7 @@ class MatchSummaryTest {
     }
 
     @Test
-    void preMatchAlertsDoNotCrowdOutTheMatchsErrors() throws ParseException {
+    void preMatchAlertsDoNotCrowdOutErrorsInTheMatch() throws ParseException {
         var s = new MatchSummary(null);
         var l = new Loop();
         step(s, l);
@@ -452,7 +452,7 @@ class MatchSummaryTest {
     }
 
     @Test
-    void alertsRaisedInTheLoopBeforeTheFirstEnableAreNotTheMatchs() throws ParseException {
+    void alertsRaisedInTheLoopBeforeTheFirstEnableAreNotInTheMatch() throws ParseException {
         // Alert.periodic() reports at the top of a loop what was set during the last one.
         var s = new MatchSummary(null);
         var l = new Loop();

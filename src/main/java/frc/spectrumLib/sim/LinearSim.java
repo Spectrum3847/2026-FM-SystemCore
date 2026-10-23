@@ -39,7 +39,7 @@ public class LinearSim implements Mount, Mountable {
      *
      * @param config physical and display configuration for the linear stage
      * @param mech the Mechanism2d canvas to draw the stage on
-     * @param linearMotorSim the TalonFX sim state of the motor driving the stage
+     * @param motor the TalonFX driving the stage
      * @param name unique name prefix used for Mechanism2d element labels
      */
     public LinearSim(LinearConfig config, Mechanism2d mech, TalonFX motor, String name) {
@@ -154,6 +154,7 @@ public class LinearSim implements Mount, Mountable {
      *
      * @return horizontal displacement in metres
      */
+    @Override
     public double getDisplacementX() {
         double angle;
 
@@ -180,6 +181,7 @@ public class LinearSim implements Mount, Mountable {
      *
      * @return vertical displacement in metres
      */
+    @Override
     public double getDisplacementY() {
         double angle;
 
@@ -206,6 +208,7 @@ public class LinearSim implements Mount, Mountable {
      *
      * @return effective stage angle in radians
      */
+    @Override
     public double getAngle() {
         if (config.isMounted()) {
             return config.getMount().getAngle() + Math.toRadians(config.getAngle());
@@ -220,6 +223,7 @@ public class LinearSim implements Mount, Mountable {
      *
      * @return static root X position in metres
      */
+    @Override
     public double getMountX() {
         return config.getStaticRootX();
     }
@@ -230,6 +234,7 @@ public class LinearSim implements Mount, Mountable {
      *
      * @return static root Y position in metres
      */
+    @Override
     public double getMountY() {
         return config.getStaticRootY();
     }

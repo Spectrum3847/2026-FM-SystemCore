@@ -252,7 +252,7 @@ public class SpectrumLEDs implements Subsystem {
     /** Spectrum purple color constant ({@code RGB 130, 103, 185}). */
     public final Color purple = new Color(130, 103, 185);
 
-    /** Convenience alias for {@link Color#kWhite}. */
+    /** Convenience alias for {@link Color#WHITE}. */
     public final Color white = Color.WHITE;
 
     // -------------------------------------------------------------------------

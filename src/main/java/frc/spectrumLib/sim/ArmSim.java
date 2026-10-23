@@ -34,7 +34,7 @@ public class ArmSim implements Mount, Mountable {
      *
      * @param config physical and display configuration for the arm
      * @param mech the Mechanism2d canvas to draw the arm on
-     * @param armMotorSim the TalonFX sim state of the motor driving the arm
+     * @param motor the TalonFX driving the arm
      * @param name unique name prefix used for Mechanism2d element labels
      */
     public ArmSim(ArmConfig config, Mechanism2d mech, TalonFX motor, String name) {
@@ -110,6 +110,7 @@ public class ArmSim implements Mount, Mountable {
      *
      * @return horizontal displacement in metres
      */
+    @Override
     public double getDisplacementX() {
         return config.getPivotX() - config.getInitialX();
     }
@@ -119,6 +120,7 @@ public class ArmSim implements Mount, Mountable {
      *
      * @return vertical displacement in metres
      */
+    @Override
     public double getDisplacementY() {
         return config.getPivotY() - config.getInitialY();
     }
@@ -129,6 +131,7 @@ public class ArmSim implements Mount, Mountable {
      *
      * @return effective arm angle in radians
      */
+    @Override
     public double getAngle() {
         if (config.isMounted()) {
             if (config.isAbsAngle()) {
@@ -145,6 +148,7 @@ public class ArmSim implements Mount, Mountable {
      *
      * @return pivot X position in metres
      */
+    @Override
     public double getMountX() {
         return config.getPivotX();
     }
@@ -154,6 +158,7 @@ public class ArmSim implements Mount, Mountable {
      *
      * @return pivot Y position in metres
      */
+    @Override
     public double getMountY() {
         return config.getPivotY();
     }

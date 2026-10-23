@@ -8,6 +8,9 @@ import frc.robot.Constants;
 import frc.robot.RobotSim;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
+import frc.spectrumLib.params.DoubleParam;
+import frc.spectrumLib.params.ParamGroup;
+import frc.spectrumLib.params.Params;
 import frc.spectrumLib.sim.LinearConfig;
 import frc.spectrumLib.sim.LinearSim;
 import frc.spectrumLib.telemetry.Telemetry;
@@ -47,8 +50,35 @@ public class IntakeExtension extends Mechanism {
         @Getter private final double zeroSpeed = -0.1;
         @Getter private final double holdMaxSpeedRPM = 18;
 
-        @Getter private final double maxRotations = 2.8;
-        @Getter private final double minRotations = 0.0;
+        private static final double MAX_ROTATIONS = 2.8;
+        private static final double MIN_ROTATIONS = 0.0;
+
+        @Getter private final double maxRotations = MAX_ROTATIONS;
+        @Getter private final double minRotations = MIN_ROTATIONS;
+
+        private static final ParamGroup SOFT_LIMITS = Params.group("soft-limits");
+
+        /*
+         * Both axes' soft limits. Each sits on a position the code writes into the motors: the
+         * boot position (0) and the extended stop the resync and LB+Y zero at (maxRotations). So
+         * each can only move outward, past that position, and by at most 0.1 rot (about 0.3 in).
+         */
+
+        public static final DoubleParam FORWARD_SOFT_LIMIT =
+                SOFT_LIMITS.number(
+                        "intakeExtensionForward",
+                        MAX_ROTATIONS,
+                        "rot",
+                        MAX_ROTATIONS,
+                        MAX_ROTATIONS + 0.1);
+
+        public static final DoubleParam REVERSE_SOFT_LIMIT =
+                SOFT_LIMITS.number(
+                        "intakeExtensionReverse",
+                        MIN_ROTATIONS,
+                        "rot",
+                        MIN_ROTATIONS - 0.1,
+                        MIN_ROTATIONS);
 
         @Getter private final double supplyCurrentLimit = 20;
         @Getter private final double statorCurrentLimit = 40;
@@ -130,8 +160,7 @@ public class IntakeExtension extends Mechanism {
             configGearRatio(gearRatio);
             configForwardTorqueCurrentLimit(statorCurrentLimit);
             configReverseTorqueCurrentLimit(statorCurrentLimit);
-            configForwardSoftLimit(maxRotations, true);
-            configReverseSoftLimit(minRotations, true);
+            configSoftLimits(FORWARD_SOFT_LIMIT, REVERSE_SOFT_LIMIT);
             // Coast so it moves by hand while disabled; enabled, StaticBrake holds it. Switching
             // the neutral mode at enable timed out on the CANivore.
             configNeutralBrakeMode(false);
@@ -183,8 +212,9 @@ public class IntakeExtension extends Mechanism {
                 configGearRatio(left.getGearRatio());
                 configForwardTorqueCurrentLimit(left.getStatorCurrentLimit());
                 configReverseTorqueCurrentLimit(left.getStatorCurrentLimit());
-                configForwardSoftLimit(left.getMaxRotations(), true);
-                configReverseSoftLimit(left.getMinRotations(), true);
+                configSoftLimits(
+                        IntakeExtensionConfig.FORWARD_SOFT_LIMIT,
+                        IntakeExtensionConfig.REVERSE_SOFT_LIMIT);
                 configNeutralBrakeMode(false);
                 configCounterClockwise_Positive();
             }

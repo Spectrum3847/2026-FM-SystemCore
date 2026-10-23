@@ -861,6 +861,12 @@ from under `Params/`. A bad file raises an alert and is skipped. So far only the
 under `/Tuning/` while disabled and saved to the robot with `/Tuning/SaveParams`; CI fails a PR to
 `main` that leaves it on. `FM_PARAMS_LOCAL=<folder>` gives the simulator a local folder to save to.
 
+The `soft-limits` group (`params/soft-limits.json`) holds the hood's and the intake extension's
+soft limits (`HoodConfig`, `IntakeExtensionConfig`; the right axis shares the left's). The defaults
+are the code's and the file holds the same numbers; each param's bounds keep every position the code
+writes into the motor between the two limits (`SoftLimitParamsTest`). A mechanism reads them once,
+when it is built: a live change raises an alert and needs a save and a reboot.
+
 ## Before the event: calibrate and check
 
 - [ ] **CAN wiring** matches `CanBuses` (`USE_CANIVORE` and the port table above). With a CANivore:

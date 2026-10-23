@@ -28,6 +28,7 @@ import frc.robot.Robot;
 import frc.spectrumLib.framework.RobotLoop;
 import frc.spectrumLib.hardware.CanConfigBudget;
 import frc.spectrumLib.hardware.TalonFXFactory;
+import frc.spectrumLib.params.DoubleParam;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.util.CanDeviceId;
@@ -124,6 +125,14 @@ public abstract class Mechanism implements Subsystem {
 
     /** Raised when any motor in this mechanism reboots, and left up: its power needs a look. */
     private Alert resetAlert;
+
+    /** The soft limits the motor was configured with at boot, from params; null without. */
+    private double[] bootSoftLimits;
+
+    /** Raised while a soft-limit param differs from the boot value: it needs a reboot. */
+    private Alert softLimitRebootAlert;
+
+    private boolean softLimitRebootShown = false;
 
     /**
      * Motors whose signal rates went back to defaults on a reboot, applied again once disabled:
@@ -265,6 +274,7 @@ public abstract class Mechanism implements Subsystem {
         this.config = config;
         batteryKey = "Mechanisms/" + config.getName();
         inputsKey = "Mechanisms/" + config.getName();
+        applySoftLimitParams();
 
         if (isAttached()) {
             motor = TalonFXFactory.createConfigTalon(config.id, config.talonConfig);
@@ -903,6 +913,66 @@ public abstract class Mechanism implements Subsystem {
         Logger.processInputs(inputsKey, inputs);
         handleResets();
         updateTrackingStop();
+        checkSoftLimitParams();
+    }
+
+    /**
+     * Puts the soft-limit params ({@link Config#configSoftLimits}) into the Talon config before the
+     * motor is configured. Once: the params files are read by now, and changing a soft limit later
+     * would take a blocking config call, so a later change waits for a reboot.
+     */
+    private void applySoftLimitParams() {
+        DoubleParam forwardParam = config.forwardSoftLimitParam;
+        DoubleParam reverseParam = config.reverseSoftLimitParam;
+        if (forwardParam == null || reverseParam == null) {
+            return;
+        }
+        double forward = forwardParam.get();
+        double reverse = reverseParam.get();
+        bootSoftLimits = new double[] {forward, reverse};
+        if (!(reverse < forward)) {
+            // Inverted limits hold the motor still. The params' bounds should make this impossible.
+            new Alert(
+                            config.getName()
+                                    + " soft limits from params cross (reverse "
+                                    + reverse
+                                    + ", forward "
+                                    + forward
+                                    + "); using the code's",
+                            Level.HIGH)
+                    .set(true);
+            forward = forwardParam.getDefault();
+            reverse = reverseParam.getDefault();
+        }
+        config.talonConfig.SoftwareLimitSwitch.ForwardSoftLimitThreshold = forward;
+        config.talonConfig.SoftwareLimitSwitch.ReverseSoftLimitThreshold = reverse;
+        softLimitRebootAlert =
+                new Alert(
+                        config.getName()
+                                + " soft limits changed in params since boot: save params and"
+                                + " reboot to apply",
+                        Level.MEDIUM);
+    }
+
+    /** Raises an alert while a soft-limit param differs from the value the motor booted with. */
+    private void checkSoftLimitParams() {
+        boolean changed = softLimitsNeedReboot();
+        if (changed != softLimitRebootShown) {
+            softLimitRebootShown = changed;
+            softLimitRebootAlert.set(changed);
+        }
+    }
+
+    /**
+     * Whether a soft-limit param changed since this mechanism was built.
+     *
+     * @return {@code true} while the motor runs on soft limits the params no longer say
+     */
+    public boolean softLimitsNeedReboot() {
+        return bootSoftLimits != null
+                && (Double.compare(config.forwardSoftLimitParam.get(), bootSoftLimits[0]) != 0
+                        || Double.compare(config.reverseSoftLimitParam.get(), bootSoftLimits[1])
+                                != 0);
     }
 
     /**
@@ -2420,6 +2490,27 @@ public abstract class Mechanism implements Subsystem {
         public void configReverseSoftLimit(double threshold, boolean enabled) {
             talonConfig.SoftwareLimitSwitch.ReverseSoftLimitThreshold = threshold;
             talonConfig.SoftwareLimitSwitch.ReverseSoftLimitEnable = enabled;
+        }
+
+        /** Set by {@link #configSoftLimits}; null when the soft limits are fixed in code. */
+        @Getter private DoubleParam forwardSoftLimitParam;
+
+        @Getter private DoubleParam reverseSoftLimitParam;
+
+        /**
+         * Enables both soft limits from params, in mechanism rotations. The config holds the
+         * params' defaults; the mechanism takes their values when it is built, after the params
+         * files are read, and keeps them until the robot reboots. Give each param bounds that keep
+         * every position the code writes into the motor (boot, homing) between the two limits.
+         *
+         * @param forward the forward limit
+         * @param reverse the reverse limit
+         */
+        public void configSoftLimits(DoubleParam forward, DoubleParam reverse) {
+            configForwardSoftLimit(forward.getDefault(), true);
+            configReverseSoftLimit(reverse.getDefault(), true);
+            forwardSoftLimitParam = forward;
+            reverseSoftLimitParam = reverse;
         }
 
         /**

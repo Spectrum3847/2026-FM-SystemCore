@@ -5,6 +5,7 @@ plugins {
     id "com.peterabeles.gversion" version "1.10"
     id "com.diffplug.spotless" version "8.6.0"
     id "io.freefair.lombok" version "9.5.0"
+    id "net.ltgt.errorprone" version "5.1.1"
 }
 
 java {
@@ -82,6 +83,8 @@ dependencies {
     // LimelightHelpers parses Limelight JSON with Jackson; WPILib 2027 does not ship it.
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.19.2'
 
+    errorprone 'com.google.errorprone:error_prone_core:2.50.0'
+
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
@@ -123,8 +126,23 @@ wpi.java.configureTestTasks(test)
 tasks.withType(JavaCompile) {
     options.compilerArgs.add '-XDstringConcat=inline'
     options.encoding = 'UTF-8'
-    options.compilerArgs.addAll(['-Xmaxerrs', '3000'])
+    options.compilerArgs.addAll([
+        '-Xmaxerrs',
+        '3000',
+        '-Xmaxwarns',
+        '10000'
+    ])
 }
+
+// Error Prone on main code. Its warnings are held to tools/errorprone-baseline.txt in CI
+// (tools/errorprone_baseline.py); its errors fail the compile.
+tasks.withType(JavaCompile).configureEach {
+    options.errorprone {
+        disableWarningsInGeneratedCode = true
+        excludedPaths = ".*/build/generated/.*"
+    }
+}
+compileTestJava.options.errorprone.enabled = false
 
 javadoc {
     options.addStringOption('Xdoclint:none', '-quiet')

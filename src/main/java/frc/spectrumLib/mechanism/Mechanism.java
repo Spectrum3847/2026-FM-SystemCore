@@ -79,8 +79,7 @@ import org.wpilib.units.measure.AngularVelocity;
  * A mechanism whose config sets a tracking tolerance ({@link Config#configPositionTrackingStop},
  * {@link Config#configVelocityTrackingStop}) logs {@code TrackingError} and {@code TrackingFault}
  * under {@code Mechanisms/<name>/}. With {@link Config#isTrackingStopEnabled()} it also latches to
- * neutral on a fault, until disabled, re-homed or {@link #clearTrackingStop()}. See {@link
- * TrackingStop}.
+ * neutral on a fault, until disabled or {@link #clearTrackingStop()}. See {@link TrackingStop}.
  *
  * <h2>Extending</h2>
  *
@@ -1133,7 +1132,7 @@ public abstract class Mechanism implements Subsystem {
             String text =
                     String.format(
                             "%s stopped: %.4g %s from its goal for %.2f s, likely jammed. Clears"
-                                    + " on disable, a re-home, or the operator's clear",
+                                    + " on disable or the operator's clear",
                             config.getName(),
                             Math.abs(error),
                             watched == ClosedLoop.VELOCITY ? "rot/s" : "rot",
@@ -1149,8 +1148,9 @@ public abstract class Mechanism implements Subsystem {
 
     /**
      * This mechanism stayed out of tolerance of its goal past the debounce and is held in neutral
-     * (brake or coast per its config) until the robot is disabled, it re-homes, or {@link
-     * #clearTrackingStop()}.
+     * (brake or coast per its config) until the robot is disabled or {@link #clearTrackingStop()}.
+     * A re-home does not release it: homing takes a stall for the stop, so a jammed mechanism would
+     * zero itself at the jam.
      *
      * @return {@code true} while the tracking stop holds the mechanism
      */
@@ -1595,7 +1595,6 @@ public abstract class Mechanism implements Subsystem {
             motor.setPosition(rotations.getAsDouble());
         }
         resetMonitor.positionRestored();
-        clearTrackingStop();
     }
 
     /**

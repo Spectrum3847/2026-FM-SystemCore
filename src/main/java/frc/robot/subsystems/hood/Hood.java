@@ -242,7 +242,8 @@ public class Hood extends Mechanism {
                                 motorResetThisLoop(),
                                 getPositionDegrees(),
                                 getVelocityRPM() * 6.0, // mechanism RPM to deg/s
-                                wantedState == WantedState.HOME));
+                                wantedState == WantedState.HOME,
+                                isTrackingStopped()));
         if (homed.resetPosition()) {
             setMotorPosition(() -> degreesToRotations(() -> homing.getParams().stopDeg()));
         }

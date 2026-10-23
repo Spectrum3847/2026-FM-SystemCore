@@ -26,6 +26,7 @@ class HoodHomingTest {
     private double position;
     private double speed;
     private boolean wantsHome;
+    private boolean trackingStopped;
 
     @BeforeEach
     void setUp() {
@@ -38,6 +39,7 @@ class HoodHomingTest {
         position = STOP;
         speed = 0;
         wantsHome = false;
+        trackingStopped = false;
     }
 
     private Output step() {
@@ -52,7 +54,8 @@ class HoodHomingTest {
                                 motorReset,
                                 position,
                                 speed,
-                                wantsHome));
+                                wantsHome,
+                                trackingStopped));
         now += LOOP;
         motorReset = false;
         return out;
@@ -227,6 +230,45 @@ class HoodHomingTest {
         wantsHome = true;
         position = STOP;
         assertEquals(Action.DRIVE_TO_STOP, step().action(), "the next visit re-homes");
+    }
+
+    @Test
+    void noReHomeWhileTheTrackingStopHolds() {
+        enabled = true;
+        stepUntilReset(30);
+        position = 20;
+        steps(10);
+        // Jammed near home: the tracking stop latched. A stow re-home would stall on the jam.
+        trackingStopped = true;
+        wantsHome = true;
+        position = STOP + 1;
+        for (int i = 0; i < 100; i++) {
+            Output out = step();
+            assertFalse(out.action() == Action.DRIVE_TO_STOP || out.resetPosition());
+        }
+        // A reboot asks for a full attempt, which also waits for the operator's clear.
+        motorReset = true;
+        for (int i = 0; i < 100; i++) {
+            Output out = step();
+            assertFalse(out.action() == Action.DRIVE_TO_STOP || out.resetPosition());
+            assertEquals(Action.HOLD, out.action());
+        }
+        trackingStopped = false;
+        assertEquals(Action.DRIVE_TO_STOP, step().action(), "homes once cleared");
+    }
+
+    @Test
+    void aModeStartAttemptCutShortByTheTrackingStopRunsAfterTheClear() {
+        enabled = true;
+        auto = true;
+        teleop = false;
+        position = 30;
+        speed = -50;
+        assertEquals(Action.DRIVE_TO_STOP, step().action());
+        trackingStopped = true;
+        assertEquals(Action.HOLD, steps(20).action());
+        trackingStopped = false;
+        assertEquals(Action.DRIVE_TO_STOP, step().action());
     }
 
     @Test

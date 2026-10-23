@@ -94,7 +94,7 @@ Every PR runs, in parallel:
 | `build` | Spotless, a compile error (Error Prone's ERROR checks included) or a unit test, including the CAN config invariants over every robot config (`ConfigInvariantsTest`: unique IDs per bus, followers on their leader's bus, soft limits around every home position, no motor in two mechanisms). Error Prone warnings print but don't fail; the style-only checks are off in `build.gradle`. |
 | `build` (`simTest`) | `BindingsSmokeTest`: the whole robot booted headless in simulation, every pilot and operator input pressed alone, with LB, and LT with RT, disabled and in teleop. Fails if a press throws, if a binding in its table doesn't schedule its command or reach its wanted state, or if a lone button schedules something the table doesn't list. About 30 s; run it alone with `./gradlew simTest`. |
 | `sim (drive)`, `sim (shoot)`, `sim (auto)` | the scripted sim (`auto` is `TBTB Left`) crashing, not finishing its script, an auto path stopping short of its end before autonomous ends (being cut off by the end of autonomous is fine), the fused pose more than 0.15 m from the sim's truth at p95 (0.3 m worst) once the seed is confirmed, or more than 5% of loops overrunning by 25% ([tools/ci_assert.py](tools/ci_assert.py)) |
-| `replay` | the PR moving the fused pose (5 cm, 2°) or the shot gate's verdicts (10 loops) when a real match replays through it, against the base branch replaying the same log ([tools/replay_regression.py](tools/replay_regression.py)) |
+| `replay` | the PR moving the fused pose (5 cm, 2°) or the shot gate's verdicts (10 loops) in any replay fixture, against the base branch replaying the same fixtures ([tools/replay_regression.py](tools/replay_regression.py)) |
 | `app` | the robot app's tests |
 
 Sim logs and replay logs are uploaded as artifacts. To check a sim run locally:
@@ -107,17 +107,25 @@ python tools/ci_assert.py logs/akit_XXXX.wpilog console.txt
 When a PR is meant to change the replay (a gate, a std-dev tier), add the `replay-change-expected`
 label.
 
-The replay fixture is [8515_TXMAN1_Q24_auto.wpilog](src/test/resources/replay): Q24 at TXMAN1, 180 s
-to 215 s, from pre-match through the vision seed in auto, two auto launches and the start of teleop
-(9 MB, committed despite `.gitignore`). To swap it, cut a window from another AdvantageKit log and
-force-add it:
+The replay fixtures are windows of real match logs, listed in
+[fixtures.json](src/test/resources/replay/fixtures.json) with what each covers. The logs themselves
+are not committed: [tools/fetch_replay_fixtures.py](tools/fetch_replay_fixtures.py) downloads the
+release asset each comes from (the redacted `TXMAN1-logs` copies), checks the log's SHA-256 and cuts
+the window with `trim_wpilog.py`. CI caches the cut windows until the list or those tools change.
+Today: TXMAN1 Q24 180-215 s (pre-match through the vision seed in auto, two auto launches, the start
+of teleop), Q32 290-335 s (seven teleop volleys, two fed by the gate timeout) and Playoff 20
+350-395 s (the event's last code, one volley fed while the pose was untrusted).
+
+To add one, pick a window with the pose seed or some shots (`tools/shot_log.py` lists them), add an
+entry with the full log's SHA-256, and replay it locally:
 
 ```bash
-python tools/trim_wpilog.py full.wpilog src/test/resources/replay/NAME.wpilog START END
-git add -f src/test/resources/replay/NAME.wpilog
+python tools/fetch_replay_fixtures.py build/replay
+FM_REPLAY=1 AKIT_LOG_PATH=build/replay/NAME.wpilog ./gradlew simulateJava -PnoSimGui
 ```
 
-Keep one file in that folder, under about 20 MB, and pick a window with the pose seed and some shots.
+Each fixture adds about 30 s to both replay jobs. Logs from another event go in a release of their
+own, with the radio's keys redacted the way `TXMAN1-logs` was.
 
 ## Where things came from
 

@@ -38,8 +38,8 @@ import org.wpilib.math.geometry.Rotation2d;
  *   <li>Rumble commands ({@link #rumbleCommand(double, double, double)}) for haptic feedback.
  * </ul>
  *
- * <p>Subclass this once per operator role (pilot, copilot) and override {@link #setupStates()} and
- * {@link #setupDefaultCommand()} to bind subsystem commands to triggers.
+ * <p>Subclass this once per operator role (pilot, operator) and name the triggers that subsystem
+ * commands are bound to.
  *
  * <p>When {@link Config#isAttached()} returns {@code false}, all triggers remain permanently {@code
  * false} and axis reads return {@code 0.0}.

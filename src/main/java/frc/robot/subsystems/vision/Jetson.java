@@ -114,7 +114,7 @@ public class Jetson {
             new Alert("Rewind should be recording this match but isn't", Level.MEDIUM);
 
     /** Per-camera alerts and the state they need. */
-    private final class CameraCheck {
+    private static final class CameraCheck {
         final Camera camera;
         final Alert notOnNt;
         final Alert noFrames;
@@ -446,6 +446,6 @@ public class Jetson {
                         "Orin camera %s mount differs from config: pitch %+.1f deg, roll %+.1f"
                                 + " deg, height %+.1f cm",
                         c.camera.name(), dPitch, dRoll, dHeight * 100));
-        return bumped;
+        return true;
     }
 }

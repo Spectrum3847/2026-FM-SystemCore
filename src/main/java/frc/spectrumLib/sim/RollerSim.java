@@ -35,7 +35,7 @@ public class RollerSim implements Mountable {
      *
      * @param config physical and display configuration for the roller
      * @param mech the Mechanism2d canvas to draw the roller on
-     * @param rollerMotorSim the TalonFX sim state of the motor driving the roller
+     * @param motor the TalonFX driving the roller
      * @param name unique name prefix used for Mechanism2d element labels
      */
     public RollerSim(RollerConfig config, Mechanism2d mech, TalonFX motor, String name) {

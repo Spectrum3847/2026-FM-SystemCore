@@ -516,6 +516,7 @@ Operator (port 1):
 | LB + X | Re-origin the QuestNav on the robot pose |
 | LB + Y | Intake extension: reset position to max |
 | Select | Force home |
+| Start | Release mechanisms held by their tracking stop (off by default, see `Mechanism.Config`) |
 | D-pad up / down | Hood trim +/- 0.1 deg |
 | D-pad left / right | Aim trim +/- 1 deg |
 | A / B, disabled | Coast / brake |

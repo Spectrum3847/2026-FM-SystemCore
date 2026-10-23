@@ -498,6 +498,9 @@ public class Robot extends SpectrumRobot {
         // Held: feed regardless of the shot gate (SuperStructure / ShotGate).
         superStructure.setFeedOverride(operator.feedOverride_Y);
 
+        // Release mechanisms the tracking stop is holding (Mechanism.Config tracking stop).
+        operator.startButton.onTrue(superStructure.clearTrackingStops());
+
         operator.dPadDown.onTrue(ShotCalculator.decreaseHoodAngleOffset());
         operator.dPadUp.onTrue(ShotCalculator.increaseHoodAngleOffset());
         operator.dPadRight.onTrue(ShotCalculator.decreaseDriveAngleOffset());

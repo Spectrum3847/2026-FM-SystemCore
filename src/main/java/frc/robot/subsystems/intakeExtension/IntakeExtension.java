@@ -136,6 +136,8 @@ public class IntakeExtension extends Mechanism {
             // the neutral mode at enable timed out on the CANivore.
             configNeutralBrakeMode(false);
             configClockwise_Positive();
+            // No tracking stop: SLOW_CLOSE squeezes the hopper and stalls against fuel 2 rotations
+            // short of its goal by design, for over 1 s in every one of the 20 TXMAN1 matches.
         }
 
         public IntakeExtensionConfig applyMotorConfig(TalonFX motor) {

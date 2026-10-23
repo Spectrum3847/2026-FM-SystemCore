@@ -73,6 +73,14 @@ import org.wpilib.units.measure.AngularVelocity;
  * The {@code target} field tracks the last commanded closed-loop setpoint sent by this class. It is
  * used by helper triggers such as {@code atTargetPosition(...)}.
  *
+ * <h2>Tracking stop</h2>
+ *
+ * A mechanism whose config sets a tracking tolerance ({@link Config#configPositionTrackingStop},
+ * {@link Config#configVelocityTrackingStop}) logs {@code TrackingError} and {@code TrackingFault}
+ * under {@code Mechanisms/<name>/}. With {@link Config#isTrackingStopEnabled()} it also latches to
+ * neutral on a fault, until disabled, re-homed or {@link #clearTrackingStop()}. See {@link
+ * TrackingStop}.
+ *
  * <h2>Extending</h2>
  *
  * Concrete mechanisms should provide a {@link Config} describing motor IDs, Talon configuration,
@@ -135,6 +143,25 @@ public abstract class Mechanism implements Subsystem {
 
     /** The last closed-loop velocity setpoint (in rotations per second) sent to the motor. */
     private double velocityTarget = 0;
+
+    private enum ClosedLoop {
+        POSITION,
+        VELOCITY
+    }
+
+    /** The control the last setpoint ran: a closed loop, or {@code null} for open loop or stop. */
+    private ClosedLoop closedLoop = null;
+
+    /** Loop on which the last setpoint was sent. */
+    private long closedLoopSentLoop = -1;
+
+    /** Null unless the config sets a tracking tolerance. */
+    private TrackingStop trackingStop;
+
+    private Alert trackingAlert;
+    private String trackingErrorKey;
+    private String trackingFaultKey;
+    private String trackingStoppedKey;
 
     // Status signals read by the getters, refreshed together once per loop (see signalValue)
     private BaseStatusSignal positionSignal;
@@ -290,6 +317,15 @@ public abstract class Mechanism implements Subsystem {
             signalRatesPending = new boolean[1 + followerSupplySignals.length];
             resetAlert = new Alert("", Level.HIGH);
             positionLostKey = inputsKey + "/PositionLost";
+
+            if (!Double.isNaN(config.trackingTolerance)) {
+                trackingStop =
+                        new TrackingStop(config.trackingTolerance, config.trackingDebounceSeconds);
+                trackingAlert = new Alert("", Level.HIGH);
+                trackingErrorKey = inputsKey + "/TrackingError";
+                trackingFaultKey = inputsKey + "/TrackingFault";
+                trackingStoppedKey = inputsKey + "/TrackingStopped";
+            }
 
             followerAlerts = new Alert[config.followerConfigs.length];
             followerMismatchSeconds = new double[config.followerConfigs.length];
@@ -854,6 +890,7 @@ public abstract class Mechanism implements Subsystem {
         // Records the readings on the robot; overwrites them from the log in replay.
         Logger.processInputs(inputsKey, inputs);
         handleResets();
+        updateTrackingStop();
     }
 
     /**
@@ -962,17 +999,85 @@ public abstract class Mechanism implements Subsystem {
     }
 
     /**
-     * Sends neutral instead of a setpoint while the position is lost.
+     * Sends neutral instead of a setpoint while the position is lost or the tracking stop holds.
      *
      * @return {@code true} when the caller must not send its setpoint
      */
-    private boolean holdForLostPosition() {
+    private boolean holdForStop() {
         refreshSignalsOncePerLoop();
-        if (!resetMonitor.isPositionLost()) {
+        if (!resetMonitor.isPositionLost() && !isTrackingStopped()) {
             return false;
         }
         motor.stopMotor();
         return true;
+    }
+
+    /** Records which closed loop this loop's setpoint runs, or {@code null} for open loop. */
+    private void sentClosedLoop(ClosedLoop loop) {
+        // The tracking check must see last loop's setpoint, so it runs before this one replaces it.
+        refreshSignalsOncePerLoop();
+        closedLoop = loop;
+        closedLoopSentLoop = RobotLoop.count();
+    }
+
+    /**
+     * Advances the tracking stop on this loop's logged inputs. The setpoint it compares against is
+     * the one sent last loop, which is what the motor ran while these readings were taken.
+     */
+    private void updateTrackingStop() {
+        if (trackingStop == null) {
+            return;
+        }
+        ClosedLoop watched = config.trackingVelocity ? ClosedLoop.VELOCITY : ClosedLoop.POSITION;
+        boolean tracking =
+                closedLoop == watched
+                        && closedLoopSentLoop == RobotLoop.count() - 1
+                        && !resetMonitor.isPositionLost();
+        double error =
+                watched == ClosedLoop.VELOCITY
+                        ? inputs.velocityRps - velocityTarget
+                        : inputs.positionRotations - target;
+        if (trackingStop.update(
+                Timer.getTimestamp(),
+                RobotState.isEnabled(),
+                inputs.connected,
+                tracking,
+                error,
+                config.trackingStopEnabled)) {
+            String text =
+                    String.format(
+                            "%s stopped: %.4g %s from its goal for %.2f s, likely jammed. Clears"
+                                    + " on disable, a re-home, or the operator's clear",
+                            config.getName(),
+                            Math.abs(error),
+                            watched == ClosedLoop.VELOCITY ? "rot/s" : "rot",
+                            trackingStop.getDebounceSeconds());
+            trackingAlert.setText(text);
+            Telemetry.print(text);
+        }
+        trackingAlert.set(trackingStop.isStopped());
+        Logger.recordOutput(trackingErrorKey, tracking ? error : Double.NaN);
+        Logger.recordOutput(trackingFaultKey, trackingStop.isFault());
+        Logger.recordOutput(trackingStoppedKey, trackingStop.isStopped());
+    }
+
+    /**
+     * This mechanism stayed out of tolerance of its goal past the debounce and is held in neutral
+     * (brake or coast per its config) until the robot is disabled, it re-homes, or {@link
+     * #clearTrackingStop()}.
+     *
+     * @return {@code true} while the tracking stop holds the mechanism
+     */
+    public boolean isTrackingStopped() {
+        return trackingStop != null && trackingStop.isStopped();
+    }
+
+    /** The operator's override: releases the tracking stop. It latches again if still stuck. */
+    public void clearTrackingStop() {
+        if (trackingStop != null) {
+            trackingStop.clear();
+            trackingAlert.set(false);
+        }
     }
 
     /**
@@ -1379,6 +1484,7 @@ public abstract class Mechanism implements Subsystem {
     /** Stops the motor output. Does nothing if the mechanism is not attached. */
     protected void stop() {
         if (isAttached()) {
+            sentClosedLoop(null);
             motor.stopMotor();
         }
     }
@@ -1403,6 +1509,7 @@ public abstract class Mechanism implements Subsystem {
             motor.setPosition(rotations.getAsDouble());
         }
         resetMonitor.positionRestored();
+        clearTrackingStop();
     }
 
     /**
@@ -1412,8 +1519,9 @@ public abstract class Mechanism implements Subsystem {
      * @param velocityRPS the target velocity in rotations per second
      */
     protected void setMMVelocityFOC(DoubleSupplier velocityRPS) {
-        if (isAttached() && !holdForLostPosition()) {
+        if (isAttached() && !holdForStop()) {
             velocityTarget = velocityRPS.getAsDouble();
+            sentClosedLoop(ClosedLoop.VELOCITY);
             MotionMagicVelocityTorqueCurrentFOC mm =
                     config.mmVelocityFOC.withVelocity(velocityTarget);
             motor.setControl(mm);
@@ -1426,8 +1534,9 @@ public abstract class Mechanism implements Subsystem {
      * @param velocityRPS the target velocity in rotations per second
      */
     protected void setVelocityTorqueCurrentFOC(DoubleSupplier velocityRPS) {
-        if (isAttached() && !holdForLostPosition()) {
+        if (isAttached() && !holdForStop()) {
             velocityTarget = velocityRPS.getAsDouble();
+            sentClosedLoop(ClosedLoop.VELOCITY);
             VelocityTorqueCurrentFOC output =
                     config.velocityTorqueCurrentFOC.withVelocity(velocityTarget);
             motor.setControl(output);
@@ -1441,8 +1550,9 @@ public abstract class Mechanism implements Subsystem {
      * @param velocityRPM the target velocity in revolutions per minute
      */
     protected void setVelocityTCFOCrpm(DoubleSupplier velocityRPM) {
-        if (isAttached() && !holdForLostPosition()) {
+        if (isAttached() && !holdForStop()) {
             velocityTarget = Conversions.RPMtoRPS(velocityRPM.getAsDouble());
+            sentClosedLoop(ClosedLoop.VELOCITY);
             VelocityTorqueCurrentFOC output =
                     config.velocityTorqueCurrentFOC.withVelocity(velocityTarget);
             motor.setControl(output);
@@ -1455,8 +1565,9 @@ public abstract class Mechanism implements Subsystem {
      * @param velocityRPS the target velocity in rotations per second
      */
     protected void setVelocity(DoubleSupplier velocityRPS) {
-        if (isAttached() && !holdForLostPosition()) {
+        if (isAttached() && !holdForStop()) {
             velocityTarget = velocityRPS.getAsDouble();
+            sentClosedLoop(ClosedLoop.VELOCITY);
             VelocityVoltage output = config.velocityControl.withVelocity(velocityTarget);
             motor.setControl(output);
         }
@@ -1478,8 +1589,9 @@ public abstract class Mechanism implements Subsystem {
      * @param rotations the target position in rotations
      */
     protected void setPosition(DoubleSupplier rotations) {
-        if (isAttached() && !holdForLostPosition()) {
+        if (isAttached() && !holdForStop()) {
             target = rotations.getAsDouble();
+            sentClosedLoop(ClosedLoop.POSITION);
             PositionVoltage output = config.positionControl.withPosition(target).withVelocity(0);
             motor.setControl(output);
         }
@@ -1494,8 +1606,9 @@ public abstract class Mechanism implements Subsystem {
      * @param velocityRPS the velocity feedforward in mechanism rotations per second
      */
     protected void setPositionWithVelocity(DoubleSupplier rotations, DoubleSupplier velocityRPS) {
-        if (isAttached() && !holdForLostPosition()) {
+        if (isAttached() && !holdForStop()) {
             target = rotations.getAsDouble();
+            sentClosedLoop(ClosedLoop.POSITION);
             PositionVoltage output =
                     config.positionControl
                             .withPosition(target)
@@ -1511,8 +1624,9 @@ public abstract class Mechanism implements Subsystem {
      * @param rotations the target position in rotations
      */
     protected void setMMPositionFoc(DoubleSupplier rotations) {
-        if (isAttached() && !holdForLostPosition()) {
+        if (isAttached() && !holdForStop()) {
             target = rotations.getAsDouble();
+            sentClosedLoop(ClosedLoop.POSITION);
             MotionMagicTorqueCurrentFOC mm = config.mmPositionFOC.withPosition(target);
             motor.setControl(mm);
         }
@@ -1529,8 +1643,9 @@ public abstract class Mechanism implements Subsystem {
      */
     protected void setPositionFocWithVelocity(
             DoubleSupplier rotations, DoubleSupplier velocityRPS) {
-        if (isAttached() && !holdForLostPosition()) {
+        if (isAttached() && !holdForStop()) {
             target = rotations.getAsDouble();
+            sentClosedLoop(ClosedLoop.POSITION);
             PositionTorqueCurrentFOC req =
                     config.positionTorqueFOC
                             .withPosition(target)
@@ -1553,8 +1668,9 @@ public abstract class Mechanism implements Subsystem {
             DoubleSupplier velocity,
             DoubleSupplier acceleration,
             DoubleSupplier jerk) {
-        if (isAttached() && !holdForLostPosition()) {
+        if (isAttached() && !holdForStop()) {
             target = rotations.getAsDouble();
+            sentClosedLoop(ClosedLoop.POSITION);
             DynamicMotionMagicTorqueCurrentFOC mm =
                     config.dynamicMMPositionFOC
                             .withPosition(target)
@@ -1579,8 +1695,9 @@ public abstract class Mechanism implements Subsystem {
             DoubleSupplier velocity,
             DoubleSupplier acceleration,
             DoubleSupplier jerk) {
-        if (isAttached() && !holdForLostPosition()) {
+        if (isAttached() && !holdForStop()) {
             target = rotations.getAsDouble();
+            sentClosedLoop(ClosedLoop.POSITION);
             DynamicMotionMagicVoltage mm =
                     config.dynamicMotionMagicVoltage
                             .withPosition(target)
@@ -1608,8 +1725,9 @@ public abstract class Mechanism implements Subsystem {
      * @param slot the gain slot to use (0, 1, or 2)
      */
     protected void setMMPosition(DoubleSupplier rotations, int slot) {
-        if (isAttached() && !holdForLostPosition()) {
+        if (isAttached() && !holdForStop()) {
             target = rotations.getAsDouble();
+            sentClosedLoop(ClosedLoop.POSITION);
             MotionMagicVoltage mm =
                     config.mmPositionVoltageSlot.withSlot(slot).withPosition(target);
             motor.setControl(mm);
@@ -1623,10 +1741,11 @@ public abstract class Mechanism implements Subsystem {
      * @param percent fractional output between -1 and +1
      */
     protected void setPercentOutput(DoubleSupplier percent) {
-        if (isAttached() && !holdForLostPosition()) {
+        if (isAttached() && !holdForStop()) {
             VoltageOut output =
                     config.voltageControl.withOutput(
                             config.voltageCompSaturation * percent.getAsDouble());
+            sentClosedLoop(null);
             motor.setControl(output);
         }
     }
@@ -1638,8 +1757,9 @@ public abstract class Mechanism implements Subsystem {
      * @param voltage the desired voltage in volts
      */
     protected void setVoltageOutput(DoubleSupplier voltage) {
-        if (isAttached() && !holdForLostPosition()) {
+        if (isAttached() && !holdForStop()) {
             VoltageOut output = config.voltageControl.withOutput(voltage.getAsDouble());
+            sentClosedLoop(null);
             motor.setControl(output);
         }
     }
@@ -1656,6 +1776,7 @@ public abstract class Mechanism implements Subsystem {
                     config.voltageControl
                             .withOutput(voltage.getAsDouble())
                             .withIgnoreSoftwareLimits(true);
+            sentClosedLoop(null);
             motor.setControl(output);
         }
     }
@@ -1666,8 +1787,9 @@ public abstract class Mechanism implements Subsystem {
      * @param current the desired torque current in amps
      */
     public void setTorqueCurrentFoc(DoubleSupplier current) {
-        if (isAttached() && !holdForLostPosition()) {
+        if (isAttached() && !holdForStop()) {
             TorqueCurrentFOC output = config.torqueCurrentFOC.withOutput(current.getAsDouble());
+            sentClosedLoop(null);
             motor.setControl(output);
         }
     }
@@ -2000,6 +2122,23 @@ public abstract class Mechanism implements Subsystem {
 
         /** Configurations for follower motors. Empty by default (no followers). */
         @Getter private FollowerConfig[] followerConfigs = new FollowerConfig[0];
+
+        /**
+         * Largest closed-loop error the tracking stop tolerates: rotations for a position loop,
+         * rotations per second for a velocity loop. NaN (the default) turns it off entirely.
+         */
+        @Getter private double trackingTolerance = Double.NaN;
+
+        @Getter private double trackingDebounceSeconds = 0;
+
+        /** The tracking stop watches the velocity loop, not the position loop. */
+        @Getter private boolean trackingVelocity = false;
+
+        /**
+         * Stop the mechanism on a tracking fault. Off, a configured tolerance only logs {@code
+         * TrackingError} and {@code TrackingFault}, to check the tolerance against matches first.
+         */
+        @Getter @Setter private boolean trackingStopEnabled = false;
 
         // Prebuilt control requests, reused each loop to avoid allocation.
 
@@ -2456,6 +2595,40 @@ public abstract class Mechanism implements Subsystem {
         protected void configMinMaxRotations(double minRotation, double maxRotation) {
             this.minRotations = minRotation;
             this.maxRotations = maxRotation;
+        }
+
+        /**
+         * Watches the position loop: the mechanism stops once it has been more than {@code
+         * toleranceRotations} from its goal for {@code debounceSeconds} while enabled and
+         * connected. The goal is the final setpoint, not a Motion Magic profile's intermediate one,
+         * so the debounce must outlast the longest move.
+         *
+         * @param toleranceRotations largest error, in mechanism rotations
+         * @param debounceSeconds how long it must stay out
+         * @param enabled stop on a fault; {@code false} only logs it
+         */
+        public void configPositionTrackingStop(
+                double toleranceRotations, double debounceSeconds, boolean enabled) {
+            trackingTolerance = toleranceRotations;
+            trackingDebounceSeconds = debounceSeconds;
+            trackingVelocity = false;
+            trackingStopEnabled = enabled;
+        }
+
+        /**
+         * Watches the velocity loop, as {@link #configPositionTrackingStop} watches position. The
+         * debounce must outlast a spin-up from rest.
+         *
+         * @param toleranceRps largest error, in mechanism rotations per second
+         * @param debounceSeconds how long it must stay out
+         * @param enabled stop on a fault; {@code false} only logs it
+         */
+        public void configVelocityTrackingStop(
+                double toleranceRps, double debounceSeconds, boolean enabled) {
+            trackingTolerance = toleranceRps;
+            trackingDebounceSeconds = debounceSeconds;
+            trackingVelocity = true;
+            trackingStopEnabled = enabled;
         }
 
         // ── Private Helpers ───────────────────────────────────────────────────

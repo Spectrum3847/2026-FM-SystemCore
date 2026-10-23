@@ -2,6 +2,8 @@ package frc.robot;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import frc.robot.configs.FM2026;
+import frc.robot.subsystems.swerve.SwerveOffsetParams;
 import frc.spectrumLib.params.Params;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,6 +18,7 @@ class ParamsFilesTest {
     @Test
     void deployParamsFilesMatchTheDeclarations() throws IOException {
         RobotParams.load();
+        SwerveOffsetParams.declare(new FM2026().swerve);
         List<String> problems = new ArrayList<>();
         try (Stream<Path> files = Files.walk(Path.of("src/main/deploy/params"))) {
             files.filter(f -> f.toString().endsWith(".json"))

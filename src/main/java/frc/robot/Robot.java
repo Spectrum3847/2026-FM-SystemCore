@@ -36,6 +36,7 @@ import frc.robot.subsystems.leds.Leds;
 import frc.robot.subsystems.swerve.Swerve;
 import frc.robot.subsystems.swerve.SwerveAlignment;
 import frc.robot.subsystems.swerve.SwerveConfig;
+import frc.robot.subsystems.swerve.SwerveOffsetParams;
 import frc.robot.subsystems.vision.CameraParams;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.Vision.VisionConfig;
@@ -369,7 +370,9 @@ public class Robot extends SpectrumRobot {
      * Resolves the params ({@link Params}) for the robot config chosen above, then declares every
      * param so all of them are resolved, logged and on NT before the first enable. The simulator
      * has no local folder unless {@code FM_PARAMS_LOCAL} names one; replay has none, since it runs
-     * on the logged values. Live tuning only in {@link Constants#TUNING_MODE}.
+     * on the logged values. Live tuning only in {@link Constants#TUNING_MODE}. The swerve offsets
+     * are declared here rather than in {@link RobotParams}, since their defaults are this robot's,
+     * and must reach the config before the drivetrain is built.
      */
     private void startParams() {
         java.nio.file.Path local =
@@ -387,6 +390,7 @@ public class Robot extends SpectrumRobot {
                 local,
                 new NetworkTablesTransport(Params.NT_PREFIX));
         RobotParams.load();
+        SwerveOffsetParams.apply(config.swerve);
     }
 
     private final Alert mainThreadPriorityAlert = new Alert("", Level.MEDIUM);
@@ -620,6 +624,7 @@ public class Robot extends SpectrumRobot {
         RobotLoop.next();
         RuntimeInputs.update();
         Params.periodic();
+        SwerveOffsetParams.periodic();
         Telemetry.periodic();
         Alert.periodic();
         LogStorage.periodic();

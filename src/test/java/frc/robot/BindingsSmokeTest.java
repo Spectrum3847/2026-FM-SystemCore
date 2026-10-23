@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import frc.robot.subsystems.SuperStructure.WantedSuperState;
 import frc.spectrumLib.gamepads.Gamepad;
 import frc.spectrumLib.gamepads.GamepadLayout;
+import frc.spectrumLib.telemetry.RadioStatusRedactor;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -417,6 +418,25 @@ class BindingsSmokeTest {
         if (expect.onRelease() != null && released != expect.onRelease()) {
             out.add(key + ": after release " + released + ", expected " + expect.onRelease());
         }
+    }
+
+    /**
+     * Not a binding, but this is the test that boots the whole robot: the radio status redactor
+     * must be AdvantageKit's first data receiver, or a log file or dashboard gets the radio's Wi-Fi
+     * key hashes before it runs.
+     */
+    @Test
+    void theRadioStatusRedactorIsTheFirstDataReceiver() throws Exception {
+        var threadField = Logger.class.getDeclaredField("receiverThread");
+        threadField.setAccessible(true);
+        Object thread = threadField.get(null);
+        var receiversField = thread.getClass().getDeclaredField("dataReceivers");
+        receiversField.setAccessible(true);
+        List<?> receivers = (List<?>) receiversField.get(thread);
+        assertTrue(receivers.size() > 1, "receivers: " + receivers);
+        assertTrue(
+                receivers.get(0) instanceof RadioStatusRedactor,
+                "first receiver is " + receivers.get(0));
     }
 
     @Test

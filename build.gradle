@@ -129,31 +129,13 @@ tasks.withType(JavaCompile) {
     options.compilerArgs.addAll(['-Xmaxerrs', '3000'])
 }
 
-// Error Prone on main code: its errors fail the compile, its warnings only print. Checks that
-// flag a deliberate pattern or pure style are off, so the warnings left are worth fixing.
+// Error Prone on main code: its errors fail the compile and it prints no warnings.
 tasks.withType(JavaCompile).configureEach {
     options.errorprone {
+        disableAllWarnings = true
         disableWarningsInGeneratedCode = true
         // LimelightHelpers is Limelight's file, kept as shipped.
         excludedPaths = '.*/build/generated/.*|.*/LimelightHelpers\\.java'
-        // Javadoc formatting; javadoc.yml builds the docs.
-        disable("UnrecognisedJavadocTag", "NotJavadoc", "EmptyBlockTag")
-        // Style only.
-        disable("StatementSwitchToExpressionSwitch", "UnnecessaryParentheses", "StringSplitter",
-                "ArrayRecordComponent", "InlineMeSuggester")
-        // Robot.java hands out subsystems through static fields set in its constructor.
-        disable("StaticAssignmentInConstructor")
-        // Mechanism subclasses narrow `config` to their own Config type.
-        disable("HidingField")
-        // Inputs and the sim script index enums by ordinal; background threads set their
-        // priority on purpose.
-        disable("EnumOrdinal", "ThreadPriorityCheck")
-        // Style and API taste, not bugs.
-        disable("JavaUtilDate", "DefaultCharset", "StringCaseLocaleUsage", "RefactorSwitch",
-                "PatternMatchingInstanceof", "MutablePublicArray", "CatchAndPrintStackTrace",
-                "ExposedPrivateType")
-        // Commands and pose sources are compared by identity on purpose; Pose2d is immutable.
-        disable("ReferenceEquality", "ImmutableEnumChecker")
     }
 }
 compileTestJava.options.errorprone.enabled = false

@@ -404,7 +404,8 @@ used to, and pre-spinning with X (track target) before RT takes most of that awa
 - Leaving the launch state resets it: the next volley re-earns the start window.
 
 On the dashboard (Match and Shooting tabs): `Shot/Ready` (also lit while tracking with X, before
-RT) and `Shot/BlockedReason`: `None`, `NoShot`, `FlywheelNotReady`, `HoodNotReady`, `NotAimed`,
+RT) and `Shot/BlockedReason`: `None`, `NoShot`, `FlywheelNotReady`, `HoodNotZeroed` (see
+[Hood homing](#hood-homing-drivers-no-more-pushing-the-hood-down)), `HoodNotReady`, `NotAimed`,
 `InvalidShot` or `Settling`. Also logged: `Shot/Feeding`, `Shot/FeedReason`
 (`Ready`/`Override`/`Timeout`/`Held`), the errors against each target, and running counts.
 `tools/wpilog_summary.py` prints each launch, how long it was held and by what.
@@ -413,6 +414,41 @@ In the sim the flywheel runs 124 RPM over target (kS 20 A against no friction, k
 is why the flywheel tolerance is 150 and not the unused 100; the hood overshoots on Motion Magic,
 which is why its speed is checked. **CALIBRATE all of it from the first practice log**
 (`Shot/FlywheelErrorRPM`, `Shot/HoodErrorDeg`, `Shot/HeadingErrorDeg`, `Shot/SecondsHeld`).
+
+### Hood homing (drivers: no more pushing the hood down)
+
+**The hood homes itself at auto and teleop start; pushing it down before power-on is no longer
+needed.** FM used to take wherever the hood rested at boot as 9 deg. At TXMAN1 it did not always
+rest on its stop, and in four matches every hood angle read 2.5 to 11 deg low.
+
+Now the hood does not trust its angle until it has found the bottom stop
+([HoodHoming](src/main/java/frc/robot/subsystems/hood/HoodHoming.java)): it drives down at a small
+voltage until it stops moving, then sets its position to the stop. That runs at auto start, at
+teleop start unless it is already zeroed, and briefly each time the hood is sent home (stow, force
+home) and gets within 2 deg of the stop. After that re-home it rests on the stop in brake instead
+of holding a setpoint against it. It only moves while enabled.
+
+Until the first homing succeeds the hood holds in brake and refuses setpoints, and the shot gate
+reports `HoodNotZeroed` (its 1 s timeout still feeds). On the Match tab, **Hood Zeroed** is red
+until then; that is expected before the first enable. Logged as `Hood/Zeroed` and
+`Hood/HomingState` (`NotZeroed`, `Homing`, `Zeroed`, `TimedOut`). If an attempt runs 3 s without
+finding the stop, a "Hood homing timed out" alert goes up and the next auto or teleop start tries
+again.
+
+**CALIBRATE** (`HoodHoming.Params.fm()`): homing voltage -1.5 V, stalled under 4 deg/s for 0.2 s,
+timeout 3 s, re-home within 2 deg of home. Bench checklist, robot on blocks, AdvantageScope on
+`Hood/PositionDegrees`, `Hood/RPM`, `Hood/StatorCurrent`, `Hood/HomingState`:
+
+- [ ] Lift the hood to the top by hand (coast with A while disabled, then brake with B), enable
+      teleop. It must travel all the way to the stop and read `Zeroed`. Time it: well under the
+      3 s timeout. If it stalls part way, raise the voltage; if it slams the stop, lower it.
+- [ ] Check the stall current against the 60 A stator limit, and that the hood does not bounce
+      off the stop (a bounce under 4 deg/s for 0.2 s zeroes on the bounce).
+- [ ] With the hood on the stop, `Hood/PositionDegrees` reads 9.0. Check 9 deg against CAD or an
+      angle gauge; if the stop is not at 9 deg, change `stopDeg`.
+- [ ] Aim with X, release: the hood comes home, homes once (`Homing` for about 0.25 s), then sits
+      `Zeroed` with low current.
+- [ ] Unplug the hood's CAN, enable: it must not zero (`NotZeroed`, gate `HoodNotZeroed`).
 
 ### Set shots (fixed shots for when the pose is gone)
 
@@ -745,6 +781,7 @@ To add a page, make `pages/<name>/index.html` and `main.js`, and add it to `PAGE
       headset's QuestNav version ([QuestNavProtocol](src/main/java/frc/robot/subsystems/vision/QuestNavProtocol.java)).
 - [ ] **SystemCore camera mounts** (`VisionConfig.systemCoreCameras`): placeholders.
 - [ ] **Rio.java**: add the SystemCore's serial so it selects `FM2026` by identity (it defaults to FM anyway).
+- [ ] **Hood homing**: the [bench checklist](#hood-homing-drivers-no-more-pushing-the-hood-down).
 - [ ] **2026 NI Driver Station** (the event's FMS needs it) and a SystemCore image that matches
       WPILib alpha-6. Run the [controller bench test](#bench-test-ni-ds-about-5-minutes) on it.
 
@@ -757,7 +794,8 @@ To add a page, make `pages/<name>/index.html` and `main.js`, and add it to `PAGE
   over 2.8; a kicker roller FM does not have; a hood at 59.4:1 on a different CAN ID). Candidates to
   bring over with bench time: extension tooth-skip RESYNC, clamp-past-max and hold-when-retracted
   (`b25ec09`, `d3bd875`), current-aware agitate and unjam modes (`5b6cfca`), and the hood's
-  stop-at-home-rest fix for the 75 A stall (offseason `Hood.homeRestToleranceDegrees`).
+  stop-at-home-rest fix for the 75 A stall (offseason `Hood.homeRestToleranceDegrees`; FM now rests
+  on the stop in brake after each stow re-home, which covers the same case).
 
 - Offseason Vision's placement-heading vote and two-camera consensus heading correction are not
   ported (they are tied to that bot's camera layout).

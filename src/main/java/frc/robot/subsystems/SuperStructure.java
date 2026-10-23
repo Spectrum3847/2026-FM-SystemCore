@@ -244,6 +244,7 @@ public class SuperStructure extends SubsystemBase {
                                 hood.getPositionDegrees(),
                                 hood.getVelocityRPM() * 6.0, // mechanism RPM to deg/s
                                 hood.getShotTargetDegrees(),
+                                hood.isZeroed(),
                                 checkAim,
                                 headingError,
                                 aimTolerance,

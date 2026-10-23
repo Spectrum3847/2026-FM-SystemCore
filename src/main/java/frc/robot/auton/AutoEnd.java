@@ -2,6 +2,7 @@ package frc.robot.auton;
 
 import frc.spectrumLib.telemetry.Telemetry;
 import java.util.Optional;
+import java.util.function.Consumer;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.CommandScheduler;
 import org.wpilib.driverstation.MatchState;
@@ -14,8 +15,8 @@ import org.wpilib.system.Timer;
  * was disabled.
  *
  * <p>The scheduler's finish and interrupt callbacks run on the main thread inside the scheduler,
- * and every input the reason reads (the Driver Station's enable, E-stop, FMS and match time) is an
- * AdvantageKit input, so a replayed log gives the same reason.
+ * and every input the reason reads (the Driver Station's enable, E-stop, FMS, DS attached and match
+ * time) is an AdvantageKit input, so a replayed log gives the same reason.
  */
 public final class AutoEnd {
 
@@ -40,7 +41,18 @@ public final class AutoEnd {
         DISABLED_BY_FMS_EARLY,
         /** Disabled from a Driver Station with no field attached. */
         DISABLED_BY_DS,
+        /** Disabled because the Driver Station stopped talking to the robot (a comms drop). */
+        DS_DISCONNECTED,
     }
+
+    /**
+     * How an auto ended, as logged.
+     *
+     * @param reason why
+     * @param interruptedBy the command that interrupted it, or empty
+     * @param seconds how long it ran
+     */
+    public record Ended(Reason reason, String interruptedBy, double seconds) {}
 
     /**
      * Match time below which a disable is the period running out. The field counts match time in
@@ -53,6 +65,7 @@ public final class AutoEnd {
     private double startSeconds;
     private double timeLimitSeconds = Double.POSITIVE_INFINITY;
     private boolean timedOut;
+    private Consumer<Ended> listener;
 
     @SuppressWarnings("ReferenceEquality") // the scheduled instance, not an equal command
     public AutoEnd() {
@@ -76,6 +89,15 @@ public final class AutoEnd {
                         ended(true, interruptor);
                     }
                 });
+    }
+
+    /**
+     * Sets the one listener told when an auto ends, on the main thread, after it is logged.
+     *
+     * @param listener told the reason, the interrupting command and the elapsed time
+     */
+    public void onEnded(Consumer<Ended> listener) {
+        this.listener = listener;
     }
 
     /**
@@ -106,6 +128,7 @@ public final class AutoEnd {
                         RobotState.isEnabled(),
                         RobotState.isEStopped(),
                         RobotState.isFMSAttached(),
+                        RobotState.isDSAttached(),
                         MatchState.getMatchTime());
         String by = interruptor.map(Command::getName).orElse("");
         Telemetry.log("Auton/EndReason", reason.name());
@@ -116,6 +139,9 @@ public final class AutoEnd {
                         "*** Auton %s ended: %s%s after %.2f s ***",
                         auto.getName(), reason, by.isEmpty() ? "" : " by " + by, seconds));
         auto = null;
+        if (listener != null) {
+            listener.accept(new Ended(reason, by, seconds));
+        }
     }
 
     /**
@@ -127,6 +153,7 @@ public final class AutoEnd {
      * @param enabled the robot is enabled this loop
      * @param eStopped the robot is E-stopped
      * @param fmsAttached a field is attached
+     * @param dsAttached a Driver Station is talking to the robot
      * @param matchTime seconds left in the period, negative when the DS has no match timer
      * @return the reason
      */
@@ -137,6 +164,7 @@ public final class AutoEnd {
             boolean enabled,
             boolean eStopped,
             boolean fmsAttached,
+            boolean dsAttached,
             double matchTime) {
         if (!interrupted) {
             return Reason.FINISHED;
@@ -149,6 +177,10 @@ public final class AutoEnd {
         }
         if (enabled) {
             return timedOut ? Reason.TIMED_OUT : Reason.CANCELLED;
+        }
+        // Before the match time and FMS flag: with no Driver Station they say nothing about why.
+        if (!dsAttached) {
+            return Reason.DS_DISCONNECTED;
         }
         if (matchTime >= 0 && matchTime < END_OF_PERIOD_MATCH_TIME) {
             return Reason.END_OF_PERIOD;

@@ -358,6 +358,7 @@ public class Robot extends SpectrumRobot {
         for (PoseSource s : vision.getAllSources()) {
             matchSummary.addVisionSource(s.getName(), s::getAcceptedCount, s::getRejectedCount);
         }
+        auton.onAutoEnded(e -> matchSummary.autoEnded(e.reason().name(), e.seconds()));
     }
 
     /**
@@ -997,8 +998,7 @@ public class Robot extends SpectrumRobot {
         }
         try {
             auton.init();
-            Command autoCommand = auton.getAutonomousCommand();
-            matchSummary.autoStarted(runningAuto, autoCommand::isScheduled);
+            matchSummary.autoStarted(runningAuto);
         } catch (Throwable t) {
             CrashTracker.logThrowableCrash(t);
             throw t;

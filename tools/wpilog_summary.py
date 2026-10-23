@@ -159,6 +159,26 @@ def main():
         if vals:
             print(f"{key}: final {vals[-1][1]}")
     shot_summary(records, types)
+    match_summary(records, types)
+
+
+def match_summary(records, types):
+    """The robot's own match summary: the last value of every Summary/ key (docs/match-summary.md)."""
+    rows = []
+    for k in sorted(records):
+        for prefix in ("/RealOutputs/Summary/", "/ReplayOutputs/Summary/"):
+            if k.startswith(prefix):
+                vals = [v for _, v in series(records, types, k) if v is not None]
+                if vals:
+                    rows.append((prefix.split("/")[1][:-7] + " " + k[len(prefix):], vals[-1]))
+    if not rows:
+        return
+    print()
+    print("Match summary (last values):")
+    for name, v in rows:
+        if isinstance(v, float):
+            v = f"{v:.3f}"
+        print(f"  {name}: {v}")
 
 
 def shot_summary(records, types):

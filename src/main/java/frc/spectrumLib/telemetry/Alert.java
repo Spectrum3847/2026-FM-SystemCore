@@ -45,6 +45,20 @@ public class Alert extends org.wpilib.driverstation.Alert {
     private static volatile boolean dirty = true;
 
     /**
+     * Told when an alert turns on, for {@link MatchSummary}. Called from {@link #periodic()}, so an
+     * alert that code clears and sets again within one loop is not a new one.
+     */
+    private static java.util.function.BiConsumer<Level, String> raisedListener;
+
+    /** Whether this alert was on at the last {@link #periodic()}. */
+    private boolean reported;
+
+    /** Sets the one listener told when an alert turns on, with its level and text. */
+    static void setRaisedListener(java.util.function.BiConsumer<Level, String> listener) {
+        raisedListener = listener;
+    }
+
+    /**
      * Creates an alert in the default group.
      *
      * @param text the text shown while active
@@ -122,6 +136,13 @@ public class Alert extends org.wpilib.driverstation.Alert {
             return; // The log and NetworkTables keep the last published values.
         }
         dirty = false;
+        var listener = raisedListener;
+        for (Alert a : ALL) {
+            if (a.active && !a.reported && listener != null) {
+                listener.accept(a.level, a.text);
+            }
+            a.reported = a.active;
+        }
         String[] e = active(Level.HIGH);
         String[] w = active(Level.MEDIUM);
         String[] i = active(Level.LOW);

@@ -8,6 +8,7 @@ import java.util.List;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
+import org.wpilib.driverstation.MatchType;
 import org.wpilib.hardware.hal.AllianceStationID;
 import org.wpilib.hardware.hal.RobotMode;
 import org.wpilib.math.geometry.Pose2d;
@@ -38,7 +39,8 @@ import org.wpilib.system.Timer;
  * <p>With {@code FM_SIM_EXIT=1} as well, the program closes the log and exits once the script is
  * done, so a scripted run can be the whole of a command line. With {@code
  * FM_SIM_REBOOT=Hood@9,IntakeExtension@12}, those mechanisms' motors reboot at those script
- * seconds, as in a brownout.
+ * seconds, as in a brownout. With {@code FM_SIM_MATCH=Q12} (or {@code P3}, {@code E5}), the Driver
+ * Station reports that FMS match, so the end of teleop writes the match summary file.
  */
 public final class SimScript {
     private SimScript() {}
@@ -247,6 +249,7 @@ public final class SimScript {
             DriverStationSim.setAllianceStationId(AllianceStationID.BLUE_1);
             DriverStationSim.setRobotMode(RobotMode.TELEOPERATED);
             DriverStationSim.setEnabled(false);
+            fakeMatch();
             // Back to the blue hub, 2.5 m out: the back Limelight looks straight at a hub face,
             // enough tags for the disabled seed to confirm.
             var hub = Field.getBlueHubCenter();
@@ -338,6 +341,7 @@ public final class SimScript {
             DriverStationSim.setAllianceStationId(AllianceStationID.BLUE_1);
             DriverStationSim.setRobotMode(RobotMode.AUTONOMOUS);
             DriverStationSim.setEnabled(false);
+            fakeMatch();
             org.wpilib.networktables.NetworkTableInstance.getDefault()
                     .getTable("SmartDashboard")
                     .getSubTable("Auto Chooser")
@@ -353,6 +357,27 @@ public final class SimScript {
         // picked up at the top of a loop and are not affected.
         DriverStationSim.notifyNewData();
         exitWhenDone(t, 6.0 + AUTO_SECONDS);
+    }
+
+    /**
+     * Match type and number from {@code FM_SIM_MATCH} (e.g. {@code Q12}), as the FMS would send.
+     * Leaves the FMS-attached flag alone, so nothing else changes behavior.
+     */
+    private static void fakeMatch() {
+        String spec = System.getenv("FM_SIM_MATCH");
+        if (spec == null || spec.length() < 2) {
+            return;
+        }
+        MatchType type =
+                switch (Character.toUpperCase(spec.charAt(0))) {
+                    case 'P' -> MatchType.PRACTICE;
+                    case 'Q' -> MatchType.QUALIFICATION;
+                    case 'E' -> MatchType.ELIMINATION;
+                    default -> MatchType.NONE;
+                };
+        DriverStationSim.setEventName("SIM");
+        DriverStationSim.setMatchType(type);
+        DriverStationSim.setMatchNumber(Integer.parseInt(spec.substring(1)));
     }
 
     private static double lastRebootCheck = -1;

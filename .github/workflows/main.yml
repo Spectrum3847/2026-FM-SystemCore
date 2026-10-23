@@ -43,6 +43,22 @@ jobs:
       - name: Compile and run tests on robot code
         run: ./gradlew build
 
+  # Tuning mode lets dashboards change robot values; main must never have it on.
+  tuning-mode:
+    if: github.event_name == 'push' || github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: TUNING_MODE is false
+        run: |
+          if ! grep -Eq '^ *public static final boolean TUNING_MODE = false;' src/main/java/frc/robot/Constants.java; then
+            echo "::error file=src/main/java/frc/robot/Constants.java::TUNING_MODE must be false to merge to main"
+            exit 1
+          fi
+
   # Each scripted sim runs in real time, then tools/ci_assert.py checks its log.
   sim:
     runs-on: ubuntu-latest

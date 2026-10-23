@@ -7,7 +7,8 @@ Usage:
 LOG is the run's .wpilog, CONSOLE its captured console output. Checks:
   - the console shows no uncaught exception or stack trace, and the script ran to its end;
   - with --auto, every path the auto started was followed to its end before autonomous ended;
-  - the fused pose's error against the sim's true pose, once the vision seed is confirmed;
+  - the fused pose's error against the sim's true pose, once the vision seed is confirmed and
+    outside the moment after the script places the robot;
   - the share of loops that overran by 25% (SystemLoadMonitor's definition).
 """
 
@@ -18,12 +19,15 @@ import sys
 
 from wpilog_summary import read_wpilog, series
 
-# Measured on GitHub's ubuntu-latest runners (drive, shoot, auto). See README "CI".
+# About twice the worst of drive, shoot and auto on ubuntu-latest: p95 0.073 m, max 0.090 m,
+# overruns 1.3% (mostly startup loops).
 MAX_FUSED_ERROR_P95_M = 0.15
-MAX_FUSED_ERROR_M = 0.60
-MAX_OVERRUN_SHARE = 0.10
+MAX_FUSED_ERROR_M = 0.30
+MAX_OVERRUN_SHARE = 0.05
 OVERRUN_FACTOR = 1.25
 PATH_END_TOLERANCE_M = 0.30
+# The fused pose takes about 0.1 s to follow the robot when the script teleports it.
+PLACE_SETTLE_S = 0.25
 
 CRASH = re.compile(
     r"Unhandled exception|quit unexpectedly|Exception in thread|^\s+at [\w$.<>/]+\(.*\)\s*$"
@@ -108,8 +112,10 @@ def check_fused_error(records, types):
     # Disabled after the script, the sim puts the robot back on the auto's start pose.
     windows = enabled_windows(records, types)
     end = windows[-1][1] if windows else math.inf
+    placed = [t for t, v in series(records, types, "SimScript/PlaceRobot") if v]
     errs = [v for t, v in series(records, types, "Localization/FusedErrorVsTruthMeters")
-            if seeded[0] <= t < end and v is not None and not math.isnan(v)]
+            if seeded[0] <= t < end and v is not None and not math.isnan(v)
+            and not any(p <= t < p + PLACE_SETTLE_S for p in placed)]
     if not errs:
         return False, "no FusedErrorVsTruthMeters after the seed"
     p95 = statistics.quantiles(errs, n=20)[-1] if len(errs) > 1 else errs[0]

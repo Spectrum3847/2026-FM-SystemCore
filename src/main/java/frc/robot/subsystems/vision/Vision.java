@@ -120,12 +120,6 @@ public class Vision implements Subsystem {
                         .withTranslation(0.0084, 0.3337, 0.5004)
                         .withRotation(0, 20, -84.5);
 
-        /**
-         * Whether to push the mounts above to the cameras, so a reflashed or swapped camera still
-         * gets the right mount.
-         */
-        @Getter final boolean pushLimelightMounts = true;
-
         @Getter final int tagPipeline = 0;
 
         // -- SystemCore's built-in cameras (CALIBRATE: placeholder mounts) ------
@@ -323,9 +317,6 @@ public class Vision implements Subsystem {
             org.wpilib.math.filter.Debouncer debounce) {}
 
     private final List<CameraAlert> cameraAlerts = new ArrayList<>();
-
-    /** Quest battery below this percentage raises an alert (1425 uses 20). */
-    private static final double QUEST_LOW_BATTERY_PERCENT = 20;
 
     private final Alert questBatteryAlert = new Alert("", Level.MEDIUM);
 
@@ -1146,26 +1137,20 @@ public class Vision implements Subsystem {
     // Outputs to devices
     // =========================================================================
 
-    /**
-     * How often the settings the robot owns (IMU mode, and the mount poses when {@link
-     * VisionConfig#pushLimelightMounts} is on) are re-sent. A Limelight that boots after the robot,
-     * or reboots mid-match, comes back in IMU mode 0 and on whatever mount was last saved to it; in
-     * mode 0 its MegaTag2 poses are garbage, and FM fuses MegaTag2 once the seed is confirmed.
-     * Offseason 71dc7a7.
-     */
-    private static final double SETTINGS_RESEND_PERIOD_SECS = 2.0;
-
     private double lastSettingsSendSeconds = Double.NEGATIVE_INFINITY;
 
-    /** Sends each Limelight its IMU mode (and mount), at most every resend period. */
+    /**
+     * Sends each Limelight its IMU mode (and mount), at most every {@link
+     * CameraParams#SETTINGS_RESEND_PERIOD_SECONDS}.
+     */
     private void sendCameraSettings(double now) {
-        if (now - lastSettingsSendSeconds < SETTINGS_RESEND_PERIOD_SECS) {
+        if (now - lastSettingsSendSeconds < CameraParams.SETTINGS_RESEND_PERIOD_SECONDS.get()) {
             return;
         }
         lastSettingsSendSeconds = now;
         for (Limelight ll : limelights) {
             ll.setIMUmode(1);
-            if (config.pushLimelightMounts) {
+            if (CameraParams.PUSH_LIMELIGHT_MOUNTS.get()) {
                 ll.pushConfiguredCameraPose();
             }
         }
@@ -1246,7 +1231,9 @@ public class Vision implements Subsystem {
         double battery = health.length > 2 ? health[2] : -1;
         questBatteryAlert.setText(String.format("Quest battery low: %.0f%%", battery));
         questBatteryAlert.set(
-                questSource.isConnected() && battery >= 0 && battery < QUEST_LOW_BATTERY_PERCENT);
+                questSource.isConnected()
+                        && battery >= 0
+                        && battery < CameraParams.QUEST_LOW_BATTERY_PERCENT.get());
     }
 
     private void logStatus(boolean disabled, boolean useMt2) {
@@ -1316,15 +1303,6 @@ public class Vision implements Subsystem {
         }
         return false;
     }
-
-    /** End of auto: auto's 20 s plus a few seconds either side. */
-    public static final double AUTO_REWIND_SECONDS = 25;
-
-    /**
-     * End of teleop: the most a Limelight keeps. Teleop's 140 s plus the gap after auto, so it also
-     * reaches back into the end of auto.
-     */
-    public static final double TELEOP_REWIND_SECONDS = 165;
 
     /**
      * Saves the last {@code seconds} of the rewind buffer of each FM Limelight: video plus every

@@ -1,0 +1,7 @@
+{
+  "autoRewindSeconds": 25,
+  "teleopRewindSeconds": 165,
+  "questLowBatteryPercent": 20,
+  "settingsResendPeriodSeconds": 2.0,
+  "pushLimelightMounts": true
+}

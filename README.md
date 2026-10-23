@@ -776,6 +776,17 @@ To add a page, make `pages/<name>/index.html` and `main.js`, and add it to `PAGE
 `lib/ui.js`. Libraries go in `vendor/` as single files. Tests run with
 `node --test tools/app-test/*.test.mjs`, in CI and locally.
 
+## Params
+
+Tuned values that should survive a deploy live in JSON, not Java: `src/main/deploy/params/<group>.json`,
+optionally `params/robots/<robot>/<group>.json` (the robot is the config class, `FM2026` by default),
+then the robot's own `/home/systemcore/params/<group>.json`, which a deploy does not wipe. Each value
+is declared in code (`spectrumLib/params`), and the log records what it was and which file it came
+from under `Params/`. A bad file raises an alert and is skipped. So far only the `cameras` group
+(Limelight rewind lengths, the Quest battery alert, the settings resend period and
+`pushLimelightMounts`, in `CameraParams`) uses it. In the simulator, values can be changed live under
+`/Tuning/` while disabled; `FM_PARAMS_LOCAL=<folder>` gives the simulator a local folder to save to.
+
 ## Before the event: calibrate and check
 
 - [ ] **CAN wiring** matches `CanBuses` (`USE_CANIVORE` and the port table above). With a CANivore:

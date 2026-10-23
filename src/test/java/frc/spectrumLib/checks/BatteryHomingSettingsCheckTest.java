@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import frc.spectrumLib.checks.CheckResult.Status;
 import frc.spectrumLib.checks.HomingCheck.State;
+import java.util.OptionalDouble;
 import org.junit.jupiter.api.Test;
 
 class BatteryHomingSettingsCheckTest {
@@ -73,6 +74,45 @@ class BatteryHomingSettingsCheckTest {
                 r.reason());
         identity = new BatteryCheck.Identity("1234ABCD", "D7A89B9E");
         assertEquals(Status.PASS, batteryAfter(0.1).status());
+    }
+
+    private CheckResult after(BatteryCheck check, double seconds) {
+        for (double t = 0; t < seconds; t += 0.02) {
+            check.observe(now);
+            now += 0.02;
+        }
+        return check.evaluate(now);
+    }
+
+    @Test
+    void theCalibrationOffsetCorrectsTheReading() {
+        // This controller reads 0.4 V low: 11.6 V on it is a used pack, not a flat one.
+        BatteryCheck offset =
+                new BatteryCheck(
+                        () -> volts, OptionalDouble.of(0.4), () -> disabled, () -> identity);
+        volts = 11.6;
+        CheckResult r = after(offset, 4);
+        assertEquals(Status.WARN, r.status());
+        assertEquals("12.00 V at rest: not fully charged", r.reason());
+    }
+
+    @Test
+    void anUncalibratedRobotWarnsAtMost() {
+        BatteryCheck uncalibrated =
+                new BatteryCheck(
+                        () -> volts, OptionalDouble.empty(), () -> disabled, () -> identity);
+        volts = 11.5;
+        CheckResult r = after(uncalibrated, 4);
+        assertEquals(Status.WARN, r.status());
+        assertEquals(
+                "11.50 V at rest: swap the battery? (voltage reading not calibrated)", r.reason());
+        volts = 12.7;
+        assertEquals(
+                "12.70 V at rest (no battery ID reader, voltage reading not calibrated)",
+                after(uncalibrated, 1).reason());
+        // The same battery as last match is not a voltage question: still a FAIL.
+        identity = new BatteryCheck.Identity("D7A89B9E", "D7A89B9E");
+        assertEquals(Status.FAIL, after(uncalibrated, 1).status());
     }
 
     // -- Homing -------------------------------------------------------------------------------

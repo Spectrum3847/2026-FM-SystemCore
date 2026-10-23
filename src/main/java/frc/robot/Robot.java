@@ -133,6 +133,13 @@ public class Robot extends SpectrumRobot {
         public final LauncherConfig launcher = new LauncherConfig();
         public final HoodConfig hood = new HoodConfig();
         public final VisionConfig vision = new VisionConfig();
+
+        /**
+         * Added to the controller's battery reading to give the voltage at the battery terminals,
+         * measured with a meter on this robot. Empty until measured: the pre-match battery check
+         * then warns at most on voltage.
+         */
+        public java.util.OptionalDouble batteryVoltsOffset = java.util.OptionalDouble.empty();
     }
 
     @Getter private static Swerve swerve;
@@ -257,7 +264,7 @@ public class Robot extends SpectrumRobot {
             systemLoad = new SystemLoadMonitor();
             SystemLoadMonitor.threadCensus("systemLoad");
             autoStart = new AutoStartCheck(this::autoStartState);
-            preMatch = PreMatch.create(swerve, vision, hood, autoStart);
+            preMatch = PreMatch.create(swerve, vision, hood, autoStart, config.batteryVoltsOffset);
             addSummarySources();
 
             if (Constants.currentMode == Constants.Mode.SIM) {

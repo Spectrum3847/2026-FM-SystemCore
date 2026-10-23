@@ -148,6 +148,12 @@ tasks.withType(JavaCompile).configureEach {
         // Inputs and the sim script index enums by ordinal; background threads set their
         // priority on purpose.
         disable("EnumOrdinal", "ThreadPriorityCheck")
+        // Style and API taste, not bugs.
+        disable("JavaUtilDate", "DefaultCharset", "StringCaseLocaleUsage", "RefactorSwitch",
+                "PatternMatchingInstanceof", "MutablePublicArray", "CatchAndPrintStackTrace",
+                "ExposedPrivateType")
+        // Commands and pose sources are compared by identity on purpose; Pose2d is immutable.
+        disable("ReferenceEquality", "ImmutableEnumChecker")
     }
 }
 compileTestJava.options.errorprone.enabled = false

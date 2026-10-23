@@ -389,8 +389,12 @@ tab. `python tools/wpilog_summary.py <log>` lists every change of verdict. The s
 needs a battery ID reader, which FM doesn't have, so it is skipped.
 
 Before each event, set the event's field (AndyMark or Welded) in
-[Event.java](src/main/java/frc/robot/Event.java). The Settings check warns while the layout vision
-loads (`Vision.TAG_FIELD`, which the Limelights and the Jetson must match) is not that field.
+[Event.java](src/main/java/frc/robot/Event.java). Vision solves with it, and the Limelights and the
+Jetson must match it. Its name and canonical hash
+([FieldMapHash](src/main/java/frc/spectrumLib/vision/FieldMapHash.java)) are logged inputs
+(`Vision/FieldMap/Name`, `Hash`), so a replay re-solves the Orin frames with the match's field even
+after `Event` has changed. A log without them (before October 2026) replays with `Event`'s field and
+raises a warning that the replay may differ; `Vision/FieldMap/Solving` shows which field a run used.
 
 ## Tilt and knocks (Pigeon)
 

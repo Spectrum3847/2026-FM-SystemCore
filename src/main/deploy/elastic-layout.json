@@ -508,14 +508,14 @@
             }
           },
           {
-            "title": "Auto",
+            "title": "GyroMount",
             "x": 0,
             "y": 512,
             "width": 256,
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/Auto/Status",
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/GyroMount/Status",
               "period": 0.1,
               "data_type": "string",
               "show_submit_button": false
@@ -529,6 +529,34 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/GyroMount/Reason",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Auto",
+            "x": 896,
+            "y": 128,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/Auto/Status",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "why",
+            "x": 1152,
+            "y": 128,
+            "width": 640,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
               "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/Auto/Reason",
               "period": 0.1,
               "data_type": "string",
@@ -538,7 +566,7 @@
           {
             "title": "Battery",
             "x": 896,
-            "y": 128,
+            "y": 256,
             "width": 256,
             "height": 128,
             "type": "Text Display",
@@ -552,7 +580,7 @@
           {
             "title": "why",
             "x": 1152,
-            "y": 128,
+            "y": 256,
             "width": 640,
             "height": 128,
             "type": "Text Display",
@@ -566,7 +594,7 @@
           {
             "title": "Coprocessors",
             "x": 896,
-            "y": 256,
+            "y": 384,
             "width": 256,
             "height": 128,
             "type": "Text Display",
@@ -580,7 +608,7 @@
           {
             "title": "why",
             "x": 1152,
-            "y": 256,
+            "y": 384,
             "width": 640,
             "height": 128,
             "type": "Text Display",
@@ -594,7 +622,7 @@
           {
             "title": "Settings",
             "x": 896,
-            "y": 384,
+            "y": 512,
             "width": 256,
             "height": 128,
             "type": "Text Display",
@@ -608,7 +636,7 @@
           {
             "title": "why",
             "x": 1152,
-            "y": 384,
+            "y": 512,
             "width": 640,
             "height": 128,
             "type": "Text Display",

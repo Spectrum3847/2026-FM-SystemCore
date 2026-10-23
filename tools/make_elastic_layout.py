@@ -264,7 +264,7 @@ diagnostics = [
 ]
 
 # PreMatch.java's checks, in its order.
-PREMATCH_CHECKS = ["CAN", "Homing", "CameraHeading", "Auto", "Battery", "Coprocessors", "Settings"]
+PREMATCH_CHECKS = ["CAN", "Homing", "CameraHeading", "GyroMount", "Auto", "Battery", "Coprocessors", "Settings"]
 
 pre_match_checks = [
     light("GO", out("PreMatch/Go"), 0, 0),

@@ -1,11 +1,16 @@
 package frc.spectrumLib.localization;
 
+import frc.spectrumLib.checks.Check;
+import frc.spectrumLib.checks.CheckResult;
+import java.util.ArrayList;
+import java.util.List;
 import org.wpilib.math.util.MathUtil;
 
 /**
  * Checks, from logged inputs, that the gyros are mounted the way the code is told, against the
- * drivetrain's own wheel motion. Each check waits for enough evidence, then holds a verdict that
- * the caller logs and alerts on.
+ * drivetrain's own wheel motion. Each check waits for enough evidence, then holds a verdict. As a
+ * pre-match {@link Check}, a reversed yaw sense fails, any other wrong mount warns, and a robot
+ * that has not driven enough since boot to judge anything is skipped.
  *
  * <ul>
  *   <li><b>Pigeon level:</b> at rest, mount-corrected pitch and roll near 0.
@@ -22,8 +27,14 @@ import org.wpilib.math.util.MathUtil;
  * wheels is never called wrong. Rests count only shortly after such driving, so the robot is on the
  * floor. A check reads wrong only on clear contrary evidence: a reversed yaw, a consistent
  * acceleration direction far from the wheels', a pitch, roll or gravity axis a mount error away.
+ *
+ * <p>Each rest is judged on its own, and a rest-based check reads wrong only when every rest does.
+ * A mount error tilts every rest alike, while a robot tipped on a bump or lifted with its wheels
+ * still tilts only that rest.
+ *
+ * <p>Call {@link #update} every loop, enabled or not: most evidence comes from driving.
  */
-public final class ImuMountCheck {
+public final class ImuMountCheck implements Check {
 
     public enum Verdict {
         UNKNOWN,
@@ -47,7 +58,12 @@ public final class ImuMountCheck {
     /** One full turn of evidence before judging a yaw sense. */
     static final double TURN_EVIDENCE_RADIANS = 2 * Math.PI;
 
-    /** Wheels scrub while pushed or aiming, so a match reads about half the wheels' rate. */
+    /**
+     * Wheels scrub while pushed or aiming, so a match reads about half the wheels' rate. The gain
+     * is measured only over samples where the gyro also turns faster than {@link
+     * #GYRO_TURNING_RATE}, which leaves out samples of a gyro barely turning; this threshold
+     * assumes that gate, so changing {@code GYRO_TURNING_RATE} changes what it means.
+     */
     static final double MIN_YAW_GAIN = 0.3;
 
     static final double HARD_ACCEL = 2.0;
@@ -83,6 +99,9 @@ public final class ImuMountCheck {
     static final double FLAT_Z_SHARE = 0.9;
 
     static final double VERTICAL_Z_SHARE = 0.3;
+
+    /** A rest whose accelerometer reads less than this (m/s^2) is not reading gravity at all. */
+    static final double MIN_GRAVITY = 0.5 * G;
 
     /**
      * One loop's readings.
@@ -171,20 +190,27 @@ public final class ImuMountCheck {
     }
 
     private final boolean imuFlat;
+    private final double pigeonMountYawDeg;
 
     private final YawSense pigeonYaw = new YawSense();
     private final YawSense imuYaw = new YawSense();
 
     private double lastGroundTime = Double.NEGATIVE_INFINITY;
 
+    // The rest under way, and the most level rest judged so far.
     private double pigeonRestTime = 0;
     private double pitchSum = 0;
     private double rollSum = 0;
+    private double levelTiltDeg = Double.POSITIVE_INFINITY;
+    private double levelPitchDeg = Double.NaN;
+    private double levelRollDeg = Double.NaN;
 
+    // The rest under way, and the rest closest to the mount setting judged so far.
     private double imuRestTime = 0;
     private double imuGx = 0;
     private double imuGy = 0;
     private double imuGz = 0;
+    private double bestZShare = Double.NaN;
 
     // Recent wheel velocities, for acceleration over ACCEL_WINDOW_SECONDS.
     private final double[] histTime = new double[128];
@@ -205,9 +231,11 @@ public final class ImuMountCheck {
 
     /**
      * @param imuFlat the onboard IMU's mount setting is flat (gravity on its Z), else vertical
+     * @param pigeonMountYawDeg the Pigeon's MountPoseYaw, for the reason a wrong forward gives
      */
-    public ImuMountCheck(boolean imuFlat) {
+    public ImuMountCheck(boolean imuFlat, double pigeonMountYawDeg) {
         this.imuFlat = imuFlat;
+        this.pigeonMountYawDeg = pigeonMountYawDeg;
     }
 
     public void update(Inputs in) {
@@ -219,7 +247,8 @@ public final class ImuMountCheck {
                         in.pigeonOk(), in.pigeonYaw(), in.time(), in.wheelsOk(), in.omega());
         turnedTogether |=
                 imuYaw.update(in.imuPresent(), in.imuYaw(), in.time(), in.wheelsOk(), in.omega());
-        boolean movedTogether = turnedTogether | updateForward(in, dt);
+        boolean feltTogether = updateForward(in, dt);
+        boolean movedTogether = turnedTogether || feltTogether;
         forwardVerdict = judgeForward();
         if (movedTogether) {
             lastGroundTime = in.time();
@@ -230,16 +259,50 @@ public final class ImuMountCheck {
                         && Math.hypot(in.vx(), in.vy()) < STILL_SPEED
                         && Math.abs(in.omega()) < STILL_TURN_RATE
                         && in.time() - lastGroundTime <= GROUND_RECENT_SECONDS;
-        if (still && in.pigeonOk()) {
+        if (still
+                && in.pigeonOk()
+                && Double.isFinite(in.pigeonPitchDeg())
+                && Double.isFinite(in.pigeonRollDeg())) {
             pigeonRestTime += dt;
             pitchSum += in.pigeonPitchDeg() * dt;
             rollSum += in.pigeonRollDeg() * dt;
+            if (pigeonRestTime >= REST_SECONDS) {
+                double pitch = pitchSum / pigeonRestTime;
+                double roll = rollSum / pigeonRestTime;
+                double tilt = Math.max(Math.abs(pitch), Math.abs(roll));
+                if (tilt < levelTiltDeg) {
+                    levelTiltDeg = tilt;
+                    levelPitchDeg = pitch;
+                    levelRollDeg = roll;
+                }
+            }
+        } else {
+            pigeonRestTime = 0;
+            pitchSum = 0;
+            rollSum = 0;
         }
-        if (still && in.imuPresent()) {
+        if (still
+                && in.imuPresent()
+                && Double.isFinite(in.imuAccelX())
+                && Double.isFinite(in.imuAccelY())
+                && Double.isFinite(in.imuAccelZ())) {
             imuRestTime += dt;
             imuGx += in.imuAccelX() * dt;
             imuGy += in.imuAccelY() * dt;
             imuGz += in.imuAccelZ() * dt;
+            double norm = Math.sqrt(imuGx * imuGx + imuGy * imuGy + imuGz * imuGz);
+            if (imuRestTime >= REST_SECONDS && norm / imuRestTime >= MIN_GRAVITY) {
+                double share = Math.abs(imuGz) / norm;
+                if (Double.isNaN(bestZShare)
+                        || (imuFlat ? share > bestZShare : share < bestZShare)) {
+                    bestZShare = share;
+                }
+            }
+        } else {
+            imuRestTime = 0;
+            imuGx = 0;
+            imuGy = 0;
+            imuGz = 0;
         }
     }
 
@@ -312,22 +375,21 @@ public final class ImuMountCheck {
         return imuYaw;
     }
 
+    /** Mean pitch over the most level rest; NaN before a rest. */
     public double pigeonRestPitchDeg() {
-        return pigeonRestTime > 0 ? pitchSum / pigeonRestTime : Double.NaN;
+        return levelPitchDeg;
     }
 
+    /** Mean roll over the most level rest; NaN before a rest. */
     public double pigeonRestRollDeg() {
-        return pigeonRestTime > 0 ? rollSum / pigeonRestTime : Double.NaN;
+        return levelRollDeg;
     }
 
     public Verdict pigeonLevel() {
-        if (pigeonRestTime < REST_SECONDS) {
+        if (Double.isInfinite(levelTiltDeg)) {
             return Verdict.UNKNOWN;
         }
-        return Math.abs(pigeonRestPitchDeg()) <= LEVEL_TOLERANCE_DEG
-                        && Math.abs(pigeonRestRollDeg()) <= LEVEL_TOLERANCE_DEG
-                ? Verdict.OK
-                : Verdict.WRONG;
+        return levelTiltDeg <= LEVEL_TOLERANCE_DEG ? Verdict.OK : Verdict.WRONG;
     }
 
     /** How far the Pigeon's X axis sits from the robot's forward, degrees CCW; NaN before data. */
@@ -358,19 +420,82 @@ public final class ImuMountCheck {
                 : Verdict.WRONG;
     }
 
-    /** Gravity's share on the onboard IMU's Z axis at rest, 0 to 1; NaN before data. */
+    /**
+     * Gravity's share on the onboard IMU's Z axis, 0 to 1, over the rest closest to its mount
+     * setting; NaN before a rest that read gravity.
+     */
     public double imuGravityZShare() {
-        double g = Math.sqrt(imuGx * imuGx + imuGy * imuGy + imuGz * imuGz);
-        return g > 0 ? Math.abs(imuGz) / g : Double.NaN;
+        return bestZShare;
     }
 
     public Verdict imuOrientation() {
-        if (imuRestTime < REST_SECONDS) {
+        if (Double.isNaN(bestZShare)) {
             return Verdict.UNKNOWN;
         }
-        double share = imuGravityZShare();
-        return (imuFlat ? share >= FLAT_Z_SHARE : share <= VERTICAL_Z_SHARE)
+        return (imuFlat ? bestZShare >= FLAT_Z_SHARE : bestZShare <= VERTICAL_Z_SHARE)
                 ? Verdict.OK
                 : Verdict.WRONG;
+    }
+
+    /**
+     * A reversed yaw sense fails: the heading, and so field-relative driving, turns the wrong way.
+     * Any other wrong mount warns, naming the setting to look at with the measured numbers.
+     */
+    @Override
+    public CheckResult evaluate(double nowSeconds) {
+        List<String> ok = new ArrayList<>();
+        List<String> warn = new ArrayList<>();
+        List<String> fail = new ArrayList<>();
+        if (judge(pigeonYaw.verdict(), "Pigeon yaw", ok)) {
+            fail.add(reversedYaw("Pigeon", pigeonYaw));
+        }
+        if (judge(imuYaw.verdict(), "onboard IMU yaw", ok)) {
+            fail.add(reversedYaw("onboard IMU", imuYaw));
+        }
+        if (judge(pigeonLevel(), "Pigeon level", ok)) {
+            warn.add(
+                    String.format(
+                            "Pigeon reads pitch %.0f deg, roll %.0f deg at rest (check"
+                                    + " MountPosePitch/Roll)",
+                            pigeonRestPitchDeg(), pigeonRestRollDeg()));
+        }
+        if (judge(pigeonForward(), "Pigeon forward", ok)) {
+            warn.add(
+                    String.format(
+                            "Pigeon forward is %.0f deg from the robot's (check MountPoseYaw, now"
+                                    + " %.0f deg)",
+                            pigeonForwardErrorDeg(), pigeonMountYawDeg));
+        }
+        if (judge(imuOrientation(), "onboard IMU orientation", ok)) {
+            warn.add(
+                    String.format(
+                            "onboard IMU has %.0f%% of gravity on Z at rest but is set %s",
+                            100 * imuGravityZShare(), imuFlat ? "flat" : "vertical"));
+        }
+        List<String> wrong = new ArrayList<>(fail);
+        wrong.addAll(warn);
+        if (!fail.isEmpty()) {
+            return CheckResult.fail(String.join("; ", wrong));
+        }
+        if (!warn.isEmpty()) {
+            return CheckResult.warn(String.join("; ", wrong));
+        }
+        if (ok.isEmpty()) {
+            return CheckResult.skip("not enough driving since boot");
+        }
+        return CheckResult.pass(String.join(", ", ok) + " OK");
+    }
+
+    /** Adds a name that read OK to {@code ok}; returns whether the verdict is WRONG. */
+    private static boolean judge(Verdict v, String name, List<String> ok) {
+        if (v == Verdict.OK) {
+            ok.add(name);
+        }
+        return v == Verdict.WRONG;
+    }
+
+    private static String reversedYaw(String gyro, YawSense sense) {
+        return String.format(
+                "%s yaw turns against the wheels (%.2fx their rate): reversed", gyro, sense.gain());
     }
 }

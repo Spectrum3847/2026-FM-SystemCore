@@ -1,7 +1,10 @@
 package frc.spectrumLib.localization;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import frc.spectrumLib.checks.CheckResult;
+import frc.spectrumLib.checks.CheckResult.Status;
 import frc.spectrumLib.localization.ImuMountCheck.Verdict;
 import java.util.ArrayDeque;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +36,7 @@ class ImuMountCheckTest {
 
     @BeforeEach
     void setUp() {
-        check = new ImuMountCheck(true);
+        check = new ImuMountCheck(true, 0);
         time = 10;
         heading = 0;
         pigeonTurnDeg = 0;
@@ -233,9 +236,87 @@ class ImuMountCheckTest {
         driveThenRest();
         assertEquals(Verdict.WRONG, check.imuOrientation());
 
-        check = new ImuMountCheck(false);
+        check = new ImuMountCheck(false, 0);
         driveThenRest();
         assertEquals(Verdict.OK, check.imuOrientation());
+    }
+
+    @Test
+    void aLongTippedRestAfterLevelRestsIsNotAMountError() {
+        driveThenRest();
+        accelerate();
+        rest(3);
+        spin();
+        // Tipped onto a bumper, or lifted, with the wheels still: much longer than the level rests.
+        pigeonRollDeg = 70;
+        imuGravity = new double[] {G * 0.94, 0, G * 0.34};
+        rest(40);
+        assertEquals(Verdict.OK, check.pigeonLevel());
+        assertEquals(0, check.pigeonRestRollDeg(), 1e-9);
+        assertEquals(Verdict.OK, check.imuOrientation());
+        assertEquals(1, check.imuGravityZShare(), 1e-9);
+    }
+
+    @Test
+    void aMountErrorReadsWrongInEveryRest() {
+        pigeonRollDeg = 70;
+        imuGravity = new double[] {G, 0, 0.3};
+        driveThenRest();
+        accelerate();
+        rest(10);
+        assertEquals(Verdict.WRONG, check.pigeonLevel());
+        assertEquals(Verdict.WRONG, check.imuOrientation());
+    }
+
+    @Test
+    void anImuReadingNoGravityIsNotJudged() {
+        imuGravity = new double[] {0, 0, 0};
+        driveThenRest();
+        assertEquals(Verdict.UNKNOWN, check.imuOrientation());
+        assertEquals(Double.NaN, check.imuGravityZShare());
+
+        check = new ImuMountCheck(true, 0);
+        imuGravity = new double[] {Double.NaN, Double.NaN, Double.NaN};
+        driveThenRest();
+        assertEquals(Verdict.UNKNOWN, check.imuOrientation());
+        // A rest that reads gravity again is judged.
+        imuGravity = new double[] {0, 0, G};
+        spin();
+        rest(3);
+        assertEquals(Verdict.OK, check.imuOrientation());
+    }
+
+    @Test
+    void preMatchSkipsWithoutDriving() {
+        rest(5);
+        assertEquals(Status.SKIP, check.evaluate(time).status());
+        assertEquals("not enough driving since boot", check.evaluate(time).reason());
+    }
+
+    @Test
+    void preMatchPassesCorrectMounts() {
+        driveThenRest();
+        CheckResult r = check.evaluate(time);
+        assertEquals(Status.PASS, r.status(), r.reason());
+    }
+
+    @Test
+    void preMatchWarnsOnAWrongForward() {
+        check = new ImuMountCheck(true, 0);
+        pigeonTurnDeg = 180;
+        driveThenRest();
+        CheckResult r = check.evaluate(time);
+        assertEquals(Status.WARN, r.status(), r.reason());
+        assertTrue(r.reason().contains("180 deg from the robot's"), r.reason());
+    }
+
+    @Test
+    void preMatchFailsOnAReversedYaw() {
+        pigeonYawSign = -1;
+        driveThenRest();
+        CheckResult r = check.evaluate(time);
+        assertEquals(Status.FAIL, r.status(), r.reason());
+        assertTrue(r.reason().startsWith("Pigeon yaw turns against the wheels"), r.reason());
     }
 
     @Test

@@ -276,7 +276,9 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                         ? new OnboardIMU(config.getOnboardImuMount())
                         : null;
         mountCheck =
-                new ImuMountCheck(config.getOnboardImuMount() == OnboardIMU.MountOrientation.FLAT);
+                new ImuMountCheck(
+                        config.getOnboardImuMount() == OnboardIMU.MountOrientation.FLAT,
+                        config.getPigeonConfigs().MountPose.MountPoseYaw);
         modulePositionSignals = new BaseStatusSignal[getModules().length * 2];
         for (int i = 0; i < getModules().length; i++) {
             modulePositionSignals[2 * i] = getModules()[i].getDriveMotor().getPosition(false);
@@ -585,15 +587,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
     /** Checks the Pigeon's and the onboard IMU's mount settings against the wheels. */
     private final ImuMountCheck mountCheck;
 
-    private final Alert[] mountAlerts = {
-        new Alert("Pigeon mount: pitch/roll", Level.MEDIUM),
-        new Alert("Pigeon mount: forward", Level.MEDIUM),
-        new Alert("Pigeon mount: yaw sense", Level.MEDIUM),
-        new Alert("Onboard IMU mount: yaw sense", Level.MEDIUM),
-        new Alert("Onboard IMU mount: orientation", Level.MEDIUM)
-    };
-    private final boolean[] mountWarned = new boolean[mountAlerts.length];
-
+    /** Runs every loop, enabled or not: most of the evidence comes from driving. */
     private void updateMountCheck() {
         int n = inputs.odometryYawRadians.length;
         boolean wheelsOk = !daqFailed;
@@ -620,44 +614,8 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                         inputs.onboardImuAccelY,
                         inputs.onboardImuAccelZ));
 
-        ImuMountCheck c = mountCheck;
-        reportMount(
-                0,
-                c.pigeonLevel(),
-                String.format(
-                        "Pigeon mount: reads pitch %.0f deg, roll %.0f deg at rest. Check"
-                                + " MountPosePitch/MountPoseRoll.",
-                        c.pigeonRestPitchDeg(), c.pigeonRestRollDeg()));
-        reportMount(
-                1,
-                c.pigeonForward(),
-                String.format(
-                        "Pigeon mount: its forward is %.0f deg from the robot's (accel vs wheels)."
-                                + " Check MountPoseYaw, now %.0f deg.",
-                        c.pigeonForwardErrorDeg(),
-                        config.getPigeonConfigs().MountPose.MountPoseYaw));
-        reportMount(
-                2,
-                c.pigeonYawSense().verdict(),
-                String.format(
-                        "Pigeon yaw turns against the wheels (%.2fx their rate): reversed.",
-                        c.pigeonYawSense().gain()));
-        reportMount(
-                3,
-                c.imuYawSense().verdict(),
-                String.format(
-                        "Onboard IMU yaw turns against the wheels (%.2fx their rate). Check"
-                                + " SwerveConfig.onboardImuMount.",
-                        c.imuYawSense().gain()));
-        reportMount(
-                4,
-                c.imuOrientation(),
-                String.format(
-                        "Onboard IMU: %.0f%% of gravity on its Z at rest, but onboardImuMount is"
-                                + " %s.",
-                        100 * c.imuGravityZShare(), config.getOnboardImuMount()));
-
         if (Telemetry.slowLogThisLoop()) {
+            ImuMountCheck c = mountCheck;
             String p = "Localization/MountCheck/";
             Logger.recordOutput(p + "Pigeon/Level", c.pigeonLevel().name());
             Logger.recordOutput(p + "Pigeon/RestPitchDeg", c.pigeonRestPitchDeg());
@@ -674,17 +632,9 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         }
     }
 
-    /** Raises the alert while a check reads wrong, and prints the first time it does. */
-    private void reportMount(int i, ImuMountCheck.Verdict verdict, String wrong) {
-        boolean bad = verdict == ImuMountCheck.Verdict.WRONG;
-        if (bad) {
-            mountAlerts[i].setText(wrong);
-            if (!mountWarned[i]) {
-                mountWarned[i] = true;
-                Telemetry.print(wrong, Telemetry.PrintPriority.HIGH);
-            }
-        }
-        mountAlerts[i].set(bad);
+    /** The gyro mount check, fed every loop, for the pre-match checks. */
+    public ImuMountCheck getMountCheck() {
+        return mountCheck;
     }
 
     /** The Pigeon's tilt state this loop. */

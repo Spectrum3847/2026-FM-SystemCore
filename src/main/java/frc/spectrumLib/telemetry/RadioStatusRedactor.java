@@ -34,7 +34,7 @@ public final class RadioStatusRedactor implements LogDataReceiver {
     static final String KEY = "RadioStatus/Status";
 
     /** What a status that cannot be parsed is replaced with. */
-    static final String UNPARSEABLE = "{}";
+    static final String UNPARSABLE = "{}";
 
     /** Fields logged as they are, at the top level and inside the network objects. */
     static final Set<String> ALLOWED =
@@ -107,18 +107,18 @@ public final class RadioStatusRedactor implements LogDataReceiver {
      * Returns the status JSON with only the allowed fields' values kept.
      *
      * @param json the radio's status JSON
-     * @return it, compact, with every other value blanked; {@value #UNPARSEABLE} if it does not
+     * @return it, compact, with every other value blanked; {@value #UNPARSABLE} if it does not
      *     parse as a JSON object
      */
     static String redact(String json) {
         try {
             JsonNode root = MAPPER.readTree(json);
             if (root == null || !root.isObject()) {
-                return UNPARSEABLE;
+                return UNPARSABLE;
             }
             return MAPPER.writeValueAsString(filter((ObjectNode) root));
         } catch (Exception e) {
-            return UNPARSEABLE;
+            return UNPARSABLE;
         }
     }
 

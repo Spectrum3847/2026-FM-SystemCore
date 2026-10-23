@@ -136,7 +136,7 @@ class RadioStatusRedactorTest {
                         "[{\"hashedWpaKey\":\"s3cret\"}]",
                         "\"s3cret\"",
                         "{\"ssid\":\"x\",\"psk\":\"s3cret\",}")) {
-            assertEquals(RadioStatusRedactor.UNPARSEABLE, RadioStatusRedactor.redact(in), in);
+            assertEquals(RadioStatusRedactor.UNPARSABLE, RadioStatusRedactor.redact(in), in);
         }
     }
 

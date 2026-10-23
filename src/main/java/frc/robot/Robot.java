@@ -57,6 +57,7 @@ import frc.spectrumLib.telemetry.DashboardReceiver;
 import frc.spectrumLib.telemetry.DsUploadReceiver;
 import frc.spectrumLib.telemetry.LogStorage;
 import frc.spectrumLib.telemetry.MatchSummary;
+import frc.spectrumLib.telemetry.RadioStatusRedactor;
 import frc.spectrumLib.telemetry.SystemLoadMonitor;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.telemetry.Telemetry.PrintPriority;
@@ -450,6 +451,9 @@ public class Robot extends SpectrumRobot {
                     default -> "Unknown";
                 });
 
+        // First, so no log file or dashboard ever gets the radio's Wi-Fi key hashes (replay too:
+        // older logs still carry them).
+        Logger.addDataReceiver(new RadioStatusRedactor());
         switch (Constants.currentMode) {
             case REAL:
                 // A USB stick if one is inserted (AdvantageKit's default /U/logs), otherwise the

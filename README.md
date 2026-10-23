@@ -92,6 +92,7 @@ Every PR runs, in parallel:
 | Job | What fails it |
 | --- | --- |
 | `build` | Spotless, a compile error (Error Prone's ERROR checks included) or a unit test. Error Prone warnings print but don't fail; the style-only checks are off in `build.gradle`. |
+| `build` (`simTest`) | `BindingsSmokeTest`: the whole robot booted headless in simulation, every pilot and operator input pressed alone, with LB, and LT with RT, disabled and in teleop. Fails if a press throws, if a binding in its table doesn't schedule its command or reach its wanted state, or if a lone button schedules something the table doesn't list. About 30 s; run it alone with `./gradlew simTest`. |
 | `sim (drive)`, `sim (shoot)`, `sim (auto)` | the scripted sim (`auto` is `TBTB Left`) crashing, not finishing its script, an auto path stopping short of its end before autonomous ends (being cut off by the end of autonomous is fine), the fused pose more than 0.15 m from the sim's truth at p95 (0.3 m worst) once the seed is confirmed, or more than 5% of loops overrunning by 25% ([tools/ci_assert.py](tools/ci_assert.py)) |
 | `replay` | the PR moving the fused pose (5 cm, 2°) or the shot gate's verdicts (10 loops) when a real match replays through it, against the base branch replaying the same log ([tools/replay_regression.py](tools/replay_regression.py)) |
 | `app` | the robot app's tests |
@@ -525,6 +526,9 @@ or let go within 0.08 s of LB counts as part of the chord, so bare unjam and tra
 0.08 s after the button goes down. A tap shorter than that still runs, 0.08 s late, for as long as
 it was held. Letting go of LB with X or A still held goes IDLE, then to the bare action once it
 has been held 0.08 s without LB.
+
+These tables are also `BINDINGS` in [BindingsSmokeTest](src/test/java/frc/robot/BindingsSmokeTest.java),
+which presses every input in simulation. Change a binding in both.
 
 ## Loop rate, logging and the dashboard
 

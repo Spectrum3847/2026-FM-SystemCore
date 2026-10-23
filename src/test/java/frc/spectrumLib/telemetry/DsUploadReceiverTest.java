@@ -57,10 +57,13 @@ class DsUploadReceiverTest {
     void chunksAppendAndTheFileAppearsWhenComplete() throws IOException {
         byte[] all = bytes(3000, 7);
         String base = "/upload/video/TXMAN1_Q34.mp4";
+        assertEquals(200, head(base).status()); // nothing yet; 404 is only for older robot code
+        assertEquals("0", head(base).headers().get("X-Received"));
         assertEquals(
                 200, put(base + "?offset=0&total=3000", Arrays.copyOfRange(all, 0, 1000)).status());
         assertFalse(new File(dir.toFile(), "TXMAN1_Q34.mp4").exists());
         assertEquals("1000", head(base).headers().get("X-Received"));
+        assertEquals("false", head(base).headers().get("X-Complete"));
         assertEquals(
                 200,
                 put(base + "?offset=1000&total=3000", Arrays.copyOfRange(all, 1000, 3000))
@@ -68,6 +71,7 @@ class DsUploadReceiverTest {
         File done = new File(dir.toFile(), "TXMAN1_Q34.mp4");
         assertArrayEquals(all, Files.readAllBytes(done.toPath()));
         assertFalse(new File(dir.toFile(), "TXMAN1_Q34.mp4.part").exists());
+        assertEquals("true", head(base).headers().get("X-Complete"));
         assertEquals(1, rx.filesCompleted());
     }
 
@@ -158,6 +162,19 @@ class DsUploadReceiverTest {
         byte[] bigger = bytes(800, 4); // the full file, sent again at the pit tether
         assertEquals(200, put("/dslog/" + DSLOG.replace(" ", "%20"), bigger).status());
         assertArrayEquals(bigger, Files.readAllBytes(dir.resolve(DSLOG)));
+    }
+
+    @Test
+    void aHeadReplyIsHeadersOnly() throws IOException {
+        String req =
+                "HEAD /upload/audio/a.m4a HTTP/1.1\r\nX-MatchReview-Token: " + TOKEN + "\r\n\r\n";
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        rx.handleConnection(
+                new ByteArrayInputStream(req.getBytes(StandardCharsets.ISO_8859_1)), out);
+        String reply = out.toString(StandardCharsets.ISO_8859_1);
+        assertTrue(reply.startsWith("HTTP/1.1 200 OK"), reply);
+        assertTrue(reply.contains("X-Received: 0"), reply);
+        assertTrue(reply.endsWith("\r\n\r\n"), reply);
     }
 
     @Test

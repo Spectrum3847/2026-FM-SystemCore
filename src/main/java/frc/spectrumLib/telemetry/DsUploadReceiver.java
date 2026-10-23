@@ -37,8 +37,9 @@ import org.wpilib.driverstation.Alert.Level;
  *
  * <ul>
  *   <li>{@code PUT /upload/<kind>/<name>?offset=<n>&total=<N>} appends one chunk.
- *   <li>{@code HEAD /upload/<kind>/<name>} returns {@code X-Received} (bytes so far), so a push cut
- *       off by the robot powering down resumes at the next pit tether.
+ *   <li>{@code HEAD /upload/<kind>/<name>} returns {@code X-Received} (bytes so far, 0 for none)
+ *       and {@code X-Complete}, so a push cut off by the robot powering down resumes at the next
+ *       pit tether. A 404 here means robot code without this protocol.
  *   <li>{@code PUT /dslog/<name>} takes a whole NI DS log in one body (the helper's first version).
  * </ul>
  *
@@ -197,6 +198,7 @@ public final class DsUploadReceiver {
         InputStream in = new BufferedInputStream(rawIn);
         String head = readHead(in);
         Reply reply;
+        boolean isHead = false;
         if (head == null) {
             reply = Reply.of(400, "{\"error\":\"bad request\"}");
         } else {
@@ -214,6 +216,7 @@ public final class DsUploadReceiver {
             if (start.length < 2) {
                 reply = Reply.of(400, "{\"error\":\"bad request line\"}");
             } else {
+                isHead = start[0].equals("HEAD");
                 try {
                     reply = handle(start[0], start[1], headers, in);
                 } catch (SocketTimeoutException e) {
@@ -231,7 +234,9 @@ public final class DsUploadReceiver {
         byte[] body = reply.body().getBytes(StandardCharsets.UTF_8);
         sb.append("Content-Length: ").append(body.length).append("\r\n\r\n");
         out.write(sb.toString().getBytes(StandardCharsets.UTF_8));
-        out.write(body);
+        if (!isHead) { // a HEAD reply is headers only
+            out.write(body);
+        }
         out.flush();
     }
 
@@ -314,7 +319,7 @@ public final class DsUploadReceiver {
             if (done.isFile()) {
                 return received(200, done.length(), true);
             }
-            return part.isFile() ? received(200, part.length(), false) : Reply.of(404, "{}");
+            return received(200, part.isFile() ? part.length() : 0, false);
         }
         if (!method.equals("PUT")) {
             return Reply.of(400, "{\"error\":\"PUT or HEAD only\"}");
@@ -381,7 +386,11 @@ public final class DsUploadReceiver {
     private static Reply received(int status, long bytes, boolean complete) {
         return new Reply(
                 status,
-                Map.of("X-Received", Long.toString(bytes)),
+                Map.of(
+                        "X-Received",
+                        Long.toString(bytes),
+                        "X-Complete",
+                        Boolean.toString(complete)),
                 "{\"received\":" + bytes + ",\"complete\":" + complete + "}");
     }
 

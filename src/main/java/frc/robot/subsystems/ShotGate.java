@@ -31,6 +31,8 @@ public final class ShotGate {
         NONE("None"),
         /** Nothing to shoot at: the flywheel is not on a shot (idle, intaking). */
         NO_SHOT("NoShot"),
+        /** The hood has not found its bottom stop since boot, so its angle means nothing. */
+        HOOD_NOT_ZEROED("HoodNotZeroed"),
         HOOD("HoodNotReady"),
         AIM("NotAimed"),
         RANGE("InvalidShot"),
@@ -113,6 +115,7 @@ public final class ShotGate {
      * @param hoodDeg measured hood angle
      * @param hoodDegPerSec measured hood speed
      * @param hoodTargetDeg hood angle the shot wants
+     * @param hoodZeroed the hood has homed since boot
      * @param checkAim whether heading votes (false when nothing is aiming the drivetrain: the set
      *     shot, where the driver aims, and the X-brake launch)
      * @param headingErrorRad fused heading minus the heading being held
@@ -129,6 +132,7 @@ public final class ShotGate {
             double hoodDeg,
             double hoodDegPerSec,
             double hoodTargetDeg,
+            boolean hoodZeroed,
             boolean checkAim,
             double headingErrorRad,
             double aimToleranceRad,
@@ -223,6 +227,8 @@ public final class ShotGate {
         Blocker strict = Blocker.NONE;
         if (!onShot) {
             strict = Blocker.NO_SHOT;
+        } else if (!in.hoodZeroed()) {
+            strict = Blocker.HOOD_NOT_ZEROED;
         } else if (!(hoodError <= tol.hoodStartDeg())
                 || !(Math.abs(in.hoodDegPerSec()) <= tol.hoodStartMaxDegPerSec())) {
             strict = Blocker.HOOD;
@@ -250,6 +256,7 @@ public final class ShotGate {
 
         boolean keep =
                 onShot
+                        && in.hoodZeroed()
                         && hoodError <= tol.hoodKeepDeg()
                         && (!in.checkAim()
                                 || headingError <= in.aimToleranceRad() * tol.aimKeepScale());

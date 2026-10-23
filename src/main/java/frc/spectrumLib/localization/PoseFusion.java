@@ -77,6 +77,15 @@ public class PoseFusion {
     private SwerveModulePosition[] lastPositions;
     private SwerveModulePosition[] lastRawPositions;
 
+    /**
+     * While the heading comes from the wheels, vision heading std-devs are divided by this. The
+     * estimator's odometry std-devs are fixed at construction, and shrinking the measurement's by k
+     * gives the same Kalman gain as growing the odometry's by k.
+     */
+    private static final double WHEEL_HEADING_STD_SCALE = 3.0;
+
+    private boolean wheelHeading = false;
+
     /** Ground truth pose in simulation; empty on a robot and in replay without it logged. */
     @Getter private Optional<Pose2d> truth = Optional.empty();
 
@@ -284,7 +293,8 @@ public class PoseFusion {
                     VecBuilder.fill(
                             r.stdDevs().xyMeters(),
                             r.stdDevs().xyMeters(),
-                            r.stdDevs().thetaRadians());
+                            r.stdDevs().thetaRadians()
+                                    / (wheelHeading ? WHEEL_HEADING_STD_SCALE : 1.0));
             shadowFor(name);
             shadowVision.get(name).add(measured, t, std, lastSampleTime);
             if (fuse) {
@@ -344,6 +354,11 @@ public class PoseFusion {
             shadow.resetPosition(lastGyro, lastPositions, pose);
         }
         tagEkf.reset(pose);
+    }
+
+    /** Whether the odometry heading is coming from the wheels, both gyros being out. */
+    public void setWheelHeading(boolean fromWheels) {
+        wheelHeading = fromWheels;
     }
 
     /** The fused robot pose. */

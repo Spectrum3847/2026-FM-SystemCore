@@ -26,6 +26,7 @@ import frc.robot.Constants;
 import frc.robot.Robot;
 import frc.spectrumLib.framework.RobotLoop;
 import frc.spectrumLib.hardware.CanConfigBudget;
+import frc.spectrumLib.localization.OdometryGuard;
 import frc.spectrumLib.localization.PoseFusion;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
@@ -45,6 +46,7 @@ import org.wpilib.driverstation.Alliance;
 import org.wpilib.driverstation.DriverStationErrors;
 import org.wpilib.driverstation.MatchState;
 import org.wpilib.hardware.hal.HALUtil;
+import org.wpilib.hardware.imu.OnboardIMU;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rectangle2d;
 import org.wpilib.math.geometry.Rotation2d;
@@ -52,6 +54,7 @@ import org.wpilib.math.geometry.Translation2d;
 import org.wpilib.math.kinematics.ChassisVelocities;
 import org.wpilib.math.kinematics.SwerveDriveOdometry;
 import org.wpilib.math.kinematics.SwerveModulePosition;
+import org.wpilib.math.util.MathUtil;
 import org.wpilib.math.util.Units;
 import org.wpilib.system.Notifier;
 import org.wpilib.system.RobotController;
@@ -184,6 +187,21 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
     private final double[] lastRawDistances = new double[4];
     private boolean haveDistances = false;
 
+    /** Keeps samples from disconnected or reset devices out of the pose. */
+    private final OdometryGuard odometryGuard;
+
+    /** Drive and steer position per module, refreshed each loop only for their status. */
+    private final BaseStatusSignal[] modulePositionSignals;
+
+    /** The backup gyro; null off the robot. */
+    private final OnboardIMU onboardImu;
+
+    private int lastFailedDaqs = 0;
+    private boolean haveFailedDaqs = false;
+
+    /** The last loop's heading came from the wheels, the gyros being out. */
+    private boolean wheelHeading = false;
+
     /** Module stator/supply currents: logged at 10 Hz, so 20 Hz frames are plenty. */
     private static final double MODULE_CURRENT_HZ = 20;
 
@@ -239,6 +257,22 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                         Rotation2d.kZero,
                         startPositions,
                         new double[] {0.1, 0.1, 0.1});
+
+        odometryGuard =
+                new OdometryGuard(
+                        new OdometryGuard.Settings(
+                                1.5 * config.getLinearSpeedAt12Volts().baseUnitMagnitude(),
+                                1.5 * config.getAngularSpeedAt12Volts().baseUnitMagnitude(),
+                                getKinematics().getModules()));
+        onboardImu =
+                Constants.currentMode == Constants.Mode.REAL
+                        ? new OnboardIMU(config.getOnboardImuMount())
+                        : null;
+        modulePositionSignals = new BaseStatusSignal[getModules().length * 2];
+        for (int i = 0; i < getModules().length; i++) {
+            modulePositionSignals[2 * i] = getModules()[i].getDriveMotor().getPosition(false);
+            modulePositionSignals[2 * i + 1] = getModules()[i].getSteerMotor().getPosition(false);
+        }
 
         if (Constants.hasHardware()) {
             registerTelemetry(this::queueOdometrySample);
@@ -392,6 +426,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                         accelYSignal,
                         accelZSignal);
         inputs.gyroConnected = status.isOK();
+        inputs.gyroResetOccurred = getPigeon2().hasResetOccurred();
         inputs.gyroYawRateRadPerSec = Units.degreesToRadians(yawRateSignal.getValueAsDouble());
         inputs.gyroPitchDegrees = pitchSignal.getValueAsDouble();
         inputs.gyroRollDegrees = rollSignal.getValueAsDouble();
@@ -400,14 +435,26 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         inputs.accelXG = accelXSignal.getValueAsDouble();
         inputs.accelYG = accelYSignal.getValueAsDouble();
         inputs.accelZG = accelZSignal.getValueAsDouble();
-    }
 
-    private final SwerveModulePosition[] scratchPositions = {
-        new SwerveModulePosition(),
-        new SwerveModulePosition(),
-        new SwerveModulePosition(),
-        new SwerveModulePosition()
-    };
+        BaseStatusSignal.refreshAll(modulePositionSignals);
+        var modules = getModules();
+        boolean[] connected = new boolean[modules.length];
+        boolean[] reset = new boolean[modules.length];
+        for (int i = 0; i < modules.length; i++) {
+            connected[i] =
+                    modulePositionSignals[2 * i].getStatus().isOK()
+                            && modulePositionSignals[2 * i + 1].getStatus().isOK();
+            reset[i] = modules[i].getDriveMotor().hasResetOccurred();
+        }
+        inputs.moduleConnected = connected;
+        inputs.moduleResetOccurred = reset;
+
+        if (onboardImu != null) {
+            inputs.onboardImuPresent = true;
+            inputs.onboardImuYawRadians = onboardImu.getYawRadians();
+            inputs.onboardImuYawRateRadPerSec = onboardImu.getGyroRateZ();
+        }
+    }
 
     private final SwerveModulePosition[] scratchScaledPositions = {
         new SwerveModulePosition(),
@@ -435,31 +482,89 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         // A dropped Pigeon can hold a stale tilt and freeze the pose.
         odometryScale =
                 tiltScaledOdometry.get() && inputs.gyroConnected ? tilt.odometryScale() : 1.0;
-        // Wheels slip and lift on a bump; trust them less there.
+        // Wheels slip and lift on a bump; trust them less there, and while they steer the heading.
         poseFusion
                 .getTagEkf()
                 .setOdometryNoiseScale(
-                        tilt.tilted() || tilt.bumpedRecently(Timer.getTimestamp()) ? 10.0 : 1.0);
-        for (int s = 0; s < inputs.odometryTimestamps.length; s++) {
+                        wheelHeading || tilt.tilted() || tilt.bumpedRecently(Timer.getTimestamp())
+                                ? 10.0
+                                : 1.0);
+
+        // A loop whose DAQ failed may carry a sample where a dropped device read exactly 0.
+        boolean daqFailed = haveFailedDaqs && inputs.failedDaqs != lastFailedDaqs;
+        lastFailedDaqs = inputs.failedDaqs;
+        haveFailedDaqs = true;
+        odometryGuard.markResets(inputs.gyroResetOccurred, inputs.moduleResetOccurred);
+
+        int n = inputs.odometryTimestamps.length;
+        long[] modulesUsed = new long[n];
+        OdometryGuard.HeadingSource headingSource = null;
+        for (int s = 0; s < n; s++) {
+            double[] distances = new double[4];
+            double[] angles = new double[4];
+            boolean[] moduleOk = new boolean[4];
             for (int m = 0; m < 4; m++) {
-                double raw = inputs.odometryModuleDistances[s * 4 + m];
-                Rotation2d angle = Rotation2d.fromRadians(inputs.odometryModuleAngles[s * 4 + m]);
+                distances[m] = inputs.odometryModuleDistances[s * 4 + m];
+                angles[m] = inputs.odometryModuleAngles[s * 4 + m];
+                // Logs from before ModuleConnected was recorded have none.
+                boolean connected = inputs.moduleConnected.length != 4 || inputs.moduleConnected[m];
+                moduleOk[m] = connected && !(daqFailed && (distances[m] == 0 || angles[m] == 0));
+            }
+            double yaw = inputs.odometryYawRadians[s];
+            var out =
+                    odometryGuard.update(
+                            new OdometryGuard.Sample(
+                                    inputs.odometryTimestamps[s],
+                                    yaw,
+                                    inputs.gyroConnected && !(daqFailed && yaw == 0),
+                                    inputs.onboardImuYawRadians,
+                                    inputs.onboardImuPresent,
+                                    distances,
+                                    angles,
+                                    moduleOk));
+            if (out.isEmpty()) {
+                modulesUsed[s] = -1;
+                continue;
+            }
+            modulesUsed[s] = out.get().modulesUsed();
+            headingSource = out.get().headingSource();
+            SwerveModulePosition[] positions = out.get().positions();
+            for (int m = 0; m < 4; m++) {
+                double raw = positions[m].distance;
                 if (!haveDistances) {
                     scaledDistances[m] = raw;
                 } else {
                     scaledDistances[m] += (raw - lastRawDistances[m]) * odometryScale;
                 }
                 lastRawDistances[m] = raw;
-                scratchPositions[m] = new SwerveModulePosition(raw, angle);
-                scratchScaledPositions[m] = new SwerveModulePosition(scaledDistances[m], angle);
+                scratchScaledPositions[m] =
+                        new SwerveModulePosition(scaledDistances[m], positions[m].angle);
             }
             haveDistances = true;
             poseFusion.addOdometry(
                     inputs.odometryTimestamps[s],
-                    Rotation2d.fromRadians(inputs.odometryYawRadians[s]),
+                    out.get().heading(),
                     scratchScaledPositions,
-                    scratchPositions,
-                    s == inputs.odometryTimestamps.length - 1);
+                    positions,
+                    s == n - 1);
+        }
+
+        wheelHeading = headingSource == OdometryGuard.HeadingSource.WHEELS;
+        poseFusion.setWheelHeading(wheelHeading);
+        Logger.recordOutput("Localization/Odometry/ModulesUsed", modulesUsed);
+        if (headingSource != null) {
+            Logger.recordOutput("Localization/Odometry/HeadingSource", headingSource.name());
+        }
+        double imuShadow = odometryGuard.getBackupShadowHeading();
+        if (!Double.isNaN(imuShadow)) {
+            Logger.recordOutput(
+                    "Localization/OnboardImu/ShadowHeadingDeg", Math.toDegrees(imuShadow));
+            if (headingSource == OdometryGuard.HeadingSource.PRIMARY) {
+                Logger.recordOutput(
+                        "Localization/OnboardImu/ErrorVsPigeonDeg",
+                        Math.toDegrees(
+                                MathUtil.angleModulus(imuShadow - odometryGuard.getHeading())));
+            }
         }
     }
 

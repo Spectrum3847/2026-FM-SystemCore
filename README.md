@@ -521,9 +521,10 @@ Operator (port 1):
 | A / B, disabled | Coast / brake |
 
 The chords don't depend on press or release order (`ModifierChords` in spectrumLib). A or X pressed
-or let go within 0.12 s of LB counts as part of the chord, so bare unjam and track target start
-0.12 s after the button goes down. Letting go of LB with X or A still held goes IDLE, then to the
-bare action once it has been held 0.12 s without LB.
+or let go within 0.08 s of LB counts as part of the chord, so bare unjam and track target start
+0.08 s after the button goes down. A tap shorter than that still runs, 0.08 s late, for as long as
+it was held. Letting go of LB with X or A still held goes IDLE, then to the bare action once it
+has been held 0.08 s without LB.
 
 ## Loop rate, logging and the dashboard
 

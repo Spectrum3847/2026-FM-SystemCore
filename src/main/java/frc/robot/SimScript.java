@@ -153,6 +153,8 @@ public final class SimScript {
         {16.5, 0, 0, 0, 0, 0, 0, 0, 0}, // IDLE
         {18.0, 0, 0, 0, 0, 0, 1, 0, 1}, // LB+B: right trench set shot
         {18.5, 0, 0, 0, 0, 0, 0, 0, 0}, // IDLE
+        {18.55, 0, 0, 0, 0, 0, 0, 1, 0}, // A tapped for 0.05 s: UNJAM for 0.05 s, after the settle
+        {19.5, 0, 0, 0, 0, 0, 0, 0, 0}, // IDLE
     };
 
     /** Loads the hopper at the start of these steps (index into {@link #SHOOT_STEPS}). */

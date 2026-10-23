@@ -19,6 +19,7 @@ import org.wpilib.hardware.hal.HAL;
  */
 class ModifierChordsTest {
     private static final double LOOP = 0.01; // 100 Hz
+    private static final double SETTLE = ModifierChords.DEFAULT_SETTLE_SECONDS;
 
     @BeforeAll
     static void initHal() {
@@ -192,11 +193,11 @@ class ModifierChordsTest {
         assertEquals("UNJAM", g.active());
     }
 
-    // With FM's settle time.
+    // With the default settle time.
 
     @Test
     void aLetGoTwoLoopsAfterLbDoesNotUnjam() {
-        var r = requests(fm(0.12), hold("LB A", 50), hold("A", 2), hold("", 20));
+        var r = requests(fm(SETTLE), hold("LB A", 50), hold("A", 2), hold("", 20));
         assertEquals(List.of("SET_SHOT_TOWER", "IDLE"), names(r));
         assertEquals("IDLE@50", r.get(1)); // stops the moment LB is let go
     }
@@ -205,41 +206,83 @@ class ModifierChordsTest {
     void xLetGoTwoLoopsAfterLbDoesNotTrack() {
         assertEquals(
                 List.of("SET_SHOT_LEFT_TRENCH", "IDLE"),
-                names(requests(fm(0.12), hold("LB X", 50), hold("X", 2), hold("", 20))));
+                names(requests(fm(SETTLE), hold("LB X", 50), hold("X", 2), hold("", 20))));
     }
 
     @Test
     void aPressedTwoLoopsBeforeLbDoesNotUnjam() {
         assertEquals(
                 List.of("SET_SHOT_TOWER", "IDLE"),
-                names(requests(fm(0.12), hold("A", 2), hold("LB A", 50), hold("", 5))));
+                names(requests(fm(SETTLE), hold("A", 2), hold("LB A", 50), hold("", 5))));
     }
 
     @Test
     void aDeliberateUnjamStartsAfterTheSettleTime() {
-        var r = requests(fm(0.12), hold("A", 50), hold("", 5));
+        var r = requests(fm(SETTLE), hold("A", 50), hold("", 5));
         assertEquals(List.of("UNJAM", "IDLE"), names(r));
         double seconds = loopOf(r.get(0)) * LOOP;
         assertTrue(
-                seconds >= 0.12 - 1e-9 && seconds <= 0.12 + 2 * LOOP,
+                seconds >= SETTLE - 1e-9 && seconds <= SETTLE + LOOP,
                 "unjam started at " + seconds + " s");
     }
 
     @Test
-    void aTapShorterThanTheSettleTimeDoesNothing() {
-        assertEquals(List.of(), requests(fm(0.12), hold("A", 5), hold("", 20)));
+    void aTapPlaysLateForAsLongAsItWasHeld() {
+        var r = requests(fm(SETTLE), hold("A", 5), hold("", 20));
+        int start = (int) Math.round(SETTLE / LOOP);
+        assertEquals(List.of("UNJAM@" + start, "IDLE@" + (start + 5)), r);
+    }
+
+    @Test
+    void aChordBeforeATapPlaysCancelsIt() {
+        assertEquals(
+                List.of("SET_SHOT_LEFT_TRENCH", "IDLE"),
+                names(
+                        requests(
+                                fm(SETTLE),
+                                hold("A", 3),
+                                hold("", 2),
+                                hold("LB X", 20),
+                                hold("", 5))));
+    }
+
+    @Test
+    void aTapWhileTrackingPlaysThenTrackingResumes() {
+        assertEquals(
+                List.of("TRACK_TARGET", "UNJAM", "TRACK_TARGET", "IDLE"),
+                names(
+                        requests(
+                                fm(SETTLE),
+                                hold("X", 30),
+                                hold("A X", 4),
+                                hold("X", 30),
+                                hold("", 5))));
+    }
+
+    @Test
+    void aLetGoJustAfterLbIsNotATap() {
+        assertEquals(
+                List.of("SET_SHOT_TOWER", "IDLE"),
+                names(requests(fm(SETTLE), hold("LB A", 30), hold("A", 5), hold("", 20))));
+    }
+
+    @Test
+    void aModifierArrivingDuringAPressIsNotATapEvenWithNoChord() {
+        Group g = fm(SETTLE);
+        g.pad.teleop = false; // set shots off, so LB + A is no chord
+        assertEquals(List.of(), requests(g, hold("A", 3), hold("LB A", 10), hold("", 20)));
     }
 
     @Test
     void holdingXThenPressingAKeepsTrackingUntilUnjamTakesOver() {
         assertEquals(
                 List.of("TRACK_TARGET", "UNJAM", "IDLE"),
-                names(requests(fm(0.12), hold("X", 30), hold("A X", 30), hold("", 5))));
+                names(requests(fm(SETTLE), hold("X", 30), hold("A X", 30), hold("", 5))));
     }
 
     @Test
     void lettingGoOfAWithXHeldTracksAtOnce() {
-        List<String> r = requests(fm(0.12), hold("X", 30), hold("A X", 30), hold("X", 5));
+        List<String> r = requests(fm(SETTLE), hold("X", 30), hold("A X", 30), hold("X", 5));
         assertEquals("TRACK_TARGET@60", r.get(r.size() - 1));
     }
 
@@ -247,12 +290,12 @@ class ModifierChordsTest {
     void lettingGoOfLbWithXHeldIsIdleThenTracking() {
         assertEquals(
                 List.of("SET_SHOT_LEFT_TRENCH", "IDLE", "TRACK_TARGET", "IDLE"),
-                names(requests(fm(0.12), hold("LB X", 30), hold("X", 30), hold("", 5))));
+                names(requests(fm(SETTLE), hold("LB X", 30), hold("X", 30), hold("", 5))));
     }
 
     @Test
     void chordsActImmediately() {
-        var r = requests(fm(0.12), hold("LB B", 10), hold("", 5));
+        var r = requests(fm(SETTLE), hold("LB B", 10), hold("", 5));
         assertEquals("SET_SHOT_RIGHT_TRENCH@0", r.get(0));
     }
 
@@ -261,7 +304,7 @@ class ModifierChordsTest {
     /** RB and LT as modifiers for A, and A bare, as another robot might bind them. */
     private static Group otherModifiers() {
         return new Group(
-                0.12,
+                SETTLE,
                 (g, p) -> {
                     var c = g.chords;
                     g.triggers.put("RB_A", c.chord(() -> p.rb, () -> p.a));

@@ -91,7 +91,7 @@ Every PR runs, in parallel:
 
 | Job | What fails it |
 | --- | --- |
-| `build` | Spotless, a compile error (Error Prone's ERROR checks included) or a unit test. Error Prone warnings print but don't fail; the style-only checks are off in `build.gradle`. |
+| `build` | Spotless, a compile error (Error Prone's ERROR checks included) or a unit test, including the CAN config invariants over every robot config (`ConfigInvariantsTest`: unique IDs per bus, followers on their leader's bus, soft limits around every home position, no motor in two mechanisms). Error Prone warnings print but don't fail; the style-only checks are off in `build.gradle`. |
 | `build` (`simTest`) | `BindingsSmokeTest`: the whole robot booted headless in simulation, every pilot and operator input pressed alone, with LB, and LT with RT, disabled and in teleop. Fails if a press throws, if a binding in its table doesn't schedule its command or reach its wanted state, or if a lone button schedules something the table doesn't list. About 30 s; run it alone with `./gradlew simTest`. |
 | `sim (drive)`, `sim (shoot)`, `sim (auto)` | the scripted sim (`auto` is `TBTB Left`) crashing, not finishing its script, an auto path stopping short of its end before autonomous ends (being cut off by the end of autonomous is fine), the fused pose more than 0.15 m from the sim's truth at p95 (0.3 m worst) once the seed is confirmed, or more than 5% of loops overrunning by 25% ([tools/ci_assert.py](tools/ci_assert.py)) |
 | `replay` | the PR moving the fused pose (5 cm, 2°) or the shot gate's verdicts (10 loops) when a real match replays through it, against the base branch replaying the same log ([tools/replay_regression.py](tools/replay_regression.py)) |
@@ -682,6 +682,32 @@ other layout ("Pilot controller looks like the WPILIB_DS layout, but is read as 
   three Limelights to save it to their own storage when auto ends and when teleop ends. Review a
   capture frame by frame in the camera's web UI or Limelight's Rewind Viewer. The SystemCore's
   own cameras are skipped, since their storage is the robot's internal disk.
+
+### Files from the Driver Station laptop
+
+After each match the DS laptop (MatchReview helper, DS-laptop mode) pushes its Driver Station log,
+plus any audio and video it recorded, to the robot while the field still connects them. The pit
+laptop then pulls them with the match log. The robot side is
+[DsUploadReceiver](src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java):
+
+- HTTP on port **5806** (inside the field's 5800–5810 team range), header `X-MatchReview-Token`.
+  The token lives in `/home/systemcore/ds-upload-token` on the robot, never in this public repo;
+  without that file the receiver stays off (info alert).
+- **Only while disabled.** The field gives each team about 7 Mbps, so pushes wait for the match
+  to end. A push cut off by the robot powering down resumes at the next pit tether
+  (`HEAD /upload/<kind>/<name>` says how much arrived).
+- Files land in `/home/systemcore/logs/ds/` (internal storage even with a USB stick in; the pit
+  pulls from there). Above 1.5 GB, finished and partial files from earlier boots go first, then
+  this boot's in the order they arrived; never below 1 GB of free disk. Kinds and caps: `dslog`
+  (NI `.dslog`/`.dsevents`, 20 MB), `dswpilog` (2027 DS log, 50 MB, stored as `.dswpilog` so older
+  pit helpers never take it for a robot log and upload it), `audio` (`.m4a`/`.opus`, 20 MB), `video`
+  (`.mp4`, 200 MB).
+- One connection at a time, each limited to 2 minutes in total.
+- Logged as `DSUpload/FilesReceived`, `BytesReceived`, `LastFile` and `LastError`.
+- Bench test on a laptop: `./gradlew compileJava`, then
+  `java -cp build/classes/java/main frc.spectrumLib.telemetry.DsUploadReceiver <folder> <token> 5806`
+  (type `enabled` / `disabled` to set the robot state). The MatchReview helper's
+  `tests/test_java_receiver.py` runs its client against it.
 
 ### Keeping work off the loop
 

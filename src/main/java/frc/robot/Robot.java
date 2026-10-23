@@ -45,6 +45,7 @@ import frc.spectrumLib.hardware.CanConfigBudget;
 import frc.spectrumLib.hardware.Rio;
 import frc.spectrumLib.params.NetworkTablesTransport;
 import frc.spectrumLib.params.Params;
+import frc.spectrumLib.params.TuningMode;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.BatteryLogger;
 import frc.spectrumLib.telemetry.DashboardReceiver;
@@ -143,6 +144,7 @@ public class Robot extends SpectrumRobot {
 
     public Robot() {
         super(Constants.LOOP_PERIOD_SECONDS);
+        TuningMode.set(Constants.TUNING_MODE);
         SystemLoadMonitor.threadCensus("jvm");
         startLogging();
         SystemLoadMonitor.threadCensus("logging");
@@ -307,7 +309,7 @@ public class Robot extends SpectrumRobot {
      * Resolves the params ({@link Params}) for the robot config chosen above, then declares every
      * param so all of them are resolved, logged and on NT before the first enable. The simulator
      * has no local folder unless {@code FM_PARAMS_LOCAL} names one; replay has none, since it runs
-     * on the logged values.
+     * on the logged values. Live tuning only in {@link Constants#TUNING_MODE}.
      */
     private void startParams() {
         java.nio.file.Path local =
@@ -319,13 +321,11 @@ public class Robot extends SpectrumRobot {
                                     : java.nio.file.Path.of(System.getenv("FM_PARAMS_LOCAL"));
                     case REPLAY -> null;
                 };
-        // Live tuning in the simulator only, until the tuning-mode switch decides it.
-        boolean liveTuning = Constants.currentMode == Constants.Mode.SIM;
         Params.start(
                 Filesystem.getDeployDirectory().toPath().resolve("params"),
                 config.getClass().getSimpleName(),
                 local,
-                liveTuning ? new NetworkTablesTransport(Params.NT_PREFIX) : null);
+                new NetworkTablesTransport(Params.NT_PREFIX));
         RobotParams.load();
     }
 
@@ -391,6 +391,7 @@ public class Robot extends SpectrumRobot {
         Logger.recordMetadata("TeamNumber", "8515");
         Logger.recordMetadata("LoopPeriodSeconds", Double.toString(Constants.LOOP_PERIOD_SECONDS));
         Logger.recordMetadata("RuntimeMode", Constants.currentMode.name());
+        Logger.recordMetadata("TuningMode", Boolean.toString(Constants.TUNING_MODE));
         // Which robot config this controller selected (by serial number); replay always builds
         // FM2026, so a log from another robot says so here.
         Logger.recordMetadata("RobotIdentity", Rio.id.name());

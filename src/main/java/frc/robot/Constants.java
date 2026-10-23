@@ -45,6 +45,14 @@ public final class Constants {
      */
     public static final int MAIN_THREAD_RT_PRIORITY = 1;
 
+    /**
+     * Tuning mode: dashboards may change params under {@code /Tuning/} (applied while disabled) and
+     * save them to the robot, and may change {@code TuneValue}s. Off, every tunable holds its
+     * default or params-file value and nothing is published for tuning. Turn it on for a tuning
+     * session only; CI fails a PR to main that leaves it on.
+     */
+    public static final boolean TUNING_MODE = false;
+
     public enum Mode {
         /** Running on a real robot. */
         REAL,

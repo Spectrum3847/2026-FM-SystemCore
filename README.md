@@ -683,10 +683,18 @@ laptop then pulls them with the match log. The robot side is
 - **Only while disabled.** The field gives each team about 7 Mbps, so pushes wait for the match
   to end. A push cut off by the robot powering down resumes at the next pit tether
   (`HEAD /upload/<kind>/<name>` says how much arrived).
-- Files land in `<log folder>/ds/`, oldest trimmed above 1.5 GB, and never below 1 GB of free disk.
-  Kinds and caps: `dslog` (NI `.dslog`/`.dsevents`, 20 MB), `dswpilog` (2027 DS `.wpilog`, 50 MB),
-  `audio` (`.m4a`/`.opus`, 20 MB), `video` (`.mp4`, 200 MB).
+- Files land in `/home/systemcore/logs/ds/` (internal storage even with a USB stick in; the pit
+  pulls from there). Above 1.5 GB, finished and partial files from earlier boots go first, then
+  this boot's in the order they arrived; never below 1 GB of free disk. Kinds and caps: `dslog`
+  (NI `.dslog`/`.dsevents`, 20 MB), `dswpilog` (2027 DS log, 50 MB, stored as `.dswpilog` so older
+  pit helpers never take it for a robot log and upload it), `audio` (`.m4a`/`.opus`, 20 MB), `video`
+  (`.mp4`, 200 MB).
+- One connection at a time, each limited to 2 minutes in total.
 - Logged as `DSUpload/FilesReceived`, `BytesReceived`, `LastFile` and `LastError`.
+- Bench test on a laptop: `./gradlew compileJava`, then
+  `java -cp build/classes/java/main frc.spectrumLib.telemetry.DsUploadReceiver <folder> <token> 5806`
+  (type `enabled` / `disabled` to set the robot state). The MatchReview helper's
+  `tests/test_java_receiver.py` runs its client against it.
 
 ### Keeping work off the loop
 

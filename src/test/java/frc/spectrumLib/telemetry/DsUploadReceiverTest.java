@@ -165,6 +165,83 @@ class DsUploadReceiverTest {
     }
 
     @Test
+    void aDsWpilogIsStoredUnderANameOldPitHelpersIgnore() throws IOException {
+        String base = "/upload/dswpilog/FIRST_DS_1.wpilog";
+        assertEquals(200, put(base + "?offset=0&total=10", bytes(10, 1)).status());
+        assertTrue(Files.isRegularFile(dir.resolve("FIRST_DS_1.dswpilog")));
+        assertFalse(Files.exists(dir.resolve("FIRST_DS_1.wpilog")));
+        assertEquals("true", head(base).headers().get("X-Complete"));
+    }
+
+    @Test
+    void headReportsANewerPartialCopyOverAFinishedOne() throws IOException {
+        String base = "/upload/dslog/" + DSLOG.replace(" ", "%20");
+        put(base + "?offset=0&total=10", bytes(10, 1));
+        put(base + "?offset=0&total=30", bytes(20, 1)); // the grown log, cut off part way
+        Reply h = head(base);
+        assertEquals("20", h.headers().get("X-Received"));
+        assertEquals("false", h.headers().get("X-Complete"));
+        assertEquals(200, put(base + "?offset=20&total=30", bytes(10, 2)).status());
+        assertEquals(30, Files.size(dir.resolve(DSLOG)));
+    }
+
+    @Test
+    void aRefusedPutIsReadSoTheClientGetsTheReply() throws IOException {
+        rx.setRobotEnabled(true);
+        byte[] body = bytes(200_000, 3);
+        String req =
+                "PUT /upload/video/a.mp4?offset=0&total=200000 HTTP/1.1\r\n"
+                        + "X-MatchReview-Token: "
+                        + TOKEN
+                        + "\r\nContent-Length: 200000\r\n\r\n";
+        ByteArrayOutputStream raw = new ByteArrayOutputStream();
+        raw.write(req.getBytes(StandardCharsets.ISO_8859_1));
+        raw.write(body);
+        ByteArrayInputStream in = new ByteArrayInputStream(raw.toByteArray());
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        rx.handleConnection(in, out);
+        assertTrue(out.toString(StandardCharsets.ISO_8859_1).startsWith("HTTP/1.1 409"));
+        assertEquals(0, in.available(), "the body was read before replying");
+    }
+
+    @Test
+    void aConnectionOverItsTimeLimitIsDropped() throws IOException {
+        String req = "HEAD /upload/audio/a.m4a HTTP/1.1\r\nX-MatchReview-Token: " + TOKEN;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        rx.handleConnection(
+                new ByteArrayInputStream(req.getBytes(StandardCharsets.ISO_8859_1)), out, -1);
+        assertEquals(0, out.size(), "no reply: the slot is freed");
+    }
+
+    @Test
+    void trimDeletesEarlierBootsFirstAndCountsPartialFiles() throws IOException {
+        Files.write(dir.resolve("old_Q1.mp4"), bytes(40, 1));
+        Files.write(dir.resolve("old_Q2.mp4.part"), bytes(40, 1));
+        dir.resolve("old_Q1.mp4").toFile().setLastModified(System.currentTimeMillis());
+        // this boot's file looks oldest, as when the robot boots with its clock behind
+        DsUploadReceiver small = new DsUploadReceiver(dir.toFile(), TOKEN, 0, 90);
+        small.setRobotEnabled(false);
+        Map<String, String> h = new HashMap<>();
+        h.put(DsUploadReceiver.TOKEN_HEADER, TOKEN);
+        h.put("content-length", "30");
+        small.handle(
+                "PUT",
+                "/upload/video/new_Q3.mp4?offset=0&total=30",
+                h,
+                new ByteArrayInputStream(bytes(30, 2)));
+        dir.resolve("new_Q3.mp4").toFile().setLastModified(0);
+        small.handle(
+                "PUT",
+                "/upload/video/new_Q4.mp4?offset=0&total=30",
+                h,
+                new ByteArrayInputStream(bytes(30, 3)));
+        assertFalse(Files.exists(dir.resolve("old_Q1.mp4")));
+        assertFalse(Files.exists(dir.resolve("old_Q2.mp4.part")));
+        assertTrue(Files.exists(dir.resolve("new_Q3.mp4")), "this boot's files go last");
+        assertTrue(Files.exists(dir.resolve("new_Q4.mp4")));
+    }
+
+    @Test
     void aHeadReplyIsHeadersOnly() throws IOException {
         String req =
                 "HEAD /upload/audio/a.m4a HTTP/1.1\r\nX-MatchReview-Token: " + TOKEN + "\r\n\r\n";
@@ -195,6 +272,6 @@ class DsUploadReceiverTest {
         String reply = out.toString(StandardCharsets.ISO_8859_1);
         assertTrue(reply.startsWith("HTTP/1.1 200 OK"), reply);
         assertTrue(reply.contains("X-Received: 64"), reply);
-        assertArrayEquals(body, Files.readAllBytes(dir.resolve("FRC_DS_Q34.wpilog")));
+        assertArrayEquals(body, Files.readAllBytes(dir.resolve("FRC_DS_Q34.dswpilog")));
     }
 }

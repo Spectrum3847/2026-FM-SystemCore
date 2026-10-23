@@ -258,7 +258,8 @@ public class Robot extends SpectrumRobot {
             }
             if (Constants.currentMode == Constants.Mode.REAL) {
                 // Before the main thread goes real-time, so this thread stays at normal priority.
-                DsUploadReceiver.start(LogStorage.folder());
+                // Internal storage even with a USB stick in: the pit pulls from there.
+                DsUploadReceiver.start(LogStorage.LOCAL_LOGS);
             }
 
             if (Constants.currentMode == Constants.Mode.REAL) {

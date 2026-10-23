@@ -35,6 +35,7 @@ import frc.robot.subsystems.launcher.Launcher.LauncherConfig;
 import frc.robot.subsystems.leds.Leds;
 import frc.robot.subsystems.swerve.Swerve;
 import frc.robot.subsystems.swerve.SwerveConfig;
+import frc.robot.subsystems.vision.CameraParams;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.Vision.VisionConfig;
 import frc.spectrumLib.framework.RobotLoop;
@@ -42,6 +43,8 @@ import frc.spectrumLib.framework.SpectrumRobot;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.hardware.CanConfigBudget;
 import frc.spectrumLib.hardware.Rio;
+import frc.spectrumLib.params.NetworkTablesTransport;
+import frc.spectrumLib.params.Params;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.BatteryLogger;
 import frc.spectrumLib.telemetry.DashboardReceiver;
@@ -169,6 +172,7 @@ public class Robot extends SpectrumRobot {
                     config = new FM2026();
                     break;
             }
+            startParams();
 
             CanBuses.inUse().forEach((label, name) -> canBuses.put(label, CanBuses.forName(name)));
             SystemLoadMonitor.threadCensus("canbuses");
@@ -290,6 +294,39 @@ public class Robot extends SpectrumRobot {
                     "Brownout voltage API unavailable on this controller: " + e.getMessage(),
                     PrintPriority.HIGH);
         }
+    }
+
+    /**
+     * Pit-tuned params live here on the robot: outside the deploy folder, which every deploy wipes
+     * ({@code deleteOldFiles}).
+     */
+    private static final java.nio.file.Path ROBOT_PARAMS_FOLDER =
+            java.nio.file.Path.of("/home/systemcore/params");
+
+    /**
+     * Resolves the params ({@link Params}) for the robot config chosen above, then declares every
+     * param so all of them are resolved, logged and on NT before the first enable. The simulator
+     * has no local folder unless {@code FM_PARAMS_LOCAL} names one; replay has none, since it runs
+     * on the logged values.
+     */
+    private void startParams() {
+        java.nio.file.Path local =
+                switch (Constants.currentMode) {
+                    case REAL -> ROBOT_PARAMS_FOLDER;
+                    case SIM ->
+                            System.getenv("FM_PARAMS_LOCAL") == null
+                                    ? null
+                                    : java.nio.file.Path.of(System.getenv("FM_PARAMS_LOCAL"));
+                    case REPLAY -> null;
+                };
+        // Live tuning in the simulator only, until the tuning-mode switch decides it.
+        boolean liveTuning = Constants.currentMode == Constants.Mode.SIM;
+        Params.start(
+                Filesystem.getDeployDirectory().toPath().resolve("params"),
+                config.getClass().getSimpleName(),
+                local,
+                liveTuning ? new NetworkTablesTransport(Params.NT_PREFIX) : null);
+        RobotParams.load();
     }
 
     private final Alert mainThreadPriorityAlert = new Alert("", Level.MEDIUM);
@@ -536,6 +573,7 @@ public class Robot extends SpectrumRobot {
     public void robotPeriodic() {
         RobotLoop.next();
         RuntimeInputs.update();
+        Params.periodic();
         Telemetry.periodic();
         Alert.periodic();
         LogStorage.periodic();
@@ -953,7 +991,7 @@ public class Robot extends SpectrumRobot {
         // captured as it ends (10183 found the teleop-only capture missed auto at Summer Scorcher).
         // Auto's capture is short, or it is mostly pre-match disabled time.
         if (RobotState.isFMSAttached()) {
-            vision.triggerRewindCaptureForAllCameras(Vision.AUTO_REWIND_SECONDS);
+            vision.triggerRewindCaptureForAllCameras(CameraParams.AUTO_REWIND_SECONDS.get());
         }
         auton.exit();
         Telemetry.print("@@@ Auton Exit @@@ ");
@@ -978,7 +1016,7 @@ public class Robot extends SpectrumRobot {
     @Override
     public void teleopExit() {
         if (RobotState.isFMSAttached()) {
-            vision.triggerRewindCaptureForAllCameras(Vision.TELEOP_REWIND_SECONDS);
+            vision.triggerRewindCaptureForAllCameras(CameraParams.TELEOP_REWIND_SECONDS.get());
         }
         Telemetry.print("!!! Teleop Exit !!! ");
     }

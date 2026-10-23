@@ -92,7 +92,7 @@ For `controls.json`: put a one-line description next to each binding in Java. Th
 
 ### 3. Tuned values live in JSON
 
-Only the numbers the app writes move out of Java, into `src/main/deploy/tuning/`:
+Only the numbers the app writes move out of Java, into `src/main/deploy/params/` (`spectrumLib/params`):
 
 | File | Replaces |
 | --- | --- |
@@ -137,12 +137,12 @@ sequenceDiagram
   Code->>Disk: on boot, drop overrides now in the repo
 ```
 
-1. **Boot.** The code loads the repo's `tuning/*.json` from the deploy folder, then applies overrides from `/home/systemcore/tuning/`.
+1. **Boot.** The code loads the repo's `params/*.json` from the deploy folder, then applies overrides from `/home/systemcore/params/`.
     - Overrides can't live in the deploy folder: `build.gradle` sets `deleteOldFiles = true` there, so every deploy wipes it.
     - A bad override file raises an alert and falls back to the repo values, so a bad tune can't stop the code from starting.
 2. **Tune.** A page sends an NT command while the robot is disabled. The main loop applies it where it can (TalonFX soft limits apply at once; swerve offsets apply on the next code restart). It saves an override that records the new value, the value it replaced, and when.
 3. **Replay.** The effective tuning is logged as an input when it loads. Replay on the PC uses the logged values, since the PC has no override files.
-4. **Pull.** `./gradlew pullTuning` copies the overrides over SSH and merges them into `src/main/deploy/tuning/*.json`. Review the `git diff` and commit.
+4. **Pull.** `./gradlew pullTuning` copies the overrides over SSH and merges them into `src/main/deploy/params/*.json`. Review the `git diff` and commit.
     - If the repo value changed since the override was made (its "replaced" value no longer matches), the pull stops and shows both.
 5. **Deploy.** A check runs first. If the robot has overrides that aren't in the repo, deploy stops and lists them, for example `hood.softLimitMax 0.137 → 0.141, tuned 9/24`. A flag (e.g. `-PdiscardTuning`) throws them away on purpose.
 6. **Clean up.** On the next boot the code deletes overrides that now equal the deployed values.
@@ -250,7 +250,7 @@ The design removes the old causes: the app parses no Java and keeps no copies of
 
 **Rules for AGENTS.md:**
 
-- To add a tuned value, add it to `src/main/deploy/tuning/*.json` and the Java that loads it. Don't touch `app/` for it.
+- To add a tuned value, declare it in Java (`Params.group(...)`) and add it to `src/main/deploy/params/*.json`. Don't touch `app/` for it.
 - Never put Java file paths, NT key strings or CAN IDs in `app/`. Read them from the manifest.
 - The app changes the robot only through NT commands, handled on the main thread, logged as inputs, and only while disabled.
 - New libraries go in `app/vendor/` as single files. No npm, no build step.

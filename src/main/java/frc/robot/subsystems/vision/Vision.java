@@ -262,12 +262,15 @@ public class Vision implements Subsystem {
     // =========================================================================
 
     /**
-     * The layout the robot solves with: this event's field. The Jetson's and Limelights' must
-     * match.
+     * The field the robot solves with: this event's ({@code Event.APRILTAG_FIELD}), or in replay
+     * the match's (see {@link TagField}). The Jetson's and Limelights' must match.
      */
-    public static final AprilTagFields TAG_FIELD = Event.APRILTAG_FIELD;
+    @Getter private static AprilTagFields tagField;
 
     @Getter private static AprilTagFieldLayout tagLayout;
+
+    /** {@link #tagLayout}'s canonical hash ({@code FieldMapHash}). */
+    @Getter private static String tagLayoutHash;
 
     @Getter private final VisionConfig config;
 
@@ -352,8 +355,11 @@ public class Vision implements Subsystem {
         this.config = config;
         this.swerve = swerve;
         this.fusion = swerve.getPoseFusion();
-        // Must match the Jetson's and Limelights' layout and the event field (#10, sec. 5).
-        tagLayout = AprilTagFieldLayout.loadField(TAG_FIELD);
+        // The event's field, or in replay the match's. The Jetson's and Limelights' must match.
+        TagField.Choice field = TagField.load(Event.APRILTAG_FIELD);
+        tagField = field.field();
+        tagLayout = field.layout();
+        tagLayoutHash = field.hash();
 
         boolean sim = Constants.currentMode == Constants.Mode.SIM;
         boolean replay = Constants.currentMode == Constants.Mode.REPLAY;

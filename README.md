@@ -248,9 +248,19 @@ This section is issue #10's robot side. Everything that talks to NetworkTables i
 so replay stays clean.
 
 **Cameras.** FM's Jetson has two cameras, `orin-left` and `orin-right`, logged as `Orin-Left` and
-`Orin-Right`. Adding one means a name, mount, installed flag and factor in `VisionConfig`. The
-field layout is **2026 Rebuilt AndyMark**, for the Jetson and the Limelights alike, and it must
-match the event field.
+`Orin-Right`. Adding one means a name, mount, installed flag and factor in `VisionConfig`.
+
+**Field map.** The robot's layout (the event's, see [Pre-match checks](#pre-match-checks)) is the
+one source of truth. At boot it publishes it for the Jetson:
+- `/SpectrumVision/FieldMap/Json`: the layout as WPILib AprilTagFieldLayout JSON
+  ([FieldMapJson](src/main/java/frc/spectrumLib/vision/FieldMapJson.java)).
+- `/SpectrumVision/FieldMap/Hash`: its canonical hash
+  ([FieldMapHash](src/main/java/frc/spectrumLib/vision/FieldMapHash.java)).
+- `/SpectrumVision/FieldMap/Name`: the WPILib field's name, or `custom`.
+
+The Jetson reports the map it loaded at `/photonvision/jetson/FieldMap/Hash`, `Name` and `LoadedAt`
+(logged as `Vision/Jetson/FieldMap/*`). The Settings check fails when its hash differs from the
+robot's, and warns when the Jetson reports none.
 
 **The whole Orin pipeline replays.**
 - [PhotonOrinIO](src/main/java/frc/robot/subsystems/vision/PhotonOrinIO.java) logs every PhotonLib

@@ -8,8 +8,9 @@ public final class Event {
 
     /**
      * This event's field: AndyMark or Welded, from the event's field announcement. Vision solves
-     * with this layout. The Limelights' and the Jetson's field maps are uploaded to them separately
-     * and must match it; the robot cannot read them, so no check covers them.
+     * with this layout and publishes it at {@code /SpectrumVision/FieldMap} for the Jetson, whose
+     * reported hash the pre-match Settings check compares. The Limelights' maps are uploaded to
+     * them separately and must match it; the robot cannot read them back.
      */
     public static final AprilTagFields APRILTAG_FIELD = AprilTagFields.k2026RebuiltAndymark;
 }

@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.wpilib.driverstation.RobotState;
 
@@ -151,6 +152,38 @@ final class PreMatch {
         return co;
     }
 
+    /**
+     * The Jetson's field map against the robot's.
+     *
+     * @param expected whether the Jetson should be answering ({@link Jetson#isExpected})
+     * @param robotHash the canonical hash of the map the robot solves with
+     * @param jetsonHash the hash the Jetson reports for the map it loaded, empty when it reports
+     *     none
+     * @return PASS when they match, FAIL when they differ, WARN when the Jetson reports none, SKIP
+     *     when no Jetson is expected
+     */
+    static CheckResult jetsonFieldMap(boolean expected, String robotHash, String jetsonHash) {
+        if (!expected) {
+            return CheckResult.skip("no Jetson");
+        }
+        if (jetsonHash.isEmpty()) {
+            return CheckResult.warn("Jetson not reporting its map");
+        }
+        if (!jetsonHash.equals(robotHash)) {
+            return CheckResult.fail(
+                    "Jetson field map differs (Jetson "
+                            + jetsonHash
+                            + ", robot "
+                            + robotHash
+                            + ")");
+        }
+        return CheckResult.pass("Jetson's map matches");
+    }
+
+    private static String reasonIf(CheckResult r, Status status) {
+        return r.status() == status ? r.reason() : null;
+    }
+
     private static SettingsCheck settings(Swerve swerve, Vision vision) {
         Jetson jetson = vision.getJetson();
         Set<Integer> defaultExcluded =
@@ -158,15 +191,26 @@ final class PreMatch {
                         .boxed()
                         .collect(Collectors.toCollection(TreeSet::new));
         // Vision solves with Event.APRILTAG_FIELD (in replay, the match's field), so the robot's
-        // own map is the event's by construction. The Limelights' and the Jetson's maps are not
-        // readable from the robot.
+        // own map is the event's by construction. The Jetson reports the hash of the map it
+        // loaded; the Limelights' maps are not readable from the robot.
+        Supplier<CheckResult> jetsonMap =
+                () ->
+                        jetsonFieldMap(
+                                jetson.isExpected(),
+                                Vision.getTagLayoutHash(),
+                                jetson.getInputs().fieldMapHash);
         SettingsCheck settings =
                 new SettingsCheck()
                         .info(
                                 () ->
                                         "field "
                                                 + Vision.getTagField().name()
-                                                + " (robot's map; camera maps unchecked)")
+                                                + (jetsonMap.get().status() == Status.PASS
+                                                        ? ", Jetson's map matches"
+                                                        : "")
+                                                + " (Limelight maps unchecked)")
+                        .add(() -> reasonIf(jetsonMap.get(), Status.FAIL), Status.FAIL)
+                        .add(() -> reasonIf(jetsonMap.get(), Status.WARN), Status.WARN)
                         .add(
                                 () ->
                                         jetson.isPracticeFieldProfile()

@@ -54,6 +54,15 @@ public class JetsonInputs implements LoggableInputs {
     public double rewindFreeGB = Double.NaN;
     public long rewindFramesDropped = -1;
 
+    // -- /photonvision/jetson/FieldMap/ --
+    /** Canonical hash of the field map the Jetson loaded and solves with; empty until reported. */
+    public String fieldMapHash = "";
+
+    public String fieldMapName = "";
+
+    /** When the Jetson loaded it, Jetson unix seconds. */
+    public double fieldMapLoadedAt = Double.NaN;
+
     @Override
     public void toLog(LogTable table) {
         table.put("Heartbeat", heartbeat);
@@ -82,6 +91,9 @@ public class JetsonInputs implements LoggableInputs {
         table.put("Rewind/Session", rewindSession);
         table.put("Rewind/FreeGB", rewindFreeGB);
         table.put("Rewind/FramesDropped", rewindFramesDropped);
+        table.put("FieldMap/Hash", fieldMapHash);
+        table.put("FieldMap/Name", fieldMapName);
+        table.put("FieldMap/LoadedAt", fieldMapLoadedAt);
     }
 
     @Override
@@ -112,5 +124,9 @@ public class JetsonInputs implements LoggableInputs {
         rewindSession = table.get("Rewind/Session", rewindSession);
         rewindFreeGB = table.get("Rewind/FreeGB", rewindFreeGB);
         rewindFramesDropped = table.get("Rewind/FramesDropped", rewindFramesDropped);
+        // Logs from before these were recorded have none: not reported.
+        fieldMapHash = table.get("FieldMap/Hash", "");
+        fieldMapName = table.get("FieldMap/Name", "");
+        fieldMapLoadedAt = table.get("FieldMap/LoadedAt", Double.NaN);
     }
 }

@@ -236,6 +236,17 @@ public class Jetson {
         return Collections.unmodifiableSet(ids);
     }
 
+    /**
+     * Publishes the robot's field map for the Jetson to load (once, at boot).
+     *
+     * @param name the WPILib field's name, or {@code "custom"}
+     * @param hash its canonical hash
+     * @param json the layout as WPILib JSON
+     */
+    public void publishFieldMap(String name, String hash, String json) {
+        io.publishFieldMap(name, hash, json);
+    }
+
     /** Reads the Jetson. Call before the Orin sources update, so they see this loop's tag list. */
     public void updateInputs() {
         io.updateInputs(inputs);

@@ -64,6 +64,10 @@ public class JetsonNTIO implements JetsonIO {
     private final GenericSubscriber freeGB;
     private final GenericSubscriber framesDropped;
 
+    private final StringSubscriber fieldMapHash;
+    private final StringSubscriber fieldMapName;
+    private final GenericSubscriber fieldMapLoadedAt;
+
     private final NetworkTableInstance nt = NetworkTableInstance.getDefault();
 
     /** Keeps the server announcing metrics topics under any host, so they can be found. */
@@ -78,6 +82,9 @@ public class JetsonNTIO implements JetsonIO {
     private final StringPublisher label;
     private final IntegerPublisher clock;
     private final IntegerArrayPublisher excludedTags;
+    private final StringPublisher robotFieldMapJson;
+    private final StringPublisher robotFieldMapHash;
+    private final StringPublisher robotFieldMapName;
 
     public JetsonNTIO() {
         NetworkTable pv = NetworkTableInstance.getDefault().getTable("photonvision");
@@ -100,6 +107,10 @@ public class JetsonNTIO implements JetsonIO {
         overCurrentEvents = number(jetson, "overCurrentEvents");
         settingsJson = jetson.getStringTopic("settingsJson").subscribe("");
         excludedTagsActive = pv.getIntegerArrayTopic("excludedTagsActive").subscribe(new long[0]);
+        NetworkTable jetsonMap = jetson.getSubTable("FieldMap");
+        fieldMapHash = jetsonMap.getStringTopic("Hash").subscribe("");
+        fieldMapName = jetsonMap.getStringTopic("Name").subscribe("");
+        fieldMapLoadedAt = number(jetsonMap, "LoadedAt");
 
         NetworkTable rewind = pv.getSubTable("rewind");
         recording = rewind.getBooleanTopic("recording").subscribe(false);
@@ -111,6 +122,14 @@ public class JetsonNTIO implements JetsonIO {
 
         clock = pv.getSubTable("clock").getIntegerTopic("unixMs").publish();
         excludedTags = pv.getIntegerArrayTopic("excludedTags").publish();
+
+        NetworkTable robotMap =
+                NetworkTableInstance.getDefault()
+                        .getTable("SpectrumVision")
+                        .getSubTable("FieldMap");
+        robotFieldMapJson = robotMap.getStringTopic("Json").publish();
+        robotFieldMapHash = robotMap.getStringTopic("Hash").publish();
+        robotFieldMapName = robotMap.getStringTopic("Name").publish();
     }
 
     private static GenericSubscriber number(NetworkTable table, String name) {
@@ -154,6 +173,9 @@ public class JetsonNTIO implements JetsonIO {
         inputs.rewindSession = session.get();
         inputs.rewindFreeGB = read(freeGB, Double.NaN);
         inputs.rewindFramesDropped = (long) read(framesDropped, -1);
+        inputs.fieldMapHash = fieldMapHash.get();
+        inputs.fieldMapName = fieldMapName.get();
+        inputs.fieldMapLoadedAt = read(fieldMapLoadedAt, Double.NaN);
     }
 
     private long lastMetricsTime = 0;
@@ -215,5 +237,12 @@ public class JetsonNTIO implements JetsonIO {
     @Override
     public void setExcludedTags(long[] tagIds) {
         excludedTags.set(tagIds);
+    }
+
+    @Override
+    public void publishFieldMap(String name, String hash, String json) {
+        robotFieldMapJson.set(json);
+        robotFieldMapName.set(name);
+        robotFieldMapHash.set(hash);
     }
 }

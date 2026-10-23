@@ -4,6 +4,7 @@ import frc.robot.Constants;
 import frc.robot.Robot;
 import frc.robot.auton.Auton;
 import frc.robot.subsystems.swerve.Swerve;
+import frc.spectrumLib.checks.CameraHeadingCheck;
 import frc.spectrumLib.localization.Gate;
 import frc.spectrumLib.localization.GateContext;
 import frc.spectrumLib.localization.PoseFusion;
@@ -264,9 +265,16 @@ public class Vision implements Subsystem {
     // Fields
     // =========================================================================
 
+    /** The event's field. Must match the Jetson's and Limelights' layout. */
+    public static final AprilTagFields TAG_FIELD = AprilTagFields.k2026RebuiltAndymark;
+
     @Getter private static AprilTagFieldLayout tagLayout;
 
-    private final VisionConfig config;
+    @Getter private final VisionConfig config;
+
+    /** Pre-match: every tag-solving camera's heading against the gyro and each other. */
+    @Getter private final CameraHeadingCheck cameraHeadings = new CameraHeadingCheck();
+
     private final Swerve swerve;
     private final PoseFusion fusion;
 
@@ -349,7 +357,7 @@ public class Vision implements Subsystem {
         this.swerve = swerve;
         this.fusion = swerve.getPoseFusion();
         // Must match the Jetson's and Limelights' layout and the event field (#10, sec. 5).
-        tagLayout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltAndymark);
+        tagLayout = AprilTagFieldLayout.loadField(TAG_FIELD);
 
         boolean sim = Constants.currentMode == Constants.Mode.SIM;
         boolean replay = Constants.currentMode == Constants.Mode.REPLAY;
@@ -663,6 +671,10 @@ public class Vision implements Subsystem {
             s.update();
         }
 
+        if (disabled) {
+            feedCameraHeadings(now);
+        }
+
         // 2. Gate.
         yawRates.record(now, swerve.getYawRateRadPerSec());
         GateContext context =
@@ -738,6 +750,40 @@ public class Vision implements Subsystem {
 
         logStatus(disabled, useMt2);
         swerve.afterVision();
+    }
+
+    /** Whether the dashboard switch to fuse MegaTag2 once the seed is confirmed is on. */
+    public boolean isChassisUseMt2() {
+        return chassisUseMt2.get();
+    }
+
+    /**
+     * Gives the pre-match heading check this loop's full-pose frames. MegaTag2 and the Orin's
+     * gyro-held solves take their heading from the robot, so only MegaTag1 and the Orin's own
+     * solves count.
+     */
+    private void feedCameraHeadings(double now) {
+        double gyroDeg = fusion.getLastGyro().getDegrees();
+        double yawRate = swerve.getYawRateRadPerSec();
+        for (List<PoseSource> sources : List.of(mt1Sources, scMt1Sources, orinSources)) {
+            for (PoseSource s : sources) {
+                PoseSourceInputs in = s.getInputs();
+                String camera = s.getName().replace("/MT1", "");
+                int n = Math.min(in.poses.length, in.tagCounts.length);
+                for (int i = 0; i < n; i++) {
+                    cameraHeadings.addFrame(
+                            camera,
+                            Math.toDegrees(in.poses[i].getRotation().getZ()),
+                            gyroDeg,
+                            in.tagCounts[i],
+                            yawRate,
+                            now);
+                }
+            }
+        }
+        cameraHeadings.setRobotHeading(
+                poseHeadingSeeded ? fusion.getPose().getRotation().getDegrees() : Double.NaN,
+                gyroDeg);
     }
 
     /** Re-seeds the heading from LL-Back MT1 multi-tag when it holds off the fused heading. */

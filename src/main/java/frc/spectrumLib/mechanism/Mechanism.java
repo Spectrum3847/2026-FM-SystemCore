@@ -308,6 +308,18 @@ public abstract class Mechanism implements Subsystem {
         }
 
         this.register();
+        ALL.add(this);
+    }
+
+    private static final java.util.List<Mechanism> ALL = new java.util.ArrayList<>();
+
+    /**
+     * Every mechanism constructed so far, in construction order, e.g. for pre-match checks.
+     *
+     * @return an unmodifiable view
+     */
+    public static java.util.List<Mechanism> all() {
+        return java.util.Collections.unmodifiableList(ALL);
     }
 
     /**
@@ -926,8 +938,12 @@ public abstract class Mechanism implements Subsystem {
         simRebootPending = true;
     }
 
-    /** The leader's position bounds its travel, so a reboot that restarts it matters. */
-    private boolean hasSoftLimits() {
+    /**
+     * The leader's position bounds its travel, so a reboot that restarts it matters.
+     *
+     * @return {@code true} if either soft limit is enabled
+     */
+    public boolean hasSoftLimits() {
         var limits = config.talonConfig.SoftwareLimitSwitch;
         return limits.ForwardSoftLimitEnable || limits.ReverseSoftLimitEnable;
     }

@@ -3,6 +3,7 @@ package frc.robot.subsystems.hood;
 import com.ctre.phoenix6.hardware.TalonFX;
 import frc.rebuilt.ShotCalculator;
 import frc.robot.RobotSim;
+import frc.spectrumLib.checks.HomingCheck;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
 import frc.spectrumLib.sim.ArmConfig;
@@ -160,6 +161,20 @@ public class Hood extends Mechanism {
         return homing.isZeroed();
     }
 
+    private HoodHoming.State homingState = HoodHoming.State.NOT_ZEROED;
+
+    /** The homing state for the pre-match check; the hood homes itself at auto start. */
+    public HomingCheck.State getHomingCheckState() {
+        if (!getInputs().connected) {
+            return HomingCheck.State.DISCONNECTED;
+        }
+        return switch (homingState) {
+            case ZEROED -> HomingCheck.State.HOMED;
+            case NOT_ZEROED, HOMING -> HomingCheck.State.HOMES_WHEN_ENABLED;
+            case TIMED_OUT -> HomingCheck.State.FAILED;
+        };
+    }
+
     public Hood(HoodConfig config) {
         super(config);
         this.config = config;
@@ -194,6 +209,7 @@ public class Hood extends Mechanism {
             setMotorPosition(() -> degreesToRotations(() -> homing.getParams().stopDeg()));
         }
         homingTimeoutAlert.set(homed.timedOut());
+        homingState = homed.state();
         systemState = handleStateTransition();
         applyStates(homed.action());
         logBatteryUsage();

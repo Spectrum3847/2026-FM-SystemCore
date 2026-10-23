@@ -371,6 +371,11 @@ public class PoseFusion {
         return fused.sampleAt(timestampSeconds);
     }
 
+    /** The gyro yaw of the latest odometry sample, as the odometry reads it. */
+    public Rotation2d getLastGyro() {
+        return lastGyro;
+    }
+
     /** Wheels-and-gyro-only pose. */
     public Pose2d getOdometryPose() {
         return odometry.getPose();

@@ -29,6 +29,7 @@ import frc.spectrumLib.hardware.CanConfigBudget;
 import frc.spectrumLib.localization.ImuMountCheck;
 import frc.spectrumLib.localization.OdometryGuard;
 import frc.spectrumLib.localization.PoseFusion;
+import frc.spectrumLib.mechanism.MotorResetMonitor;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.util.Util;
@@ -195,6 +196,18 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
 
     /** Keeps samples from disconnected or reset devices out of the pose. */
     private final OdometryGuard odometryGuard;
+
+    // The logged reset inputs are Phoenix's raw flags, which also report the first contact after
+    // boot. These apply the mechanisms' rule to the logged inputs, so the result replays.
+    private final MotorResetMonitor[] moduleResetFilters = {
+        new MotorResetMonitor(),
+        new MotorResetMonitor(),
+        new MotorResetMonitor(),
+        new MotorResetMonitor()
+    };
+    private final MotorResetMonitor gyroResetFilter = new MotorResetMonitor();
+    private final boolean[] moduleRebooted = new boolean[4];
+    private boolean gyroRebooted = false;
 
     /** Drive and steer position per module, refreshed each loop only for their status. */
     private final BaseStatusSignal[] modulePositionSignals;
@@ -508,7 +521,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         daqFailed = haveFailedDaqs && inputs.failedDaqs != lastFailedDaqs;
         lastFailedDaqs = inputs.failedDaqs;
         haveFailedDaqs = true;
-        odometryGuard.markResets(inputs.gyroResetOccurred, inputs.moduleResetOccurred);
+        odometryGuard.markResets(gyroRebooted, moduleRebooted);
 
         int n = inputs.odometryTimestamps.length;
         long[] modulesUsed = new long[n];
@@ -686,11 +699,46 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
             readHardware();
         }
         Logger.processInputs("Swerve", inputs);
+        filterResets();
         integrateOdometry();
         updateMountCheck();
         if (sim != null) {
             poseFusion.setTruth(Optional.of(sim.truth.getPose()));
         }
+    }
+
+    /** Runs once per loop on the logged inputs: each filter counts the loops it is called. */
+    private void filterResets() {
+        for (int m = 0; m < moduleRebooted.length; m++) {
+            // Logs from before ModuleConnected was recorded have none.
+            boolean connected = inputs.moduleConnected.length != 4 || inputs.moduleConnected[m];
+            boolean raw = m < inputs.moduleResetOccurred.length && inputs.moduleResetOccurred[m];
+            moduleRebooted[m] = moduleResetFilters[m].filter(connected, raw);
+        }
+        gyroRebooted = gyroResetFilter.filter(inputs.gyroConnected, inputs.gyroResetOccurred);
+        Logger.recordOutput("Swerve/ModuleRebooted", moduleRebooted);
+        Logger.recordOutput("Swerve/GyroRebooted", gyroRebooted);
+    }
+
+    /**
+     * Whether a module's drive motor rebooted this loop, not counting Phoenix's report of the first
+     * contact after boot. Use this, not the raw {@code ModuleResetOccurred} input.
+     *
+     * @param module module index, in {@link SwerveAlignment#MODULE_NAMES} order
+     * @return true on the loop the reboot is seen
+     */
+    public boolean moduleRebootedThisLoop(int module) {
+        return module >= 0 && module < moduleRebooted.length && moduleRebooted[module];
+    }
+
+    /**
+     * Whether the Pigeon rebooted this loop, not counting Phoenix's report of the first contact
+     * after boot. Use this, not the raw {@code GyroResetOccurred} input.
+     *
+     * @return true on the loop the reboot is seen
+     */
+    public boolean gyroRebootedThisLoop() {
+        return gyroRebooted;
     }
 
     @Override

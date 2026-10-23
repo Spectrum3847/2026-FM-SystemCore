@@ -670,6 +670,24 @@ other layout ("Pilot controller looks like the WPILIB_DS layout, but is read as 
   capture frame by frame in the camera's web UI or Limelight's Rewind Viewer. The SystemCore's
   own cameras are skipped, since their storage is the robot's internal disk.
 
+### Files from the Driver Station laptop
+
+After each match the DS laptop (MatchReview helper, DS-laptop mode) pushes its Driver Station log,
+plus any audio and video it recorded, to the robot while the field still connects them. The pit
+laptop then pulls them with the match log. The robot side is
+[DsUploadReceiver](src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java):
+
+- HTTP on port **5806** (inside the field's 5800–5810 team range), header `X-MatchReview-Token`.
+  The token lives in `/home/systemcore/ds-upload-token` on the robot, never in this public repo;
+  without that file the receiver stays off (info alert).
+- **Only while disabled.** The field gives each team about 7 Mbps, so pushes wait for the match
+  to end. A push cut off by the robot powering down resumes at the next pit tether
+  (`HEAD /upload/<kind>/<name>` says how much arrived).
+- Files land in `<log folder>/ds/`, oldest trimmed above 1.5 GB, and never below 1 GB of free disk.
+  Kinds and caps: `dslog` (NI `.dslog`/`.dsevents`, 20 MB), `dswpilog` (2027 DS `.wpilog`, 50 MB),
+  `audio` (`.m4a`/`.opus`, 20 MB), `video` (`.mp4`, 200 MB).
+- Logged as `DSUpload/FilesReceived`, `BytesReceived`, `LastFile` and `LastError`.
+
 ### Keeping work off the loop
 
 - **Slow reads run on a background thread** ([BackgroundSampler](src/main/java/frc/spectrumLib/util/BackgroundSampler.java)):

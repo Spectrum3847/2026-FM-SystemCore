@@ -45,6 +45,7 @@ import frc.spectrumLib.hardware.Rio;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.BatteryLogger;
 import frc.spectrumLib.telemetry.DashboardReceiver;
+import frc.spectrumLib.telemetry.DsUploadReceiver;
 import frc.spectrumLib.telemetry.LogStorage;
 import frc.spectrumLib.telemetry.SystemLoadMonitor;
 import frc.spectrumLib.telemetry.Telemetry;
@@ -254,6 +255,10 @@ public class Robot extends SpectrumRobot {
             ShotCalculator.getInstance();
             if (Constants.hasHardware()) {
                 WebServer.start(5800, Filesystem.getDeployDirectory().getPath());
+            }
+            if (Constants.currentMode == Constants.Mode.REAL) {
+                // Before the main thread goes real-time, so this thread stays at normal priority.
+                DsUploadReceiver.start(LogStorage.folder());
             }
 
             if (Constants.currentMode == Constants.Mode.REAL) {
@@ -537,6 +542,7 @@ public class Robot extends SpectrumRobot {
         Telemetry.periodic();
         Alert.periodic();
         LogStorage.periodic();
+        DsUploadReceiver.periodic(RobotState.isEnabled());
         systemLoad.periodic();
 
         // Latched here rather than in the mode inits so every mode is covered by the same check.

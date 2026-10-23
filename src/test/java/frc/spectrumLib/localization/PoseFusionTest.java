@@ -130,6 +130,58 @@ class PoseFusionTest {
         assertEquals(1, s.getRejectedCount());
     }
 
+    /** One frame at {@code t}, heading ignored. */
+    private static PoseSource frameAt(String name, double t, double x, double headingDeg) {
+        PoseSourceIO io =
+                inputs -> {
+                    inputs.connected = true;
+                    inputs.resize(1);
+                    inputs.set(
+                            0,
+                            new PoseObservation(
+                                    name,
+                                    Kind.LIMELIGHT_MT1,
+                                    t,
+                                    new Pose3d(
+                                            new Pose2d(x, 0, Rotation2d.fromDegrees(headingDeg))),
+                                    2,
+                                    2.0,
+                                    Double.NaN,
+                                    0.1,
+                                    true));
+                };
+        return new PoseSource(
+                name,
+                io,
+                List.of(Gate.rejectIf("Never", (o, c) -> false)),
+                (o, c) -> new StdDevModel.StdDevs(0.1, 1e6, "Test tier"),
+                true);
+    }
+
+    @Test
+    void seedHeadingSurvivesOutOfOrderFrame() {
+        // The redo after the older frame must keep the seeded heading, in the shadows too.
+        PoseSource cam = frameAt("Test-Cam", 0.30, 1.0, 40);
+        PoseSource older = frameAt("Test-Older", 0.25, 1.0, 0);
+        PoseFusion f = fusion(cam, older);
+        cam.update();
+        older.update();
+        // Create the older camera's shadow first, so the seed reaches it as on the robot.
+        f.apply(older, older.process(ctx(f)), false);
+
+        f.seed(new Pose2d(1.0, 0, Rotation2d.fromDegrees(40)), 0.30, 0.01, 1e-4);
+        f.apply(cam, cam.process(ctx(f)), true);
+        assertEquals(40, f.getPose().getRotation().getDegrees(), 0.1);
+
+        f.apply(older, older.process(ctx(f)), true);
+        assertEquals(40, f.getPose().getRotation().getDegrees(), 0.1, "fused heading");
+        assertEquals(
+                40,
+                f.getShadowPose("Test-Older").orElseThrow().getRotation().getDegrees(),
+                0.1,
+                "shadow heading");
+    }
+
     private static SwerveModulePosition[] straight(double meters) {
         SwerveModulePosition[] p = new SwerveModulePosition[4];
         for (int i = 0; i < 4; i++) {

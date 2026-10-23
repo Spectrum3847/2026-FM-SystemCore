@@ -265,7 +265,10 @@ public class Vision implements Subsystem {
     // Fields
     // =========================================================================
 
-    /** The event's field. Must match the Jetson's and Limelights' layout. */
+    /**
+     * The layout the robot solves with; the Jetson's and Limelights' must match it. {@code
+     * Event.APRILTAG_FIELD} says which field this event has, and the pre-match check compares.
+     */
     public static final AprilTagFields TAG_FIELD = AprilTagFields.k2026RebuiltAndymark;
 
     @Getter private static AprilTagFieldLayout tagLayout;

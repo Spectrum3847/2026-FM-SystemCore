@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 import org.wpilib.driverstation.RobotState;
+import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 import org.wpilib.vision.apriltag.AprilTagFields;
 
 /** FM's pre-match checks: which devices, mechanisms, cameras and settings each check covers. */
@@ -143,25 +144,42 @@ final class PreMatch {
         return co;
     }
 
+    /**
+     * Whether the tag layout vision loaded is this event's field.
+     *
+     * @param loaded the layout vision loaded
+     * @param loadedField the field it was loaded as
+     * @param expected this event's field ({@link Event#APRILTAG_FIELD})
+     * @return what differs, or null when it is the event's layout
+     */
+    static String fieldMismatch(
+            AprilTagFieldLayout loaded, AprilTagFields loadedField, AprilTagFields expected) {
+        if (loaded != null && loaded.equals(AprilTagFieldLayout.loadField(expected))) {
+            return null;
+        }
+        if (loadedField == expected) {
+            return "AprilTag layout differs from WPILib's " + expected.name() + ", this event's";
+        }
+        return "AprilTag layout "
+                + loadedField.name()
+                + ", but this event's field is "
+                + expected.name()
+                + " (Event.APRILTAG_FIELD)";
+    }
+
     private static SettingsCheck settings(Swerve swerve, Vision vision) {
         Jetson jetson = vision.getJetson();
         Set<Integer> defaultExcluded =
                 Arrays.stream(vision.getConfig().getOrinExcludedTags())
                         .boxed()
                         .collect(Collectors.toCollection(TreeSet::new));
+        // Judged once: neither layout changes while the code runs.
+        String fieldMismatch =
+                fieldMismatch(Vision.getTagLayout(), Vision.TAG_FIELD, Event.APRILTAG_FIELD);
         SettingsCheck settings =
                 new SettingsCheck()
-                        .info(() -> "field " + Vision.TAG_FIELD.name())
-                        .add(
-                                () ->
-                                        Vision.TAG_FIELD == AprilTagFields.kDefaultField
-                                                ? null
-                                                : "AprilTag field "
-                                                        + Vision.TAG_FIELD.name()
-                                                        + " (WPILib default "
-                                                        + AprilTagFields.kDefaultField.name()
-                                                        + "): confirm it is this event's",
-                                Status.WARN)
+                        .info(() -> "field " + Event.APRILTAG_FIELD.name())
+                        .add(() -> fieldMismatch, Status.WARN)
                         .add(
                                 () ->
                                         jetson.isPracticeFieldProfile()

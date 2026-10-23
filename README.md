@@ -365,12 +365,17 @@ MEDIUM one; both clear on enable.
 | Auto | no auto file, no paths, or 0.5 m / 10 deg off the start for 1 s | Do Nothing, no alliance, or the pose not seeded |
 | Battery | under 11.8 V at rest for 3 s, or the same battery as last match | under 12.3 V at rest for 3 s |
 | Coprocessors | a camera the robot fuses not answering | an unfused one missing, or Orin timestamps off |
-| Settings | Orin practice profile on with the FMS attached | a non-default AprilTag field, excluded tags, or dashboard switches |
+| Settings | Orin practice profile on with the FMS attached | the AprilTag layout loaded isn't this event's field, excluded tags, or dashboard switches |
 
 On NetworkTables (Elastic, the pit app): `/AdvantageKit/RealOutputs/PreMatch/Go`, `.../Reason`
 (one line), `.../Summary` (one line per check) and `.../Checks/<name>/Status` and `Reason`.
-`python tools/wpilog_summary.py <log>` lists every change of verdict. The same-battery check needs
-a battery ID reader, which FM doesn't have yet.
+Elastic shows the verdict on the Pre-Match tab and every check's line on the Pre-Match Checks
+tab. `python tools/wpilog_summary.py <log>` lists every change of verdict. The same-battery check
+needs a battery ID reader, which FM doesn't have, so it is skipped.
+
+Before each event, set the event's field (AndyMark or Welded) in
+[Event.java](src/main/java/frc/robot/Event.java). The Settings check warns while the layout vision
+loads (`Vision.TAG_FIELD`, which the Limelights and the Jetson must match) is not that field.
 
 ## Tilt and knocks (Pigeon)
 

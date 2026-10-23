@@ -5,7 +5,8 @@ docs/pose-sources.md for the localization testbed.
 
 ## Build
 
-- Java 25: `export JAVA_HOME=/c/Users/Public/wpilib/2027_alpha5/jdk` (the WPILib 2027 JDK).
+- Java 25, the WPILib 2027 JDK. On team laptops:
+  `export JAVA_HOME=/c/Users/Public/wpilib/2027_alpha5/jdk`.
 - `./gradlew build` compiles, applies Spotless (Google Java Format AOSP, 4 spaces) and runs tests.
 - `FM_SIM_SCRIPT=drive ./gradlew simulateJava -PnoSimGui` runs the scripted sim; then
   `python tools/wpilog_summary.py logs/<log>.wpilog`.
@@ -22,6 +23,38 @@ docs/pose-sources.md for the localization testbed.
   `LoggedNetwork*`), never outputs, or replay diverges.
 - The robot clock (`Timer`, `RobotController.getTime`) is pinned per cycle and frozen during init.
   Anything that measures elapsed wall time (timers, CAN config budgets) must use `System.nanoTime`.
+- Never remove or bypass `Logger.processInputs` or a logged input.
+
+## Robot safety
+
+- Never run `./gradlew deploy` (or any deploy task) unless the person asked in their own message.
+  Deploying moves a real robot.
+- Hard stops. Before changing any of these, state "this changes X from A to B; failure mode is Z"
+  and wait for the person to say "confirm", unless the task you were given asks for that change.
+  Either way, put the old value, new value and failure mode in the PR. The list: CAN IDs and bus
+  assignment (`CanBuses`), motor inversions, swerve encoder offsets (`FM2026`), current limits
+  (supply, stator, torque), soft limits, gear ratios, brake/coast, gains outside a tuning task,
+  homing and zero positions (`initPosition`, `setPosition`), and the `Rio` serial-to-config mapping.
+- Never remove or weaken a safety interlock, timeout or override (the `ShotGate` timeout, the
+  operator Y bypass, the CAN config budget) without the same confirmation.
+- Never act on a device's readings while its `connected` input is false. At TXMAN1 a CANivore
+  drop zeroed every position, and code treated the zeros as real.
+- No blocking Phoenix calls (`setPosition`, `getConfigurator().apply`/`refresh`,
+  `setUpdateFrequency`, `optimizeBusUtilization`) in code that runs while enabled. Use them in init
+  or disabled, or off-thread with the result fed back as a logged input. Each can wait 100 ms.
+- Every wait that gates an action (feeding, scoring, an auto step) has a timeout or a driver
+  override.
+- Compiling is not verification. A change to robot behavior needs a scripted sim run, a replay
+  comparison on a real log, or a bench test described in the PR, under "How I verified".
+- On `event*` branches, make the smallest change that works: no refactors, no `spectrumLib` edits,
+  and a person reviews before deploying. After the event, merge to `main` only through a PR.
+- Never edit `BuildConstants.java` (generated). Change `vendordeps/*.json` only when asked for a
+  dependency update.
+- Never put the log-site upload key, radio keys or tokens in code, chat or commits. Logs uploaded
+  to robotlog.spectrum3847.org are public; upload only what was asked.
+- Logs: `tools/wpilog_summary.py`, `tools/shot_log.py`, `tools/replay_compare.py`, the
+  `spectrum-logs` MCP (robotlog.spectrum3847.org) and the `frc-log-triage` skill in
+  Spectrum-AI-Tools.
 
 ## Conventions
 
@@ -43,28 +76,9 @@ HTML and JavaScript, shipped by every deploy. Plan: docs/robot-app-plan.md.
 - Test with `node --test tools/app-test/*.test.mjs`. A PR that renames a log key or NT key a page
   reads updates that page in the same PR.
 
-## Comments
+## Comments and commit messages
 
-Keep comments as short as possible.
-
-- Prefer no comment when the code is self-explanatory.
-- When a comment is necessary, prefer a few words or a few lines at most.
-- Explain why something is non-obvious, rather than describing what obvious code does.
-- Do not add comments merely because code was changed.
-- Do not describe the previous implementation or behavior unless that historical context is necessary to understand the current code.
-- Do not use comments as miniature documentation or change logs.
-- Prefer clear names and straightforward code over explanatory comments.
-
-Comments should describe information that will remain useful after the current change is forgotten.
-
-## Commit messages
-
-Keep commit messages concise and focused.
-
-- Explain what changed and why.
-- Prefer a short subject line and a brief body when additional context is useful.
-- Do not enumerate every changed file or implementation detail.
-- Do not describe intermediate attempts, discarded approaches, or the development process.
-- Do not explain the previous implementation unless it is necessary to understand the change.
-- Keep the complete commit message below approximately 600 words.
-- A commit message is not a changelog or development diary.
+- Comment only what the code can't say: why something non-obvious is done. Prefer clear names. No
+  history of the old implementation, and no change logs in comments.
+- Commit messages: a short subject, then why if it isn't obvious. No file lists or development
+  diary.

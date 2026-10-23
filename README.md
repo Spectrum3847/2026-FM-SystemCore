@@ -745,6 +745,14 @@ laptop then pulls them with the match log. The robot side is
   (NI `.dslog`/`.dsevents`, 20 MB), `dswpilog` (2027 DS log, 50 MB, stored as `.dswpilog` so older
   pit helpers never take it for a robot log and upload it), `audio` (`.m4a`/`.opus`, 20 MB), `video`
   (`.mp4`, 200 MB).
+- **Extend** (`dslog` and `dswpilog` only). The DS session log grows all day, so after each match
+  the client sends only what is new. HEAD on a finished log adds `X-Sha256-Prefix-Supported: 1`.
+  `PUT /upload/<kind>/<name>?offset=<n>&total=<N>&extend=1`, with `X-Prefix-Sha256` set to the
+  SHA-256 of the client's first n bytes (n = the finished file's length, N > n), turns the finished
+  file back into a partial one and appends; later chunks are plain offset PUTs. If the hash differs
+  (or n isn't the finished length), the reply is 409 with `X-Extend: mismatch`, and the client sends
+  from offset 0. The robot hashes logs as they arrive, so it reads a file back only for one left
+  from an earlier boot, and stops if the robot enables.
 - If the robot enables mid-upload, the receiver stops within 64 KiB, keeps the partial file and
   closes the connection without a reply; the client resumes from `X-Received` later.
 - Up to three connections at once, on threads created at robot init at minimum priority. A

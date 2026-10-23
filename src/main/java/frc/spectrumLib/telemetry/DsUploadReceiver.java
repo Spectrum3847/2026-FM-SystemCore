@@ -20,9 +20,11 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -55,6 +57,15 @@ import org.wpilib.driverstation.Alert.Level;
  *   <li>{@code PUT /dslog/<name>} takes a whole NI DS log in one body (the helper's first version).
  * </ul>
  *
+ * <p>Extend ({@code dslog} and {@code dswpilog} only). The DS keeps appending to its session log,
+ * so after each match the file the robot finished last time is a prefix of the one to send. HEAD on
+ * a finished file of those kinds adds {@code X-Sha256-Prefix-Supported: 1}. The client may then
+ * send {@code PUT /upload/<kind>/<name>?offset=<n>&total=<N>&extend=1} with {@code X-Prefix-Sha256:
+ * <hex SHA-256 of its first n bytes>}, where n is the finished file's length and N &gt; n. If the
+ * robot's file hashes the same, it becomes the partial copy and the chunk is appended; later chunks
+ * are plain offset PUTs. Otherwise the reply is 409 with {@code X-Extend: mismatch}, and the client
+ * sends the whole file from offset 0.
+ *
  * <p>The field gives each team about 7 Mbps, so a push only happens after the match, while the
  * robot is disabled. Uploads are refused while it is enabled, and one under way when it enables
  * stops at the next 64 KiB, keeps what arrived and closes, so the client resumes later. A small
@@ -86,6 +97,9 @@ public final class DsUploadReceiver {
     private static final long DRAIN_LIMIT_BYTES = 32L << 20;
     private static final long UNAUTHORIZED_DRAIN_LIMIT_BYTES = 64L << 10;
     static final int POOL_THREADS = 3;
+    static final String PREFIX_SUPPORTED_HEADER = "X-Sha256-Prefix-Supported";
+    static final String PREFIX_HASH_HEADER = "x-prefix-sha256";
+    static final String EXTEND_HEADER = "X-Extend";
     // Connections waiting for a thread; past this they are closed at once.
     private static final int POOL_QUEUE = 8;
     private static final String NAME_CHARS = "[A-Za-z0-9 _.()-]{1,120}";
@@ -114,6 +128,11 @@ public final class DsUploadReceiver {
                 }
             }
             return null;
+        }
+
+        /** The DS session logs, which grow between pushes and so may be extended. */
+        boolean extendable() {
+            return this == DSLOG || this == DSWPILOG;
         }
 
         /** The file name on the robot for an uploaded name. */
@@ -147,6 +166,22 @@ public final class DsUploadReceiver {
     private final Set<String> active = new LinkedHashSet<>();
     // One per stored name, so two connections never write the same file at once.
     private final Map<String, ReentrantLock> fileLocks = new ConcurrentHashMap<>();
+
+    /** A SHA-256 state over a file's first {@code length} bytes, as of mtime {@code modified}. */
+    private record Hashed(long length, long modified, MessageDigest state) {
+        String hex() {
+            return HexFormat.of().formatHex(copy(state).digest());
+        }
+    }
+
+    // Keyed by stored name, used only under that name's lock, for extendable kinds. finished: a
+    // finished file's hash, good while its length and mtime match, so a repeated extend doesn't
+    // rehash. running: a partial copy's hash, updated as chunks arrive, so the file it becomes
+    // needs
+    // no hashing at its next extend.
+    private final Map<String, Hashed> finished = new ConcurrentHashMap<>();
+    private final Map<String, Hashed> running = new ConcurrentHashMap<>();
+    private final AtomicLong filesHashed = new AtomicLong();
 
     private static DsUploadReceiver instance;
 
@@ -265,6 +300,10 @@ public final class DsUploadReceiver {
 
     long filesCompleted() {
         return filesCompleted.get();
+    }
+
+    long filesHashed() {
+        return filesHashed.get();
     }
 
     // ── socket ──────────────────────────────────────────────────────────────────────────────────
@@ -505,6 +544,12 @@ public final class DsUploadReceiver {
             if (part.isFile()) {
                 return received(200, part.length(), false);
             }
+            if (done.isFile() && kind.extendable() && !whole) {
+                Reply r = received(200, done.length(), true);
+                Map<String, String> h = new HashMap<>(r.headers());
+                h.put(PREFIX_SUPPORTED_HEADER, "1");
+                return new Reply(200, h, r.body());
+            }
             return received(200, done.isFile() ? done.length() : 0, done.isFile());
         }
         return Reply.of(400, "{\"error\":\"PUT or HEAD only\"}");
@@ -577,11 +622,32 @@ public final class DsUploadReceiver {
         if (total > kind.maxBytes) {
             return Reply.of(413, "{\"error\":\"over the " + kind.maxBytes + " byte cap\"}");
         }
-        if (done.isFile() && done.length() == total && !whole) {
+        Hashed extendFrom = null;
+        if ("1".equals(query.get("extend"))) {
+            if (whole || !kind.extendable()) {
+                return Reply.of(400, "{\"error\":\"extend is for dslog and dswpilog only\"}");
+            }
+            String want = headers.getOrDefault(PREFIX_HASH_HEADER, "").toLowerCase(Locale.ROOT);
+            if (!want.matches("[0-9a-f]{64}") || total <= offset) {
+                return Reply.of(400, "{\"error\":\"bad extend\"}");
+            }
+            // Only all of a finished file can be extended; anything else is sent again whole.
+            Hashed prefix =
+                    done.isFile() && !part.isFile() && done.length() == offset
+                            ? prefixHash(stored, done)
+                            : null;
+            if (prefix == null || !prefix.hex().equals(want)) {
+                drain(body, length);
+                return new Reply(
+                        409, Map.of(EXTEND_HEADER, "mismatch"), "{\"error\":\"prefix mismatch\"}");
+            }
+            extendFrom = prefix;
+        }
+        if (extendFrom == null && done.isFile() && done.length() == total && !whole) {
             drain(body, length);
             return received(200, total, true); // already have it
         }
-        long have = part.isFile() ? part.length() : 0;
+        long have = extendFrom != null ? offset : part.isFile() ? part.length() : 0;
         if (offset != have && offset != 0) {
             drain(body, length);
             return received(400, have, false);
@@ -591,7 +657,22 @@ public final class DsUploadReceiver {
             drain(body, length);
             return Reply.of(507, "{\"error\":\"robot disk nearly full\"}");
         }
-        noteWritten(part.getName(), part.getName());
+        Hashed resume = running.remove(stored);
+        MessageDigest digest = null;
+        if (extendFrom != null) {
+            move(done, part);
+            finished.remove(stored);
+            noteWritten(done.getName(), part.getName());
+            digest = copy(extendFrom.state());
+        } else {
+            noteWritten(part.getName(), part.getName());
+            if (kind.extendable() && offset == 0) {
+                digest = sha256();
+            } else if (kind.extendable() && resume != null && resume.length() == offset) {
+                digest = resume.state();
+            }
+        }
+        long hashed = offset;
         try (RandomAccessFile f = new RandomAccessFile(part, "rw")) {
             f.setLength(offset); // offset 0 restarts a push
             f.seek(offset);
@@ -606,20 +687,26 @@ public final class DsUploadReceiver {
                     break; // client gone: keep what arrived, it resumes from X-Received
                 }
                 f.write(buf, 0, n);
+                if (digest != null) {
+                    digest.update(buf, 0, n);
+                    hashed += n;
+                }
                 left -= n;
                 bytesReceived.addAndGet(n);
+            }
+        } finally {
+            if (digest != null) {
+                running.put(stored, new Hashed(hashed, 0, digest));
             }
         }
         long now = part.length();
         if (now == total) {
-            try {
-                Files.move(
-                        part.toPath(),
-                        done.toPath(),
-                        StandardCopyOption.REPLACE_EXISTING,
-                        StandardCopyOption.ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException e) {
-                Files.move(part.toPath(), done.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            move(part, done);
+            Hashed all = running.remove(stored);
+            if (all != null && all.length() == total) {
+                finished.put(stored, new Hashed(total, done.lastModified(), all.state()));
+            } else {
+                finished.remove(stored);
             }
             noteWritten(part.getName(), done.getName());
             filesCompleted.incrementAndGet();
@@ -627,6 +714,62 @@ public final class DsUploadReceiver {
             return received(200, total, true);
         }
         return received(200, now, false);
+    }
+
+    private static void move(File from, File to) throws IOException {
+        try {
+            Files.move(
+                    from.toPath(),
+                    to.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    /**
+     * The hash of all of a finished file, from the cache if the file is unchanged since. Reads it
+     * on this (receiver) thread, and stops if the robot enables.
+     */
+    private Hashed prefixHash(String stored, File done) throws IOException {
+        long modified = done.lastModified();
+        Hashed known = finished.get(stored);
+        if (known != null && known.length() == done.length() && known.modified() == modified) {
+            return known;
+        }
+        MessageDigest digest = sha256();
+        long length = 0;
+        try (InputStream in = Files.newInputStream(done.toPath())) {
+            byte[] buf = new byte[64 * 1024];
+            for (int n; (n = in.read(buf)) > 0; ) {
+                if (robotEnabled) {
+                    throw new EnabledMidUpload();
+                }
+                digest.update(buf, 0, n);
+                length += n;
+            }
+        }
+        filesHashed.incrementAndGet();
+        Hashed h = new Hashed(length, modified, digest);
+        finished.put(stored, h);
+        return h;
+    }
+
+    private static MessageDigest sha256() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("every JVM has SHA-256", e);
+        }
+    }
+
+    private static MessageDigest copy(MessageDigest d) {
+        try {
+            return (MessageDigest) d.clone();
+        } catch (CloneNotSupportedException e) {
+            throw new IllegalStateException("the JDK's SHA-256 can be cloned", e);
+        }
     }
 
     private static Reply received(int status, long bytes, boolean complete) {

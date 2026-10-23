@@ -43,6 +43,59 @@ jobs:
       - name: Compile and run tests on robot code
         run: ./gradlew build
 
+  # Each scripted sim runs in real time, then tools/ci_assert.py checks its log.
+  sim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: drive
+            script: drive
+          - name: shoot
+            script: shoot
+          - name: auto
+            script: auto:TBTB Left
+            check: --auto
+    name: sim (${{ matrix.name }})
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew shadowJar
+
+      - name: Run the ${{ matrix.name }} sim
+        env:
+          FM_SIM_SCRIPT: ${{ matrix.script }}
+          FM_SIM_EXIT: 1
+        run: |
+          set -o pipefail
+          timeout 5m ./gradlew simulateJava -PnoSimGui 2>&1 | tee logs-console.txt
+
+      - name: Check the log
+        run: python3 tools/ci_assert.py logs/*.wpilog logs-console.txt ${{ matrix.check }}
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: sim-${{ matrix.name }}
+          path: |
+            logs/*.wpilog
+            logs-console.txt
+          retention-days: 14
+
   # The robot app (src/main/deploy/app) is plain JavaScript; its tests need Node only.
   app:
     runs-on: ubuntu-latest

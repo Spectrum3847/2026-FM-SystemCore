@@ -23,6 +23,7 @@ import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
+import frc.robot.Constants;
 import frc.robot.Robot;
 import frc.spectrumLib.framework.RobotLoop;
 import frc.spectrumLib.hardware.CanConfigBudget;
@@ -40,6 +41,7 @@ import org.wpilib.command2.Subsystem;
 import org.wpilib.command2.button.Trigger;
 import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.driverstation.DriverStationErrors;
+import org.wpilib.driverstation.RobotState;
 import org.wpilib.system.Timer;
 import org.wpilib.units.measure.Angle;
 import org.wpilib.units.measure.AngularVelocity;
@@ -106,6 +108,27 @@ public abstract class Mechanism implements Subsystem {
 
     /** FPGA time of the previous follower check, for integrating the mismatch. */
     private double followerCheckLastSeconds = 0;
+
+    /** Leader reboots; while its position is lost, setpoints are refused. */
+    private final MotorResetMonitor resetMonitor = new MotorResetMonitor();
+
+    private MotorResetMonitor[] followerResetMonitors = new MotorResetMonitor[0];
+
+    /** Raised when any motor in this mechanism reboots, and left up: its power needs a look. */
+    private Alert resetAlert;
+
+    /**
+     * Motors whose signal rates went back to defaults on a reboot, applied again once disabled:
+     * index 0 is the leader, then each follower.
+     */
+    private boolean[] signalRatesPending = new boolean[0];
+
+    private SignalRole leaderRole = SignalRole.LEADER;
+
+    private String positionLostKey;
+
+    /** Set by {@link #simulateReboot()}: the next loop reports a reset. */
+    private boolean simRebootPending = false;
 
     /** The last closed-loop position setpoint (in rotations) sent to the motor. */
     private double target = 0;
@@ -219,10 +242,8 @@ public abstract class Mechanism implements Subsystem {
         if (isAttached()) {
             motor = TalonFXFactory.createConfigTalon(config.id, config.talonConfig);
             boolean hasFollowers = config.followerConfigs.length > 0;
-            configureStatusSignals(
-                    motor,
-                    hasFollowers ? SignalRole.FOLLOWED_LEADER : SignalRole.LEADER,
-                    config.fastOutputLogging);
+            leaderRole = hasFollowers ? SignalRole.FOLLOWED_LEADER : SignalRole.LEADER;
+            configureStatusSignals(motor, leaderRole, config.fastOutputLogging);
 
             followerMotors = new TalonFX[config.followerConfigs.length];
             followerSupplySignals = new BaseStatusSignal[config.followerConfigs.length];
@@ -261,6 +282,14 @@ public abstract class Mechanism implements Subsystem {
 
             inputs.followerSupplyCurrentAmps = new double[followerSupplySignals.length];
             inputs.followerConnected = new boolean[followerSupplySignals.length];
+            inputs.followerResetOccurred = new boolean[followerSupplySignals.length];
+            followerResetMonitors = new MotorResetMonitor[followerSupplySignals.length];
+            for (int i = 0; i < followerResetMonitors.length; i++) {
+                followerResetMonitors[i] = new MotorResetMonitor();
+            }
+            signalRatesPending = new boolean[1 + followerSupplySignals.length];
+            resetAlert = new Alert("", Level.HIGH);
+            positionLostKey = inputsKey + "/PositionLost";
 
             followerAlerts = new Alert[config.followerConfigs.length];
             followerMismatchSeconds = new double[config.followerConfigs.length];
@@ -811,8 +840,139 @@ public abstract class Mechanism implements Subsystem {
         }
         inputs.followerSupplyCurrentAmps = followerAmps;
         inputs.followerConnected = followerOk;
+        // Read every loop: Phoenix reports each reset once, to the first call after it.
+        inputs.resetOccurred =
+                resetMonitor.filter(inputs.connected, motor.hasResetOccurred() || simRebootPending);
+        simRebootPending = false;
+        boolean[] followerReset = new boolean[followerSupplySignals.length];
+        for (int i = 0; i < followerReset.length; i++) {
+            followerReset[i] =
+                    followerResetMonitors[i].filter(
+                            followerOk[i], followerMotors[i].hasResetOccurred());
+        }
+        inputs.followerResetOccurred = followerReset;
         // Records the readings on the robot; overwrites them from the log in replay.
         Logger.processInputs(inputsKey, inputs);
+        handleResets();
+    }
+
+    /**
+     * Acts on this loop's logged reset inputs: a rebooted leader of a soft-limited mechanism loses
+     * its position until the mechanism homes, and every rebooted motor raises the alert and gets
+     * its signal rates back once the robot is disabled.
+     */
+    private void handleResets() {
+        String rebooted = null;
+        if (resetMonitor.update(inputs.resetOccurred, hasSoftLimits())) {
+            signalRatesPending[0] = true;
+            rebooted = config.getName() + " (CAN " + config.getId().getDeviceNumber() + ")";
+        }
+        for (int i = 0; i < followerResetMonitors.length; i++) {
+            boolean reset =
+                    i < inputs.followerResetOccurred.length && inputs.followerResetOccurred[i];
+            if (followerResetMonitors[i].update(reset, false)) {
+                signalRatesPending[i + 1] = true;
+                FollowerConfig f = config.followerConfigs[i];
+                rebooted = f.getName() + " (CAN " + f.getId().getDeviceNumber() + ")";
+            }
+        }
+        if (rebooted != null) {
+            int resets = resetMonitor.getResets();
+            for (MotorResetMonitor m : followerResetMonitors) {
+                resets += m.getResets();
+            }
+            resetAlert.setText(
+                    rebooted
+                            + " rebooted"
+                            + (resets > 1 ? " (" + resets + " reboots this run)" : "")
+                            + " - check its power leads and breaker"
+                            + (resetMonitor.isPositionLost()
+                                    ? "; " + config.getName() + " holds until it re-homes"
+                                    : ""));
+            resetAlert.set(true);
+            Telemetry.print(rebooted + " rebooted");
+        }
+        if (hasSoftLimits()) {
+            Logger.recordOutput(positionLostKey, resetMonitor.isPositionLost());
+        }
+        // Each rate call blocks until the device answers, so never while enabled.
+        if (RobotState.isDisabled() && Constants.hasHardware()) {
+            reapplySignalRates();
+        }
+    }
+
+    private void reapplySignalRates() {
+        if (signalRatesPending[0]) {
+            signalRatesPending[0] = false;
+            configureStatusSignals(motor, leaderRole, config.fastOutputLogging);
+        }
+        for (int i = 0; i < followerMotors.length; i++) {
+            if (signalRatesPending[i + 1]) {
+                signalRatesPending[i + 1] = false;
+                configureStatusSignals(followerMotors[i], SignalRole.FOLLOWER, false);
+            }
+        }
+    }
+
+    /**
+     * Desktop simulation only: what a brownout does to the leader, its position back to 0 and a
+     * reset reported next loop. Phoenix's simulated devices never reboot.
+     */
+    public void simulateReboot() {
+        if (Constants.currentMode != Constants.Mode.SIM || !isAttached()) {
+            return;
+        }
+        motor.setPosition(0);
+        simRebootPending = true;
+    }
+
+    /** The leader's position bounds its travel, so a reboot that restarts it matters. */
+    private boolean hasSoftLimits() {
+        var limits = config.talonConfig.SoftwareLimitSwitch;
+        return limits.ForwardSoftLimitEnable || limits.ReverseSoftLimitEnable;
+    }
+
+    /**
+     * The leader rebooted since this mechanism last set its position, so the position, the soft
+     * limits and any position setpoint are measured from a zero the reboot erased. Until a position
+     * write (homing) clears it, every soft-limited output is replaced by neutral. Only soft-limited
+     * mechanisms lose their position this way.
+     *
+     * @return {@code true} while the position cannot be trusted
+     */
+    public boolean isPositionLost() {
+        if (config.attached) {
+            refreshSignalsOncePerLoop();
+        }
+        return resetMonitor.isPositionLost();
+    }
+
+    /**
+     * The leader's reset input this loop, after refreshing it. A mechanism that homes itself
+     * restarts its homing on this.
+     *
+     * @return {@code true} on the loop a reboot is seen
+     */
+    protected boolean motorResetThisLoop() {
+        if (!config.attached) {
+            return false;
+        }
+        refreshSignalsOncePerLoop();
+        return inputs.resetOccurred;
+    }
+
+    /**
+     * Sends neutral instead of a setpoint while the position is lost.
+     *
+     * @return {@code true} when the caller must not send its setpoint
+     */
+    private boolean holdForLostPosition() {
+        refreshSignalsOncePerLoop();
+        if (!resetMonitor.isPositionLost()) {
+            return false;
+        }
+        motor.stopMotor();
+        return true;
     }
 
     /**
@@ -1242,6 +1402,7 @@ public abstract class Mechanism implements Subsystem {
         if (isAttached()) {
             motor.setPosition(rotations.getAsDouble());
         }
+        resetMonitor.positionRestored();
     }
 
     /**
@@ -1251,7 +1412,7 @@ public abstract class Mechanism implements Subsystem {
      * @param velocityRPS the target velocity in rotations per second
      */
     protected void setMMVelocityFOC(DoubleSupplier velocityRPS) {
-        if (isAttached()) {
+        if (isAttached() && !holdForLostPosition()) {
             velocityTarget = velocityRPS.getAsDouble();
             MotionMagicVelocityTorqueCurrentFOC mm =
                     config.mmVelocityFOC.withVelocity(velocityTarget);
@@ -1265,7 +1426,7 @@ public abstract class Mechanism implements Subsystem {
      * @param velocityRPS the target velocity in rotations per second
      */
     protected void setVelocityTorqueCurrentFOC(DoubleSupplier velocityRPS) {
-        if (isAttached()) {
+        if (isAttached() && !holdForLostPosition()) {
             velocityTarget = velocityRPS.getAsDouble();
             VelocityTorqueCurrentFOC output =
                     config.velocityTorqueCurrentFOC.withVelocity(velocityTarget);
@@ -1280,7 +1441,7 @@ public abstract class Mechanism implements Subsystem {
      * @param velocityRPM the target velocity in revolutions per minute
      */
     protected void setVelocityTCFOCrpm(DoubleSupplier velocityRPM) {
-        if (isAttached()) {
+        if (isAttached() && !holdForLostPosition()) {
             velocityTarget = Conversions.RPMtoRPS(velocityRPM.getAsDouble());
             VelocityTorqueCurrentFOC output =
                     config.velocityTorqueCurrentFOC.withVelocity(velocityTarget);
@@ -1294,7 +1455,7 @@ public abstract class Mechanism implements Subsystem {
      * @param velocityRPS the target velocity in rotations per second
      */
     protected void setVelocity(DoubleSupplier velocityRPS) {
-        if (isAttached()) {
+        if (isAttached() && !holdForLostPosition()) {
             velocityTarget = velocityRPS.getAsDouble();
             VelocityVoltage output = config.velocityControl.withVelocity(velocityTarget);
             motor.setControl(output);
@@ -1317,7 +1478,7 @@ public abstract class Mechanism implements Subsystem {
      * @param rotations the target position in rotations
      */
     protected void setPosition(DoubleSupplier rotations) {
-        if (isAttached()) {
+        if (isAttached() && !holdForLostPosition()) {
             target = rotations.getAsDouble();
             PositionVoltage output = config.positionControl.withPosition(target).withVelocity(0);
             motor.setControl(output);
@@ -1333,7 +1494,7 @@ public abstract class Mechanism implements Subsystem {
      * @param velocityRPS the velocity feedforward in mechanism rotations per second
      */
     protected void setPositionWithVelocity(DoubleSupplier rotations, DoubleSupplier velocityRPS) {
-        if (isAttached()) {
+        if (isAttached() && !holdForLostPosition()) {
             target = rotations.getAsDouble();
             PositionVoltage output =
                     config.positionControl
@@ -1350,7 +1511,7 @@ public abstract class Mechanism implements Subsystem {
      * @param rotations the target position in rotations
      */
     protected void setMMPositionFoc(DoubleSupplier rotations) {
-        if (isAttached()) {
+        if (isAttached() && !holdForLostPosition()) {
             target = rotations.getAsDouble();
             MotionMagicTorqueCurrentFOC mm = config.mmPositionFOC.withPosition(target);
             motor.setControl(mm);
@@ -1368,7 +1529,7 @@ public abstract class Mechanism implements Subsystem {
      */
     protected void setPositionFocWithVelocity(
             DoubleSupplier rotations, DoubleSupplier velocityRPS) {
-        if (isAttached()) {
+        if (isAttached() && !holdForLostPosition()) {
             target = rotations.getAsDouble();
             PositionTorqueCurrentFOC req =
                     config.positionTorqueFOC
@@ -1392,7 +1553,7 @@ public abstract class Mechanism implements Subsystem {
             DoubleSupplier velocity,
             DoubleSupplier acceleration,
             DoubleSupplier jerk) {
-        if (isAttached()) {
+        if (isAttached() && !holdForLostPosition()) {
             target = rotations.getAsDouble();
             DynamicMotionMagicTorqueCurrentFOC mm =
                     config.dynamicMMPositionFOC
@@ -1418,7 +1579,7 @@ public abstract class Mechanism implements Subsystem {
             DoubleSupplier velocity,
             DoubleSupplier acceleration,
             DoubleSupplier jerk) {
-        if (isAttached()) {
+        if (isAttached() && !holdForLostPosition()) {
             target = rotations.getAsDouble();
             DynamicMotionMagicVoltage mm =
                     config.dynamicMotionMagicVoltage
@@ -1447,7 +1608,7 @@ public abstract class Mechanism implements Subsystem {
      * @param slot the gain slot to use (0, 1, or 2)
      */
     protected void setMMPosition(DoubleSupplier rotations, int slot) {
-        if (isAttached()) {
+        if (isAttached() && !holdForLostPosition()) {
             target = rotations.getAsDouble();
             MotionMagicVoltage mm =
                     config.mmPositionVoltageSlot.withSlot(slot).withPosition(target);
@@ -1462,7 +1623,7 @@ public abstract class Mechanism implements Subsystem {
      * @param percent fractional output between -1 and +1
      */
     protected void setPercentOutput(DoubleSupplier percent) {
-        if (isAttached()) {
+        if (isAttached() && !holdForLostPosition()) {
             VoltageOut output =
                     config.voltageControl.withOutput(
                             config.voltageCompSaturation * percent.getAsDouble());
@@ -1477,7 +1638,7 @@ public abstract class Mechanism implements Subsystem {
      * @param voltage the desired voltage in volts
      */
     protected void setVoltageOutput(DoubleSupplier voltage) {
-        if (isAttached()) {
+        if (isAttached() && !holdForLostPosition()) {
             VoltageOut output = config.voltageControl.withOutput(voltage.getAsDouble());
             motor.setControl(output);
         }
@@ -1505,7 +1666,7 @@ public abstract class Mechanism implements Subsystem {
      * @param current the desired torque current in amps
      */
     public void setTorqueCurrentFoc(DoubleSupplier current) {
-        if (isAttached()) {
+        if (isAttached() && !holdForLostPosition()) {
             TorqueCurrentFOC output = config.torqueCurrentFOC.withOutput(current.getAsDouble());
             motor.setControl(output);
         }

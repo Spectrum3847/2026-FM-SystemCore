@@ -9,7 +9,8 @@ package frc.robot.subsystems.hood;
  * Params#stallDegPerSec} for {@link Params#stallSeconds}, then sets the position to the stop. It
  * runs at auto start, at teleop start unless already zeroed, and each time the hood is sent home
  * and gets within {@link Params#nearHomeDeg} of the stop (1678's re-home on stow). Until the first
- * success the hood refuses closed-loop setpoints and holds in brake.
+ * success the hood refuses closed-loop setpoints and holds in brake. A reboot of the hood motor
+ * restarts its position, so it un-zeroes the hood and re-homes it at once if enabled.
  */
 public final class HoodHoming {
 
@@ -87,6 +88,7 @@ public final class HoodHoming {
      * @param autonomous the Driver Station is in autonomous
      * @param teleop the Driver Station is in teleop
      * @param motorConnected the hood motor's signals are arriving
+     * @param motorReset the hood motor rebooted this loop, restarting its position
      * @param positionDeg measured hood angle
      * @param degPerSec measured hood speed
      * @param wantsHome the hood is being sent to its stop
@@ -97,6 +99,7 @@ public final class HoodHoming {
             boolean autonomous,
             boolean teleop,
             boolean motorConnected,
+            boolean motorReset,
             double positionDeg,
             double degPerSec,
             boolean wantsHome) {}
@@ -162,6 +165,14 @@ public final class HoodHoming {
         }
         wasAutoEnabled = autoEnabled;
         wasTeleopEnabled = teleopEnabled;
+        // The reboot erased the zero, and an attempt under way would take the reboot's standstill
+        // for the stop. Re-home now if enabled, else at the next mode start.
+        if (in.motorReset()) {
+            zeroed = false;
+            homing = false;
+            homedThisStow = false;
+            requested = true;
+        }
         if (!in.wantsHome()) {
             homedThisStow = false;
         }

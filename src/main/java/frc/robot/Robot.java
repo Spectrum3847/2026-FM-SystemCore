@@ -39,6 +39,8 @@ import frc.robot.subsystems.swerve.SwerveConfig;
 import frc.robot.subsystems.vision.CameraParams;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.Vision.VisionConfig;
+import frc.spectrumLib.checks.AutoStartCheck;
+import frc.spectrumLib.checks.PreMatchChecks;
 import frc.spectrumLib.framework.RobotLoop;
 import frc.spectrumLib.framework.SpectrumRobot;
 import frc.spectrumLib.hardware.CanBuses;
@@ -252,6 +254,8 @@ public class Robot extends SpectrumRobot {
             SystemLoadMonitor.threadCensus("vision");
             systemLoad = new SystemLoadMonitor();
             SystemLoadMonitor.threadCensus("systemLoad");
+            autoStart = new AutoStartCheck(this::autoStartState);
+            preMatch = PreMatch.create(swerve, vision, hood, autoStart);
             addSummarySources();
 
             if (Constants.currentMode == Constants.Mode.SIM) {
@@ -411,28 +415,10 @@ public class Robot extends SpectrumRobot {
         mainThreadPriorityAlert.set(!ok);
     }
 
-    /**
-     * Battery voltage below which a disabled robot raises the swap-the-battery alert. CALIBRATE
-     * against a meter: SystemCore's reading has been reported ~1.5 V low (SystemcoreTesting #306).
-     */
-    private static final double LOW_BATTERY_VOLTS = 11.8;
+    /** Pre-match self-checks, judged while disabled; see {@link PreMatch}. */
+    private PreMatchChecks preMatch;
 
-    private final Alert lowBatteryAlert = new Alert("", Level.MEDIUM);
-    private final org.wpilib.math.filter.Debouncer lowBatteryDebounce =
-            new org.wpilib.math.filter.Debouncer(3.0);
-
-    /**
-     * Before a match (disabled), a battery that stays under {@link #LOW_BATTERY_VOLTS} for three
-     * seconds raises an alert. Disabled only: under load while driving the voltage sags by design.
-     */
-    private void checkBatteryBeforeMatch() {
-        double volts = RuntimeInputs.batteryVoltage();
-        boolean low =
-                lowBatteryDebounce.calculate(
-                        RobotState.isDisabled() && volts > 1 && volts < LOW_BATTERY_VOLTS);
-        lowBatteryAlert.setText(String.format("Battery low: %.1f V, swap before the match", volts));
-        lowBatteryAlert.set(low);
-    }
+    private AutoStartCheck autoStart;
 
     /** Whether the HAL's brownout API works here (it did not on the 2026-09 SystemCore). */
     private boolean powerApiAvailable = false;
@@ -669,7 +655,6 @@ public class Robot extends SpectrumRobot {
             Telemetry.logDash("Match Data/TimeLeftInShift", shift.remainingTime(), "seconds");
 
             batteryLogger.setBatteryVoltage(RuntimeInputs.batteryVoltage());
-            checkBatteryBeforeMatch();
             // Every loop: a brownout is a few hundred milliseconds.
             if (powerApiAvailable) {
                 Telemetry.log("SystemStats/BrownedOut", RuntimeInputs.brownedOut());
@@ -680,6 +665,10 @@ public class Robot extends SpectrumRobot {
 
             logCanBusStatus();
             matchSummary.periodic(RuntimeInputs.batteryVoltage(), RuntimeInputs.brownedOut());
+
+            Telemetry.time("Scheduler/PreMatch");
+            preMatch.periodic(RobotState.isDisabled(), Timer.getTimestamp());
+            Telemetry.timeEnd("Scheduler/PreMatch");
 
             // For dashboards (AdvantageKit logs the pose itself every loop); 10 Hz is plenty.
             if (Telemetry.slowLogThisLoop()) {
@@ -832,8 +821,8 @@ public class Robot extends SpectrumRobot {
                 logAutoSelection(fullAutoName, true, "");
             }
             autoName = selectionKey;
-            autoFileMissingAlert.set(false);
             selectedAutoPaths = new ArrayList<>();
+            logStartPose();
             return;
         }
 
@@ -924,7 +913,7 @@ public class Robot extends SpectrumRobot {
             placeAtAutoStart = false;
         }
 
-        checkStartPose();
+        logStartPose();
     }
 
     /** Only before the first enable on the robot; always in simulation. */
@@ -936,85 +925,47 @@ public class Robot extends SpectrumRobot {
 
     // -- Start pose check (offseason) ---------------------------------------------------------
 
-    private static final double START_POSE_ALERT_METERS = 0.5;
-    private static final double START_HEADING_ALERT_DEG = 10.0;
-    private static final double START_POSE_ALERT_HOLD_SECONDS = 1.0;
+    /** The selected auto's chooser name, and whether its .auto file exists on the robot. */
+    private String selectedAutoName = "";
 
-    private double startPoseErrorSinceSeconds = Double.NaN;
-    private final Alert startPoseAlert = new Alert("", Level.HIGH);
-    private final Alert autoFileMissingAlert = new Alert("", Level.HIGH);
-    private final Alert startPoseUnverifiedAlert =
-            new Alert(
-                    "Start pose UNVERIFIED - no Limelight has seeded the pose, so the robot cannot"
-                            + " tell whether it is on the auto's start. Get a Limelight on two or"
-                            + " more tags before enabling.",
-                    Level.HIGH);
+    private boolean autoFileFound = false;
 
     private void logAutoSelection(String fullAutoName, boolean autoFileFound, String baseAutoName) {
+        selectedAutoName = fullAutoName;
+        this.autoFileFound = autoFileFound;
         Telemetry.log("Auton/SelectedAuto", fullAutoName);
         Telemetry.log("Auton/AutoFileFound", autoFileFound);
         if (autoFileFound) {
-            autoFileMissingAlert.set(false);
             Telemetry.print("Auto selected: " + fullAutoName, PrintPriority.HIGH);
-        } else {
-            autoFileMissingAlert.setText(
+        } else if (!fullAutoName.equals("Do Nothing")) {
+            Telemetry.print(
                     String.format(
-                            "Auto '%s' has NO .auto file named '%s' on the robot (names are"
-                                    + " case-sensitive there). It will do nothing. Pick another.",
-                            fullAutoName, baseAutoName));
-            autoFileMissingAlert.set(true);
+                            "Auto '%s' has no .auto file named '%s' on the robot (names are"
+                                    + " case-sensitive there)",
+                            fullAutoName, baseAutoName),
+                    PrintPriority.HIGH);
         }
     }
 
-    private void clearStartPoseReport() {
-        startPoseErrorSinceSeconds = Double.NaN;
-        startPoseAlert.set(false);
-        startPoseUnverifiedAlert.set(false);
-        Telemetry.log("Auton/StartPoseErrorMeters", Double.NaN, "m");
-        Telemetry.log("Auton/StartHeadingErrorDeg", Double.NaN, "deg");
-    }
-
-    /** Compares the current pose with the selected auto's start and alerts when they disagree. */
-    private void checkStartPose() {
-        Optional<Pose2d> start =
+    /** What the pre-match auto check judges, from this loop's logged state. */
+    private AutoStartCheck.State autoStartState() {
+        return new AutoStartCheck.State(
+                selectedAutoName.isEmpty() ? "(none)" : selectedAutoName,
+                selectedAutoName.isEmpty() || selectedAutoName.equals("Do Nothing"),
+                autoFileFound,
                 selectedAutoPaths.isEmpty()
                         ? Optional.empty()
-                        : selectedAutoPaths.get(0).getStartingHolonomicPose();
-        if (start.isEmpty() || hasBeenEnabled) {
-            clearStartPoseReport();
-            return;
-        }
-        if (!vision.isPoseHeadingSeeded()) {
-            clearStartPoseReport();
-            startPoseUnverifiedAlert.set(!RuntimeInputs.isSimulation());
-            return;
-        }
-        startPoseUnverifiedAlert.set(false);
+                        : selectedAutoPaths.get(0).getStartingHolonomicPose(),
+                swerve.getRobotPose(),
+                vision.isPoseHeadingSeeded(),
+                MatchState.getAlliance().isPresent(),
+                hasBeenEnabled);
+    }
 
-        Pose2d pose = swerve.getRobotPose();
-        double distanceMeters = pose.getTranslation().getDistance(start.get().getTranslation());
-        double headingErrorDeg = pose.getRotation().minus(start.get().getRotation()).getDegrees();
-        Telemetry.logDash("Auton/StartPoseErrorMeters", distanceMeters, "m");
-        Telemetry.logDash("Auton/StartHeadingErrorDeg", headingErrorDeg, "deg");
-
-        boolean off =
-                distanceMeters > START_POSE_ALERT_METERS
-                        || Math.abs(headingErrorDeg) > START_HEADING_ALERT_DEG;
-        double now = Timer.getTimestamp();
-        if (!off) {
-            startPoseErrorSinceSeconds = Double.NaN;
-            startPoseAlert.set(false);
-        } else if (Double.isNaN(startPoseErrorSinceSeconds)) {
-            startPoseErrorSinceSeconds = now;
-        } else if (now - startPoseErrorSinceSeconds >= START_POSE_ALERT_HOLD_SECONDS
-                && !startPoseAlert.get()) {
-            startPoseAlert.setText(
-                    String.format(
-                            "Robot is %.2f m and %.0f deg from the start of %s. Wrong auto, wrong"
-                                    + " side, wrong alliance, or a bad vision seed.",
-                            distanceMeters, headingErrorDeg, autoName));
-            startPoseAlert.set(true);
-        }
+    /** The robot's distance from the selected auto's start, as the pre-match check measured it. */
+    private void logStartPose() {
+        Telemetry.logDash("Auton/StartPoseErrorMeters", autoStart.getDistanceMeters(), "m");
+        Telemetry.logDash("Auton/StartHeadingErrorDeg", autoStart.getHeadingErrorDeg(), "deg");
     }
 
     @Override

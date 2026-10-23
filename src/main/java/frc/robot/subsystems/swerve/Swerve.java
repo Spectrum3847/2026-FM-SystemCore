@@ -179,6 +179,11 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
     private final LoggedNetworkBoolean tiltScaledOdometry =
             new LoggedNetworkBoolean("/Localization/TiltScaledOdometry", true);
 
+    /** Whether the dashboard switch for tilt-scaled odometry is on (its default). */
+    public boolean isTiltScaledOdometry() {
+        return tiltScaledOdometry.get();
+    }
+
     private double odometryScale = 1.0;
 
     /** Wheel distances as fed to the fused pose (tilt-scaled), and the raw ones last sample. */

@@ -364,6 +364,34 @@ amplifies it. Orin observations that don't depend on the fused pose replay bit-e
 - NetworkTables reconnects (Jetson booting first, robot reboot, cable pulls)
 - a multi-tag frame with an excluded tag in view
 
+## Pre-match checks
+
+While disabled the robot checks itself and publishes one GO / NO-GO
+([PreMatchChecks](src/main/java/frc/spectrumLib/checks/PreMatchChecks.java); FM's list is
+[PreMatch](src/main/java/frc/robot/PreMatch.java)). The checks only report: they never command
+anything or stop the robot from enabling. A FAIL makes it NO-GO and raises a HIGH alert, a WARN a
+MEDIUM one; both clear on enable.
+
+| Check | FAIL | WARN |
+|---|---|---|
+| CAN | a device silent for 0.5 s, or never seen | a device rebooted in the last 10 min |
+| Homing | a homing attempt failed (hood timed out) | a soft-limited mechanism lost its position to a reboot |
+| CameraHeading | two cameras, or a camera and the seeded heading, more than 15 deg apart (TXMAN1 Q30) | more than 6 deg |
+| Auto | no auto file, no paths, or 0.5 m / 10 deg off the start for 1 s | Do Nothing, no alliance, or the pose not seeded |
+| Battery | under 11.8 V at rest for 3 s, or the same battery as last match | under 12.3 V at rest for 3 s |
+| Coprocessors | a camera the robot fuses not answering | an unfused one missing, or Orin timestamps off |
+| Settings | Orin practice profile on with the FMS attached | the AprilTag layout loaded isn't this event's field, excluded tags, or dashboard switches |
+
+On NetworkTables (Elastic, the pit app): `/AdvantageKit/RealOutputs/PreMatch/Go`, `.../Reason`
+(one line), `.../Summary` (one line per check) and `.../Checks/<name>/Status` and `Reason`.
+Elastic shows the verdict on the Pre-Match tab and every check's line on the Pre-Match Checks
+tab. `python tools/wpilog_summary.py <log>` lists every change of verdict. The same-battery check
+needs a battery ID reader, which FM doesn't have, so it is skipped.
+
+Before each event, set the event's field (AndyMark or Welded) in
+[Event.java](src/main/java/frc/robot/Event.java). The Settings check warns while the layout vision
+loads (`Vision.TAG_FIELD`, which the Limelights and the Jetson must match) is not that field.
+
 ## Tilt and knocks (Pigeon)
 
 The Pigeon's pitch, roll, pitch and roll rates, and 3-axis acceleration are logged inputs

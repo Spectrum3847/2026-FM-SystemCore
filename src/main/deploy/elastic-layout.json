@@ -220,14 +220,14 @@
             }
           },
           {
-            "title": "LL Back",
+            "title": "GO",
             "x": 896,
             "y": 384,
             "width": 256,
             "height": 128,
             "type": "Boolean Box",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Vision/LL-Back/Connected",
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Go",
               "period": 0.1,
               "data_type": "boolean",
               "true_color": 4283215696,
@@ -237,54 +237,16 @@
             }
           },
           {
-            "title": "LL Left",
+            "title": "Pre-Match",
             "x": 1152,
             "y": 384,
-            "width": 256,
+            "width": 640,
             "height": 128,
-            "type": "Boolean Box",
+            "type": "Large Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Vision/LL-Left/Connected",
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Reason",
               "period": 0.1,
-              "data_type": "boolean",
-              "true_color": 4283215696,
-              "false_color": 4294198070,
-              "true_icon": "None",
-              "false_icon": "None"
-            }
-          },
-          {
-            "title": "LL Right",
-            "x": 1408,
-            "y": 384,
-            "width": 256,
-            "height": 128,
-            "type": "Boolean Box",
-            "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Vision/LL-Right/Connected",
-              "period": 0.1,
-              "data_type": "boolean",
-              "true_color": 4283215696,
-              "false_color": 4294198070,
-              "true_icon": "None",
-              "false_icon": "None"
-            }
-          },
-          {
-            "title": "Auto File",
-            "x": 1664,
-            "y": 384,
-            "width": 128,
-            "height": 128,
-            "type": "Boolean Box",
-            "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Auton/AutoFileFound",
-              "period": 0.1,
-              "data_type": "boolean",
-              "true_color": 4283215696,
-              "false_color": 4294198070,
-              "true_icon": "None",
-              "false_icon": "None"
+              "data_type": "string"
             }
           },
           {
@@ -421,6 +383,285 @@
               "false_color": 4294198070,
               "true_icon": "None",
               "false_icon": "None"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Pre-Match Checks",
+      "grid_layout": {
+        "layouts": [],
+        "containers": [
+          {
+            "title": "GO",
+            "x": 0,
+            "y": 0,
+            "width": 256,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Go",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Pre-Match",
+            "x": 256,
+            "y": 0,
+            "width": 1536,
+            "height": 128,
+            "type": "Large Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Reason",
+              "period": 0.1,
+              "data_type": "string"
+            }
+          },
+          {
+            "title": "CAN",
+            "x": 0,
+            "y": 128,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/CAN/Status",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "why",
+            "x": 256,
+            "y": 128,
+            "width": 640,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/CAN/Reason",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Homing",
+            "x": 0,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/Homing/Status",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "why",
+            "x": 256,
+            "y": 256,
+            "width": 640,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/Homing/Reason",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "CameraHeading",
+            "x": 0,
+            "y": 384,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/CameraHeading/Status",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "why",
+            "x": 256,
+            "y": 384,
+            "width": 640,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/CameraHeading/Reason",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Auto",
+            "x": 0,
+            "y": 512,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/Auto/Status",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "why",
+            "x": 256,
+            "y": 512,
+            "width": 640,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/Auto/Reason",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Battery",
+            "x": 896,
+            "y": 128,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/Battery/Status",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "why",
+            "x": 1152,
+            "y": 128,
+            "width": 640,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/Battery/Reason",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Coprocessors",
+            "x": 896,
+            "y": 256,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/Coprocessors/Status",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "why",
+            "x": 1152,
+            "y": 256,
+            "width": 640,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/Coprocessors/Reason",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Settings",
+            "x": 896,
+            "y": 384,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/Settings/Status",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "why",
+            "x": 1152,
+            "y": 384,
+            "width": 640,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Checks/Settings/Reason",
+              "period": 0.1,
+              "data_type": "string",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Checking (disabled)",
+            "x": 896,
+            "y": 640,
+            "width": 384,
+            "height": 128,
+            "type": "Boolean Box",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/PreMatch/Active",
+              "period": 0.1,
+              "data_type": "boolean",
+              "true_color": 4283215696,
+              "false_color": 4294198070,
+              "true_icon": "None",
+              "false_icon": "None"
+            }
+          },
+          {
+            "title": "Start Pose Err (m)",
+            "x": 1280,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Auton/StartPoseErrorMeters",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
+            }
+          },
+          {
+            "title": "Hdg Err",
+            "x": 1536,
+            "y": 640,
+            "width": 256,
+            "height": 128,
+            "type": "Text Display",
+            "properties": {
+              "topic": "/AdvantageKit/RealOutputs/Auton/StartHeadingErrorDeg",
+              "period": 0.1,
+              "data_type": "double",
+              "show_submit_button": false
             }
           }
         ]

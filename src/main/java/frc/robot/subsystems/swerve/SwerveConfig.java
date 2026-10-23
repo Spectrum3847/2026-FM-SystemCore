@@ -322,8 +322,20 @@ public class SwerveConfig {
         return this;
     }
 
+    /**
+     * The offsets last passed to {@link #configEncoderOffsets}, in rotations (front left, front
+     * right, back left, back right), or null if it was never called. Kept as given, so the params
+     * defaults ({@link SwerveOffsetParams}) are exactly the numbers in the robot's config.
+     */
+    public double[] getEncoderOffsetRotations() {
+        return encoderOffsetRotations == null ? null : encoderOffsetRotations.clone();
+    }
+
+    private double[] encoderOffsetRotations;
+
     public SwerveConfig configEncoderOffsets(
             double frontLeft, double frontRight, double backLeft, double backRight) {
+        encoderOffsetRotations = new double[] {frontLeft, frontRight, backLeft, backRight};
         frontLeftEncoderOffset = Rotations.of(frontLeft);
         frontRightEncoderOffset = Rotations.of(frontRight);
         backLeftEncoderOffset = Rotations.of(backLeft);

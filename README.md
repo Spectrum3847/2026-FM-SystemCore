@@ -855,9 +855,16 @@ Tuned values that should survive a deploy live in JSON, not Java: `src/main/depl
 optionally `params/robots/<robot>/<group>.json` (the robot is the config class, `FM2026` by default),
 then the robot's own `/home/systemcore/params/<group>.json`, which a deploy does not wipe. Each value
 is declared in code (`spectrumLib/params`), and the log records what it was and which file it came
-from under `Params/`. A bad file raises an alert and is skipped. So far only the `cameras` group
-(Limelight rewind lengths, the Quest battery alert, the settings resend period and
-`pushLimelightMounts`, in `CameraParams`) uses it. With `Constants.TUNING_MODE` on, values can be changed live
+from under `Params/`. A bad file raises an alert and is skipped. The groups so far:
+
+- `cameras`: Limelight rewind lengths, the Quest battery alert, the settings resend period and
+  `pushLimelightMounts` (`CameraParams`).
+- `swerve`, per robot in `params/robots/<robot>/swerve.json`: the four CANcoder offsets
+  (`SwerveOffsetParams`), within ±0.5 rotations. The defaults are the robot config's
+  (`FM2026` and so on), and the files hold the same numbers (`SwerveOffsetParamsTest`). Read once at
+  boot: a live change raises an alert and needs a save and a reboot.
+
+With `Constants.TUNING_MODE` on, values can be changed live
 under `/Tuning/` while disabled and saved to the robot with `/Tuning/SaveParams`; CI fails a PR to
 `main` that leaves it on. `FM_PARAMS_LOCAL=<folder>` gives the simulator a local folder to save to.
 
@@ -866,7 +873,8 @@ under `/Tuning/` while disabled and saved to the robot with `/Tuning/SaveParams`
 - [ ] **CAN wiring** matches `CanBuses` (`USE_CANIVORE` and the port table above). With a CANivore:
       `canivore-usb` installed on the SystemCore. `SystemCoreCAN<n>/StatusOK` (and
       `CANivore/StatusOK`) in the log, and nonzero `BusUtilization` on every port in use.
-- [ ] **Swerve encoder offsets**: FM's 2026 values are in `FM2026`; re-check with the alignment page.
+- [ ] **Swerve encoder offsets**: FM's 2026 values are in `params/robots/FM2026/swerve.json`
+      (defaults in `FM2026`); re-check with the alignment page.
 - [x] **Limelight mounts**: pushed from code (`pushLimelightMounts`); positions from CAD, angles solved from Q13 rewinds
 - [ ] **Orin camera mounts** (`VisionConfig.orinRobotToCamera`): position and yaw from CAD, pitch
       from the Q17 Jetson video. Check height, pitch and roll against `Vision/Orin/<camera>/Mount/*`

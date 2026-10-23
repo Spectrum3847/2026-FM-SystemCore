@@ -1,14 +1,14 @@
 package frc.spectrumLib.mechanism;
 
 /**
- * A position written to a motor without waiting for the motor to answer, tracked until the motor's
- * readings show it.
+ * A position written to a motor off the main thread, tracked until the motor's readings show it.
  *
- * <p>Phoenix's {@code setPosition} waits up to 100 ms for the device by default, and a homing
- * mechanism writes its position in the middle of a match. Sent with no wait, the new position
- * arrives a status frame or more later. Until then the readings are still measured from the old
- * zero, and logic that treated them as homed would act on the wrong position. While {@link
- * #isPending()} the mechanism holds its setpoints and the tracking stop does not run.
+ * <p>Phoenix's {@code setPosition} waits up to 100 ms for the device, and a homing mechanism writes
+ * its position in the middle of a match, so the write goes out on another thread and the main loop
+ * does not wait for it. The new position then reaches the readings a status frame or more later.
+ * Until then they are still measured from the old zero, and logic that treated them as homed would
+ * act on the wrong position. While {@link #isPending()} the mechanism holds its setpoints and the
+ * tracking stop does not run.
  *
  * <p>The write has landed once the reading is nearer to where the new zero puts the mechanism than
  * to where the old one does. Both move with the mechanism's velocity meanwhile. A write the

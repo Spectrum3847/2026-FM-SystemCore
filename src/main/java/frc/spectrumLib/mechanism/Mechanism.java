@@ -33,6 +33,8 @@ import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.util.CanDeviceId;
 import frc.spectrumLib.util.Conversions;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.DoubleSupplier;
 import lombok.*;
 import org.littletonrobotics.junction.Logger;
@@ -144,7 +146,20 @@ public abstract class Mechanism implements Subsystem {
 
     private String positionLostKey;
 
-    /** A position write sent without waiting, until the readings show it. */
+    /**
+     * Position writes go out on this thread. {@code setPosition} waits up to 100 ms for the device
+     * to answer, and even with no wait it took about 7 ms in simulation; homing writes while
+     * enabled. One thread keeps each motor's writes in order. It logs nothing.
+     */
+    private static final ExecutorService POSITION_WRITER =
+            Executors.newSingleThreadExecutor(
+                    r -> {
+                        Thread t = new Thread(r, "PositionWriter");
+                        t.setDaemon(true);
+                        return t;
+                    });
+
+    /** A position write sent off the main thread, until the readings show it. */
     private final PositionWrite positionWrite = new PositionWrite();
 
     private String positionWritePendingKey;
@@ -924,7 +939,7 @@ public abstract class Mechanism implements Subsystem {
                         inputs.positionRotations,
                         inputs.velocityRps);
         if (!Double.isNaN(resend)) {
-            motor.setPosition(resend, 0);
+            sendPosition(resend);
         }
         handleResets();
         updateTrackingStop();
@@ -1057,7 +1072,7 @@ public abstract class Mechanism implements Subsystem {
         if (Constants.currentMode != Constants.Mode.SIM || !isAttached()) {
             return;
         }
-        motor.setPosition(0, 0);
+        sendPosition(0);
         simRebootPending = true;
     }
 
@@ -1620,20 +1635,26 @@ public abstract class Mechanism implements Subsystem {
     /**
      * Sets the motor's internal position register to the specified value without moving the motor.
      *
-     * <p>Sent without waiting for the motor to answer, since homing calls this while enabled and
-     * the default wait is up to 100 ms of a stalled loop. Until the readings show the new position,
-     * {@link #isPositionLost()} is true and setpoints are held ({@link PositionWrite}).
+     * <p>Sent off the main thread ({@link #sendPosition}), since homing calls this while enabled.
+     * Until the readings show the new position, {@link #isPositionWritePending()} is true and
+     * setpoints are held ({@link PositionWrite}).
      *
      * @param rotations the position to write to the motor in rotations
      */
     protected void setMotorPosition(DoubleSupplier rotations) {
         if (isAttached()) {
             double position = rotations.getAsDouble();
-            motor.setPosition(position, 0);
+            sendPosition(position);
             positionWrite.sent(Timer.getTimestamp(), position, inputs.positionRotations);
         }
         resetMonitor.positionRestored();
         clearTrackingStop();
+    }
+
+    /** Writes the motor's position on {@link #POSITION_WRITER}; returns at once. */
+    private void sendPosition(double rotations) {
+        TalonFX talon = motor;
+        POSITION_WRITER.execute(() -> talon.setPosition(rotations));
     }
 
     /**

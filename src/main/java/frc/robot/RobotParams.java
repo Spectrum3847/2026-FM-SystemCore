@@ -1,5 +1,7 @@
 package frc.robot;
 
+import frc.robot.subsystems.hood.Hood.HoodConfig;
+import frc.robot.subsystems.intakeExtension.IntakeExtension.IntakeExtensionConfig;
 import frc.robot.subsystems.vision.CameraParams;
 import java.util.List;
 
@@ -7,7 +9,8 @@ import java.util.List;
 public final class RobotParams {
     private RobotParams() {}
 
-    static final List<Class<?>> HOLDERS = List.of(CameraParams.class);
+    static final List<Class<?>> HOLDERS =
+            List.of(CameraParams.class, HoodConfig.class, IntakeExtensionConfig.class);
 
     /**
      * Initializes every holder, which declares its params. Without this a param is declared the

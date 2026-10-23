@@ -81,7 +81,7 @@ class ConfigInvariantsTest {
      * soft-limited mechanism missing here fails {@link #softLimitsBracketHome}, so a new one has to
      * say where it homes.
      */
-    private static final Map<String, Function<Robot.Config, double[]>> HOME_ROTATIONS =
+    static final Map<String, Function<Robot.Config, double[]>> HOME_ROTATIONS =
             Map.of(
                     // Degrees in the config; Mechanism.degreesToRotations is deg / 360.
                     "Hood",

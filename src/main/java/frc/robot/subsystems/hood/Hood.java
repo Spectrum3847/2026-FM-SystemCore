@@ -6,6 +6,9 @@ import frc.robot.RobotSim;
 import frc.spectrumLib.checks.HomingCheck;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
+import frc.spectrumLib.params.DoubleParam;
+import frc.spectrumLib.params.ParamGroup;
+import frc.spectrumLib.params.Params;
 import frc.spectrumLib.sim.ArmConfig;
 import frc.spectrumLib.sim.ArmSim;
 import frc.spectrumLib.telemetry.Alert;
@@ -25,8 +28,39 @@ public class Hood extends Mechanism {
         /** Best guess at boot, until homing finds the stop. */
         @Getter private final double initPosition = 9;
 
-        @Getter private final double maxRotations = 0.137;
-        @Getter private final double minRotations = 0.024;
+        private static final double MAX_ROTATIONS = 0.137;
+        private static final double MIN_ROTATIONS = 0.024;
+
+        @Getter private final double maxRotations = MAX_ROTATIONS;
+        @Getter private final double minRotations = MIN_ROTATIONS;
+
+        private static final ParamGroup SOFT_LIMITS = Params.group("soft-limits");
+
+        /**
+         * 49.3 deg. No higher than that: where the top stop is is not recorded in this code, so
+         * raising the limit is a code change. No lower than 20 deg, well above the bottom stop, so
+         * the two limits can never cross.
+         */
+        public static final DoubleParam FORWARD_SOFT_LIMIT =
+                SOFT_LIMITS.number(
+                        "hoodForward",
+                        MAX_ROTATIONS,
+                        "rot",
+                        Units.degreesToRotations(20),
+                        MAX_ROTATIONS);
+
+        /**
+         * 8.64 deg, 0.36 deg under the 9 deg bottom stop on purpose. At most the stop itself, where
+         * the hood boots and homes (initPosition, HoodHoming stopDeg): above it the hood would sit
+         * outside its own limits. At least 1 deg under the stop.
+         */
+        public static final DoubleParam REVERSE_SOFT_LIMIT =
+                SOFT_LIMITS.number(
+                        "hoodReverse",
+                        MIN_ROTATIONS,
+                        "rot",
+                        Units.degreesToRotations(8),
+                        Units.degreesToRotations(9));
 
         /* Hood config values */
         @Getter private final double supplyCurrentLimit = 40;
@@ -66,8 +100,7 @@ public class Hood extends Mechanism {
             configLowerSupplyCurrentTime(lowerSupplyCurrentTime);
             configForwardTorqueCurrentLimit(statorCurrentLimit);
             configReverseTorqueCurrentLimit(statorCurrentLimit);
-            configForwardSoftLimit(maxRotations, true);
-            configReverseSoftLimit(minRotations, true);
+            configSoftLimits(FORWARD_SOFT_LIMIT, REVERSE_SOFT_LIMIT);
             configNeutralBrakeMode(true);
             configClockwise_Positive();
             // Off until turned on. Against FM's 20 TXMAN1 matches it trips only in Q06, where the

@@ -87,7 +87,7 @@ Abstract base class for all TalonFX-driven mechanisms.
 |-------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `Mechanism` | Manages motor construction, follower configuration, control requests (voltage, velocity, motion magic, torque-FOC), sensor reads, soft limits, current limits, and simulation hooks. All hardware access is gated by `isAttached()`. |
 
-Extend `Mechanism` and call its protected setters from command `execute()` bodies. Inner class `Mechanism.Config` holds all TalonFX configuration and PID/FF gains.
+Extend `Mechanism` and call its protected setters from command `execute()` bodies. Inner class `Mechanism.Config` holds all TalonFX configuration and PID/FF gains. Soft limits can come from params (`Config.configSoftLimits`): the mechanism reads them once, when it is built, and raises an alert if one changes before the next reboot.
 
 ---
 

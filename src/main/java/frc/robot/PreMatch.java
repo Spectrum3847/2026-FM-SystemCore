@@ -23,8 +23,6 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 import org.wpilib.driverstation.RobotState;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
-import org.wpilib.vision.apriltag.AprilTagFields;
 
 /** FM's pre-match checks: which devices, mechanisms, cameras and settings each check covers. */
 final class PreMatch {
@@ -115,14 +113,18 @@ final class PreMatch {
                     .missingIs(() -> s.isEnabled() ? Status.FAIL : Status.SKIP);
         }
         Jetson jetson = vision.getJetson();
-        if (jetson.isExpected()) {
+        // Registered from the config alone, so a replay registers what the robot did; whether it
+        // must answer comes from the logged mode (the simulator has no Jetson).
+        if (vision.getConfig().isJetsonInstalled()) {
             List<PoseSource> orin = vision.getOrinSources();
             co.add("Jetson", "Jetson", jetson::isResponding)
                     .missingIs(
                             () ->
-                                    orin.stream().anyMatch(PoseSource::isEnabled)
-                                            ? Status.FAIL
-                                            : Status.WARN);
+                                    !jetson.isExpected()
+                                            ? Status.SKIP
+                                            : orin.stream().anyMatch(PoseSource::isEnabled)
+                                                    ? Status.FAIL
+                                                    : Status.WARN);
             List<Jetson.Camera> cameras = jetson.getCameras();
             for (int i = 0; i < cameras.size() && i < orin.size(); i++) {
                 Jetson.Camera c = cameras.get(i);
@@ -131,7 +133,11 @@ final class PreMatch {
                     continue;
                 }
                 co.add("Jetson", c.name(), () -> c.source().getCameraInputs().connected)
-                        .missingIs(() -> s.isEnabled() ? Status.FAIL : Status.WARN)
+                        .missingIs(
+                                () ->
+                                        !jetson.isExpected()
+                                                ? Status.SKIP
+                                                : s.isEnabled() ? Status.FAIL : Status.WARN)
                         .problem(
                                 () ->
                                         jetson.timestampsLookWrong(c.name())
@@ -145,42 +151,21 @@ final class PreMatch {
         return co;
     }
 
-    /**
-     * Whether the tag layout vision loaded is this event's field.
-     *
-     * @param loaded the layout vision loaded
-     * @param loadedField the field it was loaded as
-     * @param expected this event's field ({@link Event#APRILTAG_FIELD})
-     * @return what differs, or null when it is the event's layout
-     */
-    static String fieldMismatch(
-            AprilTagFieldLayout loaded, AprilTagFields loadedField, AprilTagFields expected) {
-        if (loaded != null && loaded.equals(AprilTagFieldLayout.loadField(expected))) {
-            return null;
-        }
-        if (loadedField == expected) {
-            return "AprilTag layout differs from WPILib's " + expected.name() + ", this event's";
-        }
-        return "AprilTag layout "
-                + loadedField.name()
-                + ", but this event's field is "
-                + expected.name()
-                + " (Event.APRILTAG_FIELD)";
-    }
-
     private static SettingsCheck settings(Swerve swerve, Vision vision) {
         Jetson jetson = vision.getJetson();
         Set<Integer> defaultExcluded =
                 Arrays.stream(vision.getConfig().getOrinExcludedTags())
                         .boxed()
                         .collect(Collectors.toCollection(TreeSet::new));
-        // Judged once: neither layout changes while the code runs.
-        String fieldMismatch =
-                fieldMismatch(Vision.getTagLayout(), Vision.TAG_FIELD, Event.APRILTAG_FIELD);
+        // Vision solves with Event.APRILTAG_FIELD, so the robot's own map is the event's by
+        // construction. The Limelights' and the Jetson's maps are not readable from the robot.
         SettingsCheck settings =
                 new SettingsCheck()
-                        .info(() -> "field " + Event.APRILTAG_FIELD.name())
-                        .add(() -> fieldMismatch, Status.WARN)
+                        .info(
+                                () ->
+                                        "field "
+                                                + Vision.TAG_FIELD.name()
+                                                + " (robot's map; camera maps unchecked)")
                         .add(
                                 () ->
                                         jetson.isPracticeFieldProfile()

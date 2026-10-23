@@ -921,6 +921,7 @@ public class Robot extends SpectrumRobot {
                 Pose2d start =
                         selectedAutoPaths.get(0).getStartingHolonomicPose().orElse(new Pose2d());
                 swerve.resetPose(start);
+                startPlacements++;
             }
             placeAtAutoStart = false;
         }
@@ -941,6 +942,9 @@ public class Robot extends SpectrumRobot {
     private String selectedAutoName = "";
 
     private boolean autoFileFound = false;
+
+    /** Times the pose was put on the selected auto's start; the start check needs a seed after. */
+    private long startPlacements = 0;
 
     private void logAutoSelection(String fullAutoName, boolean autoFileFound, String baseAutoName) {
         selectedAutoName = fullAutoName;
@@ -969,9 +973,12 @@ public class Robot extends SpectrumRobot {
                         ? Optional.empty()
                         : selectedAutoPaths.get(0).getStartingHolonomicPose(),
                 swerve.getRobotPose(),
-                vision.isPoseHeadingSeeded(),
+                startPlacements,
+                vision.getMultiTagSeedCount(),
                 MatchState.getAlliance().isPresent(),
-                hasBeenEnabled);
+                RobotState.isEnabled(),
+                RobotState.isFMSAttached(),
+                MatchState.getMatchNumber());
     }
 
     /** The robot's distance from the selected auto's start, as the pre-match check measured it. */

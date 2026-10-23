@@ -14,14 +14,11 @@ import java.io.IOException;
 import org.json.simple.parser.ParseException;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 import org.wpilib.command2.Command;
-import org.wpilib.command2.CommandScheduler;
 import org.wpilib.command2.Commands;
 import org.wpilib.command2.PrintCommand;
-import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.util.Units;
-import org.wpilib.system.Timer;
 
 public class Auton {
 
@@ -41,8 +38,13 @@ public class Auton {
     private final LoggedDashboardChooser<Command> pathChooser =
             new LoggedDashboardChooser<>("Auto Chooser");
 
-    private boolean autoMessagePrinted = true;
-    private double autonStart = 0;
+    private final AutoEnd autoEnd = new AutoEnd();
+
+    /**
+     * FM's autos have no time limit: in every TXMAN1 match that ran the full 20 s, the auto was
+     * still running when the field disabled the robot.
+     */
+    private static final double AUTO_TIME_LIMIT_SECONDS = Double.POSITIVE_INFINITY;
 
     private final double SECOND_MAN_DELAY = 1.0;
     private final double OPTIONAL_DELAY = 1.0;
@@ -92,15 +94,10 @@ public class Auton {
         Command autonCommand = getAutonomousCommand();
 
         if (autonCommand != null) {
-            CommandScheduler.getInstance().schedule(autonCommand);
-            startAutonTimer();
+            autoEnd.start(autonCommand, AUTO_TIME_LIMIT_SECONDS);
         } else {
             Telemetry.print("No Auton Command Found");
         }
-    }
-
-    public void exit() {
-        printAutoDuration();
     }
 
     public Command doNothing() {
@@ -238,33 +235,6 @@ public class Auton {
         } else {
             // Not expected: the chooser's default option is a real command.
             return new PrintCommand("*** AUTON COMMAND IS NULL ***");
-        }
-    }
-
-    /** This method is called in AutonInit */
-    public void startAutonTimer() {
-        autonStart = Timer.getTimestamp();
-        autoMessagePrinted = false;
-    }
-
-    /** Called at AutonExit. Displays the duration of the auton command. Based on 6328 code. */
-    public void printAutoDuration() {
-        Command autoCommand = getAutonomousCommand();
-        if (autoCommand != null) {
-            if (!autoCommand.isScheduled() && !autoMessagePrinted) {
-                if (RobotState.isAutonomousEnabled()) {
-                    Telemetry.print(
-                            String.format(
-                                    "*** Auton finished in %.2f secs ***",
-                                    Timer.getTimestamp() - autonStart));
-                } else {
-                    Telemetry.print(
-                            String.format(
-                                    "*** Auton CANCELLED in %.2f secs ***",
-                                    Timer.getTimestamp() - autonStart));
-                }
-                autoMessagePrinted = true;
-            }
         }
     }
 

@@ -948,7 +948,6 @@ public class Robot extends SpectrumRobot {
         if (RobotState.isFMSAttached()) {
             vision.triggerRewindCaptureForAllCameras(Vision.AUTO_REWIND_SECONDS);
         }
-        auton.exit();
         Telemetry.print("@@@ Auton Exit @@@ ");
     }
 

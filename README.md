@@ -70,7 +70,8 @@ FM_SIM_SCRIPT=chords ./gradlew simulateJava -PnoSimGui
 ```
 
 Add `FM_SIM_EXIT=1` to any scripted run to have the program close its log and exit when the script
-ends, so the run is one command.
+ends, so the run is one command. Add `FM_SIM_MATCH=Q12` to have the Driver Station report an FMS
+match, so the end of teleop writes the match summary file into `logs/`.
 
 All 32 autos and 26 paths from 2026 `main` are in `src/main/deploy/pathplanner`, unchanged. The Auto
 Chooser is an AdvantageKit `LoggedDashboardChooser` (same dashboard key as 2026), so the selected
@@ -91,9 +92,10 @@ Every PR runs, in parallel:
 
 | Job | What fails it |
 | --- | --- |
-| `build` | Spotless, a compile error (Error Prone's ERROR checks included) or a unit test. Error Prone warnings print but don't fail; the style-only checks are off in `build.gradle`. |
+| `build` | Spotless, a compile error (Error Prone's ERROR checks included) or a unit test, including the CAN config invariants over every robot config (`ConfigInvariantsTest`: unique IDs per bus, followers on their leader's bus, soft limits around every home position, no motor in two mechanisms). Error Prone warnings print but don't fail; the style-only checks are off in `build.gradle`. |
+| `build` (`simTest`) | `BindingsSmokeTest`: the whole robot booted headless in simulation, every pilot and operator input pressed alone, with LB, and LT with RT, disabled and in teleop. Fails if a press throws, if a binding in its table doesn't schedule its command or reach its wanted state, or if a lone button schedules something the table doesn't list. About 30 s; run it alone with `./gradlew simTest`. |
 | `sim (drive)`, `sim (shoot)`, `sim (auto)` | the scripted sim (`auto` is `TBTB Left`) crashing, not finishing its script, an auto path stopping short of its end before autonomous ends (being cut off by the end of autonomous is fine), the fused pose more than 0.15 m from the sim's truth at p95 (0.3 m worst) once the seed is confirmed, or more than 5% of loops overrunning by 25% ([tools/ci_assert.py](tools/ci_assert.py)) |
-| `replay` | the PR moving the fused pose (5 cm, 2°) or the shot gate's verdicts (10 loops) when a real match replays through it, against the base branch replaying the same log ([tools/replay_regression.py](tools/replay_regression.py)) |
+| `replay` | the PR moving the fused pose (5 cm, 2°) or the shot gate's verdicts (10 loops) in any replay fixture, against the base branch replaying the same fixtures ([tools/replay_regression.py](tools/replay_regression.py)) |
 | `app` | the robot app's tests |
 
 Sim logs and replay logs are uploaded as artifacts. To check a sim run locally:
@@ -106,17 +108,25 @@ python tools/ci_assert.py logs/akit_XXXX.wpilog console.txt
 When a PR is meant to change the replay (a gate, a std-dev tier), add the `replay-change-expected`
 label.
 
-The replay fixture is [8515_TXMAN1_Q24_auto.wpilog](src/test/resources/replay): Q24 at TXMAN1, 180 s
-to 215 s, from pre-match through the vision seed in auto, two auto launches and the start of teleop
-(9 MB, committed despite `.gitignore`). To swap it, cut a window from another AdvantageKit log and
-force-add it:
+The replay fixtures are windows of real match logs, listed in
+[fixtures.json](src/test/resources/replay/fixtures.json) with what each covers. The logs themselves
+are not committed: [tools/fetch_replay_fixtures.py](tools/fetch_replay_fixtures.py) downloads the
+release asset each comes from (the redacted `TXMAN1-logs` copies), checks the log's SHA-256 and cuts
+the window with `trim_wpilog.py`. CI caches the cut windows until the list or those tools change.
+Today: TXMAN1 Q24 180-215 s (pre-match through the vision seed in auto, two auto launches, the start
+of teleop), Q32 290-335 s (seven teleop volleys, two fed by the gate timeout) and Playoff 20
+350-395 s (the event's last code, one volley fed while the pose was untrusted).
+
+To add one, pick a window with the pose seed or some shots (`tools/shot_log.py` lists them), add an
+entry with the full log's SHA-256, and replay it locally:
 
 ```bash
-python tools/trim_wpilog.py full.wpilog src/test/resources/replay/NAME.wpilog START END
-git add -f src/test/resources/replay/NAME.wpilog
+python tools/fetch_replay_fixtures.py build/replay
+FM_REPLAY=1 AKIT_LOG_PATH=build/replay/NAME.wpilog ./gradlew simulateJava -PnoSimGui
 ```
 
-Keep one file in that folder, under about 20 MB, and pick a window with the pose seed and some shots.
+Each fixture adds about 30 s to both replay jobs. Logs from another event go in a release of their
+own, with the radio's keys redacted the way `TXMAN1-logs` was.
 
 ## Where things came from
 
@@ -205,6 +215,11 @@ After a match (or a sim run), summarise it:
 ```bash
 python tools/wpilog_summary.py logs/akit_XXXX.wpilog
 ```
+
+The robot also summarises each run itself, under `Summary/...` in the log, and after an FMS match
+in `<log name>.summary.json` next to the log: battery, brownouts, loop overruns, CAN drops and
+reboots, Driver Station drops, vision counts, auto, alerts and peak motor temperatures. See
+[docs/match-summary.md](docs/match-summary.md).
 
 Replay a log through the current code (edit a gate, replay, compare the shadow tracks):
 
@@ -554,6 +569,9 @@ or let go within 0.08 s of LB counts as part of the chord, so bare unjam and tra
 it was held. Letting go of LB with X or A still held goes IDLE, then to the bare action once it
 has been held 0.08 s without LB.
 
+These tables are also `BINDINGS` in [BindingsSmokeTest](src/test/java/frc/robot/BindingsSmokeTest.java),
+which presses every input in simulation. Change a binding in both.
+
 ## Loop rate, logging and the dashboard
 
 - **100 Hz.** `Constants.LOOP_PERIOD_SECONDS = 0.01` (FM ran 50 Hz on the roboRIO). Periodic work
@@ -707,6 +725,32 @@ other layout ("Pilot controller looks like the WPILIB_DS layout, but is read as 
   capture frame by frame in the camera's web UI or Limelight's Rewind Viewer. The SystemCore's
   own cameras are skipped, since their storage is the robot's internal disk.
 
+### Files from the Driver Station laptop
+
+After each match the DS laptop (MatchReview helper, DS-laptop mode) pushes its Driver Station log,
+plus any audio and video it recorded, to the robot while the field still connects them. The pit
+laptop then pulls them with the match log. The robot side is
+[DsUploadReceiver](src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java):
+
+- HTTP on port **5806** (inside the field's 5800–5810 team range), header `X-MatchReview-Token`.
+  The token lives in `/home/systemcore/ds-upload-token` on the robot, never in this public repo;
+  without that file the receiver stays off (info alert).
+- **Only while disabled.** The field gives each team about 7 Mbps, so pushes wait for the match
+  to end. A push cut off by the robot powering down resumes at the next pit tether
+  (`HEAD /upload/<kind>/<name>` says how much arrived).
+- Files land in `/home/systemcore/logs/ds/` (internal storage even with a USB stick in; the pit
+  pulls from there). Above 1.5 GB, finished and partial files from earlier boots go first, then
+  this boot's in the order they arrived; never below 1 GB of free disk. Kinds and caps: `dslog`
+  (NI `.dslog`/`.dsevents`, 20 MB), `dswpilog` (2027 DS log, 50 MB, stored as `.dswpilog` so older
+  pit helpers never take it for a robot log and upload it), `audio` (`.m4a`/`.opus`, 20 MB), `video`
+  (`.mp4`, 200 MB).
+- One connection at a time, each limited to 2 minutes in total.
+- Logged as `DSUpload/FilesReceived`, `BytesReceived`, `LastFile` and `LastError`.
+- Bench test on a laptop: `./gradlew compileJava`, then
+  `java -cp build/classes/java/main frc.spectrumLib.telemetry.DsUploadReceiver <folder> <token> 5806`
+  (type `enabled` / `disabled` to set the robot state). The MatchReview helper's
+  `tests/test_java_receiver.py` runs its client against it.
+
 ### Keeping work off the loop
 
 - **Slow reads run on a background thread** ([BackgroundSampler](src/main/java/frc/spectrumLib/util/BackgroundSampler.java)):
@@ -803,6 +847,18 @@ can also save a mount or image setting to the camera itself.
 To add a page, make `pages/<name>/index.html` and `main.js`, and add it to `PAGES` in
 `lib/ui.js`. Libraries go in `vendor/` as single files. Tests run with
 `node --test tools/app-test/*.test.mjs`, in CI and locally.
+
+## Params
+
+Tuned values that should survive a deploy live in JSON, not Java: `src/main/deploy/params/<group>.json`,
+optionally `params/robots/<robot>/<group>.json` (the robot is the config class, `FM2026` by default),
+then the robot's own `/home/systemcore/params/<group>.json`, which a deploy does not wipe. Each value
+is declared in code (`spectrumLib/params`), and the log records what it was and which file it came
+from under `Params/`. A bad file raises an alert and is skipped. So far only the `cameras` group
+(Limelight rewind lengths, the Quest battery alert, the settings resend period and
+`pushLimelightMounts`, in `CameraParams`) uses it. With `Constants.TUNING_MODE` on, values can be changed live
+under `/Tuning/` while disabled and saved to the robot with `/Tuning/SaveParams`; CI fails a PR to
+`main` that leaves it on. `FM_PARAMS_LOCAL=<folder>` gives the simulator a local folder to save to.
 
 ## Before the event: calibrate and check
 

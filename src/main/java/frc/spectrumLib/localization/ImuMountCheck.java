@@ -11,13 +11,17 @@ import org.wpilib.math.util.MathUtil;
  *   <li><b>Pigeon level:</b> at rest, mount-corrected pitch and roll near 0.
  *   <li><b>Pigeon forward:</b> while the wheels accelerate hard, the Pigeon's X/Y acceleration
  *       points the same way. A Pigeon turned on its mount reads the turn here.
- *   <li><b>Yaw sense</b>, both gyros: the heading turns the way the wheels turn the robot. Wheels
- *       scrub while pushed or aiming, so a match reads about half the wheels' rate; only a reversed
- *       or dead yaw fails.
+ *   <li><b>Yaw sense</b>, both gyros: the heading turns the way the wheels turn the robot.
  *   <li><b>Onboard IMU orientation:</b> at rest, gravity on the axis its mount setting implies.
  *       WPILib applies the mount orientation to yaw only, so the raw accelerometer shows how
  *       SystemCore really sits.
  * </ul>
+ *
+ * <p>Evidence counts only when the gyro and the wheels move together. Wheels spinning on a cart,
+ * pushing a wall, or a robot carried by hand give none, so a gyro that simply does not follow the
+ * wheels is never called wrong. Rests count only shortly after such driving, so the robot is on the
+ * floor. A check reads wrong only on clear contrary evidence: a reversed yaw, a consistent
+ * acceleration direction far from the wheels', a pitch, roll or gravity axis a mount error away.
  */
 public final class ImuMountCheck {
 
@@ -30,22 +34,50 @@ public final class ImuMountCheck {
     static final double STILL_SPEED = 0.05;
     static final double STILL_TURN_RATE = 0.05;
     static final double REST_SECONDS = 2.0;
-    static final double LEVEL_TOLERANCE_DEG = 10.0;
 
-    static final double TURNING_RATE = 1.0;
+    /** Rests count this long after the wheels and a gyro last moved together. */
+    static final double GROUND_RECENT_SECONDS = 60.0;
+
+    /** Mount errors are tens of degrees; a robot parked on a bump is not one. */
+    static final double LEVEL_TOLERANCE_DEG = 30.0;
+
+    static final double WHEEL_TURNING_RATE = 1.0;
+    static final double GYRO_TURNING_RATE = 0.5;
 
     /** One full turn of evidence before judging a yaw sense. */
     static final double TURN_EVIDENCE_RADIANS = 2 * Math.PI;
 
+    /** Wheels scrub while pushed or aiming, so a match reads about half the wheels' rate. */
     static final double MIN_YAW_GAIN = 0.3;
 
     static final double HARD_ACCEL = 2.0;
-    static final double ACCEL_WINDOW_SECONDS = 0.1;
-    static final double ACCEL_EVIDENCE_SECONDS = 2.0;
-    static final double FORWARD_TOLERANCE_DEG = 45.0;
 
-    /** Below this the Pigeon is not reading the acceleration at all (the sim's reads none), g. */
-    static final double MIN_FORWARD_ACCEL_G = 0.02;
+    /**
+     * The Pigeon's acceleration trails the wheel velocity by about 0.1 s (TXMAN1 Q34 and r16 line
+     * up best there), so the wheels' window ends that much earlier.
+     */
+    static final double ACCEL_WINDOW_SECONDS = 0.3;
+
+    static final double PIGEON_LAG_SECONDS = 0.1;
+    static final double ACCEL_EVIDENCE_SECONDS = 5.0;
+
+    /**
+     * The Pigeon must feel about what the wheels say, or the wheels are not moving the robot:
+     * spinning on a cart, slipping while pushed, or the robot taking a hit.
+     */
+    static final double MIN_FELT_RATIO = 0.5;
+
+    static final double MAX_FELT_RATIO = 2.0;
+
+    private static final double G = 9.81;
+
+    /** How consistently the Pigeon's direction sits from the wheels', 0 (random) to 1. */
+    static final double MIN_FORWARD_CONSISTENCY = 0.5;
+
+    /** A forward verdict, once reached, holds until consistency falls below this. */
+    static final double KEEP_FORWARD_CONSISTENCY = 0.4;
+
+    static final double FORWARD_TOLERANCE_DEG = 45.0;
 
     /** Gravity's share on Z for a flat SystemCore, and the most it may have when vertical. */
     static final double FLAT_Z_SHARE = 0.9;
@@ -90,7 +122,7 @@ public final class ImuMountCheck {
             double imuAccelY,
             double imuAccelZ) {}
 
-    /** How a gyro's heading follows the wheels' turning. */
+    /** How a gyro's heading follows the wheels' turning, while both are turning. */
     public static final class YawSense {
         private boolean haveLast = false;
         private double lastYaw;
@@ -99,23 +131,27 @@ public final class ImuMountCheck {
         private double sumWheelWheel = 0;
         private double turned = 0;
 
-        void update(boolean ok, double yaw, double time, boolean wheelsOk, double omega) {
+        /** Returns whether this sample showed the gyro and the wheels turning together. */
+        boolean update(boolean ok, double yaw, double time, boolean wheelsOk, double omega) {
             if (!ok) {
                 haveLast = false;
-                return;
+                return false;
             }
-            if (haveLast && wheelsOk && Math.abs(omega) > TURNING_RATE) {
-                double dt = time - lastTime;
-                if (dt > 0) {
-                    double gyroRate = MathUtil.angleModulus(yaw - lastYaw) / dt;
+            boolean evidence = false;
+            double dt = time - lastTime;
+            if (haveLast && wheelsOk && dt > 0 && Math.abs(omega) > WHEEL_TURNING_RATE) {
+                double gyroRate = MathUtil.angleModulus(yaw - lastYaw) / dt;
+                if (Math.abs(gyroRate) > GYRO_TURNING_RATE) {
                     sumGyroWheel += gyroRate * omega * dt;
                     sumWheelWheel += omega * omega * dt;
                     turned += Math.abs(omega) * dt;
+                    evidence = true;
                 }
             }
             haveLast = true;
             lastYaw = yaw;
             lastTime = time;
+            return evidence;
         }
 
         /** Gyro turn rate over wheel turn rate, least squares; NaN before any turning. */
@@ -127,7 +163,10 @@ public final class ImuMountCheck {
             if (turned < TURN_EVIDENCE_RADIANS) {
                 return Verdict.UNKNOWN;
             }
-            return gain() > MIN_YAW_GAIN ? Verdict.OK : Verdict.WRONG;
+            if (gain() > MIN_YAW_GAIN) {
+                return Verdict.OK;
+            }
+            return gain() < -MIN_YAW_GAIN ? Verdict.WRONG : Verdict.UNKNOWN;
         }
     }
 
@@ -135,6 +174,8 @@ public final class ImuMountCheck {
 
     private final YawSense pigeonYaw = new YawSense();
     private final YawSense imuYaw = new YawSense();
+
+    private double lastGroundTime = Double.NEGATIVE_INFINITY;
 
     private double pigeonRestTime = 0;
     private double pitchSum = 0;
@@ -146,15 +187,19 @@ public final class ImuMountCheck {
     private double imuGz = 0;
 
     // Recent wheel velocities, for acceleration over ACCEL_WINDOW_SECONDS.
-    private final double[] histTime = new double[64];
-    private final double[] histVx = new double[64];
-    private final double[] histVy = new double[64];
+    private final double[] histTime = new double[128];
+    private final double[] histVx = new double[128];
+    private final double[] histVy = new double[128];
+    private final double[] histPx = new double[128];
+    private final double[] histPy = new double[128];
     private int histCount = 0;
     private int histNext = 0;
 
-    private double forwardDot = 0;
-    private double forwardCross = 0;
+    // Sum of unit vectors from the wheels' acceleration to the Pigeon's, time-weighted.
+    private double forwardCos = 0;
+    private double forwardSin = 0;
     private double forwardTime = 0;
+    private Verdict forwardVerdict = Verdict.UNKNOWN;
 
     private double lastTime = Double.NaN;
 
@@ -169,13 +214,22 @@ public final class ImuMountCheck {
         double dt = Double.isNaN(lastTime) ? 0 : Math.max(0, in.time() - lastTime);
         lastTime = in.time();
 
-        pigeonYaw.update(in.pigeonOk(), in.pigeonYaw(), in.time(), in.wheelsOk(), in.omega());
-        imuYaw.update(in.imuPresent(), in.imuYaw(), in.time(), in.wheelsOk(), in.omega());
+        boolean turnedTogether =
+                pigeonYaw.update(
+                        in.pigeonOk(), in.pigeonYaw(), in.time(), in.wheelsOk(), in.omega());
+        turnedTogether |=
+                imuYaw.update(in.imuPresent(), in.imuYaw(), in.time(), in.wheelsOk(), in.omega());
+        boolean movedTogether = turnedTogether | updateForward(in, dt);
+        forwardVerdict = judgeForward();
+        if (movedTogether) {
+            lastGroundTime = in.time();
+        }
 
         boolean still =
                 in.wheelsOk()
                         && Math.hypot(in.vx(), in.vy()) < STILL_SPEED
-                        && Math.abs(in.omega()) < STILL_TURN_RATE;
+                        && Math.abs(in.omega()) < STILL_TURN_RATE
+                        && in.time() - lastGroundTime <= GROUND_RECENT_SECONDS;
         if (still && in.pigeonOk()) {
             pigeonRestTime += dt;
             pitchSum += in.pigeonPitchDeg() * dt;
@@ -187,31 +241,56 @@ public final class ImuMountCheck {
             imuGy += in.imuAccelY() * dt;
             imuGz += in.imuAccelZ() * dt;
         }
+    }
 
-        if (in.wheelsOk()) {
-            int past = pastIndex(in.time() - ACCEL_WINDOW_SECONDS);
-            if (past >= 0 && in.pigeonOk()) {
-                double span = in.time() - histTime[past];
-                double ax = (in.vx() - histVx[past]) / span;
-                double ay = (in.vy() - histVy[past]) / span;
-                double a = Math.hypot(ax, ay);
-                if (a > HARD_ACCEL) {
-                    double px = in.pigeonAccelXG();
-                    double py = in.pigeonAccelYG();
-                    // Angle from the wheels' acceleration to the Pigeon's, magnitude-weighted.
-                    forwardDot += (px * ax + py * ay) / a * dt;
-                    forwardCross += (py * ax - px * ay) / a * dt;
-                    forwardTime += dt;
-                }
-            }
-            histTime[histNext] = in.time();
-            histVx[histNext] = in.vx();
-            histVy[histNext] = in.vy();
-            histNext = (histNext + 1) % histTime.length;
-            histCount = Math.min(histCount + 1, histTime.length);
-        } else {
+    /** Returns whether this sample showed the Pigeon feeling the wheels' acceleration. */
+    private boolean updateForward(Inputs in, double dt) {
+        if (!in.wheelsOk() || !in.pigeonOk()) {
             histCount = 0;
+            return false;
         }
+        histTime[histNext] = in.time();
+        histVx[histNext] = in.vx();
+        histVy[histNext] = in.vy();
+        histPx[histNext] = in.pigeonAccelXG();
+        histPy[histNext] = in.pigeonAccelYG();
+        int now = histNext;
+        histNext = (histNext + 1) % histTime.length;
+        histCount = Math.min(histCount + 1, histTime.length);
+
+        int end = pastIndex(in.time() - PIGEON_LAG_SECONDS);
+        int start = pastIndex(in.time() - PIGEON_LAG_SECONDS - ACCEL_WINDOW_SECONDS);
+        int pigeonStart = pastIndex(in.time() - ACCEL_WINDOW_SECONDS);
+        if (end < 0 || start < 0 || pigeonStart < 0) {
+            return false;
+        }
+        double span = histTime[end] - histTime[start];
+        if (span <= 0) {
+            return false;
+        }
+        double ax = (histVx[end] - histVx[start]) / span;
+        double ay = (histVy[end] - histVy[start]) / span;
+        double a = Math.hypot(ax, ay);
+        // The Pigeon's mean over its window: one sample is mostly vibration.
+        double px = 0;
+        double py = 0;
+        int n = 0;
+        for (int i = now; i != pigeonStart; i = Math.floorMod(i - 1, histTime.length)) {
+            px += histPx[i];
+            py += histPy[i];
+            n++;
+        }
+        px /= n;
+        py /= n;
+        double p = Math.hypot(px, py);
+        double felt = p * G / a;
+        if (a > HARD_ACCEL && felt >= MIN_FELT_RATIO && felt <= MAX_FELT_RATIO) {
+            forwardCos += (px * ax + py * ay) / (a * p) * dt;
+            forwardSin += (py * ax - px * ay) / (a * p) * dt;
+            forwardTime += dt;
+            return true;
+        }
+        return false;
     }
 
     /** The newest stored sample at or before {@code time}, or -1. */
@@ -254,16 +333,24 @@ public final class ImuMountCheck {
     /** How far the Pigeon's X axis sits from the robot's forward, degrees CCW; NaN before data. */
     public double pigeonForwardErrorDeg() {
         // A Pigeon turned by +a sees the robot's acceleration turned by -a.
-        return forwardTime > 0 ? Math.toDegrees(Math.atan2(-forwardCross, forwardDot)) : Double.NaN;
+        return forwardTime > 0 ? Math.toDegrees(Math.atan2(-forwardSin, forwardCos)) : Double.NaN;
     }
 
-    /** The Pigeon's mean acceleration during hard wheel acceleration, g. */
-    public double pigeonForwardAccelG() {
-        return forwardTime > 0 ? Math.hypot(forwardDot, forwardCross) / forwardTime : Double.NaN;
+    /** 1 when every sample put the Pigeon at the same angle from the wheels, near 0 if random. */
+    public double pigeonForwardConsistency() {
+        return forwardTime > 0 ? Math.hypot(forwardCos, forwardSin) / forwardTime : Double.NaN;
     }
 
     public Verdict pigeonForward() {
-        if (forwardTime < ACCEL_EVIDENCE_SECONDS || pigeonForwardAccelG() < MIN_FORWARD_ACCEL_G) {
+        return forwardVerdict;
+    }
+
+    private Verdict judgeForward() {
+        double needed =
+                forwardVerdict == Verdict.UNKNOWN
+                        ? MIN_FORWARD_CONSISTENCY
+                        : KEEP_FORWARD_CONSISTENCY;
+        if (forwardTime < ACCEL_EVIDENCE_SECONDS || pigeonForwardConsistency() < needed) {
             return Verdict.UNKNOWN;
         }
         return Math.abs(pigeonForwardErrorDeg()) <= FORWARD_TOLERANCE_DEG

@@ -635,13 +635,13 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                 2,
                 c.pigeonYawSense().verdict(),
                 String.format(
-                        "Pigeon yaw turns %.2fx the wheels' rate: reversed or not tracking.",
+                        "Pigeon yaw turns against the wheels (%.2fx their rate): reversed.",
                         c.pigeonYawSense().gain()));
         reportMount(
                 3,
                 c.imuYawSense().verdict(),
                 String.format(
-                        "Onboard IMU yaw turns %.2fx the wheels' rate. Check"
+                        "Onboard IMU yaw turns against the wheels (%.2fx their rate). Check"
                                 + " SwerveConfig.onboardImuMount.",
                         c.imuYawSense().gain()));
         reportMount(
@@ -659,7 +659,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
             Logger.recordOutput(p + "Pigeon/RestRollDeg", c.pigeonRestRollDeg());
             Logger.recordOutput(p + "Pigeon/Forward", c.pigeonForward().name());
             Logger.recordOutput(p + "Pigeon/ForwardErrorDeg", c.pigeonForwardErrorDeg());
-            Logger.recordOutput(p + "Pigeon/ForwardAccelG", c.pigeonForwardAccelG());
+            Logger.recordOutput(p + "Pigeon/ForwardConsistency", c.pigeonForwardConsistency());
             Logger.recordOutput(p + "Pigeon/YawSense", c.pigeonYawSense().verdict().name());
             Logger.recordOutput(p + "Pigeon/YawGain", c.pigeonYawSense().gain());
             Logger.recordOutput(p + "OnboardImu/YawSense", c.imuYawSense().verdict().name());

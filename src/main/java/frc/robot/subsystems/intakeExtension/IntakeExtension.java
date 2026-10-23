@@ -17,6 +17,7 @@ import org.wpilib.command2.InstantCommand;
 import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.util.Units;
 import org.wpilib.smartdashboard.Mechanism2d;
+import org.wpilib.system.RobotController;
 import org.wpilib.system.Timer;
 import org.wpilib.util.Color;
 import org.wpilib.util.Color8Bit;
@@ -260,6 +261,7 @@ public class IntakeExtension extends Mechanism {
         super(config);
         this.config = config;
         this.right = new IntakeExtensionRight(config);
+        this.fullExtend = new FullExtend(FullExtend.Settings.from(config));
 
         // No encoder zeroing: the TalonFX keeps its position across code restarts. If it powered
         // on with the intake out, the first full extend relearns the out point.
@@ -268,19 +270,24 @@ public class IntakeExtension extends Mechanism {
         Telemetry.print(getName() + " Subsystem Initialized");
     }
 
+    // Position writes skip a disconnected axis: setPosition blocks up to 100 ms waiting for it.
     private void setInitialPosition() {
-        if (isAttached()) {
-            double initialRotations = config.getInitPosition();
+        double initialRotations = config.getInitPosition();
+        if (isMotorConnected()) {
             motor.setPosition(initialRotations);
+        }
+        if (right.isMotorConnected()) {
             right.setInitialPosition(initialRotations);
         }
     }
 
     public void resetCurrentPositionToMax() {
-        if (isAttached()) {
+        if (isMotorConnected()) {
             motor.setPosition(config.getMaxRotations());
         }
-        if (right.isAttached()) right.zeroAtMax();
+        if (right.isMotorConnected()) {
+            right.zeroAtMax();
+        }
     }
 
     public Command resetCurrentPositionToMaxCommand() {
@@ -393,90 +400,30 @@ public class IntakeExtension extends Mechanism {
 
     // ---- Full extend: drive out, then stop pushing ----
 
-    private enum ExtendPhase {
-        DRIVING,
-        HOLDING
-    }
+    private final FullExtend fullExtend;
 
-    private ExtendPhase extendPhase = ExtendPhase.DRIVING;
-    private final Timer extendSteadyTimer = new Timer();
-    private boolean extendSteadyTiming = false;
-    private double extendStartRotations = 0;
-    private double holdStartRotations = 0;
-    private int outPointRelearns = 0;
-    // A power-on with the intake out is only possible before the first extend settles.
-    private boolean outPointKnown = false;
-
-    /**
-     * Drives out until both sides are still, then holds. On the first extend after boot, a stall
-     * short of the target that barely moved, with both sides agreeing, means the motors powered on
-     * with the intake out, so the stop is taken as max.
-     */
     private void applyFullExtend() {
         // The sim has no right-axis physics.
         boolean useRight = right.isAttached() && Constants.currentMode != Constants.Mode.SIM;
         double leftPos = getPositionRotations();
-        double rightPos = useRight ? right.getPositionRotations() : leftPos;
-        double position = (leftPos + rightPos) / 2.0;
-
-        // Disabled, every extend looks like a stall.
-        if (previousSystemState != SystemState.FULL_EXTEND || !RobotState.isEnabled()) {
-            extendPhase = ExtendPhase.DRIVING;
-            extendStartRotations = position;
-            extendSteadyTiming = false;
-        }
-
-        boolean still =
-                Math.abs(getVelocityRPM()) < config.getExtendSteadyMaxRPM()
-                        && (!useRight
-                                || Math.abs(right.getVelocityRPM())
-                                        < config.getExtendSteadyMaxRPM());
-        boolean steady = false;
-        if (still && RobotState.isEnabled()) {
-            if (!extendSteadyTiming) {
-                extendSteadyTiming = true;
-                extendSteadyTimer.restart();
-            }
-            steady = extendSteadyTimer.hasElapsed(config.getExtendSteadySecs());
-        } else {
-            extendSteadyTiming = false;
-        }
-
-        switch (extendPhase) {
-            case DRIVING -> {
-                if (!steady) {
-                    commandBoth(100, false);
-                    return;
-                }
-                boolean atTarget =
-                        position
-                                >= config.getMaxRotations()
-                                        - config.getExtendAtTargetToleranceRotations();
-                boolean barelyMoved =
-                        Math.abs(position - extendStartRotations)
-                                < config.getRelearnMaxTravelRotations();
-                boolean sidesAgree =
-                        Math.abs(leftPos - rightPos) <= config.getRelearnMaxSkewRotations();
-                if (!outPointKnown && !atTarget && barelyMoved && sidesAgree) {
-                    resetCurrentPositionToMax();
-                    outPointRelearns++;
-                    Telemetry.print("IntakeExtension: out point relearned at the stop");
-                    position = config.getMaxRotations();
-                }
-                outPointKnown = true;
-                extendPhase = ExtendPhase.HOLDING;
-                holdStartRotations = position;
+        FullExtend.Action action =
+                fullExtend.update(
+                        new FullExtend.Inputs(
+                                previousSystemState != SystemState.FULL_EXTEND,
+                                RobotState.isEnabled(),
+                                isMotorConnected() && (!useRight || right.isMotorConnected()),
+                                RobotController.getTime() / 1000.0,
+                                leftPos,
+                                useRight ? right.getPositionRotations() : leftPos,
+                                getVelocityRPM(),
+                                useRight ? right.getVelocityRPM() : 0));
+        switch (action) {
+            case DRIVE -> commandBoth(100, false);
+            case HOLD -> holdBoth();
+            case RELEARN -> {
+                resetCurrentPositionToMax();
+                Telemetry.print("IntakeExtension: out point relearned at the stop");
                 holdBoth();
-            }
-            case HOLDING -> {
-                if (holdStartRotations - position >= config.getExtendReextendRotations()) {
-                    extendPhase = ExtendPhase.DRIVING;
-                    extendStartRotations = position;
-                    extendSteadyTiming = false;
-                    commandBoth(100, false);
-                } else {
-                    holdBoth();
-                }
             }
         }
     }
@@ -558,9 +505,10 @@ public class IntakeExtension extends Mechanism {
         }
     }
 
+    // A disconnected side reads 0 RPM, so it counts as moving.
     private boolean detectLeftStall() {
         double now = homingTimer.get();
-        if (Math.abs(getVelocityRPM()) >= config.getHomingStallRPM()) {
+        if (!isMotorConnected() || Math.abs(getVelocityRPM()) >= config.getHomingStallRPM()) {
             leftLastMoving = now;
         }
         return isStalled(now, leftLastMoving);
@@ -568,7 +516,8 @@ public class IntakeExtension extends Mechanism {
 
     private boolean detectRightStall() {
         double now = homingTimer.get();
-        if (Math.abs(right.getVelocityRPM()) >= config.getHomingStallRPM()) {
+        if (!right.isMotorConnected()
+                || Math.abs(right.getVelocityRPM()) >= config.getHomingStallRPM()) {
             rightLastMoving = now;
         }
         return isStalled(now, rightLastMoving);
@@ -620,8 +569,8 @@ public class IntakeExtension extends Mechanism {
         Telemetry.log("IntakeExtension/RPM", getVelocityRPM(), "RPM");
         Telemetry.log("IntakeExtension/LeftHomed", leftHomed);
         Telemetry.log("IntakeExtension/RightHomed", rightHomed);
-        Telemetry.log("IntakeExtension/OutPointRelearns", outPointRelearns);
-        Telemetry.log("IntakeExtension/ExtendPhase", extendPhase.toString());
+        Telemetry.log("IntakeExtension/OutPointRelearns", fullExtend.relearns());
+        Telemetry.log("IntakeExtension/ExtendPhase", fullExtend.phase().toString());
 
         previousSystemState = systemState;
     }

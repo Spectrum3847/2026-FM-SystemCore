@@ -151,22 +151,39 @@ public class Hood extends Mechanism {
      */
     @Getter private double shotTargetDegrees = Double.NaN;
 
+    private boolean goalWasClamped = false;
+
     private void applyStates(HoodHoming.Action action) {
-        double wantedDegrees = homing.getParams().stopDeg();
-        shotTargetDegrees = Double.NaN;
+        double requestedDegrees = homing.getParams().stopDeg();
         switch (systemState) {
             case HOME, STOPPED:
                 break;
             case AIM_AT_TARGET:
-                var params = ShotCalculator.getInstance().getParameters();
-                wantedDegrees = params.hoodAngle();
-                shotTargetDegrees = wantedDegrees;
+                requestedDegrees = ShotCalculator.getInstance().getParameters().hoodAngle();
                 break;
             case SET_SHOT:
-                wantedDegrees = ShotCalculator.getSetShotHoodDegrees();
-                shotTargetDegrees = wantedDegrees;
+                requestedDegrees = ShotCalculator.getSetShotHoodDegrees();
                 break;
         }
+        // The shot model can ask past the soft limits the hood booted with (a narrowed hoodForward
+        // param). The hood would stall at the limit while the shot gate waited out its timeout,
+        // so it goes to the limit, and the gate and the tracking stop compare against that.
+        final double requested = requestedDegrees;
+        double wantedDegrees =
+                rotationsToDegrees(() -> clampToSoftLimits(degreesToRotations(() -> requested)));
+        boolean clamped = Math.abs(wantedDegrees - requestedDegrees) > 1e-9;
+        boolean onShot =
+                systemState == SystemState.AIM_AT_TARGET || systemState == SystemState.SET_SHOT;
+        shotTargetDegrees = onShot ? wantedDegrees : Double.NaN;
+        Telemetry.log("Hood/RequestedDegrees", requestedDegrees, "degrees");
+        Telemetry.log("Hood/GoalClamped", clamped);
+        if (clamped && !goalWasClamped) {
+            Telemetry.print(
+                    String.format(
+                            "Hood: %.1f deg asked, past the soft limits; going to %.1f deg",
+                            requestedDegrees, wantedDegrees));
+        }
+        goalWasClamped = clamped;
         // Homing owns the motor while it runs, and refuses setpoints until the hood is zeroed.
         if (action == HoodHoming.Action.DRIVE_TO_STOP) {
             setVoltageOutputNoSoftLimit(() -> homing.getParams().volts());

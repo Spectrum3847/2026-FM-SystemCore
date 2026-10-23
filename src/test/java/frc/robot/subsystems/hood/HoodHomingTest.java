@@ -22,6 +22,7 @@ class HoodHomingTest {
     private boolean auto;
     private boolean teleop;
     private boolean connected;
+    private boolean motorReset;
     private double position;
     private double speed;
     private boolean wantsHome;
@@ -43,8 +44,17 @@ class HoodHomingTest {
         Output out =
                 homing.update(
                         new HoodHoming.Inputs(
-                                now, enabled, auto, teleop, connected, position, speed, wantsHome));
+                                now,
+                                enabled,
+                                auto,
+                                teleop,
+                                connected,
+                                motorReset,
+                                position,
+                                speed,
+                                wantsHome));
         now += LOOP;
+        motorReset = false;
         return out;
     }
 
@@ -264,5 +274,73 @@ class HoodHomingTest {
         out = step();
         assertEquals(Action.HOLD, out.action(), "drops out mid-homing: stop pushing");
         assertFalse(steps(100).zeroed());
+    }
+
+    @Test
+    void aMotorRebootWhileEnabledUnZeroesAndReHomesAtOnce() {
+        enabled = true;
+        assertTrue(stepUntilReset(30).zeroed());
+        position = 30; // aiming
+        assertEquals(Action.CLOSED_LOOP, steps(50).action());
+
+        motorReset = true;
+        position = 0; // restarted from the boot value
+        Output out = step();
+        assertFalse(out.zeroed());
+        assertFalse(homing.isZeroed());
+        assertEquals(Action.DRIVE_TO_STOP, out.action());
+        speed = -50;
+        steps(40);
+        speed = 0;
+        out = stepUntilReset(30);
+        assertTrue(out.zeroed());
+        assertEquals(Action.CLOSED_LOOP, out.action());
+    }
+
+    @Test
+    void aMotorRebootWhileDisabledReHomesAtTheNextModeStart() {
+        enabled = true;
+        assertTrue(stepUntilReset(30).zeroed());
+        enabled = false;
+        steps(10);
+
+        motorReset = true;
+        Output out = step();
+        assertFalse(out.zeroed());
+        assertEquals(Action.HOLD, out.action(), "never homes while disabled");
+        assertEquals(Action.HOLD, steps(50).action());
+
+        enabled = true; // teleop start: not zeroed, so it homes
+        assertEquals(Action.DRIVE_TO_STOP, step().action());
+        assertTrue(stepUntilReset(30).zeroed());
+    }
+
+    @Test
+    void aMotorRebootMidHomingRestartsTheAttempt() {
+        enabled = true;
+        speed = -50;
+        steps(10);
+        speed = 0; // the reboot's standstill, not the stop
+        steps(10);
+        motorReset = true;
+        Output out = step();
+        assertEquals(Action.DRIVE_TO_STOP, out.action());
+        assertFalse(steps(18).resetPosition(), "the stall clock restarted with the attempt");
+        assertTrue(stepUntilReset(5).zeroed());
+    }
+
+    @Test
+    void aMotorRebootAbortsAReHomeOnStowAndRunsAFullOne() {
+        enabled = true;
+        assertTrue(stepUntilReset(30).zeroed());
+        position = 30;
+        steps(5);
+        motorReset = true;
+        wantsHome = true;
+        position = STOP; // reads near the stop only because it restarted there
+        Output out = step();
+        assertEquals(Action.DRIVE_TO_STOP, out.action());
+        wantsHome = false; // a shot is wanted: an un-zeroed hood keeps homing
+        assertEquals(Action.DRIVE_TO_STOP, steps(5).action());
     }
 }

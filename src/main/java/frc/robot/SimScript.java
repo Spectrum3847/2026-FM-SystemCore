@@ -3,6 +3,8 @@ package frc.robot;
 import frc.rebuilt.Field;
 import frc.rebuilt.ShotCalculator;
 import frc.spectrumLib.gamepads.GamepadLayout;
+import frc.spectrumLib.mechanism.Mechanism;
+import java.util.List;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
@@ -31,7 +33,9 @@ import org.wpilib.system.Timer;
  * </ul>
  *
  * <p>With {@code FM_SIM_EXIT=1} as well, the program closes the log and exits once the script is
- * done, so a scripted run can be the whole of a command line.
+ * done, so a scripted run can be the whole of a command line. With {@code
+ * FM_SIM_REBOOT=Hood@9,IntakeExtension@12}, those mechanisms' motors reboot at those script
+ * seconds, as in a brownout.
  */
 public final class SimScript {
     private SimScript() {}
@@ -217,6 +221,7 @@ public final class SimScript {
             actions.placePose = new Pose2d(hub.getX() - 2.5, hub.getY(), Rotation2d.k180deg);
         }
         double t = now - start;
+        rebootMotors(t);
         if (!questResetDone && t > 4.0) {
             // What the operator's LB+X does: put the QuestNav's frame on the robot's pose.
             questResetDone = true;
@@ -307,6 +312,7 @@ public final class SimScript {
                     .setString(autoName);
         }
         double t = now - start;
+        rebootMotors(t);
         DriverStationSim.setEnabled(t >= 6.0 && t < 6.0 + AUTO_SECONDS);
         // Known limitation: a simulated DS change made mid-loop reaches AdvantageKit's HAL snapshot
         // one loop before WPILib's Driver Station cache, so replaying a *scripted* run enables one
@@ -314,6 +320,29 @@ public final class SimScript {
         // picked up at the top of a loop and are not affected.
         DriverStationSim.notifyNewData();
         exitWhenDone(t, 6.0 + AUTO_SECONDS);
+    }
+
+    private static double lastRebootCheck = -1;
+
+    /** Reboots each motor named in {@code FM_SIM_REBOOT} on the loop its time passes. */
+    private static void rebootMotors(double t) {
+        String spec = System.getenv("FM_SIM_REBOOT");
+        if (spec == null || spec.isBlank()) {
+            return;
+        }
+        List<Mechanism> mechanisms = List.of(Robot.getHood(), Robot.getIntakeExtension());
+        for (String entry : spec.split(",")) {
+            String[] parts = entry.trim().split("@");
+            double at = Double.parseDouble(parts[1]);
+            if (lastRebootCheck < at && t >= at) {
+                for (Mechanism m : mechanisms) {
+                    if (m.getName().equals(parts[0])) {
+                        m.simulateReboot();
+                    }
+                }
+            }
+        }
+        lastRebootCheck = t;
     }
 
     /** With {@code FM_SIM_EXIT=1}, closes the log and exits a second after the script ends. */

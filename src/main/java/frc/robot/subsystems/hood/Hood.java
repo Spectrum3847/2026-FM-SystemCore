@@ -186,6 +186,7 @@ public class Hood extends Mechanism {
                                 RobotState.isAutonomous(),
                                 RobotState.isTeleop(),
                                 isMotorConnected(),
+                                motorResetThisLoop(),
                                 getPositionDegrees(),
                                 getVelocityRPM() * 6.0, // mechanism RPM to deg/s
                                 wantedState == WantedState.HOME));

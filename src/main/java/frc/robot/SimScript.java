@@ -27,6 +27,9 @@ import org.wpilib.system.Timer;
  *   <li>{@code shoot}: aiming and launching, standing and on the move, then each set shot from its
  *       spot, with fuel put in the hopper before each launch. For the aim feedforward, the shot
  *       gate, the set shots and the shot log.
+ *   <li>{@code chords}: the pilot's LB + face-button chords pressed and let go in sloppy orders,
+ *       standing still. For {@link frc.spectrumLib.gamepads.ModifierChords}: read {@code
+ *       SuperStructure/WantedSuperState}.
  *   <li>{@code auto:<chooser name>}: one PathPlanner auto.
  * </ul>
  *
@@ -42,6 +45,7 @@ public final class SimScript {
         return Constants.currentMode == Constants.Mode.REPLAY
                 || "drive".equalsIgnoreCase(script)
                 || "shoot".equalsIgnoreCase(script)
+                || "chords".equalsIgnoreCase(script)
                 || (script != null && script.startsWith("auto:"));
     }
 
@@ -56,6 +60,10 @@ public final class SimScript {
 
     private static boolean shootScript() {
         return "shoot".equalsIgnoreCase(System.getenv("FM_SIM_SCRIPT"));
+    }
+
+    private static boolean chordsScript() {
+        return "chords".equalsIgnoreCase(System.getenv("FM_SIM_SCRIPT"));
     }
 
     /** Seconds the auto script runs autonomous for, after 6 s disabled. */
@@ -122,6 +130,29 @@ public final class SimScript {
         {28.0, 0, 0, 0, 0, 0, 0, 0, 0}, // placed on the right trench spot
         {31.0, 0, 0, 0, 0, 0, 1, 0, 1}, // LB+B: right trench set shot
         {32.0, 0, 0, 0, 0, 0, 0, 0, 0},
+    };
+
+    /**
+     * The chord run, standing still, same columns as {@link #SHOOT_STEPS}. The 0.03 and 0.05 s
+     * steps are a few loops: a face button that leads or trails LB by less than the settle time.
+     * The expected wanted states are in the comments.
+     */
+    private static final double[][] CHORD_STEPS = {
+        {6.0, 0, 0, 0, 0, 0, 0, 0, 0}, // disabled: seed
+        {7.0, 0, 0, 0, 0, 0, 1, 0, 0}, // LB alone: nothing
+        {8.5, 0, 0, 0, 0, 1, 1, 0, 0}, // LB+X: left trench set shot
+        {10.0, 0, 0, 0, 0, 1, 0, 0, 0}, // LB let go first, X held: IDLE, then TRACK_TARGET
+        {10.5, 0, 0, 0, 0, 0, 0, 0, 0}, // IDLE
+        {10.53, 0, 0, 0, 0, 0, 0, 1, 0}, // A a few loops before LB: no UNJAM
+        {12.0, 0, 0, 0, 0, 0, 1, 1, 0}, // LB+A: tower set shot
+        {12.05, 0, 0, 0, 0, 0, 0, 1, 0}, // LB let go a few loops before A: IDLE, no UNJAM
+        {12.5, 0, 0, 0, 0, 0, 0, 0, 0},
+        {14.0, 0, 0, 0, 0, 0, 0, 1, 0}, // A: UNJAM
+        {15.0, 0, 0, 0, 0, 1, 0, 1, 0}, // A+X: still UNJAM (A beats X)
+        {16.0, 0, 0, 0, 0, 1, 0, 0, 0}, // A let go, X held: TRACK_TARGET at once
+        {16.5, 0, 0, 0, 0, 0, 0, 0, 0}, // IDLE
+        {18.0, 0, 0, 0, 0, 0, 1, 0, 1}, // LB+B: right trench set shot
+        {18.5, 0, 0, 0, 0, 0, 0, 0, 0}, // IDLE
     };
 
     /** Loads the hopper at the start of these steps (index into {@link #SHOOT_STEPS}). */
@@ -197,7 +228,7 @@ public final class SimScript {
             runAuto(requestedAuto());
             return;
         }
-        double[][] steps = shootScript() ? SHOOT_STEPS : DRIVE_STEPS;
+        double[][] steps = shootScript() ? SHOOT_STEPS : chordsScript() ? CHORD_STEPS : DRIVE_STEPS;
         double now = Timer.getTimestamp();
         if (Double.isNaN(start)) {
             start = now;

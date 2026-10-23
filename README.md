@@ -62,6 +62,13 @@ fuel put in the hopper before each launch (it exercises everything under [Shooti
 FM_SIM_SCRIPT=shoot ./gradlew simulateJava -PnoSimGui
 ```
 
+Or the chord run: the pilot's LB + face-button chords pressed and let go in sloppy orders, read in
+`SuperStructure/WantedSuperState`:
+
+```bash
+FM_SIM_SCRIPT=chords ./gradlew simulateJava -PnoSimGui
+```
+
 Add `FM_SIM_EXIT=1` to any scripted run to have the program close its log and exit when the script
 ends, so the run is one command.
 
@@ -513,9 +520,10 @@ Operator (port 1):
 | D-pad left / right | Aim trim +/- 1 deg |
 | A / B, disabled | Coast / brake |
 
-Release order on the chords: let go of the face button first (or both together). Letting go of LB
-first with X or A still held starts track target or unjam for the rest of the press, as on the
-offseason bot.
+The chords don't depend on press or release order (`ModifierChords` in spectrumLib). A or X pressed
+or let go within 0.12 s of LB counts as part of the chord, so bare unjam and track target start
+0.12 s after the button goes down. Letting go of LB with X or A still held goes IDLE, then to the
+bare action once it has been held 0.12 s without LB.
 
 ## Loop rate, logging and the dashboard
 

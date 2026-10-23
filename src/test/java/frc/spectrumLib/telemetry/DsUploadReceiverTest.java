@@ -154,6 +154,13 @@ class DsUploadReceiverTest {
     }
 
     @Test
+    void takesADayLongDsSessionLog() throws IOException {
+        String base = "/upload/dswpilog/FIRST_DS_day.wpilog";
+        assertEquals(200, put(base + "?offset=0&total=300000000", bytes(10, 1)).status());
+        assertEquals(413, put(base + "?offset=0&total=400000001", bytes(10, 1)).status());
+    }
+
+    @Test
     void refusesWhenTheDiskWouldFillUp() throws IOException {
         DsUploadReceiver full = new DsUploadReceiver(dir.toFile(), TOKEN, Long.MAX_VALUE);
         full.setRobotEnabled(false);

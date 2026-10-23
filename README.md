@@ -742,7 +742,7 @@ laptop then pulls them with the match log. The robot side is
 - Files land in `/home/systemcore/logs/ds/` (internal storage even with a USB stick in; the pit
   pulls from there). Above 1.5 GB, finished and partial files from earlier boots go first, then
   this boot's in the order they arrived; never below 1 GB of free disk. Kinds and caps: `dslog`
-  (NI `.dslog`/`.dsevents`, 20 MB), `dswpilog` (2027 DS log, 50 MB, stored as `.dswpilog` so older
+  (NI `.dslog`/`.dsevents`, 20 MB), `dswpilog` (2027 DS log, a whole day's session, 400 MB, stored as `.dswpilog` so older
   pit helpers never take it for a robot log and upload it), `audio` (`.m4a`/`.opus`, 20 MB), `video`
   (`.mp4`, 200 MB).
 - **Extend** (`dslog` and `dswpilog` only). The DS session log grows all day, so after each match

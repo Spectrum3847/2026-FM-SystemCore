@@ -5,6 +5,7 @@ import static org.wpilib.units.Units.RadiansPerSecond;
 
 import frc.robot.Robot;
 import frc.spectrumLib.gamepads.Gamepad;
+import frc.spectrumLib.gamepads.ModifierChords;
 import frc.spectrumLib.telemetry.Telemetry;
 import org.wpilib.command2.button.Trigger;
 
@@ -37,20 +38,22 @@ public class Pilot extends Gamepad {
      * on the button, left thumb never leaves the drive stick). Teleop only. The offseason bot's
      * fourth, LB+Y from the hub face, is not here: FM cannot make that shot.
      *
-     * X and A are also bound bare (track target, unjam), so those carry "not LB" or LB + X would
-     * fire both. Release order matters at the margin: let go of LB first with the face button still
-     * down and the bare binding fires for the rest of the press. Let go of the face button first,
-     * or both together.
+     * A and X are also bound bare (unjam, track target). At most one of these triggers is true at
+     * a time, whatever order LB and the button go down and up in (ModifierChords), so bind only
+     * their rising edges and IDLE on anyFaceChord's falling edge. With LB, A beats X beats B;
+     * without, A beats X.
      */
-    public final Trigger setShotTower_LB_A = LB.and(AButton).and(teleop);
-    public final Trigger setShotLeftTrench_LB_X = LB.and(XButton).and(teleop);
-    public final Trigger setShotRightTrench_LB_B = LB.and(BButton).and(teleop);
-    public final Trigger anySetShot =
-            setShotTower_LB_A.or(setShotLeftTrench_LB_X).or(setShotRightTrench_LB_B);
+    private final ModifierChords faceChords = modifierChords();
 
-    /* Bare face buttons, gated so an LB-held press goes to the chords above */
-    public final Trigger trackTarget_X = XButton.and(LB.negate());
-    public final Trigger unjam_A = AButton.and(LB.negate());
+    public final Trigger setShotTower_LB_A = faceChords.chord(LB, AButton, teleop);
+    public final Trigger setShotLeftTrench_LB_X = faceChords.chord(LB, XButton, teleop);
+    public final Trigger setShotRightTrench_LB_B = faceChords.chord(LB, BButton, teleop);
+
+    public final Trigger unjam_A = faceChords.bare(AButton);
+    public final Trigger trackTarget_X = faceChords.bare(XButton);
+
+    /** Any of the above; its falling edge is IDLE. */
+    public final Trigger anyFaceChord = faceChords.any();
 
     public static class PilotConfig extends Config {
         private double deadzone = 0.15;

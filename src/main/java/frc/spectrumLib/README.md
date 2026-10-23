@@ -13,6 +13,7 @@ frc.spectrumLib
 ├── telemetry/      Logging, tunable values, and battery usage tracking
 ├── util/           General-purpose utilities and math helpers
 ├── mechanism/      Abstract TalonFX-driven mechanism base class
+├── params/         Tuned values from JSON files, with pit overrides and live tuning
 ├── gamepads/       Xbox controller abstraction with deadbanding and rumble
 ├── leds/           CTRE CANdle wrapper with built-in pattern library
 ├── sim/            Mechanism2d simulation helpers (arm, roller, linear)
@@ -123,6 +124,42 @@ Mechanism2d simulation helpers for visualizing robot mechanisms in DriverStation
 | `LinearSim` / `LinearConfig` | Simulates a linear extension                              |
 | `Mount` / `Mountable`        | Attachment point system for mounting sims onto other sims |
 | `Circle`                     | Utility for drawing circular shapes in Mechanism2d        |
+
+---
+
+### `params`
+
+Values tuned on the robot that survive the next deploy without editing code. A param is declared
+in code with a name, type, default, units and optional bounds, then resolved from layers, later
+ones winning:
+
+1. the default in the declaration;
+2. `<deploy>/params/<group>.json`, in git;
+3. `<deploy>/params/robots/<robot>/<group>.json`, for one robot;
+4. `<group>.json` in a robot-local folder outside the deploy folder (FM: `/home/systemcore/params/`),
+   which a deploy does not wipe;
+5. live changes from the dashboard, only with a transport and only while disabled.
+
+```java
+private static final ParamGroup CAMERAS = Params.group("cameras");
+public static final DoubleParam RESEND = CAMERAS.number("settingsResendPeriodSeconds", 2.0, "s", 0.5, 30);
+...
+if (now - last < RESEND.get()) { ... }
+```
+
+A missing file is skipped; an unreadable file, or a value of the wrong type or out of bounds, raises
+an alert and the layer below is used, so a bad file never stops the robot booting. Every value and
+the layer it came from are logged as inputs (`Params/Values/*`, `Params/Sources/*`), so replay runs
+on the robot's values. The `SaveParams` button writes values that differ from git to the local
+folder, disabled only, on a background thread. Subsystem code sees only `Param`; the transport
+(`NetworkTablesTransport` on AdvantageKit's LoggedNetwork inputs today) is chosen once in `Robot`.
+
+|        Class           |                                  Description                                  |
+|------------------------|-------------------------------------------------------------------------------|
+| `Params`               | Static entry point: `group`, `start` at boot, `periodic` every loop           |
+| `ParamGroup`           | Declares `number`, `integer`, `bool` and `string` params of one group (file)  |
+| `DoubleParam` etc.     | A declared param; `get()`, `source()`, `version()`                            |
+| `ParamTransport`       | Where live tuning comes from; `NetworkTablesTransport` is today's             |
 
 ---
 

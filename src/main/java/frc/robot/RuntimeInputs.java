@@ -21,6 +21,12 @@ public final class RuntimeInputs implements LoggableInputs {
     /** Battery voltage, as the controller measured it. */
     private double batteryVoltage = 12.0;
 
+    /** The controller is browned out (outputs disabled). False where the API is unavailable. */
+    private boolean brownedOut = false;
+
+    /** Whether the HAL's brownout API works on this controller; see {@code Robot}. */
+    private static boolean brownoutApiAvailable = false;
+
     private RuntimeInputs() {}
 
     /** Records (or in replay, restores) the inputs. Call once per loop, first thing. */
@@ -28,6 +34,8 @@ public final class RuntimeInputs implements LoggableInputs {
         if (Constants.currentMode != Constants.Mode.REPLAY) {
             INSTANCE.simulation = Constants.currentMode == Constants.Mode.SIM;
             INSTANCE.batteryVoltage = org.wpilib.system.RobotController.getBatteryVoltage();
+            INSTANCE.brownedOut =
+                    brownoutApiAvailable && org.wpilib.system.RobotController.isBrownedOut();
         }
         Logger.processInputs("Runtime", INSTANCE);
     }
@@ -42,15 +50,28 @@ public final class RuntimeInputs implements LoggableInputs {
         return INSTANCE.batteryVoltage;
     }
 
+    /** Whether the controller is browned out, for the run being executed (or replayed). */
+    public static boolean brownedOut() {
+        return INSTANCE.brownedOut;
+    }
+
+    /** Starts reading the brownout state, once the robot has found the API works. */
+    public static void setBrownoutApiAvailable(boolean available) {
+        brownoutApiAvailable = available;
+    }
+
     @Override
     public void toLog(LogTable table) {
         table.put("Simulation", simulation);
         table.put("BatteryVoltage", batteryVoltage);
+        table.put("BrownedOut", brownedOut);
     }
 
     @Override
     public void fromLog(LogTable table) {
         simulation = table.get("Simulation", simulation);
         batteryVoltage = table.get("BatteryVoltage", batteryVoltage);
+        // Logs from before this was recorded have none: not browned out.
+        brownedOut = table.get("BrownedOut", false);
     }
 }

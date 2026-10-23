@@ -39,7 +39,14 @@ public class SwerveInputs implements LoggableInputs {
     public SwerveModuleVelocity[] moduleVelocities = new SwerveModuleVelocity[0];
     public SwerveModuleVelocity[] moduleTargets = new SwerveModuleVelocity[0];
 
+    /** Per module: drive and steer motors both answering this loop. */
+    public boolean[] moduleConnected = new boolean[0];
+
+    /** Per module: the drive motor reset since last loop, so its distance restarted. */
+    public boolean[] moduleResetOccurred = new boolean[0];
+
     public boolean gyroConnected = false;
+    public boolean gyroResetOccurred = false;
     public double gyroYawRateRadPerSec = 0;
     public double gyroPitchDegrees = 0;
     public double gyroRollDegrees = 0;
@@ -51,6 +58,12 @@ public class SwerveInputs implements LoggableInputs {
 
     public double accelYG = 0;
     public double accelZG = 0;
+
+    /** SystemCore's onboard IMU, the backup gyro. Not on CAN, so a CANivore drop spares it. */
+    public boolean onboardImuPresent = false;
+
+    public double onboardImuYawRadians = 0;
+    public double onboardImuYawRateRadPerSec = 0;
 
     public double odometryPeriodSeconds = 0;
     public int successfulDaqs = 0;
@@ -66,7 +79,10 @@ public class SwerveInputs implements LoggableInputs {
         table.put("RobotVelocity", robotVelocity);
         table.put("ModuleVelocities", moduleVelocities);
         table.put("ModuleTargets", moduleTargets);
+        table.put("ModuleConnected", moduleConnected);
+        table.put("ModuleResetOccurred", moduleResetOccurred);
         table.put("GyroConnected", gyroConnected);
+        table.put("GyroResetOccurred", gyroResetOccurred);
         table.put("GyroYawRateRadPerSec", gyroYawRateRadPerSec);
         table.put("GyroPitchDegrees", gyroPitchDegrees);
         table.put("GyroRollDegrees", gyroRollDegrees);
@@ -75,6 +91,9 @@ public class SwerveInputs implements LoggableInputs {
         table.put("AccelXG", accelXG);
         table.put("AccelYG", accelYG);
         table.put("AccelZG", accelZG);
+        table.put("OnboardImu/Present", onboardImuPresent);
+        table.put("OnboardImu/YawRadians", onboardImuYawRadians);
+        table.put("OnboardImu/YawRateRadPerSec", onboardImuYawRateRadPerSec);
         table.put("OdometryPeriodSeconds", odometryPeriodSeconds);
         table.put("SuccessfulDaqs", successfulDaqs);
         table.put("FailedDaqs", failedDaqs);
@@ -90,7 +109,10 @@ public class SwerveInputs implements LoggableInputs {
         robotVelocity = table.get("RobotVelocity", robotVelocity);
         moduleVelocities = table.get("ModuleVelocities", moduleVelocities);
         moduleTargets = table.get("ModuleTargets", moduleTargets);
+        moduleConnected = table.get("ModuleConnected", moduleConnected);
+        moduleResetOccurred = table.get("ModuleResetOccurred", moduleResetOccurred);
         gyroConnected = table.get("GyroConnected", gyroConnected);
+        gyroResetOccurred = table.get("GyroResetOccurred", gyroResetOccurred);
         gyroYawRateRadPerSec = table.get("GyroYawRateRadPerSec", gyroYawRateRadPerSec);
         gyroPitchDegrees = table.get("GyroPitchDegrees", gyroPitchDegrees);
         gyroRollDegrees = table.get("GyroRollDegrees", gyroRollDegrees);
@@ -99,6 +121,10 @@ public class SwerveInputs implements LoggableInputs {
         accelXG = table.get("AccelXG", accelXG);
         accelYG = table.get("AccelYG", accelYG);
         accelZG = table.get("AccelZG", accelZG);
+        onboardImuPresent = table.get("OnboardImu/Present", onboardImuPresent);
+        onboardImuYawRadians = table.get("OnboardImu/YawRadians", onboardImuYawRadians);
+        onboardImuYawRateRadPerSec =
+                table.get("OnboardImu/YawRateRadPerSec", onboardImuYawRateRadPerSec);
         odometryPeriodSeconds = table.get("OdometryPeriodSeconds", odometryPeriodSeconds);
         successfulDaqs = table.get("SuccessfulDaqs", successfulDaqs);
         failedDaqs = table.get("FailedDaqs", failedDaqs);

@@ -4,6 +4,7 @@ import frc.robot.Constants;
 import frc.robot.Robot;
 import frc.robot.auton.Auton;
 import frc.robot.subsystems.swerve.Swerve;
+import frc.spectrumLib.checks.CameraHeadingCheck;
 import frc.spectrumLib.localization.Gate;
 import frc.spectrumLib.localization.GateContext;
 import frc.spectrumLib.localization.PoseFusion;
@@ -119,12 +120,6 @@ public class Vision implements Subsystem {
                 new LimelightConfig("limelight-right")
                         .withTranslation(0.0084, 0.3337, 0.5004)
                         .withRotation(0, 20, -84.5);
-
-        /**
-         * Whether to push the mounts above to the cameras, so a reflashed or swapped camera still
-         * gets the right mount.
-         */
-        @Getter final boolean pushLimelightMounts = true;
 
         @Getter final int tagPipeline = 0;
 
@@ -264,9 +259,19 @@ public class Vision implements Subsystem {
     // Fields
     // =========================================================================
 
+    /**
+     * The layout the robot solves with; the Jetson's and Limelights' must match it. {@code
+     * Event.APRILTAG_FIELD} says which field this event has, and the pre-match check compares.
+     */
+    public static final AprilTagFields TAG_FIELD = AprilTagFields.k2026RebuiltAndymark;
+
     @Getter private static AprilTagFieldLayout tagLayout;
 
-    private final VisionConfig config;
+    @Getter private final VisionConfig config;
+
+    /** Pre-match: every tag-solving camera's heading against the gyro and each other. */
+    @Getter private final CameraHeadingCheck cameraHeadings = new CameraHeadingCheck();
+
     private final Swerve swerve;
     private final PoseFusion fusion;
 
@@ -324,9 +329,6 @@ public class Vision implements Subsystem {
 
     private final List<CameraAlert> cameraAlerts = new ArrayList<>();
 
-    /** Quest battery below this percentage raises an alert (1425 uses 20). */
-    private static final double QUEST_LOW_BATTERY_PERCENT = 20;
-
     private final Alert questBatteryAlert = new Alert("", Level.MEDIUM);
 
     private final Alert notSeededAlert =
@@ -349,7 +351,7 @@ public class Vision implements Subsystem {
         this.swerve = swerve;
         this.fusion = swerve.getPoseFusion();
         // Must match the Jetson's and Limelights' layout and the event field (#10, sec. 5).
-        tagLayout = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltAndymark);
+        tagLayout = AprilTagFieldLayout.loadField(TAG_FIELD);
 
         boolean sim = Constants.currentMode == Constants.Mode.SIM;
         boolean replay = Constants.currentMode == Constants.Mode.REPLAY;
@@ -599,6 +601,7 @@ public class Vision implements Subsystem {
                         "Stale Estimate Rejection",
                         (o, c) ->
                                 c.nowSeconds() - o.timestampSeconds() > config.questMaxAgeSeconds),
+                VisionGates.FUTURE_TIMESTAMP_GATE,
                 Gate.rejectIf(
                         "Out of Field Rejection",
                         (o, c) -> frc.rebuilt.FieldHelpers.poseOutOfField(o.pose2d())),
@@ -660,6 +663,10 @@ public class Vision implements Subsystem {
         jetson.updateInputs();
         for (PoseSource s : allSources) {
             s.update();
+        }
+
+        if (disabled) {
+            feedCameraHeadings(now);
         }
 
         // 2. Gate.
@@ -737,6 +744,40 @@ public class Vision implements Subsystem {
 
         logStatus(disabled, useMt2);
         swerve.afterVision();
+    }
+
+    /** Whether the dashboard switch to fuse MegaTag2 once the seed is confirmed is on. */
+    public boolean isChassisUseMt2() {
+        return chassisUseMt2.get();
+    }
+
+    /**
+     * Gives the pre-match heading check this loop's full-pose frames. MegaTag2 and the Orin's
+     * gyro-held solves take their heading from the robot, so only MegaTag1 and the Orin's own
+     * solves count.
+     */
+    private void feedCameraHeadings(double now) {
+        double gyroDeg = fusion.getLastGyro().getDegrees();
+        double yawRate = swerve.getYawRateRadPerSec();
+        for (List<PoseSource> sources : List.of(mt1Sources, scMt1Sources, orinSources)) {
+            for (PoseSource s : sources) {
+                PoseSourceInputs in = s.getInputs();
+                String camera = s.getName().replace("/MT1", "");
+                int n = Math.min(in.poses.length, in.tagCounts.length);
+                for (int i = 0; i < n; i++) {
+                    cameraHeadings.addFrame(
+                            camera,
+                            Math.toDegrees(in.poses[i].getRotation().getZ()),
+                            gyroDeg,
+                            in.tagCounts[i],
+                            yawRate,
+                            now);
+                }
+            }
+        }
+        cameraHeadings.setRobotHeading(
+                poseHeadingSeeded ? fusion.getPose().getRotation().getDegrees() : Double.NaN,
+                gyroDeg);
     }
 
     /** Re-seeds the heading from LL-Back MT1 multi-tag when it holds off the fused heading. */
@@ -1145,26 +1186,20 @@ public class Vision implements Subsystem {
     // Outputs to devices
     // =========================================================================
 
-    /**
-     * How often the settings the robot owns (IMU mode, and the mount poses when {@link
-     * VisionConfig#pushLimelightMounts} is on) are re-sent. A Limelight that boots after the robot,
-     * or reboots mid-match, comes back in IMU mode 0 and on whatever mount was last saved to it; in
-     * mode 0 its MegaTag2 poses are garbage, and FM fuses MegaTag2 once the seed is confirmed.
-     * Offseason 71dc7a7.
-     */
-    private static final double SETTINGS_RESEND_PERIOD_SECS = 2.0;
-
     private double lastSettingsSendSeconds = Double.NEGATIVE_INFINITY;
 
-    /** Sends each Limelight its IMU mode (and mount), at most every resend period. */
+    /**
+     * Sends each Limelight its IMU mode (and mount), at most every {@link
+     * CameraParams#SETTINGS_RESEND_PERIOD_SECONDS}.
+     */
     private void sendCameraSettings(double now) {
-        if (now - lastSettingsSendSeconds < SETTINGS_RESEND_PERIOD_SECS) {
+        if (now - lastSettingsSendSeconds < CameraParams.SETTINGS_RESEND_PERIOD_SECONDS.get()) {
             return;
         }
         lastSettingsSendSeconds = now;
         for (Limelight ll : limelights) {
             ll.setIMUmode(1);
-            if (config.pushLimelightMounts) {
+            if (CameraParams.PUSH_LIMELIGHT_MOUNTS.get()) {
                 ll.pushConfiguredCameraPose();
             }
         }
@@ -1245,7 +1280,9 @@ public class Vision implements Subsystem {
         double battery = health.length > 2 ? health[2] : -1;
         questBatteryAlert.setText(String.format("Quest battery low: %.0f%%", battery));
         questBatteryAlert.set(
-                questSource.isConnected() && battery >= 0 && battery < QUEST_LOW_BATTERY_PERCENT);
+                questSource.isConnected()
+                        && battery >= 0
+                        && battery < CameraParams.QUEST_LOW_BATTERY_PERCENT.get());
     }
 
     private void logStatus(boolean disabled, boolean useMt2) {
@@ -1315,15 +1352,6 @@ public class Vision implements Subsystem {
         }
         return false;
     }
-
-    /** End of auto: auto's 20 s plus a few seconds either side. */
-    public static final double AUTO_REWIND_SECONDS = 25;
-
-    /**
-     * End of teleop: the most a Limelight keeps. Teleop's 140 s plus the gap after auto, so it also
-     * reaches back into the end of auto.
-     */
-    public static final double TELEOP_REWIND_SECONDS = 165;
 
     /**
      * Saves the last {@code seconds} of the rewind buffer of each FM Limelight: video plus every

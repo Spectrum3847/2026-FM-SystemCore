@@ -1,6 +1,6 @@
-# Replays a real match log through the PR's code and through the base branch's, then fails if the
-# fused pose or the shot gate's verdicts moved. Add the replay-change-expected label to a PR whose
-# change is meant to move them. Fixture and limits: README "CI".
+# Replays windows of real match logs through the PR's code and through the base branch's, then
+# fails if the fused pose or the shot gate's verdicts moved. Add the replay-change-expected label to
+# a PR whose change is meant to move them. Fixtures and limits: README "CI".
 
 name: Replay
 
@@ -16,9 +16,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  replay:
+  # The logs stay out of git: the PR's fixtures.json says which windows of which release logs to
+  # replay, and the cut windows are cached until that list or the tools that cut them change.
+  fixtures:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            src/test/resources/replay
+            tools
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: replay-fixtures
+          key: replay-fixtures-${{ hashFiles('src/test/resources/replay/fixtures.json', 'tools/fetch_replay_fixtures.py', 'tools/trim_wpilog.py', 'tools/wpilog_summary.py') }}
+
+      - name: Fetch and cut the fixtures
+        run: python3 tools/fetch_replay_fixtures.py replay-fixtures
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: replay-fixtures
+          path: replay-fixtures/*.wpilog
+          retention-days: 1
+
+  replay:
+    needs: fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         side: [base, pr]
@@ -28,12 +56,11 @@ jobs:
           persist-credentials: false
           ref: ${{ matrix.side == 'base' && github.event.pull_request.base.sha || '' }}
 
-      # Both sides replay the PR's fixture, so a PR may replace it.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Both sides replay the PR's fixtures, so a PR may change them.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          persist-credentials: false
-          path: pr-head
-          sparse-checkout: src/test/resources/replay
+          name: replay-fixtures
+          path: ${{ runner.temp }}/replay
 
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
@@ -42,18 +69,19 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
-      - name: Replay the fixture
+      - name: Replay each fixture
         run: |
           chmod +x gradlew
-          mkdir -p "$RUNNER_TEMP/replay"
-          cp pr-head/src/test/resources/replay/*.wpilog "$RUNNER_TEMP/replay/fixture.wpilog"
-          FM_REPLAY=1 AKIT_LOG_PATH="$RUNNER_TEMP/replay/fixture.wpilog" \
-            timeout 10m ./gradlew simulateJava -PnoSimGui
+          for log in "$RUNNER_TEMP"/replay/*.wpilog; do
+            echo "::group::$(basename "$log")"
+            FM_REPLAY=1 AKIT_LOG_PATH="$log" timeout 10m ./gradlew simulateJava -PnoSimGui
+            echo "::endgroup::"
+          done
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: replay-${{ matrix.side }}
-          path: ${{ runner.temp }}/replay/fixture_sim.wpilog
+          path: ${{ runner.temp }}/replay/*_sim.wpilog
           retention-days: 14
 
   compare:
@@ -66,18 +94,31 @@ jobs:
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          path: replays
+          name: replay-base
+          path: replays/replay-base
 
-      - name: Compare the PR's replay with the base branch's
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: replay-pr
+          path: replays/replay-pr
+
+      - name: Compare the PR's replays with the base branch's
         env:
           EXPECTED: ${{ contains(github.event.pull_request.labels.*.name, 'replay-change-expected') }}
         run: |
-          if python3 tools/replay_regression.py replays/replay-base/fixture_sim.wpilog \
-              replays/replay-pr/fixture_sim.wpilog; then
+          changed=""
+          for pr in replays/replay-pr/*_sim.wpilog; do
+            name=$(basename "$pr")
+            echo "== ${name%_sim.wpilog}"
+            if ! python3 tools/replay_regression.py "replays/replay-base/$name" "$pr"; then
+              changed="$changed ${name%_sim.wpilog}"
+            fi
+          done
+          if [ -z "$changed" ]; then
             exit 0
           elif [ "$EXPECTED" = "true" ]; then
-            echo "::notice::Replay changed, as the replay-change-expected label says it should."
+            echo "::notice::Replay changed ($changed), as the replay-change-expected label says it should."
           else
-            echo "::error::Replay changed. If that is intended, add the replay-change-expected label."
+            echo "::error::Replay changed:$changed. If that is intended, add the replay-change-expected label."
             exit 1
           fi

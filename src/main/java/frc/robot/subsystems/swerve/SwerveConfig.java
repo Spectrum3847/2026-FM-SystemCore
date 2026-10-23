@@ -22,6 +22,7 @@ import com.ctre.phoenix6.swerve.SwerveModuleConstantsFactory;
 import frc.spectrumLib.hardware.CanBuses;
 import lombok.Getter;
 import lombok.Setter;
+import org.wpilib.hardware.imu.OnboardIMU;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.util.Units;
 import org.wpilib.units.measure.Angle;
@@ -49,6 +50,11 @@ public class SwerveConfig {
 
     // Theoretical rotational free speed (deg/s) at 12v applied output;
     @Getter @Setter private AngularVelocity angularSpeedAt12Volts = DegreesPerSecond.of(540.00);
+
+    // SystemCore's mount for its onboard IMU, the backup gyro. Not yet checked on FM: compare
+    // Localization/OnboardImu/ErrorVsPigeonDeg through a few turns before relying on it.
+    @Getter @Setter
+    private OnboardIMU.MountOrientation onboardImuMount = OnboardIMU.MountOrientation.FLAT;
 
     // -----------------------------------------------------------------------
     // PID Controller Constants

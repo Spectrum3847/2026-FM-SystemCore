@@ -34,18 +34,30 @@ import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.launcher.Launcher.LauncherConfig;
 import frc.robot.subsystems.leds.Leds;
 import frc.robot.subsystems.swerve.Swerve;
+import frc.robot.subsystems.swerve.SwerveAlignment;
 import frc.robot.subsystems.swerve.SwerveConfig;
+import frc.robot.subsystems.vision.CameraParams;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.Vision.VisionConfig;
+import frc.spectrumLib.checks.AutoStartCheck;
+import frc.spectrumLib.checks.PreMatchChecks;
 import frc.spectrumLib.framework.RobotLoop;
 import frc.spectrumLib.framework.SpectrumRobot;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.hardware.CanConfigBudget;
 import frc.spectrumLib.hardware.Rio;
+import frc.spectrumLib.localization.PoseSource;
+import frc.spectrumLib.mechanism.Mechanism;
+import frc.spectrumLib.params.NetworkTablesTransport;
+import frc.spectrumLib.params.Params;
+import frc.spectrumLib.params.TuningMode;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.BatteryLogger;
 import frc.spectrumLib.telemetry.DashboardReceiver;
+import frc.spectrumLib.telemetry.DsUploadReceiver;
 import frc.spectrumLib.telemetry.LogStorage;
+import frc.spectrumLib.telemetry.MatchSummary;
+import frc.spectrumLib.telemetry.RadioStatusRedactor;
 import frc.spectrumLib.telemetry.SystemLoadMonitor;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.telemetry.Telemetry.PrintPriority;
@@ -106,6 +118,9 @@ public class Robot extends SpectrumRobot {
     /** CPU, loop period, GC and memory on the dashboard, with alerts when they stay bad. */
     private SystemLoadMonitor systemLoad;
 
+    /** The match summary: {@code Summary/...} in every log, a file after each FMS match. */
+    @Getter private static MatchSummary matchSummary;
+
     public static class Config {
         public final SwerveConfig swerve = new SwerveConfig();
         public final PilotConfig pilot = new PilotConfig();
@@ -139,9 +154,12 @@ public class Robot extends SpectrumRobot {
 
     public Robot() {
         super(Constants.LOOP_PERIOD_SECONDS);
+        TuningMode.set(Constants.TUNING_MODE);
         SystemLoadMonitor.threadCensus("jvm");
         startLogging();
         SystemLoadMonitor.threadCensus("logging");
+        // Before the subsystems, so alerts raised while they start are in the summary.
+        matchSummary = new MatchSummary(summaryFolder());
 
         /*
          * Phoenix otherwise starts writing .hoot signal logs for every CAN device a second after
@@ -168,6 +186,7 @@ public class Robot extends SpectrumRobot {
                     config = new FM2026();
                     break;
             }
+            startParams();
 
             CanBuses.inUse().forEach((label, name) -> canBuses.put(label, CanBuses.forName(name)));
             SystemLoadMonitor.threadCensus("canbuses");
@@ -236,6 +255,9 @@ public class Robot extends SpectrumRobot {
             SystemLoadMonitor.threadCensus("vision");
             systemLoad = new SystemLoadMonitor();
             SystemLoadMonitor.threadCensus("systemLoad");
+            autoStart = new AutoStartCheck(this::autoStartState);
+            preMatch = PreMatch.create(swerve, vision, hood, autoStart);
+            addSummarySources();
 
             if (Constants.currentMode == Constants.Mode.SIM) {
                 robotSim = new RobotSim(superStructure);
@@ -254,6 +276,11 @@ public class Robot extends SpectrumRobot {
             ShotCalculator.getInstance();
             if (Constants.hasHardware()) {
                 WebServer.start(5800, Filesystem.getDeployDirectory().getPath());
+            }
+            if (Constants.currentMode == Constants.Mode.REAL) {
+                // Before the main thread goes real-time, so this thread stays at normal priority.
+                // Internal storage even with a USB stick in: the pit pulls from there.
+                DsUploadReceiver.start(LogStorage.LOCAL_LOGS);
             }
 
             if (Constants.currentMode == Constants.Mode.REAL) {
@@ -284,6 +311,83 @@ public class Robot extends SpectrumRobot {
                     "Brownout voltage API unavailable on this controller: " + e.getMessage(),
                     PrintPriority.HIGH);
         }
+        RuntimeInputs.setBrownoutApiAvailable(powerApiAvailable);
+    }
+
+    /** Where the summary file goes: beside the log on the robot and in the sim; none in replay. */
+    private static java.io.File summaryFolder() {
+        return switch (Constants.currentMode) {
+            case REAL -> new java.io.File(LogStorage.folder());
+            case SIM -> new java.io.File("logs");
+            case REPLAY -> null;
+        };
+    }
+
+    /** Every motor, the drivetrain and every pose source, for the match summary. */
+    private void addSummarySources() {
+        var labels = new java.util.HashMap<String, String>();
+        CanBuses.inUse().forEach((label, name) -> labels.put(name, label));
+        java.util.function.Function<String, String> busLabel =
+                name -> labels.getOrDefault(name, name);
+        for (Mechanism m :
+                List.of(
+                        fuelIntake,
+                        intakeExtension,
+                        intakeExtension.getRight(),
+                        indexerTower,
+                        indexerBed,
+                        launcher,
+                        hood)) {
+            matchSummary.addMechanism(m, busLabel);
+        }
+        var in = swerve.getInputs();
+        String drivetrain = busLabel.apply(CanBuses.DRIVETRAIN);
+        for (int i = 0; i < SwerveAlignment.MODULE_NAMES.length; i++) {
+            final int m = i;
+            // As Swerve reads it: logs from before ModuleConnected was recorded have none.
+            matchSummary.addDevice(
+                    "Swerve " + SwerveAlignment.MODULE_NAMES[i],
+                    drivetrain,
+                    () -> in.moduleConnected.length != 4 || in.moduleConnected[m],
+                    () -> m < in.moduleResetOccurred.length && in.moduleResetOccurred[m],
+                    null);
+        }
+        matchSummary.addDevice(
+                "Pigeon", drivetrain, () -> in.gyroConnected, () -> in.gyroResetOccurred, null);
+        for (PoseSource s : vision.getAllSources()) {
+            matchSummary.addVisionSource(s.getName(), s::getAcceptedCount, s::getRejectedCount);
+        }
+    }
+
+    /**
+     * Pit-tuned params live here on the robot: outside the deploy folder, which every deploy wipes
+     * ({@code deleteOldFiles}).
+     */
+    private static final java.nio.file.Path ROBOT_PARAMS_FOLDER =
+            java.nio.file.Path.of("/home/systemcore/params");
+
+    /**
+     * Resolves the params ({@link Params}) for the robot config chosen above, then declares every
+     * param so all of them are resolved, logged and on NT before the first enable. The simulator
+     * has no local folder unless {@code FM_PARAMS_LOCAL} names one; replay has none, since it runs
+     * on the logged values. Live tuning only in {@link Constants#TUNING_MODE}.
+     */
+    private void startParams() {
+        java.nio.file.Path local =
+                switch (Constants.currentMode) {
+                    case REAL -> ROBOT_PARAMS_FOLDER;
+                    case SIM ->
+                            System.getenv("FM_PARAMS_LOCAL") == null
+                                    ? null
+                                    : java.nio.file.Path.of(System.getenv("FM_PARAMS_LOCAL"));
+                    case REPLAY -> null;
+                };
+        Params.start(
+                Filesystem.getDeployDirectory().toPath().resolve("params"),
+                config.getClass().getSimpleName(),
+                local,
+                new NetworkTablesTransport(Params.NT_PREFIX));
+        RobotParams.load();
     }
 
     private final Alert mainThreadPriorityAlert = new Alert("", Level.MEDIUM);
@@ -299,7 +403,8 @@ public class Robot extends SpectrumRobot {
         org.wpilib.system.Threads.setCurrentThreadPriority(priority);
         int now = org.wpilib.system.Threads.getCurrentThreadPriority();
         boolean ok = now == priority;
-        Logger.recordMetadata("MainThreadPriority", Integer.toString(now));
+        // An output, not metadata: AdvantageKit ignores recordMetadata after Logger.start().
+        Telemetry.log("System/MainThreadPriority", now);
         Telemetry.print(
                 "Main thread real-time priority "
                         + priority
@@ -311,28 +416,10 @@ public class Robot extends SpectrumRobot {
         mainThreadPriorityAlert.set(!ok);
     }
 
-    /**
-     * Battery voltage below which a disabled robot raises the swap-the-battery alert. CALIBRATE
-     * against a meter: SystemCore's reading has been reported ~1.5 V low (SystemcoreTesting #306).
-     */
-    private static final double LOW_BATTERY_VOLTS = 11.8;
+    /** Pre-match self-checks, judged while disabled; see {@link PreMatch}. */
+    private PreMatchChecks preMatch;
 
-    private final Alert lowBatteryAlert = new Alert("", Level.MEDIUM);
-    private final org.wpilib.math.filter.Debouncer lowBatteryDebounce =
-            new org.wpilib.math.filter.Debouncer(3.0);
-
-    /**
-     * Before a match (disabled), a battery that stays under {@link #LOW_BATTERY_VOLTS} for three
-     * seconds raises an alert. Disabled only: under load while driving the voltage sags by design.
-     */
-    private void checkBatteryBeforeMatch() {
-        double volts = RuntimeInputs.batteryVoltage();
-        boolean low =
-                lowBatteryDebounce.calculate(
-                        RobotState.isDisabled() && volts > 1 && volts < LOW_BATTERY_VOLTS);
-        lowBatteryAlert.setText(String.format("Battery low: %.1f V, swap before the match", volts));
-        lowBatteryAlert.set(low);
-    }
+    private AutoStartCheck autoStart;
 
     /** Whether the HAL's brownout API works here (it did not on the 2026-09 SystemCore). */
     private boolean powerApiAvailable = false;
@@ -347,6 +434,7 @@ public class Robot extends SpectrumRobot {
         Logger.recordMetadata("TeamNumber", "8515");
         Logger.recordMetadata("LoopPeriodSeconds", Double.toString(Constants.LOOP_PERIOD_SECONDS));
         Logger.recordMetadata("RuntimeMode", Constants.currentMode.name());
+        Logger.recordMetadata("TuningMode", Boolean.toString(Constants.TUNING_MODE));
         // Which robot config this controller selected (by serial number); replay always builds
         // FM2026, so a log from another robot says so here.
         Logger.recordMetadata("RobotIdentity", Rio.id.name());
@@ -363,12 +451,18 @@ public class Robot extends SpectrumRobot {
                     default -> "Unknown";
                 });
 
+        // First, so no log file or dashboard ever gets the radio's Wi-Fi key hashes (replay too:
+        // older logs still carry them).
+        Logger.addDataReceiver(new RadioStatusRedactor());
         switch (Constants.currentMode) {
             case REAL:
                 // A USB stick if one is inserted (AdvantageKit's default /U/logs), otherwise the
                 // SystemCore's own storage. Without a stick /U/logs cannot be opened and the
                 // match is not logged at all.
-                Logger.addDataReceiver(new WPILOGWriter(LogStorage.chooseFolder()));
+                String logFolder = LogStorage.chooseFolder();
+                // Before Logger.start(), so the cleanup cannot delete this boot's log.
+                LogStorage.cleanUpAtBoot();
+                Logger.addDataReceiver(new WPILOGWriter(logFolder));
                 Logger.recordMetadata("LogFolder", LogStorage.folder());
                 // Dashboard keys to NT at ~50 Hz; the log file keeps everything, every cycle.
                 Logger.addDataReceiver(new DashboardReceiver(new NT4Publisher(), ntEveryN()));
@@ -454,18 +548,14 @@ public class Robot extends SpectrumRobot {
 
         // Fixed shots: park at the spot, point the back at the hub, hold the chord. Hood and
         // flywheel from the spot's range, fed once they are there; no pose read, no aim checked.
-        // See ShotCalculator.SetShot. Bound before the bare X and A below so that letting go of LB
-        // first lands in what the buttons now say (track target, unjam), not IDLE.
+        // See ShotCalculator.SetShot. At most one face chord is true at a time (Pilot), so bind
+        // only rising edges, and go to IDLE only when all are let go.
         pilot.setShotTower_LB_A.onTrue(superStructure.setShotCommand(SetShot.TOWER));
         pilot.setShotLeftTrench_LB_X.onTrue(superStructure.setShotCommand(SetShot.LEFT_TRENCH));
         pilot.setShotRightTrench_LB_B.onTrue(superStructure.setShotCommand(SetShot.RIGHT_TRENCH));
-        pilot.anySetShot.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
-
         pilot.trackTarget_X.onTrue(superStructure.setStateCommand(WantedSuperState.TRACK_TARGET));
-        pilot.trackTarget_X.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
-
         pilot.unjam_A.onTrue(superStructure.setStateCommand(WantedSuperState.UNJAM));
-        pilot.unjam_A.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
+        pilot.anyFaceChord.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
 
         pilot.selectButton.onTrue(superStructure.setStateCommand(WantedSuperState.FORCE_HOME));
         pilot.selectButton.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
@@ -497,6 +587,9 @@ public class Robot extends SpectrumRobot {
 
         // Held: feed regardless of the shot gate (SuperStructure / ShotGate).
         superStructure.setFeedOverride(operator.feedOverride_Y);
+
+        // Release mechanisms the tracking stop is holding (Mechanism.Config tracking stop).
+        operator.startButton.onTrue(superStructure.clearTrackingStops());
 
         operator.dPadDown.onTrue(ShotCalculator.decreaseHoodAngleOffset());
         operator.dPadUp.onTrue(ShotCalculator.increaseHoodAngleOffset());
@@ -530,9 +623,11 @@ public class Robot extends SpectrumRobot {
     public void robotPeriodic() {
         RobotLoop.next();
         RuntimeInputs.update();
+        Params.periodic();
         Telemetry.periodic();
         Alert.periodic();
         LogStorage.periodic();
+        DsUploadReceiver.periodic(RobotState.isEnabled());
         systemLoad.periodic();
 
         // Latched here rather than in the mode inits so every mode is covered by the same check.
@@ -567,16 +662,20 @@ public class Robot extends SpectrumRobot {
             Telemetry.logDash("Match Data/TimeLeftInShift", shift.remainingTime(), "seconds");
 
             batteryLogger.setBatteryVoltage(RuntimeInputs.batteryVoltage());
-            checkBatteryBeforeMatch();
             // Every loop: a brownout is a few hundred milliseconds.
             if (powerApiAvailable) {
-                Telemetry.log("SystemStats/BrownedOut", RobotController.isBrownedOut());
+                Telemetry.log("SystemStats/BrownedOut", RuntimeInputs.brownedOut());
             }
             // SystemCore reports no input current (the roboRIO did); the battery logger sums
             // the mechanisms instead.
             batteryLogger.logPower();
 
             logCanBusStatus();
+            matchSummary.periodic(RuntimeInputs.batteryVoltage(), RuntimeInputs.brownedOut());
+
+            Telemetry.time("Scheduler/PreMatch");
+            preMatch.periodic(RobotState.isDisabled(), Timer.getTimestamp());
+            Telemetry.timeEnd("Scheduler/PreMatch");
 
             // For dashboards (AdvantageKit logs the pose itself every loop); 10 Hz is plenty.
             if (Telemetry.slowLogThisLoop()) {
@@ -729,8 +828,8 @@ public class Robot extends SpectrumRobot {
                 logAutoSelection(fullAutoName, true, "");
             }
             autoName = selectionKey;
-            autoFileMissingAlert.set(false);
             selectedAutoPaths = new ArrayList<>();
+            logStartPose();
             return;
         }
 
@@ -821,7 +920,7 @@ public class Robot extends SpectrumRobot {
             placeAtAutoStart = false;
         }
 
-        checkStartPose();
+        logStartPose();
     }
 
     /** Only before the first enable on the robot; always in simulation. */
@@ -833,85 +932,47 @@ public class Robot extends SpectrumRobot {
 
     // -- Start pose check (offseason) ---------------------------------------------------------
 
-    private static final double START_POSE_ALERT_METERS = 0.5;
-    private static final double START_HEADING_ALERT_DEG = 10.0;
-    private static final double START_POSE_ALERT_HOLD_SECONDS = 1.0;
+    /** The selected auto's chooser name, and whether its .auto file exists on the robot. */
+    private String selectedAutoName = "";
 
-    private double startPoseErrorSinceSeconds = Double.NaN;
-    private final Alert startPoseAlert = new Alert("", Level.HIGH);
-    private final Alert autoFileMissingAlert = new Alert("", Level.HIGH);
-    private final Alert startPoseUnverifiedAlert =
-            new Alert(
-                    "Start pose UNVERIFIED - no Limelight has seeded the pose, so the robot cannot"
-                            + " tell whether it is on the auto's start. Get a Limelight on two or"
-                            + " more tags before enabling.",
-                    Level.HIGH);
+    private boolean autoFileFound = false;
 
     private void logAutoSelection(String fullAutoName, boolean autoFileFound, String baseAutoName) {
+        selectedAutoName = fullAutoName;
+        this.autoFileFound = autoFileFound;
         Telemetry.log("Auton/SelectedAuto", fullAutoName);
         Telemetry.log("Auton/AutoFileFound", autoFileFound);
         if (autoFileFound) {
-            autoFileMissingAlert.set(false);
             Telemetry.print("Auto selected: " + fullAutoName, PrintPriority.HIGH);
-        } else {
-            autoFileMissingAlert.setText(
+        } else if (!fullAutoName.equals("Do Nothing")) {
+            Telemetry.print(
                     String.format(
-                            "Auto '%s' has NO .auto file named '%s' on the robot (names are"
-                                    + " case-sensitive there). It will do nothing. Pick another.",
-                            fullAutoName, baseAutoName));
-            autoFileMissingAlert.set(true);
+                            "Auto '%s' has no .auto file named '%s' on the robot (names are"
+                                    + " case-sensitive there)",
+                            fullAutoName, baseAutoName),
+                    PrintPriority.HIGH);
         }
     }
 
-    private void clearStartPoseReport() {
-        startPoseErrorSinceSeconds = Double.NaN;
-        startPoseAlert.set(false);
-        startPoseUnverifiedAlert.set(false);
-        Telemetry.log("Auton/StartPoseErrorMeters", Double.NaN, "m");
-        Telemetry.log("Auton/StartHeadingErrorDeg", Double.NaN, "deg");
-    }
-
-    /** Compares the current pose with the selected auto's start and alerts when they disagree. */
-    private void checkStartPose() {
-        Optional<Pose2d> start =
+    /** What the pre-match auto check judges, from this loop's logged state. */
+    private AutoStartCheck.State autoStartState() {
+        return new AutoStartCheck.State(
+                selectedAutoName.isEmpty() ? "(none)" : selectedAutoName,
+                selectedAutoName.isEmpty() || selectedAutoName.equals("Do Nothing"),
+                autoFileFound,
                 selectedAutoPaths.isEmpty()
                         ? Optional.empty()
-                        : selectedAutoPaths.get(0).getStartingHolonomicPose();
-        if (start.isEmpty() || hasBeenEnabled) {
-            clearStartPoseReport();
-            return;
-        }
-        if (!vision.isPoseHeadingSeeded()) {
-            clearStartPoseReport();
-            startPoseUnverifiedAlert.set(!RuntimeInputs.isSimulation());
-            return;
-        }
-        startPoseUnverifiedAlert.set(false);
+                        : selectedAutoPaths.get(0).getStartingHolonomicPose(),
+                swerve.getRobotPose(),
+                vision.isPoseHeadingSeeded(),
+                MatchState.getAlliance().isPresent(),
+                hasBeenEnabled);
+    }
 
-        Pose2d pose = swerve.getRobotPose();
-        double distanceMeters = pose.getTranslation().getDistance(start.get().getTranslation());
-        double headingErrorDeg = pose.getRotation().minus(start.get().getRotation()).getDegrees();
-        Telemetry.logDash("Auton/StartPoseErrorMeters", distanceMeters, "m");
-        Telemetry.logDash("Auton/StartHeadingErrorDeg", headingErrorDeg, "deg");
-
-        boolean off =
-                distanceMeters > START_POSE_ALERT_METERS
-                        || Math.abs(headingErrorDeg) > START_HEADING_ALERT_DEG;
-        double now = Timer.getTimestamp();
-        if (!off) {
-            startPoseErrorSinceSeconds = Double.NaN;
-            startPoseAlert.set(false);
-        } else if (Double.isNaN(startPoseErrorSinceSeconds)) {
-            startPoseErrorSinceSeconds = now;
-        } else if (now - startPoseErrorSinceSeconds >= START_POSE_ALERT_HOLD_SECONDS
-                && !startPoseAlert.get()) {
-            startPoseAlert.setText(
-                    String.format(
-                            "Robot is %.2f m and %.0f deg from the start of %s. Wrong auto, wrong"
-                                    + " side, wrong alliance, or a bad vision seed.",
-                            distanceMeters, headingErrorDeg, autoName));
-            startPoseAlert.set(true);
-        }
+    /** The robot's distance from the selected auto's start, as the pre-match check measured it. */
+    private void logStartPose() {
+        Telemetry.logDash("Auton/StartPoseErrorMeters", autoStart.getDistanceMeters(), "m");
+        Telemetry.logDash("Auton/StartHeadingErrorDeg", autoStart.getHeadingErrorDeg(), "deg");
     }
 
     @Override
@@ -931,6 +992,8 @@ public class Robot extends SpectrumRobot {
         }
         try {
             auton.init();
+            Command autoCommand = auton.getAutonomousCommand();
+            matchSummary.autoStarted(runningAuto, autoCommand::isScheduled);
         } catch (Throwable t) {
             CrashTracker.logThrowableCrash(t);
             throw t;
@@ -946,9 +1009,8 @@ public class Robot extends SpectrumRobot {
         // captured as it ends (10183 found the teleop-only capture missed auto at Summer Scorcher).
         // Auto's capture is short, or it is mostly pre-match disabled time.
         if (RobotState.isFMSAttached()) {
-            vision.triggerRewindCaptureForAllCameras(Vision.AUTO_REWIND_SECONDS);
+            vision.triggerRewindCaptureForAllCameras(CameraParams.AUTO_REWIND_SECONDS.get());
         }
-        auton.exit();
         Telemetry.print("@@@ Auton Exit @@@ ");
     }
 
@@ -971,7 +1033,7 @@ public class Robot extends SpectrumRobot {
     @Override
     public void teleopExit() {
         if (RobotState.isFMSAttached()) {
-            vision.triggerRewindCaptureForAllCameras(Vision.TELEOP_REWIND_SECONDS);
+            vision.triggerRewindCaptureForAllCameras(CameraParams.TELEOP_REWIND_SECONDS.get());
         }
         Telemetry.print("!!! Teleop Exit !!! ");
     }

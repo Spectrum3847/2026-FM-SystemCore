@@ -3,9 +3,12 @@ package frc.robot;
 import frc.rebuilt.Field;
 import frc.rebuilt.ShotCalculator;
 import frc.spectrumLib.gamepads.GamepadLayout;
+import frc.spectrumLib.mechanism.Mechanism;
+import java.util.List;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
+import org.wpilib.driverstation.MatchType;
 import org.wpilib.hardware.hal.AllianceStationID;
 import org.wpilib.hardware.hal.RobotMode;
 import org.wpilib.math.geometry.Pose2d;
@@ -27,11 +30,17 @@ import org.wpilib.system.Timer;
  *   <li>{@code shoot}: aiming and launching, standing and on the move, then each set shot from its
  *       spot, with fuel put in the hopper before each launch. For the aim feedforward, the shot
  *       gate, the set shots and the shot log.
+ *   <li>{@code chords}: the pilot's LB + face-button chords pressed and let go in sloppy orders,
+ *       standing still. For {@link frc.spectrumLib.gamepads.ModifierChords}: read {@code
+ *       SuperStructure/WantedSuperState}.
  *   <li>{@code auto:<chooser name>}: one PathPlanner auto.
  * </ul>
  *
  * <p>With {@code FM_SIM_EXIT=1} as well, the program closes the log and exits once the script is
- * done, so a scripted run can be the whole of a command line.
+ * done, so a scripted run can be the whole of a command line. With {@code
+ * FM_SIM_REBOOT=Hood@9,IntakeExtension@12}, those mechanisms' motors reboot at those script
+ * seconds, as in a brownout. With {@code FM_SIM_MATCH=Q12} (or {@code P3}, {@code E5}), the Driver
+ * Station reports that FMS match, so the end of teleop writes the match summary file.
  */
 public final class SimScript {
     private SimScript() {}
@@ -42,6 +51,7 @@ public final class SimScript {
         return Constants.currentMode == Constants.Mode.REPLAY
                 || "drive".equalsIgnoreCase(script)
                 || "shoot".equalsIgnoreCase(script)
+                || "chords".equalsIgnoreCase(script)
                 || (script != null && script.startsWith("auto:"));
     }
 
@@ -56,6 +66,10 @@ public final class SimScript {
 
     private static boolean shootScript() {
         return "shoot".equalsIgnoreCase(System.getenv("FM_SIM_SCRIPT"));
+    }
+
+    private static boolean chordsScript() {
+        return "chords".equalsIgnoreCase(System.getenv("FM_SIM_SCRIPT"));
     }
 
     /** Seconds the auto script runs autonomous for, after 6 s disabled. */
@@ -122,6 +136,31 @@ public final class SimScript {
         {28.0, 0, 0, 0, 0, 0, 0, 0, 0}, // placed on the right trench spot
         {31.0, 0, 0, 0, 0, 0, 1, 0, 1}, // LB+B: right trench set shot
         {32.0, 0, 0, 0, 0, 0, 0, 0, 0},
+    };
+
+    /**
+     * The chord run, standing still, same columns as {@link #SHOOT_STEPS}. The 0.03 and 0.05 s
+     * steps are a few loops: a face button that leads or trails LB by less than the settle time.
+     * The expected wanted states are in the comments.
+     */
+    private static final double[][] CHORD_STEPS = {
+        {6.0, 0, 0, 0, 0, 0, 0, 0, 0}, // disabled: seed
+        {7.0, 0, 0, 0, 0, 0, 1, 0, 0}, // LB alone: nothing
+        {8.5, 0, 0, 0, 0, 1, 1, 0, 0}, // LB+X: left trench set shot
+        {10.0, 0, 0, 0, 0, 1, 0, 0, 0}, // LB let go first, X held: IDLE, then TRACK_TARGET
+        {10.5, 0, 0, 0, 0, 0, 0, 0, 0}, // IDLE
+        {10.53, 0, 0, 0, 0, 0, 0, 1, 0}, // A a few loops before LB: no UNJAM
+        {12.0, 0, 0, 0, 0, 0, 1, 1, 0}, // LB+A: tower set shot
+        {12.05, 0, 0, 0, 0, 0, 0, 1, 0}, // LB let go a few loops before A: IDLE, no UNJAM
+        {12.5, 0, 0, 0, 0, 0, 0, 0, 0},
+        {14.0, 0, 0, 0, 0, 0, 0, 1, 0}, // A: UNJAM
+        {15.0, 0, 0, 0, 0, 1, 0, 1, 0}, // A+X: still UNJAM (A beats X)
+        {16.0, 0, 0, 0, 0, 1, 0, 0, 0}, // A let go, X held: TRACK_TARGET at once
+        {16.5, 0, 0, 0, 0, 0, 0, 0, 0}, // IDLE
+        {18.0, 0, 0, 0, 0, 0, 1, 0, 1}, // LB+B: right trench set shot
+        {18.5, 0, 0, 0, 0, 0, 0, 0, 0}, // IDLE
+        {18.55, 0, 0, 0, 0, 0, 0, 1, 0}, // A tapped for 0.05 s: UNJAM for 0.05 s, after the settle
+        {19.5, 0, 0, 0, 0, 0, 0, 0, 0}, // IDLE
     };
 
     /** Loads the hopper at the start of these steps (index into {@link #SHOOT_STEPS}). */
@@ -197,7 +236,7 @@ public final class SimScript {
             runAuto(requestedAuto());
             return;
         }
-        double[][] steps = shootScript() ? SHOOT_STEPS : DRIVE_STEPS;
+        double[][] steps = shootScript() ? SHOOT_STEPS : chordsScript() ? CHORD_STEPS : DRIVE_STEPS;
         double now = Timer.getTimestamp();
         if (Double.isNaN(start)) {
             start = now;
@@ -210,6 +249,7 @@ public final class SimScript {
             DriverStationSim.setAllianceStationId(AllianceStationID.BLUE_1);
             DriverStationSim.setRobotMode(RobotMode.TELEOPERATED);
             DriverStationSim.setEnabled(false);
+            fakeMatch();
             // Back to the blue hub, 2.5 m out: the back Limelight looks straight at a hub face,
             // enough tags for the disabled seed to confirm.
             var hub = Field.getBlueHubCenter();
@@ -217,6 +257,7 @@ public final class SimScript {
             actions.placePose = new Pose2d(hub.getX() - 2.5, hub.getY(), Rotation2d.k180deg);
         }
         double t = now - start;
+        rebootMotors(t);
         if (!questResetDone && t > 4.0) {
             // What the operator's LB+X does: put the QuestNav's frame on the robot's pose.
             questResetDone = true;
@@ -300,6 +341,7 @@ public final class SimScript {
             DriverStationSim.setAllianceStationId(AllianceStationID.BLUE_1);
             DriverStationSim.setRobotMode(RobotMode.AUTONOMOUS);
             DriverStationSim.setEnabled(false);
+            fakeMatch();
             org.wpilib.networktables.NetworkTableInstance.getDefault()
                     .getTable("SmartDashboard")
                     .getSubTable("Auto Chooser")
@@ -307,6 +349,7 @@ public final class SimScript {
                     .setString(autoName);
         }
         double t = now - start;
+        rebootMotors(t);
         DriverStationSim.setEnabled(t >= 6.0 && t < 6.0 + AUTO_SECONDS);
         // Known limitation: a simulated DS change made mid-loop reaches AdvantageKit's HAL snapshot
         // one loop before WPILib's Driver Station cache, so replaying a *scripted* run enables one
@@ -314,6 +357,50 @@ public final class SimScript {
         // picked up at the top of a loop and are not affected.
         DriverStationSim.notifyNewData();
         exitWhenDone(t, 6.0 + AUTO_SECONDS);
+    }
+
+    /**
+     * Match type and number from {@code FM_SIM_MATCH} (e.g. {@code Q12}), as the FMS would send.
+     * Leaves the FMS-attached flag alone, so nothing else changes behavior.
+     */
+    private static void fakeMatch() {
+        String spec = System.getenv("FM_SIM_MATCH");
+        if (spec == null || spec.length() < 2) {
+            return;
+        }
+        MatchType type =
+                switch (Character.toUpperCase(spec.charAt(0))) {
+                    case 'P' -> MatchType.PRACTICE;
+                    case 'Q' -> MatchType.QUALIFICATION;
+                    case 'E' -> MatchType.ELIMINATION;
+                    default -> MatchType.NONE;
+                };
+        DriverStationSim.setEventName("SIM");
+        DriverStationSim.setMatchType(type);
+        DriverStationSim.setMatchNumber(Integer.parseInt(spec.substring(1)));
+    }
+
+    private static double lastRebootCheck = -1;
+
+    /** Reboots each motor named in {@code FM_SIM_REBOOT} on the loop its time passes. */
+    private static void rebootMotors(double t) {
+        String spec = System.getenv("FM_SIM_REBOOT");
+        if (spec == null || spec.isBlank()) {
+            return;
+        }
+        List<Mechanism> mechanisms = List.of(Robot.getHood(), Robot.getIntakeExtension());
+        for (String entry : spec.split(",")) {
+            String[] parts = entry.trim().split("@");
+            double at = Double.parseDouble(parts[1]);
+            if (lastRebootCheck < at && t >= at) {
+                for (Mechanism m : mechanisms) {
+                    if (m.getName().equals(parts[0])) {
+                        m.simulateReboot();
+                    }
+                }
+            }
+        }
+        lastRebootCheck = t;
     }
 
     /** With {@code FM_SIM_EXIT=1}, closes the log and exits a second after the script ends. */

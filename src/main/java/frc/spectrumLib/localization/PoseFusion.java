@@ -77,6 +77,15 @@ public class PoseFusion {
     private SwerveModulePosition[] lastPositions;
     private SwerveModulePosition[] lastRawPositions;
 
+    /**
+     * While the heading comes from the wheels, vision heading std-devs are divided by this. The
+     * estimator's odometry std-devs are fixed at construction, and shrinking the measurement's by k
+     * gives the same Kalman gain as growing the odometry's by k.
+     */
+    private static final double WHEEL_HEADING_STD_SCALE = 3.0;
+
+    private boolean wheelHeading = false;
+
     /** Ground truth pose in simulation; empty on a robot and in replay without it logged. */
     @Getter private Optional<Pose2d> truth = Optional.empty();
 
@@ -284,7 +293,8 @@ public class PoseFusion {
                     VecBuilder.fill(
                             r.stdDevs().xyMeters(),
                             r.stdDevs().xyMeters(),
-                            r.stdDevs().thetaRadians());
+                            r.stdDevs().thetaRadians()
+                                    / (wheelHeading ? WHEEL_HEADING_STD_SCALE : 1.0));
             shadowFor(name);
             shadowVision.get(name).add(measured, t, std, lastSampleTime);
             if (fuse) {
@@ -346,6 +356,11 @@ public class PoseFusion {
         tagEkf.reset(pose);
     }
 
+    /** Whether the odometry heading is coming from the wheels, both gyros being out. */
+    public void setWheelHeading(boolean fromWheels) {
+        wheelHeading = fromWheels;
+    }
+
     /** The fused robot pose. */
     public Pose2d getPose() {
         return fused.getEstimatedPosition();
@@ -354,6 +369,11 @@ public class PoseFusion {
     /** The fused pose at a past time, if still in the buffer. */
     public Optional<Pose2d> sampleAt(double timestampSeconds) {
         return fused.sampleAt(timestampSeconds);
+    }
+
+    /** The gyro yaw of the latest odometry sample, as the odometry reads it. */
+    public Rotation2d getLastGyro() {
+        return lastGyro;
     }
 
     /** Wheels-and-gyro-only pose. */

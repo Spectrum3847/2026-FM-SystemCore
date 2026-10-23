@@ -89,6 +89,7 @@ public class Jetson {
     private boolean recordRequested = false;
     private double recordingMismatchSince = Double.NaN;
 
+    private boolean responding = false;
     private long lastHeartbeat = Long.MIN_VALUE;
     private double lastHeartbeatChangeSeconds = Double.NaN;
     private long lastFramesDropped = -1;
@@ -183,6 +184,36 @@ public class Jetson {
         for (Camera c : cameras) {
             checks.add(new CameraCheck(c));
         }
+    }
+
+    /** Whether the Jetson should be on this robot (real robot, installed). */
+    public boolean isExpected() {
+        return expectJetson;
+    }
+
+    /** Whether the dashboard has the Orin cameras on the practice-field pipeline. */
+    public boolean isPracticeFieldProfile() {
+        return practiceProfile.get();
+    }
+
+    /** Whether the Jetson's heartbeat is ticking. */
+    public boolean isResponding() {
+        return responding;
+    }
+
+    /** The configured Orin cameras. */
+    public List<Camera> getCameras() {
+        return cameras;
+    }
+
+    /** Whether a camera's result timestamps have been far from now (a time-sync problem). */
+    public boolean timestampsLookWrong(String camera) {
+        for (CameraCheck c : checks) {
+            if (c.camera.name().equals(camera)) {
+                return c.stale.get();
+            }
+        }
+        return false;
     }
 
     /** Parses "7, 12,13" into tag ids; anything that isn't a number is skipped. */
@@ -324,6 +355,7 @@ public class Jetson {
                         || now - lastHeartbeatChangeSeconds > HEARTBEAT_TIMEOUT_SECONDS;
         Logger.recordOutput(PREFIX + "HeartbeatAgeSeconds", now - lastHeartbeatChangeSeconds);
         jetsonDown.set(expectJetson && down);
+        responding = !down;
         frc.spectrumLib.telemetry.Telemetry.logDash("Vision/Jetson/Connected", !down);
         boolean up = expectJetson && !down;
 

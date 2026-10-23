@@ -4,9 +4,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -24,12 +26,15 @@ import org.wpilib.driverstation.Alert.Level;
  * <ul>
  *   <li>{@link #chooseFolder()} waits briefly for a USB stick to mount before settling on internal
  *       storage: the robot program can start before {@code /U} is mounted (SystemcoreTesting #341).
- *   <li>{@link #cleanUp} deletes the oldest logs until the folder is under {@link #LOCAL_CAP_BYTES}
- *       and the disk has {@link #FREE_FLOOR_BYTES} free. Run at boot, before the new log opens.
- *   <li>{@link #start} checks free space every {@link #CHECK_PERIOD_SECONDS} on its own
- *       low-priority thread (disk calls stay off the real-time main thread) and {@link #periodic()}
- *       turns the result into alerts and log values on the main thread.
+ *   <li>{@link #cleanUpAtBoot()} deletes the oldest logs before this boot's log exists.
+ *   <li>{@link #start} checks free space off the main thread and trims the internal folder if the
+ *       disk runs short; {@link #periodic()} turns the result into alerts and log values on the
+ *       main thread.
  * </ul>
+ *
+ * <p>SystemCore can boot with its clock behind older logs, so this boot's log can sort oldest. A
+ * file is never deleted if it appeared after {@link #cleanUpAtBoot()} or was modified within {@link
+ * #ACTIVE_WINDOW_MILLIS}.
  */
 public final class LogStorage {
     private LogStorage() {}
@@ -52,17 +57,32 @@ public final class LogStorage {
 
     static final double CHECK_PERIOD_SECONDS = 10.0;
 
+    /** A log modified within this long of now, either side, is still being written. */
+    static final long ACTIVE_WINDOW_MILLIS = 5 * 60 * 1000L;
+
     /** Log files this program (and Phoenix, REV) write; nothing else in the folder is touched. */
     private static final String[] LOG_SUFFIXES = {".wpilog", ".hoot", ".revlog"};
 
     private static final Alert internalAlert =
             new Alert("Logging to internal storage (no USB stick)", Level.LOW);
     private static final Alert lowSpaceAlert = new Alert("", Level.HIGH);
+    private static final Alert checkFailedAlert = new Alert("", Level.MEDIUM);
 
     private static volatile String folder = LOCAL_LOGS;
     private static volatile long freeBytes = -1;
     private static volatile long logBytes = -1;
     private static ScheduledExecutorService checker;
+
+    /** Log names present at the boot cleanup; null until it has run. */
+    private static volatile Set<String> bootLogs;
+
+    /** {count, bytes} the boot cleanup deleted. */
+    private static long[] bootDeleted = {0, 0};
+
+    /** Reported on the main thread. */
+    private static volatile String checkError;
+
+    private static boolean checkErrorReported;
 
     /**
      * The folder to log to: the USB stick if one is (or within {@link #USB_WAIT_SECONDS} becomes)
@@ -108,39 +128,105 @@ public final class LogStorage {
     }
 
     /**
+     * A log file with its times read once, since the active log's time changing mid-sort breaks the
+     * sort's contract.
+     */
+    record LogFile(String name, long bytes, long modifiedMillis) {}
+
+    /**
+     * Which logs to delete, oldest first, to meet {@code capBytes} and {@code freeFloorBytes}.
+     * Never a protected or recently modified file. Pure, for tests.
+     *
+     * @param keepNewest how many of the newest deletable logs are kept anyway
+     * @param nowMillis on the clock that stamps the files
+     */
+    static List<String> selectForDeletion(
+            List<LogFile> logs,
+            long capBytes,
+            long freeBytes,
+            long freeFloorBytes,
+            int keepNewest,
+            Set<String> protectedNames,
+            long nowMillis) {
+        long total = 0;
+        List<LogFile> deletable = new ArrayList<>();
+        for (LogFile f : logs) {
+            total += f.bytes();
+            boolean active = Math.abs(nowMillis - f.modifiedMillis()) < ACTIVE_WINDOW_MILLIS;
+            if (!active && !protectedNames.contains(f.name())) {
+                deletable.add(f);
+            }
+        }
+        deletable.sort(
+                Comparator.comparingLong(LogFile::modifiedMillis).thenComparing(LogFile::name));
+        List<String> out = new ArrayList<>();
+        long free = freeBytes;
+        int i = 0;
+        while (deletable.size() - i > keepNewest && (total > capBytes || free < freeFloorBytes)) {
+            LogFile oldest = deletable.get(i++);
+            out.add(oldest.name());
+            total -= oldest.bytes();
+            free = free > Long.MAX_VALUE - oldest.bytes() ? Long.MAX_VALUE : free + oldest.bytes();
+        }
+        return out;
+    }
+
+    private static List<LogFile> list(File dir) {
+        File[] listed = dir.listFiles(f -> f.isFile() && isLogFile(f.getName()));
+        List<LogFile> out = new ArrayList<>();
+        if (listed != null) {
+            for (File f : listed) {
+                out.add(new LogFile(f.getName(), f.length(), f.lastModified()));
+            }
+        }
+        return out;
+    }
+
+    /**
      * Deletes the oldest log files in {@code dir} until they total at most {@code capBytes} and the
-     * disk has at least {@code freeFloorBytes} free, keeping the newest {@code keepNewest}.
+     * disk has at least {@code freeFloorBytes} free.
      *
      * @param dir the log folder
      * @param capBytes most the logs may total
      * @param freeFloorBytes free space to leave on the disk
-     * @param keepNewest how many of the newest logs are never deleted
+     * @param keepNewest how many of the newest logs are kept
+     * @param protectedNames files never deleted
      * @return {count deleted, bytes deleted}
      */
-    public static long[] cleanUp(File dir, long capBytes, long freeFloorBytes, int keepNewest) {
-        File[] listed = dir.listFiles(f -> f.isFile() && isLogFile(f.getName()));
-        if (listed == null || listed.length == 0) {
+    public static long[] cleanUp(
+            File dir,
+            long capBytes,
+            long freeFloorBytes,
+            int keepNewest,
+            Set<String> protectedNames) {
+        List<LogFile> logs = list(dir);
+        if (logs.isEmpty()) {
             return new long[] {0, 0};
         }
-        List<File> logs = new ArrayList<>(Arrays.asList(listed));
-        logs.sort(Comparator.comparingLong(File::lastModified)); // oldest first
-        long total = 0;
-        for (File f : logs) {
-            total += f.length();
-        }
+        List<String> doomed =
+                selectForDeletion(
+                        logs,
+                        capBytes,
+                        dir.getUsableSpace(),
+                        freeFloorBytes,
+                        keepNewest,
+                        protectedNames,
+                        System.currentTimeMillis());
         long deleted = 0;
         long deletedBytes = 0;
-        while (logs.size() > keepNewest
-                && (total > capBytes || dir.getUsableSpace() < freeFloorBytes)) {
-            File oldest = logs.remove(0);
-            long size = oldest.length();
-            if (oldest.delete()) {
-                total -= size;
+        for (String name : doomed) {
+            File f = new File(dir, name);
+            long size = f.length();
+            if (f.delete()) {
                 deleted++;
                 deletedBytes += size;
             }
         }
         return new long[] {deleted, deletedBytes};
+    }
+
+    public static long[] cleanUp(File dir, long capBytes, long freeFloorBytes, int keepNewest) {
+        return cleanUp(dir, capBytes, freeFloorBytes, keepNewest, Collections.emptySet());
     }
 
     static boolean isLogFile(String name) {
@@ -153,16 +239,28 @@ public final class LogStorage {
     }
 
     /**
-     * Cleans the internal log folder (always: logs land there whenever the stick is out) and starts
-     * the background free-space check. Call once at boot on the real robot, before the log opens.
+     * Cleans the internal log folder and remembers which logs exist, so later ones are protected.
+     * Call before {@code Logger.start()}.
+     */
+    public static void cleanUpAtBoot() {
+        bootDeleted = cleanUp(new File(LOCAL_LOGS), LOCAL_CAP_BYTES, FREE_FLOOR_BYTES, 2);
+        Set<String> names = new HashSet<>();
+        for (LogFile f : list(new File(folder))) {
+            names.add(f.name());
+        }
+        bootLogs = names;
+    }
+
+    /**
+     * Reports the boot cleanup and starts the background free-space check. Call after {@code
+     * Logger.start()}.
      */
     public static void start() {
-        long[] r = cleanUp(new File(LOCAL_LOGS), LOCAL_CAP_BYTES, FREE_FLOOR_BYTES, 2);
-        if (r[0] > 0) {
+        if (bootDeleted[0] > 0) {
             Telemetry.print(
                     String.format(
                             "LogStorage: deleted %d old logs (%.0f MB) from %s",
-                            r[0], r[1] / 1e6, LOCAL_LOGS));
+                            bootDeleted[0], bootDeleted[1] / 1e6, LOCAL_LOGS));
         }
         checker =
                 Executors.newSingleThreadScheduledExecutor(
@@ -172,8 +270,22 @@ public final class LogStorage {
                             t.setPriority(Thread.MIN_PRIORITY);
                             return t;
                         });
-        checker.scheduleWithFixedDelay(
-                LogStorage::check, 0, (long) (CHECK_PERIOD_SECONDS * 1000), TimeUnit.MILLISECONDS);
+        var _ =
+                checker.scheduleWithFixedDelay(
+                        LogStorage::checkSafely,
+                        0,
+                        (long) (CHECK_PERIOD_SECONDS * 1000),
+                        TimeUnit.MILLISECONDS);
+    }
+
+    /** Never throws, since a throwing scheduled task silently cancels every later run. */
+    private static void checkSafely() {
+        try {
+            check();
+            checkError = null;
+        } catch (Throwable t) {
+            checkError = t.toString();
+        }
     }
 
     /** On the LogStorage thread: measure, and trim the internal folder if the disk runs short. */
@@ -181,16 +293,19 @@ public final class LogStorage {
         File dir = new File(folder);
         long free = dir.getUsableSpace();
         if (free < FREE_FLOOR_BYTES && folder.equals(LOCAL_LOGS)) {
-            // Keeps the newest 2: the log being written is always among them.
-            cleanUp(dir, LOCAL_CAP_BYTES, FREE_FLOOR_BYTES, 2);
+            Set<String> before = bootLogs;
+            Set<String> thisBoot = new HashSet<>();
+            for (LogFile f : list(dir)) {
+                if (before == null || !before.contains(f.name())) {
+                    thisBoot.add(f.name());
+                }
+            }
+            cleanUp(dir, LOCAL_CAP_BYTES, FREE_FLOOR_BYTES, 2, thisBoot);
             free = dir.getUsableSpace();
         }
-        File[] listed = dir.listFiles(f -> f.isFile() && isLogFile(f.getName()));
         long total = 0;
-        if (listed != null) {
-            for (File f : listed) {
-                total += f.length();
-            }
+        for (LogFile f : list(dir)) {
+            total += f.bytes();
         }
         logBytes = total;
         freeBytes = free;
@@ -198,6 +313,15 @@ public final class LogStorage {
 
     /** Alerts and log values from the last background check. Call once per loop; cheap. */
     public static void periodic() {
+        String error = checkError;
+        if ((error != null) != checkErrorReported) {
+            checkErrorReported = error != null;
+            if (error != null) {
+                checkFailedAlert.setText("Log storage check failed: " + error);
+                Telemetry.print("LogStorage check failed: " + error, Telemetry.PrintPriority.HIGH);
+            }
+            checkFailedAlert.set(error != null);
+        }
         long free = freeBytes;
         if (free < 0) {
             return; // no check yet (or not started: sim, replay)

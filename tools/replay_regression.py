@@ -4,9 +4,9 @@
 Usage:
     python tools/replay_regression.py BASE_sim.wpilog PR_sim.wpilog
 
-Both are replay logs of the fixture (src/test/resources/replay). Fails when the PR moves the
-fused pose or changes the shot gate's verdicts past the limits below. Replaying the same code
-twice gives identical outputs, so any difference is the PR's.
+Both are replay logs of one fixture (src/test/resources/replay/fixtures.json). Fails when the
+PR moves the fused pose or changes the shot gate's verdicts past the limits below. Replaying the
+same code twice gives identical outputs, so any difference is the PR's.
 """
 
 import math

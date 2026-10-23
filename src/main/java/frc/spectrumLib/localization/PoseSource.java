@@ -37,6 +37,7 @@ public class PoseSource {
     private final List<Gate> gates;
     private final StdDevModel stdDevModel;
     private final LoggedNetworkBoolean enabled;
+    @Getter private final boolean enabledByDefault;
     private final String logPrefix;
 
     // Built once, so no string concatenation runs per loop.
@@ -94,6 +95,7 @@ public class PoseSource {
         // Leading slash: rooted at /Localization/... on NetworkTables (without it the topic has
         // no leading slash at all, which dashboards cannot bind to).
         this.enabled = new LoggedNetworkBoolean("/" + logPrefix + "/Enabled", enabledByDefault);
+        this.enabledByDefault = enabledByDefault;
         acceptedPosesKey = logPrefix + "/AcceptedPoses";
         rejectedPosesKey = logPrefix + "/RejectedPoses";
         verdictsKey = logPrefix + "/Verdicts";

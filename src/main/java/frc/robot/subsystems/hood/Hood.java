@@ -3,20 +3,26 @@ package frc.robot.subsystems.hood;
 import com.ctre.phoenix6.hardware.TalonFX;
 import frc.rebuilt.ShotCalculator;
 import frc.robot.RobotSim;
+import frc.spectrumLib.checks.HomingCheck;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.mechanism.Mechanism;
 import frc.spectrumLib.sim.ArmConfig;
 import frc.spectrumLib.sim.ArmSim;
+import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import lombok.Getter;
+import org.wpilib.driverstation.Alert.Level;
+import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.util.Units;
 import org.wpilib.smartdashboard.Mechanism2d;
+import org.wpilib.system.Timer;
 
 /** The Hood subsystem. Positions the hood that sets the fuel launch angle. */
 public class Hood extends Mechanism {
 
     public static class HoodConfig extends Config {
 
+        /** Best guess at boot, until homing finds the stop. */
         @Getter private final double initPosition = 9;
 
         @Getter private final double maxRotations = 0.137;
@@ -64,6 +70,11 @@ public class Hood extends Mechanism {
             configReverseSoftLimit(minRotations, true);
             configNeutralBrakeMode(true);
             configClockwise_Positive();
+            // Off until turned on. Against FM's 20 TXMAN1 matches it trips only in Q06, where the
+            // hood stuck above home pushing up to 47 A for 4 and 13 s; the longest normal
+            // excursion is 1.0 s. 1 deg would also trip on the pre-homing hood resting 1 deg under
+            // its home goal (8 matches).
+            configPositionTrackingStop(Units.degreesToRotations(2), 2.0, false);
         }
     }
 
@@ -107,16 +118,12 @@ public class Hood extends Mechanism {
      */
     @Getter private double shotTargetDegrees = Double.NaN;
 
-    private void applyStates() {
-        double wantedDegrees = 9;
+    private void applyStates(HoodHoming.Action action) {
+        double wantedDegrees = homing.getParams().stopDeg();
         shotTargetDegrees = Double.NaN;
         switch (systemState) {
-            case HOME:
-                wantedDegrees = 9.0;
+            case HOME, STOPPED:
                 break;
-            case STOPPED:
-                stop();
-                return;
             case AIM_AT_TARGET:
                 var params = ShotCalculator.getInstance().getParameters();
                 wantedDegrees = params.hoodAngle();
@@ -127,6 +134,15 @@ public class Hood extends Mechanism {
                 shotTargetDegrees = wantedDegrees;
                 break;
         }
+        // Homing owns the motor while it runs, and refuses setpoints until the hood is zeroed.
+        if (action == HoodHoming.Action.DRIVE_TO_STOP) {
+            setVoltageOutputNoSoftLimit(() -> homing.getParams().volts());
+            return;
+        }
+        if (action == HoodHoming.Action.HOLD || systemState == SystemState.STOPPED) {
+            stop();
+            return;
+        }
         final double finalWantedDegrees = wantedDegrees;
         final double finalWantedPosition = degreesToRotations(() -> finalWantedDegrees);
         setMMPositionFoc(() -> finalWantedPosition);
@@ -134,6 +150,35 @@ public class Hood extends Mechanism {
 
     @Getter private final HoodConfig config;
     @Getter private HoodSim sim;
+
+    private final HoodHoming homing = new HoodHoming(HoodHoming.Params.fm());
+    private final Alert homingTimeoutAlert =
+            new Alert(
+                    "Hood homing timed out before finding the bottom stop - check the hood;"
+                            + " unless Hood/Zeroed, it stays in brake until the next mode start",
+                    Level.HIGH);
+
+    /**
+     * The hood has found its bottom stop since boot, so its angle can be trusted. Until then it
+     * holds in brake and the shot gate holds.
+     */
+    public boolean isZeroed() {
+        return homing.isZeroed();
+    }
+
+    private HoodHoming.State homingState = HoodHoming.State.NOT_ZEROED;
+
+    /** The homing state for the pre-match check; the hood homes itself at auto start. */
+    public HomingCheck.State getHomingCheckState() {
+        if (!getInputs().connected) {
+            return HomingCheck.State.DISCONNECTED;
+        }
+        return switch (homingState) {
+            case ZEROED -> HomingCheck.State.HOMED;
+            case NOT_ZEROED, HOMING -> HomingCheck.State.HOMES_WHEN_ENABLED;
+            case TIMED_OUT -> HomingCheck.State.FAILED;
+        };
+    }
 
     public Hood(HoodConfig config) {
         super(config);
@@ -153,12 +198,31 @@ public class Hood extends Mechanism {
 
     @Override
     public void periodic() {
+        var homed =
+                homing.update(
+                        new HoodHoming.Inputs(
+                                Timer.getTimestamp(),
+                                RobotState.isEnabled(),
+                                RobotState.isAutonomous(),
+                                RobotState.isTeleop(),
+                                isMotorConnected(),
+                                motorResetThisLoop(),
+                                getPositionDegrees(),
+                                getVelocityRPM() * 6.0, // mechanism RPM to deg/s
+                                wantedState == WantedState.HOME));
+        if (homed.resetPosition()) {
+            setMotorPosition(() -> degreesToRotations(() -> homing.getParams().stopDeg()));
+        }
+        homingTimeoutAlert.set(homed.timedOut());
+        homingState = homed.state();
         systemState = handleStateTransition();
-        applyStates();
+        applyStates(homed.action());
         logBatteryUsage();
         Telemetry.log("Hood/WantedState", wantedState.toString());
         Telemetry.log("Hood/SystemState", systemState.toString());
         Telemetry.log("Hood/CurrentCommand", getCurrentCommandName());
+        Telemetry.log("Hood/Zeroed", homed.zeroed());
+        Telemetry.log("Hood/HomingState", homed.state().label);
         // Voltage, currents, temperature and connection at 10 Hz (offseason); the
         // same signals are also recorded every loop as inputs under Mechanisms/.
         logDiagnostics("Hood");

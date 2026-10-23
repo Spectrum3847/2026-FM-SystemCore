@@ -1,0 +1,32 @@
+{
+  "release": "https://github.com/Spectrum3847/2026-FM-SystemCore/releases/download/TXMAN1-logs",
+  "fixtures": [
+    {
+      "name": "8515_TXMAN1_Q24_auto",
+      "asset": "TXMAN1-wpilogs-quals.zip",
+      "member": "wpilogs-quals/TXMAN1_Q24_akit_26-10-16_16-27-52_txman1_q24.wpilog",
+      "sha256": "d15ce3b2cc9993b6711f225ecc3390e52695428daee5d7d1ffaf61df665fa41e",
+      "start": 180,
+      "end": 215,
+      "covers": "Pre-match through the vision seed in auto, two auto launches and the start of teleop."
+    },
+    {
+      "name": "8515_TXMAN1_Q32_teleop",
+      "asset": "TXMAN1-wpilogs-quals.zip",
+      "member": "wpilogs-quals/TXMAN1_Q32_akit_26-10-16_19-40-13_txman1_q32.wpilog",
+      "sha256": "5f5490cbd99d6952412191df0f58185d3dbb2022cdec1d694700f48493e618a4",
+      "start": 290,
+      "end": 335,
+      "covers": "The last 40 s of teleop: seven volleys, two of them fed by the gate timeout, with the Jetson's all-camera EKF logged."
+    },
+    {
+      "name": "8515_TXMAN1_Playoff20_teleop",
+      "asset": "TXMAN1-wpilogs-playoffs.zip",
+      "member": "wpilogs-playoffs/TXMAN1_Playoff20_akit_26-10-17_03-17-52_txman1.wpilog",
+      "sha256": "1e73bd18e79ade70389a6c2d8984cde39a95ede56ebfab2e3071d260fb46ba72",
+      "start": 350,
+      "end": 395,
+      "covers": "Early teleop on the event's last code (545ecc0): a volley fed by the gate timeout, one fed while the pose was untrusted, and two more."
+    }
+  ]
+}

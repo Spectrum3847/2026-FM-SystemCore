@@ -24,6 +24,7 @@ class ShotGateTest {
     private boolean override;
     private double hood;
     private double hoodSpeed;
+    private boolean hoodZeroed;
     private boolean checkAim;
     private double headingError;
     private boolean checkRange;
@@ -37,6 +38,7 @@ class ShotGateTest {
         override = false;
         hood = TARGET_HOOD;
         hoodSpeed = 0;
+        hoodZeroed = true;
         checkAim = true;
         headingError = 0;
         checkRange = true;
@@ -54,6 +56,7 @@ class ShotGateTest {
                                 hood,
                                 hoodSpeed,
                                 TARGET_HOOD,
+                                hoodZeroed,
                                 checkAim,
                                 headingError,
                                 AIM_TOL,
@@ -120,6 +123,30 @@ class ShotGateTest {
         steps(4);
         hoodSpeed = 60;
         assertTrue(step().feed());
+    }
+
+    @Test
+    void anUnhomedHoodBlocksAheadOfItsAngle() {
+        hoodZeroed = false;
+        hood = TARGET_HOOD + 5;
+        Decision d = step();
+        assertFalse(d.ready());
+        assertEquals(Blocker.HOOD_NOT_ZEROED, d.blocker());
+        assertEquals("HoodNotZeroed", d.blocker().label);
+        hood = TARGET_HOOD;
+        assertFalse(steps(5).feed(), "even on target: the angle cannot be trusted");
+        hoodZeroed = true;
+        assertTrue(steps(5).feed());
+    }
+
+    @Test
+    void anUnhomedHoodStillTimesOut() {
+        hoodZeroed = false;
+        assertFalse(steps(100).feed());
+        Decision d = step();
+        assertTrue(d.feed());
+        assertEquals(FeedReason.TIMEOUT, d.reason());
+        assertEquals(Blocker.HOOD_NOT_ZEROED, d.blocker());
     }
 
     @Test
@@ -210,6 +237,7 @@ class ShotGateTest {
                                 9,
                                 0,
                                 Double.NaN,
+                                false,
                                 false,
                                 Double.NaN,
                                 AIM_TOL,

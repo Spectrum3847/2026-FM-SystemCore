@@ -93,11 +93,33 @@ dependencies {
 }
 
 test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'sim'
+    }
     // src/test also holds desktop tools (frc.tools.NtDump) that are not tests.
     failOnNoDiscoveredTests = false
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
 }
+
+// Tests tagged "sim" boot the whole robot in simulation. They get their own JVM because they start
+// the logger, pause the sim clock and fill the command scheduler, which the unit tests don't expect.
+def simTest = tasks.register('simTest', Test) {
+    group = 'verification'
+    description = 'Boots the robot in simulation and presses every binding (tests tagged sim).'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'sim'
+    }
+    systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
+    testLogging {
+        events 'failed'
+        showStandardStreams = false
+        exceptionFormat = 'full'
+    }
+    shouldRunAfter test
+}
+check.dependsOn simTest
 
 // Simulation configuration.
 //
@@ -121,6 +143,7 @@ shadowJar {
 deployArtifact.jarTask = shadowJar
 wpi.java.configureExecutableTasks(shadowJar)
 wpi.java.configureTestTasks(test)
+wpi.java.configureTestTasks(simTest.get())
 
 // Configure string concat to always inline compile
 tasks.withType(JavaCompile) {
@@ -129,13 +152,25 @@ tasks.withType(JavaCompile) {
     options.compilerArgs.addAll(['-Xmaxerrs', '3000'])
 }
 
-// Error Prone on main code: its errors fail the compile and it prints no warnings.
+// Error Prone on main code: its errors fail the compile, its warnings only print. Checks that
+// flag a deliberate pattern or pure style are off, so the warnings left are worth fixing.
 tasks.withType(JavaCompile).configureEach {
     options.errorprone {
-        disableAllWarnings = true
         disableWarningsInGeneratedCode = true
         // LimelightHelpers is Limelight's file, kept as shipped.
         excludedPaths = '.*/build/generated/.*|.*/LimelightHelpers\\.java'
+        // Javadoc formatting; javadoc.yml builds the docs.
+        disable("UnrecognisedJavadocTag", "NotJavadoc", "EmptyBlockTag")
+        // Style only.
+        disable("StatementSwitchToExpressionSwitch", "UnnecessaryParentheses", "StringSplitter",
+                "ArrayRecordComponent", "InlineMeSuggester")
+        // Robot.java hands out subsystems through static fields set in its constructor.
+        disable("StaticAssignmentInConstructor")
+        // Mechanism subclasses narrow `config` to their own Config type.
+        disable("HidingField")
+        // Inputs and the sim script index enums by ordinal; background threads set their
+        // priority on purpose.
+        disable("EnumOrdinal", "ThreadPriorityCheck")
     }
 }
 compileTestJava.options.errorprone.enabled = false

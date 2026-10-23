@@ -244,6 +244,7 @@ public class SuperStructure extends SubsystemBase {
                                 hood.getPositionDegrees(),
                                 hood.getVelocityRPM() * 6.0, // mechanism RPM to deg/s
                                 hood.getShotTargetDegrees(),
+                                hood.isZeroed(),
                                 checkAim,
                                 headingError,
                                 aimTolerance,
@@ -589,6 +590,19 @@ public class SuperStructure extends SubsystemBase {
                             hood.setBrakeMode(false);
                         })
                 .ignoringDisable(true);
+    }
+
+    /** Releases every mechanism held by its tracking stop; one still stuck stops again. */
+    public Command clearTrackingStops() {
+        return Commands.runOnce(
+                () -> {
+                    hood.clearTrackingStop();
+                    launcher.clearTrackingStop();
+                    indexerTower.clearTrackingStop();
+                    indexerBed.clearTrackingStop();
+                    intakeExtension.clearTrackingStop();
+                    fuelIntake.clearTrackingStop();
+                });
     }
 
     public Command brakeMechanisms() {

@@ -27,6 +27,7 @@ All in [`frc.spectrumLib.localization`](../src/main/java/frc/spectrumLib/localiz
 | `Gate` | One named rejection rule. A source declares its own chain. The first gate to fire names the rejection. |
 | `StdDevModel` | How much to trust a frame that passed: returns std-devs and a tier name, or refuses ("Integration Criteria not Met"). |
 | `PoseSource` | Device + gates + model + a dashboard enable switch. Runs every loop whether enabled or not. |
+| `OdometryGuard` | Screens each odometry sample: a module counts only when connected, not a dead 0 read, and within 1.5x top speed of its last accepted reading. Motion comes from the modules used (two or more, least squares); heading from the Pigeon, then SystemCore's onboard IMU, then the wheels. A CANivore drop freezes odometry and vision holds the pose. |
 | `PoseFusion` | The fused estimator, a never-corrected odometry track, **one shadow estimator per source**, and the tag EKF. |
 | `TagEkf` / `TagSighting` | The all-camera EKF and one tag seen by one camera. |
 
@@ -44,7 +45,8 @@ In [`frc.robot.subsystems.vision`](../src/main/java/frc/robot/subsystems/vision)
 ## Every loop
 
 ```
-Swerve.updateInputs()    odometry samples (250 Hz, queued off CTRE's thread) -> logged inputs -> PoseFusion
+Swerve.updateInputs()    odometry samples (250 Hz, queued off CTRE's thread) -> logged inputs
+                         -> OdometryGuard -> PoseFusion
 Vision.periodic()
   every source: update()     device -> logged inputs (raw, pre-gate)
   every source: process()    gates + trust model -> verdict per frame, logged

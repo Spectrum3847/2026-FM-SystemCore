@@ -26,6 +26,7 @@ import frc.robot.Constants;
 import frc.robot.Robot;
 import frc.spectrumLib.framework.RobotLoop;
 import frc.spectrumLib.hardware.CanConfigBudget;
+import frc.spectrumLib.localization.ImuMountCheck;
 import frc.spectrumLib.localization.OdometryGuard;
 import frc.spectrumLib.localization.PoseFusion;
 import frc.spectrumLib.telemetry.Alert;
@@ -197,6 +198,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
     private final OnboardIMU onboardImu;
 
     private int lastFailedDaqs = 0;
+    private boolean daqFailed = false;
     private boolean haveFailedDaqs = false;
 
     /** The last loop's heading came from the wheels, the gyros being out. */
@@ -268,6 +270,8 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                 Constants.currentMode == Constants.Mode.REAL
                         ? new OnboardIMU(config.getOnboardImuMount())
                         : null;
+        mountCheck =
+                new ImuMountCheck(config.getOnboardImuMount() == OnboardIMU.MountOrientation.FLAT);
         modulePositionSignals = new BaseStatusSignal[getModules().length * 2];
         for (int i = 0; i < getModules().length; i++) {
             modulePositionSignals[2 * i] = getModules()[i].getDriveMotor().getPosition(false);
@@ -453,6 +457,9 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
             inputs.onboardImuPresent = true;
             inputs.onboardImuYawRadians = onboardImu.getYawRadians();
             inputs.onboardImuYawRateRadPerSec = onboardImu.getGyroRateZ();
+            inputs.onboardImuAccelX = onboardImu.getAccelX();
+            inputs.onboardImuAccelY = onboardImu.getAccelY();
+            inputs.onboardImuAccelZ = onboardImu.getAccelZ();
         }
     }
 
@@ -491,7 +498,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                                 : 1.0);
 
         // A loop whose DAQ failed may carry a sample where a dropped device read exactly 0.
-        boolean daqFailed = haveFailedDaqs && inputs.failedDaqs != lastFailedDaqs;
+        daqFailed = haveFailedDaqs && inputs.failedDaqs != lastFailedDaqs;
         lastFailedDaqs = inputs.failedDaqs;
         haveFailedDaqs = true;
         odometryGuard.markResets(inputs.gyroResetOccurred, inputs.moduleResetOccurred);
@@ -568,6 +575,113 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         }
     }
 
+    // ── Gyro mounts ────────────────────────────────────────────────────────────
+
+    /** Checks the Pigeon's and the onboard IMU's mount settings against the wheels. */
+    private final ImuMountCheck mountCheck;
+
+    private final Alert[] mountAlerts = {
+        new Alert("Pigeon mount: pitch/roll", Level.MEDIUM),
+        new Alert("Pigeon mount: forward", Level.MEDIUM),
+        new Alert("Pigeon mount: yaw sense", Level.MEDIUM),
+        new Alert("Onboard IMU mount: yaw sense", Level.MEDIUM),
+        new Alert("Onboard IMU mount: orientation", Level.MEDIUM)
+    };
+    private final boolean[] mountWarned = new boolean[mountAlerts.length];
+
+    private void updateMountCheck() {
+        int n = inputs.odometryYawRadians.length;
+        boolean wheelsOk = !daqFailed;
+        for (boolean c : inputs.moduleConnected) {
+            wheelsOk &= c;
+        }
+        ChassisVelocities v = inputs.robotVelocity;
+        mountCheck.update(
+                new ImuMountCheck.Inputs(
+                        Timer.getTimestamp(),
+                        wheelsOk,
+                        v.vx,
+                        v.vy,
+                        v.omega,
+                        inputs.gyroConnected && !daqFailed && n > 0,
+                        n > 0 ? inputs.odometryYawRadians[n - 1] : 0,
+                        inputs.gyroPitchDegrees,
+                        inputs.gyroRollDegrees,
+                        inputs.accelXG,
+                        inputs.accelYG,
+                        inputs.onboardImuPresent,
+                        inputs.onboardImuYawRadians,
+                        inputs.onboardImuAccelX,
+                        inputs.onboardImuAccelY,
+                        inputs.onboardImuAccelZ));
+
+        ImuMountCheck c = mountCheck;
+        reportMount(
+                0,
+                c.pigeonLevel(),
+                String.format(
+                        "Pigeon mount: reads pitch %.0f deg, roll %.0f deg at rest. Check"
+                                + " MountPosePitch/MountPoseRoll.",
+                        c.pigeonRestPitchDeg(), c.pigeonRestRollDeg()));
+        reportMount(
+                1,
+                c.pigeonForward(),
+                String.format(
+                        "Pigeon mount: its forward is %.0f deg from the robot's (accel vs wheels)."
+                                + " Check MountPoseYaw, now %.0f deg.",
+                        c.pigeonForwardErrorDeg(),
+                        config.getPigeonConfigs().MountPose.MountPoseYaw));
+        reportMount(
+                2,
+                c.pigeonYawSense().verdict(),
+                String.format(
+                        "Pigeon yaw turns %.2fx the wheels' rate: reversed or not tracking.",
+                        c.pigeonYawSense().gain()));
+        reportMount(
+                3,
+                c.imuYawSense().verdict(),
+                String.format(
+                        "Onboard IMU yaw turns %.2fx the wheels' rate. Check"
+                                + " SwerveConfig.onboardImuMount.",
+                        c.imuYawSense().gain()));
+        reportMount(
+                4,
+                c.imuOrientation(),
+                String.format(
+                        "Onboard IMU: %.0f%% of gravity on its Z at rest, but onboardImuMount is"
+                                + " %s.",
+                        100 * c.imuGravityZShare(), config.getOnboardImuMount()));
+
+        if (Telemetry.slowLogThisLoop()) {
+            String p = "Localization/MountCheck/";
+            Logger.recordOutput(p + "Pigeon/Level", c.pigeonLevel().name());
+            Logger.recordOutput(p + "Pigeon/RestPitchDeg", c.pigeonRestPitchDeg());
+            Logger.recordOutput(p + "Pigeon/RestRollDeg", c.pigeonRestRollDeg());
+            Logger.recordOutput(p + "Pigeon/Forward", c.pigeonForward().name());
+            Logger.recordOutput(p + "Pigeon/ForwardErrorDeg", c.pigeonForwardErrorDeg());
+            Logger.recordOutput(p + "Pigeon/ForwardAccelG", c.pigeonForwardAccelG());
+            Logger.recordOutput(p + "Pigeon/YawSense", c.pigeonYawSense().verdict().name());
+            Logger.recordOutput(p + "Pigeon/YawGain", c.pigeonYawSense().gain());
+            Logger.recordOutput(p + "OnboardImu/YawSense", c.imuYawSense().verdict().name());
+            Logger.recordOutput(p + "OnboardImu/YawGain", c.imuYawSense().gain());
+            Logger.recordOutput(p + "OnboardImu/Orientation", c.imuOrientation().name());
+            Logger.recordOutput(p + "OnboardImu/GravityZShare", c.imuGravityZShare());
+        }
+    }
+
+    /** Raises the alert while a check reads wrong, and prints the first time it does. */
+    private void reportMount(int i, ImuMountCheck.Verdict verdict, String wrong) {
+        boolean bad = verdict == ImuMountCheck.Verdict.WRONG;
+        if (bad) {
+            mountAlerts[i].setText(wrong);
+            if (!mountWarned[i]) {
+                mountWarned[i] = true;
+                Telemetry.print(wrong, Telemetry.PrintPriority.HIGH);
+            }
+        }
+        mountAlerts[i].set(bad);
+    }
+
     /** The Pigeon's tilt state this loop. */
     public TiltState getTilt() {
         return tilt;
@@ -618,6 +732,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         }
         Logger.processInputs("Swerve", inputs);
         integrateOdometry();
+        updateMountCheck();
         if (sim != null) {
             poseFusion.setTruth(Optional.of(sim.truth.getPose()));
         }

@@ -89,7 +89,8 @@ public final class HoodHoming {
      * @param teleop the Driver Station is in teleop
      * @param motorConnected the hood motor's signals are arriving
      * @param motorReset the hood motor rebooted this loop, restarting its position
-     * @param positionDeg measured hood angle
+     * @param positionDeg measured hood angle; NaN while a zero has not reached the readings, which
+     *     starts no re-home on stow
      * @param degPerSec measured hood speed
      * @param wantsHome the hood is being sent to its stop
      */

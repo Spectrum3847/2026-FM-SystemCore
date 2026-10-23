@@ -144,6 +144,11 @@ public abstract class Mechanism implements Subsystem {
 
     private String positionLostKey;
 
+    /** A position write sent without waiting, until the readings show it. */
+    private final PositionWrite positionWrite = new PositionWrite();
+
+    private String positionWritePendingKey;
+
     /** Set by {@link #simulateReboot()}: the next loop reports a reset. */
     private boolean simRebootPending = false;
 
@@ -327,6 +332,7 @@ public abstract class Mechanism implements Subsystem {
             signalRatesPending = new boolean[1 + followerSupplySignals.length];
             resetAlert = new Alert("", Level.HIGH);
             positionLostKey = inputsKey + "/PositionLost";
+            positionWritePendingKey = inputsKey + "/PositionWritePending";
 
             if (!Double.isNaN(config.trackingTolerance)) {
                 trackingStop =
@@ -911,6 +917,15 @@ public abstract class Mechanism implements Subsystem {
         inputs.followerResetOccurred = followerReset;
         // Records the readings on the robot; overwrites them from the log in replay.
         Logger.processInputs(inputsKey, inputs);
+        double resend =
+                positionWrite.update(
+                        Timer.getTimestamp(),
+                        inputs.connected,
+                        inputs.positionRotations,
+                        inputs.velocityRps);
+        if (!Double.isNaN(resend)) {
+            motor.setPosition(resend, 0);
+        }
         handleResets();
         updateTrackingStop();
         checkSoftLimitParams();
@@ -1013,6 +1028,7 @@ public abstract class Mechanism implements Subsystem {
         }
         if (hasSoftLimits()) {
             Logger.recordOutput(positionLostKey, resetMonitor.isPositionLost());
+            Logger.recordOutput(positionWritePendingKey, positionWrite.isPending());
         }
         // Each rate call blocks until the device answers, so never while enabled.
         if (RobotState.isDisabled() && Constants.hasHardware()) {
@@ -1041,7 +1057,7 @@ public abstract class Mechanism implements Subsystem {
         if (Constants.currentMode != Constants.Mode.SIM || !isAttached()) {
             return;
         }
-        motor.setPosition(0);
+        motor.setPosition(0, 0);
         simRebootPending = true;
     }
 
@@ -1071,6 +1087,20 @@ public abstract class Mechanism implements Subsystem {
     }
 
     /**
+     * A position write ({@link #setMotorPosition}) went out and the readings do not show it yet, so
+     * they are still measured from the old zero. Setpoints are held meanwhile; logic that reads the
+     * position as homed should wait too. Usually a loop or two.
+     *
+     * @return {@code true} until the readings show the written position
+     */
+    public boolean isPositionWritePending() {
+        if (config.attached) {
+            refreshSignalsOncePerLoop();
+        }
+        return positionWrite.isPending();
+    }
+
+    /**
      * The leader's reset input this loop, after refreshing it. A mechanism that homes itself
      * restarts its homing on this.
      *
@@ -1085,13 +1115,14 @@ public abstract class Mechanism implements Subsystem {
     }
 
     /**
-     * Sends neutral instead of a setpoint while the position is lost or the tracking stop holds.
+     * Sends neutral instead of a setpoint while the position is lost, a position write has not
+     * landed, or the tracking stop holds.
      *
      * @return {@code true} when the caller must not send its setpoint
      */
     private boolean holdForStop() {
         refreshSignalsOncePerLoop();
-        if (!resetMonitor.isPositionLost() && !isTrackingStopped()) {
+        if (!resetMonitor.isPositionLost() && !positionWrite.isPending() && !isTrackingStopped()) {
             return false;
         }
         motor.stopMotor();
@@ -1118,7 +1149,8 @@ public abstract class Mechanism implements Subsystem {
         boolean tracking =
                 closedLoop == watched
                         && closedLoopSentLoop == RobotLoop.count() - 1
-                        && !resetMonitor.isPositionLost();
+                        && !resetMonitor.isPositionLost()
+                        && !positionWrite.isPending();
         double error =
                 watched == ClosedLoop.VELOCITY
                         ? inputs.velocityRps - velocityTarget
@@ -1588,11 +1620,17 @@ public abstract class Mechanism implements Subsystem {
     /**
      * Sets the motor's internal position register to the specified value without moving the motor.
      *
+     * <p>Sent without waiting for the motor to answer, since homing calls this while enabled and
+     * the default wait is up to 100 ms of a stalled loop. Until the readings show the new position,
+     * {@link #isPositionLost()} is true and setpoints are held ({@link PositionWrite}).
+     *
      * @param rotations the position to write to the motor in rotations
      */
     protected void setMotorPosition(DoubleSupplier rotations) {
         if (isAttached()) {
-            motor.setPosition(rotations.getAsDouble());
+            double position = rotations.getAsDouble();
+            motor.setPosition(position, 0);
+            positionWrite.sent(Timer.getTimestamp(), position, inputs.positionRotations);
         }
         resetMonitor.positionRestored();
         clearTrackingStop();

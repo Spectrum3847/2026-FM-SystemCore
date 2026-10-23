@@ -230,6 +230,19 @@ class HoodHomingTest {
     }
 
     @Test
+    void noAngleWhileAZeroLandsStartsNoReHome() {
+        enabled = true;
+        stepUntilReset(30);
+        position = 30;
+        steps(10);
+        wantsHome = true;
+        position = Double.NaN; // a zero the readings have not shown yet
+        assertEquals(Action.CLOSED_LOOP, steps(5).action());
+        position = STOP + 1;
+        assertEquals(Action.DRIVE_TO_STOP, step().action(), "re-homes once the angle is back");
+    }
+
+    @Test
     void aReHomeStopsWhenAShotIsWanted() {
         enabled = true;
         stepUntilReset(30);

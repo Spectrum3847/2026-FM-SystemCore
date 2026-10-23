@@ -34,6 +34,7 @@ import frc.robot.subsystems.launcher.Launcher;
 import frc.robot.subsystems.launcher.Launcher.LauncherConfig;
 import frc.robot.subsystems.leds.Leds;
 import frc.robot.subsystems.swerve.Swerve;
+import frc.robot.subsystems.swerve.SwerveAlignment;
 import frc.robot.subsystems.swerve.SwerveConfig;
 import frc.robot.subsystems.vision.CameraParams;
 import frc.robot.subsystems.vision.Vision;
@@ -43,6 +44,8 @@ import frc.spectrumLib.framework.SpectrumRobot;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.hardware.CanConfigBudget;
 import frc.spectrumLib.hardware.Rio;
+import frc.spectrumLib.localization.PoseSource;
+import frc.spectrumLib.mechanism.Mechanism;
 import frc.spectrumLib.params.NetworkTablesTransport;
 import frc.spectrumLib.params.Params;
 import frc.spectrumLib.params.TuningMode;
@@ -51,6 +54,7 @@ import frc.spectrumLib.telemetry.BatteryLogger;
 import frc.spectrumLib.telemetry.DashboardReceiver;
 import frc.spectrumLib.telemetry.DsUploadReceiver;
 import frc.spectrumLib.telemetry.LogStorage;
+import frc.spectrumLib.telemetry.MatchSummary;
 import frc.spectrumLib.telemetry.SystemLoadMonitor;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.telemetry.Telemetry.PrintPriority;
@@ -111,6 +115,9 @@ public class Robot extends SpectrumRobot {
     /** CPU, loop period, GC and memory on the dashboard, with alerts when they stay bad. */
     private SystemLoadMonitor systemLoad;
 
+    /** The match summary: {@code Summary/...} in every log, a file after each FMS match. */
+    @Getter private static MatchSummary matchSummary;
+
     public static class Config {
         public final SwerveConfig swerve = new SwerveConfig();
         public final PilotConfig pilot = new PilotConfig();
@@ -148,6 +155,8 @@ public class Robot extends SpectrumRobot {
         SystemLoadMonitor.threadCensus("jvm");
         startLogging();
         SystemLoadMonitor.threadCensus("logging");
+        // Before the subsystems, so alerts raised while they start are in the summary.
+        matchSummary = new MatchSummary(summaryFolder());
 
         /*
          * Phoenix otherwise starts writing .hoot signal logs for every CAN device a second after
@@ -243,6 +252,7 @@ public class Robot extends SpectrumRobot {
             SystemLoadMonitor.threadCensus("vision");
             systemLoad = new SystemLoadMonitor();
             SystemLoadMonitor.threadCensus("systemLoad");
+            addSummarySources();
 
             if (Constants.currentMode == Constants.Mode.SIM) {
                 robotSim = new RobotSim(superStructure);
@@ -295,6 +305,52 @@ public class Robot extends SpectrumRobot {
             Telemetry.print(
                     "Brownout voltage API unavailable on this controller: " + e.getMessage(),
                     PrintPriority.HIGH);
+        }
+        RuntimeInputs.setBrownoutApiAvailable(powerApiAvailable);
+    }
+
+    /** Where the summary file goes: beside the log on the robot and in the sim; none in replay. */
+    private static java.io.File summaryFolder() {
+        return switch (Constants.currentMode) {
+            case REAL -> new java.io.File(LogStorage.folder());
+            case SIM -> new java.io.File("logs");
+            case REPLAY -> null;
+        };
+    }
+
+    /** Every motor, the drivetrain and every pose source, for the match summary. */
+    private void addSummarySources() {
+        var labels = new java.util.HashMap<String, String>();
+        CanBuses.inUse().forEach((label, name) -> labels.put(name, label));
+        java.util.function.Function<String, String> busLabel =
+                name -> labels.getOrDefault(name, name);
+        for (Mechanism m :
+                List.of(
+                        fuelIntake,
+                        intakeExtension,
+                        intakeExtension.getRight(),
+                        indexerTower,
+                        indexerBed,
+                        launcher,
+                        hood)) {
+            matchSummary.addMechanism(m, busLabel);
+        }
+        var in = swerve.getInputs();
+        String drivetrain = busLabel.apply(CanBuses.DRIVETRAIN);
+        for (int i = 0; i < SwerveAlignment.MODULE_NAMES.length; i++) {
+            final int m = i;
+            // As Swerve reads it: logs from before ModuleConnected was recorded have none.
+            matchSummary.addDevice(
+                    "Swerve " + SwerveAlignment.MODULE_NAMES[i],
+                    drivetrain,
+                    () -> in.moduleConnected.length != 4 || in.moduleConnected[m],
+                    () -> m < in.moduleResetOccurred.length && in.moduleResetOccurred[m],
+                    null);
+        }
+        matchSummary.addDevice(
+                "Pigeon", drivetrain, () -> in.gyroConnected, () -> in.gyroResetOccurred, null);
+        for (PoseSource s : vision.getAllSources()) {
+            matchSummary.addVisionSource(s.getName(), s::getAcceptedCount, s::getRejectedCount);
         }
     }
 
@@ -616,13 +672,14 @@ public class Robot extends SpectrumRobot {
             checkBatteryBeforeMatch();
             // Every loop: a brownout is a few hundred milliseconds.
             if (powerApiAvailable) {
-                Telemetry.log("SystemStats/BrownedOut", RobotController.isBrownedOut());
+                Telemetry.log("SystemStats/BrownedOut", RuntimeInputs.brownedOut());
             }
             // SystemCore reports no input current (the roboRIO did); the battery logger sums
             // the mechanisms instead.
             batteryLogger.logPower();
 
             logCanBusStatus();
+            matchSummary.periodic(RuntimeInputs.batteryVoltage(), RuntimeInputs.brownedOut());
 
             // For dashboards (AdvantageKit logs the pose itself every loop); 10 Hz is plenty.
             if (Telemetry.slowLogThisLoop()) {
@@ -977,6 +1034,8 @@ public class Robot extends SpectrumRobot {
         }
         try {
             auton.init();
+            Command autoCommand = auton.getAutonomousCommand();
+            matchSummary.autoStarted(runningAuto, autoCommand::isScheduled);
         } catch (Throwable t) {
             CrashTracker.logThrowableCrash(t);
             throw t;

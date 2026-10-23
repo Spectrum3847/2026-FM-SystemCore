@@ -253,7 +253,7 @@ public class IntakeExtension extends Mechanism {
 
     @Getter private final IntakeExtensionConfig config;
     @Getter private IntakeExtensionSim sim;
-    private final IntakeExtensionRight right;
+    @Getter private final IntakeExtensionRight right;
 
     public IntakeExtension(IntakeExtensionConfig config) {
         super(config);

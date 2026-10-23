@@ -70,7 +70,8 @@ FM_SIM_SCRIPT=chords ./gradlew simulateJava -PnoSimGui
 ```
 
 Add `FM_SIM_EXIT=1` to any scripted run to have the program close its log and exit when the script
-ends, so the run is one command.
+ends, so the run is one command. Add `FM_SIM_MATCH=Q12` to have the Driver Station report an FMS
+match, so the end of teleop writes the match summary file into `logs/`.
 
 All 32 autos and 26 paths from 2026 `main` are in `src/main/deploy/pathplanner`, unchanged. The Auto
 Chooser is an AdvantageKit `LoggedDashboardChooser` (same dashboard key as 2026), so the selected
@@ -214,6 +215,11 @@ After a match (or a sim run), summarise it:
 ```bash
 python tools/wpilog_summary.py logs/akit_XXXX.wpilog
 ```
+
+The robot also summarises each run itself, under `Summary/...` in the log, and after an FMS match
+in `<log name>.summary.json` next to the log: battery, brownouts, loop overruns, CAN drops and
+reboots, Driver Station drops, vision counts, auto, alerts and peak motor temperatures. See
+[docs/match-summary.md](docs/match-summary.md).
 
 Replay a log through the current code (edit a gate, replay, compare the shadow tracks):
 

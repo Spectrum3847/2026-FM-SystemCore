@@ -122,6 +122,8 @@ class BindingsSmokeTest {
         bind("TELEOP operator LB+X", Expect.command("Vision.resetQuest"));
         bind("TELEOP operator LB+Y", Expect.anyCommand());
         bind("TELEOP operator BACK", Expect.state(WantedSuperState.FORCE_HOME));
+        // Releases mechanisms held by their tracking stop (SuperStructure.clearTrackingStops).
+        bind("TELEOP operator START", Expect.anyCommand());
         for (String trim : new String[] {"UP", "DOWN", "LEFT", "RIGHT"}) {
             bind("TELEOP operator " + trim, Expect.anyCommand());
             bind("DISABLED operator " + trim, Expect.anyCommand());

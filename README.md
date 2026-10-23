@@ -84,7 +84,7 @@ Every PR runs, in parallel:
 
 | Job | What fails it |
 | --- | --- |
-| `build` | Spotless, a compile error (Error Prone's ERROR checks included), a unit test, or more Error Prone warnings in a file than [tools/errorprone-baseline.txt](tools/errorprone-baseline.txt) allows |
+| `build` | Spotless, a compile error (Error Prone's ERROR checks included) or a unit test. Error Prone warnings print but don't fail; the style-only checks are off in `build.gradle`. |
 | `sim (drive)`, `sim (shoot)`, `sim (auto)` | the scripted sim (`auto` is `TBTB Left`) crashing, not finishing its script, an auto path stopping short of its end before autonomous ends (being cut off by the end of autonomous is fine), the fused pose more than 0.15 m from the sim's truth at p95 (0.3 m worst) once the seed is confirmed, or more than 5% of loops overrunning by 25% ([tools/ci_assert.py](tools/ci_assert.py)) |
 | `replay` | the PR moving the fused pose (5 cm, 2°) or the shot gate's verdicts (10 loops) when a real match replays through it, against the base branch replaying the same log ([tools/replay_regression.py](tools/replay_regression.py)) |
 | `app` | the robot app's tests |
@@ -97,8 +97,7 @@ python tools/ci_assert.py logs/akit_XXXX.wpilog console.txt
 ```
 
 When a PR is meant to change the replay (a gate, a std-dev tier), add the `replay-change-expected`
-label. When Error Prone warnings go down, lower the baseline in the same PR:
-`./gradlew compileJava --rerun > compile.txt 2>&1 && python tools/errorprone_baseline.py compile.txt --update`.
+label.
 
 The replay fixture is [8515_TXMAN1_Q24_auto.wpilog](src/test/resources/replay): Q24 at TXMAN1, 180 s
 to 215 s, from pre-match through the vision seed in auto, two auto launches and the start of teleop

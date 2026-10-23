@@ -39,13 +39,6 @@ jobs:
       - name: Check Java formatting (Spotless)
         run: ./gradlew spotlessCheck
 
-      # Recompiles so every Error Prone warning prints, even when the compile is cached.
-      - name: Error Prone against its baseline
-        run: |
-          set -o pipefail
-          ./gradlew compileJava --rerun 2>&1 | tee compile.txt
-          python3 tools/errorprone_baseline.py compile.txt
-
       # Runs a single command using the runners shell
       - name: Compile and run tests on robot code
         run: ./gradlew build

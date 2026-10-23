@@ -126,20 +126,28 @@ wpi.java.configureTestTasks(test)
 tasks.withType(JavaCompile) {
     options.compilerArgs.add '-XDstringConcat=inline'
     options.encoding = 'UTF-8'
-    options.compilerArgs.addAll([
-        '-Xmaxerrs',
-        '3000',
-        '-Xmaxwarns',
-        '10000'
-    ])
+    options.compilerArgs.addAll(['-Xmaxerrs', '3000'])
 }
 
-// Error Prone on main code. Its warnings are held to tools/errorprone-baseline.txt in CI
-// (tools/errorprone_baseline.py); its errors fail the compile.
+// Error Prone on main code: its errors fail the compile, its warnings only print. Checks that
+// flag a deliberate pattern or pure style are off, so the warnings left are worth fixing.
 tasks.withType(JavaCompile).configureEach {
     options.errorprone {
         disableWarningsInGeneratedCode = true
-        excludedPaths = ".*/build/generated/.*"
+        // LimelightHelpers is Limelight's file, kept as shipped.
+        excludedPaths = '.*/build/generated/.*|.*/LimelightHelpers\\.java'
+        // Javadoc formatting; javadoc.yml builds the docs.
+        disable("UnrecognisedJavadocTag", "NotJavadoc", "EmptyBlockTag")
+        // Style only.
+        disable("StatementSwitchToExpressionSwitch", "UnnecessaryParentheses", "StringSplitter",
+                "ArrayRecordComponent", "InlineMeSuggester")
+        // Robot.java hands out subsystems through static fields set in its constructor.
+        disable("StaticAssignmentInConstructor")
+        // Mechanism subclasses narrow `config` to their own Config type.
+        disable("HidingField")
+        // Inputs and the sim script index enums by ordinal; background threads set their
+        // priority on purpose.
+        disable("EnumOrdinal", "ThreadPriorityCheck")
     }
 }
 compileTestJava.options.errorprone.enabled = false

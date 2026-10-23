@@ -3,6 +3,7 @@ package frc.robot;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.swerve.Swerve;
 import frc.robot.subsystems.swerve.SwerveAlignment;
+import frc.robot.subsystems.vision.FieldMapPushInputs;
 import frc.robot.subsystems.vision.Jetson;
 import frc.robot.subsystems.vision.Vision;
 import frc.spectrumLib.checks.AutoStartCheck;
@@ -17,6 +18,7 @@ import frc.spectrumLib.checks.SettingsCheck;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.localization.PoseSource;
 import frc.spectrumLib.mechanism.Mechanism;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -184,6 +186,43 @@ final class PreMatch {
         return CheckResult.pass("Jetson's map matches");
     }
 
+    /**
+     * Whether each Limelight was sent the robot's field map this boot. A Limelight can't report its
+     * map, so a push it accepted is the only evidence; anything short of that warns.
+     *
+     * @param cameras the Limelights' names
+     * @param pushes their logged push results, in the same order
+     * @param robotHash the canonical hash of the map the robot solves with
+     * @return PASS when every one accepted this map, else WARN naming those that didn't
+     */
+    static CheckResult limelightFieldMaps(
+            List<String> cameras, List<FieldMapPushInputs> pushes, String robotHash) {
+        List<String> off = new ArrayList<>();
+        List<String> unconfirmed = new ArrayList<>();
+        for (int i = 0; i < cameras.size(); i++) {
+            FieldMapPushInputs p = pushes.get(i);
+            if (!p.enabled) {
+                off.add(cameras.get(i));
+            } else if (!p.confirmedHash.equals(robotHash)) {
+                String why =
+                        p.inFlight || p.httpStatus < 0
+                                ? "pushing"
+                                : p.error.isEmpty() ? "HTTP " + p.httpStatus : p.error;
+                unconfirmed.add(cameras.get(i) + " (" + why + ")");
+            }
+        }
+        List<String> parts = new ArrayList<>();
+        if (!off.isEmpty()) {
+            parts.add("Limelight map push off: " + String.join(", ", off));
+        }
+        if (!unconfirmed.isEmpty()) {
+            parts.add("Limelight map push unconfirmed: " + String.join(", ", unconfirmed));
+        }
+        return parts.isEmpty()
+                ? CheckResult.pass("Limelight maps pushed")
+                : CheckResult.warn(String.join("; ", parts));
+    }
+
     private static String reasonIf(CheckResult r, Status status) {
         return r.status() == status ? r.reason() : null;
     }
@@ -196,7 +235,7 @@ final class PreMatch {
                         .collect(Collectors.toCollection(TreeSet::new));
         // Vision solves with Event.APRILTAG_FIELD (in replay, the match's field), so the robot's
         // own map is the event's by construction. The Jetson reports the hash of the map it
-        // loaded; the Limelights' maps are not readable from the robot.
+        // loaded. A Limelight's map can't be read back: what counts is a push this boot.
         Supplier<CheckResult> jetsonMap =
                 () ->
                         jetsonFieldMap(
@@ -204,6 +243,13 @@ final class PreMatch {
                                 Vision.getTagLayoutHash(),
                                 jetson.getInputs().fieldMapHash,
                                 jetson.getInputs().fieldMapError);
+        List<Vision.FieldMapPush> pushes = vision.getFieldMapPushes();
+        Supplier<CheckResult> limelightMaps =
+                () ->
+                        limelightFieldMaps(
+                                pushes.stream().map(Vision.FieldMapPush::camera).toList(),
+                                pushes.stream().map(Vision.FieldMapPush::inputs).toList(),
+                                Vision.getTagLayoutHash());
         SettingsCheck settings =
                 new SettingsCheck()
                         .info(
@@ -213,9 +259,11 @@ final class PreMatch {
                                                 + (jetsonMap.get().status() == Status.PASS
                                                         ? ", Jetson's map matches"
                                                         : "")
-                                                + " (Limelight maps unchecked)")
+                                                + ", "
+                                                + limelightMaps.get().reason())
                         .add(() -> reasonIf(jetsonMap.get(), Status.FAIL), Status.FAIL)
                         .add(() -> reasonIf(jetsonMap.get(), Status.WARN), Status.WARN)
+                        .add(() -> reasonIf(limelightMaps.get(), Status.WARN), Status.WARN)
                         .add(
                                 () ->
                                         jetson.isPracticeFieldProfile()

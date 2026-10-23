@@ -83,7 +83,13 @@ public final class FieldMapHash {
         return String.join("\n", lines);
     }
 
-    static String hash(String text) {
+    /**
+     * SHA-256 of a text's UTF-8 bytes, lowercase hex, the first {@link #LENGTH} characters.
+     *
+     * @param text any text
+     * @return the short hash
+     */
+    public static String hash(String text) {
         try {
             byte[] digest =
                     MessageDigest.getInstance("SHA-256")

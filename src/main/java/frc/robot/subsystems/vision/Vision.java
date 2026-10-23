@@ -23,10 +23,13 @@ import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.telemetry.Telemetry.PrintPriority;
 import frc.spectrumLib.util.Util;
+import frc.spectrumLib.vision.FieldMapHash;
 import frc.spectrumLib.vision.FieldMapJson;
 import frc.spectrumLib.vision.Limelight;
 import frc.spectrumLib.vision.Limelight.LimelightConfig;
+import frc.spectrumLib.vision.LimelightFieldMap;
 import frc.spectrumLib.vision.LimelightHelpers;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -125,6 +128,20 @@ public class Vision implements Subsystem {
                         .withRotation(0, 20, -84.5);
 
         @Getter final int tagPipeline = 0;
+
+        /**
+         * Push the robot's field map to the chassis Limelights at boot, and again while disabled
+         * until each confirms. OFF: never tried on a real Limelight, and a wrong .fmap would break
+         * their on-camera localization. Off, the payload and URLs are still logged under {@code
+         * Vision/FieldMapPush}.
+         */
+        @Getter final boolean pushFieldMapToLimelights = false;
+
+        /**
+         * Tag size in the pushed .fmap, mm: the 2026 tags' 6.5 in square, as in Limelight's own
+         * FRC2026 field maps and FM's 2026 tag pipelines ({@code fiducial_size} 165.1).
+         */
+        @Getter final double limelightTagSizeMm = 165.1;
 
         // -- SystemCore's built-in cameras (CALIBRATE: placeholder mounts) ------
         //
@@ -335,6 +352,11 @@ public class Vision implements Subsystem {
 
     private final List<CameraAlert> cameraAlerts = new ArrayList<>();
 
+    /** One chassis Limelight's field-map push and its logged results. */
+    public record FieldMapPush(String camera, FieldMapPushIO io, FieldMapPushInputs inputs) {}
+
+    @Getter private final List<FieldMapPush> fieldMapPushes = new ArrayList<>();
+
     private final Alert questBatteryAlert = new Alert("", Level.MEDIUM);
 
     private final Alert notSeededAlert =
@@ -376,6 +398,7 @@ public class Vision implements Subsystem {
         }
         backMt1 = mt1Sources.get(0);
         backMt2 = mt2Sources.get(0);
+        addFieldMapPushes(lls, sim || replay);
         // SystemCore's own cameras: logged and shadowed, fused only when enabled on the dashboard.
         for (LimelightConfig llConfig : config.systemCoreCameras) {
             addLimelight(llConfig, false, scMt1Sources, scMt2Sources, sim, replay);
@@ -498,6 +521,43 @@ public class Vision implements Subsystem {
         // odometry and before the scheduler, so this loop's correction lands before any
         // mechanism or command reads the pose (the offseason ordering).
         Telemetry.print(getName() + " Subsystem Initialized");
+    }
+
+    /**
+     * Sets up the field-map push to each chassis Limelight (only a real robot sends anything), and
+     * logs the payload and where it goes, so a run with the push off shows what it would send.
+     */
+    private void addFieldMapPushes(LimelightConfig[] lls, boolean noHardware) {
+        String fmap = LimelightFieldMap.of(tagLayout, config.limelightTagSizeMm);
+        boolean enabled = config.pushFieldMapToLimelights;
+        String[] urls = new String[lls.length];
+        for (int i = 0; i < lls.length; i++) {
+            String name = lls[i].getName();
+            urls[i] = LimelightFieldMapPushIO.uploadUri(name).toString();
+            FieldMapPushIO io =
+                    noHardware
+                            ? FieldMapPushIO.NONE
+                            : LimelightFieldMapPushIO.forLimelight(
+                                    name, fmap, tagLayoutHash, enabled);
+            fieldMapPushes.add(new FieldMapPush(shortName(name), io, new FieldMapPushInputs()));
+        }
+        String prefix = "Vision/FieldMapPush/";
+        Logger.recordOutput(prefix + "Enabled", enabled);
+        Logger.recordOutput(prefix + "FieldMapHash", tagLayoutHash);
+        Logger.recordOutput(prefix + "Payload", fmap);
+        Logger.recordOutput(prefix + "PayloadBytes", fmap.getBytes(StandardCharsets.UTF_8).length);
+        Logger.recordOutput(prefix + "PayloadSha256", FieldMapHash.hash(fmap));
+        Logger.recordOutput(prefix + "Urls", urls);
+    }
+
+    /** Pushes the field map to any Limelight not yet confirmed, while disabled, off-thread. */
+    private void updateFieldMapPushes(boolean disabled) {
+        for (FieldMapPush p : fieldMapPushes) {
+            p.io().updateInputs(
+                            p.inputs(),
+                            disabled && !p.inputs().confirmedHash.equals(tagLayoutHash));
+            Logger.processInputs("Vision/FieldMapPush/" + p.camera(), p.inputs());
+        }
     }
 
     /** Creates one Limelight's MT1 and MT2 sources (real, simulated, or replay). */
@@ -679,6 +739,7 @@ public class Vision implements Subsystem {
         for (PoseSource s : allSources) {
             s.update();
         }
+        updateFieldMapPushes(disabled);
 
         if (disabled) {
             feedCameraHeadings(now);

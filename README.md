@@ -263,6 +263,16 @@ and `Error` (logged as `Vision/Jetson/FieldMap/*`). It hashes the layout it pars
 published JSON, so the robot publishes exactly the numbers it hashes. The Settings check fails when
 the Jetson's hash differs from the robot's, and warns (with its `Error`) when it reports none.
 
+A Limelight's map can't be read back, so the robot can push its own: the layout as a Limelight
+.fmap ([LimelightFieldMap](src/main/java/frc/spectrumLib/vision/LimelightFieldMap.java),
+field-center origin, 165.1 mm tags), sent to `POST http://<camera>.local:5807/upload-fieldmap` on
+a background thread at boot, and again every 5 s while disabled until the camera answers 2xx.
+Each chassis Limelight's result is a logged input (`Vision/FieldMapPush/<camera>/Attempts`,
+`HttpStatus`, `AttemptedHash`, `ConfirmedHash`, `Error`). **It is off**
+(`VisionConfig.pushFieldMapToLimelights`) until tried on a real Limelight; off, the payload, its
+size and hash, and the URLs are still logged under `Vision/FieldMapPush`. The Settings check warns
+for each Limelight not sent this boot's map: push off, or not confirmed.
+
 **The whole Orin pipeline replays.**
 - [PhotonOrinIO](src/main/java/frc/robot/subsystems/vision/PhotonOrinIO.java) logs every PhotonLib
   result as raw bytes (`Vision/Orin/<camera>/Results`). Empty results are included, so the frame

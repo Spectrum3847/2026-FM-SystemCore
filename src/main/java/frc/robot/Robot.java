@@ -313,6 +313,7 @@ public class Robot extends SpectrumRobot {
                     PrintPriority.HIGH);
         }
         RuntimeInputs.setBrownoutApiAvailable(powerApiAvailable);
+        matchSummary.setBrownedOutAvailable(powerApiAvailable);
     }
 
     /** Where the summary file goes: beside the log on the robot and in the sim; none in replay. */

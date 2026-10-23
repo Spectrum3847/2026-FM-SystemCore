@@ -12,7 +12,10 @@ import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
+import org.littletonrobotics.conduit.ConduitApi;
+import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.inputs.LoggableInputs;
 import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.driverstation.MatchState;
 import org.wpilib.driverstation.MatchType;
@@ -32,15 +35,16 @@ import org.wpilib.system.Timer;
  * keys and the file are documented in {@code docs/match-summary.md}.
  *
  * <p>Everything is fed from logged inputs (motor inputs, the Driver Station, the robot clock,
- * battery and brownout inputs the robot passes in), so a replayed log recomputes the same summary.
- * The scope is the whole log: one log is one boot, and the robot is powered off between matches.
+ * battery and brownout inputs the robot passes in, the controller's brownout fault count logged
+ * here as {@code SummaryInputs/Brownout}), so a replayed log recomputes the same summary. The scope
+ * is the whole log: one log is one boot, and the robot is powered off between matches.
  *
  * <p>Main thread only, apart from the file write. Per loop it is a few compares per registered
  * device; logging is once a second.
  */
 public final class MatchSummary {
     /** Bumped when a field changes meaning or is removed. Adding a field does not bump it. */
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
 
     /** Battery thresholds whose time below is totalled. */
     public static final double LOW_VOLTS = 8.0;
@@ -68,6 +72,15 @@ public final class MatchSummary {
     static final int MAX_EVENTS_PER_DEVICE = 8;
 
     static final int MAX_ALERT_TEXTS = 20;
+
+    /** Texts kept for alerts raised before the first enable, apart from the match's own. */
+    static final int MAX_BEFORE_ENABLE_TEXTS = 10;
+
+    /**
+     * How {@code PreMatchChecks} starts every alert it raises. Their text carries live numbers (a
+     * voltage, a distance), so each reading is a new text; they are counted, never listed.
+     */
+    static final String PRE_MATCH_PREFIX = "Pre-match";
 
     /** Device names in the file are for people: nothing in the summary is keyed on a CAN ID. */
     private static final class Device {
@@ -158,6 +171,107 @@ public final class MatchSummary {
         }
     }
 
+    /** Error and warning alerts raised in one part of the run, each text listed once. */
+    private static final class AlertTally {
+        final int maxTexts;
+        int errors;
+        int warnings;
+        int infos;
+        final Map<String, AlertRecord> texts = new LinkedHashMap<>();
+        int textsDropped;
+
+        AlertTally(int maxTexts) {
+            this.maxTexts = maxTexts;
+        }
+
+        /** Returns whether the list of texts changed. */
+        boolean add(Level level, String text, double now) {
+            String name;
+            switch (level) {
+                case HIGH -> {
+                    errors++;
+                    name = "error";
+                }
+                case MEDIUM -> {
+                    warnings++;
+                    name = "warning";
+                }
+                default -> {
+                    infos++;
+                    return false; // counted, not listed
+                }
+            }
+            AlertRecord r = texts.get(text);
+            if (r == null) {
+                if (texts.size() >= maxTexts) {
+                    textsDropped++;
+                    return false;
+                }
+                r = new AlertRecord(name, now);
+                texts.put(text, r);
+            }
+            r.count++;
+            return true;
+        }
+
+        void raisedToJson(Json j) {
+            j.key("raised").array();
+            for (var e : texts.entrySet()) {
+                AlertRecord r = e.getValue();
+                j.open();
+                j.field("level", r.level);
+                j.field("firstAt", r.firstAt);
+                j.field("count", r.count);
+                j.field("text", e.getKey());
+                j.close();
+            }
+            j.endArray();
+            if (textsDropped > 0) {
+                j.field("moreTexts", textsDropped);
+            }
+        }
+    }
+
+    /** An alert that turned on, held until this loop's enable state is known. */
+    private record PendingAlert(Level level, String text) {}
+
+    /**
+     * The brownout inputs, logged so a replay counts the same brownouts: AdvantageKit's controller
+     * fault count, and whether the robot's browned-out flag comes from an API that works (it did
+     * not on the 2026-09 SystemCore bench unit, where the flag read false always).
+     */
+    static final class BrownoutInputs implements LoggableInputs {
+        /** Where AdvantageKit logs the fault count, for logs recorded before this input. */
+        static final String SYSTEM_STATS_KEY = "/SystemStats/FaultCounts/Brownout";
+
+        /** The controller's brownout fault count, or -1 where there is none. */
+        long faultCount = -1;
+
+        boolean brownedOutValid;
+
+        @Override
+        public void toLog(LogTable table) {
+            table.put("FaultCount", faultCount);
+            table.put("BrownedOutValid", brownedOutValid);
+        }
+
+        @Override
+        public void fromLog(LogTable table) {
+            LogTable.LogValue own = table.get("FaultCount");
+            if (own != null) {
+                faultCount = own.getInteger();
+            } else {
+                // Older logs: AdvantageKit's own input, which it records at the end of each cycle.
+                LogTable.LogValue stats = table.getAll(false).get(SYSTEM_STATS_KEY);
+                faultCount =
+                        stats != null && stats.type == LogTable.LoggableType.Integer
+                                ? stats.getInteger()
+                                : -1;
+            }
+            brownedOutValid = table.get("BrownedOutValid", false);
+        }
+    }
+
     /** Who and what the match was, read from the Driver Station when it ends. */
     record MatchInfo(
             String event,
@@ -185,8 +299,15 @@ public final class MatchSummary {
     private double secondsUnderLow;
     private double secondsUnderVeryLow;
 
+    /** Filled and logged in {@link #periodic}; tests set it directly. */
+    final BrownoutInputs brownoutInputs = new BrownoutInputs();
+
+    private boolean brownedOutAvailable;
     private boolean lastBrownedOut;
-    private int brownouts;
+    private int flagBrownouts;
+    private int faultCountReadings;
+    private long faultCountAtStart = -1;
+    private long faultBrownouts = -1;
     private double brownoutSeconds;
     private double firstBrownoutAt = Double.NaN;
 
@@ -216,11 +337,15 @@ public final class MatchSummary {
     private String autoEnded = "";
     private double autoSeconds = Double.NaN;
 
-    private int errorsRaised;
-    private int warningsRaised;
-    private int infosRaised;
-    private final Map<String, AlertRecord> alertTexts = new LinkedHashMap<>();
-    private int alertTextsDropped;
+    /** Alerts raised once the robot had been enabled: the match's own. */
+    private final AlertTally inMatch = new AlertTally(MAX_ALERT_TEXTS);
+
+    /** Alerts raised before the first enable: boot, the queue, the field before auto. */
+    private final AlertTally beforeFirstEnable = new AlertTally(MAX_BEFORE_ENABLE_TEXTS);
+
+    private int preMatchChecksRaised;
+    private final List<PendingAlert> pendingAlerts = new ArrayList<>();
+    private boolean everEnabled;
     private boolean alertTextsChanged;
 
     private int matchesEnded;
@@ -237,6 +362,15 @@ public final class MatchSummary {
     public MatchSummary(File logFolder) {
         this.writer = logFolder == null ? null : new SummaryFileWriter(logFolder);
         Alert.setRaisedListener(this::alertRaised);
+    }
+
+    /**
+     * Says whether the browned-out flag passed to {@link #periodic} comes from an API that works
+     * here. Until this is called it is taken not to, and brownouts are counted only from the
+     * controller's fault count, or not at all.
+     */
+    public void setBrownedOutAvailable(boolean available) {
+        brownedOutAvailable = available;
     }
 
     // ── Registration ─────────────────────────────────────────────────────────
@@ -340,10 +474,15 @@ public final class MatchSummary {
      * motor inputs have been read.
      *
      * @param batteryVolts the logged battery voltage
-     * @param brownedOut the logged brownout state
+     * @param brownedOut the logged brownout state (see {@link #setBrownedOutAvailable})
      */
     public void periodic(double batteryVolts, boolean brownedOut) {
         double now = Timer.getTimestamp();
+        if (!Logger.hasReplaySource()) {
+            brownoutInputs.faultCount = readBrownoutFaultCount();
+            brownoutInputs.brownedOutValid = brownedOutAvailable;
+        }
+        Logger.processInputs("SummaryInputs/Brownout", brownoutInputs);
         boolean ended =
                 update(
                         now,
@@ -359,6 +498,15 @@ public final class MatchSummary {
         }
         if (ended && writer != null) {
             writer.submit(toJson(matchInfo(), now));
+        }
+    }
+
+    /** What AdvantageKit logs as {@code SystemStats/FaultCounts/Brownout}, or -1 if unreadable. */
+    private static long readBrownoutFaultCount() {
+        try {
+            return ConduitApi.getInstance().getFaultCountBrownout();
+        } catch (RuntimeException | LinkageError e) {
+            return -1;
         }
     }
 
@@ -391,6 +539,20 @@ public final class MatchSummary {
         double step = Math.min(dt, MAX_STEP_SECONDS);
         lastNow = now;
 
+        // Alert.periodic() reports, at the top of a loop, alerts set during the last one: judged
+        // by whether the robot had been enabled before this loop.
+        for (PendingAlert a : pendingAlerts) {
+            if (a.text().startsWith(PRE_MATCH_PREFIX)) {
+                preMatchChecksRaised++;
+            } else if (everEnabled) {
+                alertTextsChanged |= inMatch.add(a.level(), a.text(), now);
+            } else {
+                beforeFirstEnable.add(a.level(), a.text(), now);
+            }
+        }
+        pendingAlerts.clear();
+        everEnabled |= enabled;
+
         // Loop timing, enabled only: disabled loops include PathPlanner's warmup on purpose.
         if (enabled && dt > 0) {
             enabledLoops++;
@@ -416,16 +578,7 @@ public final class MatchSummary {
             }
         }
 
-        if (brownedOut) {
-            brownoutSeconds += step;
-            if (!lastBrownedOut) {
-                brownouts++;
-                if (Double.isNaN(firstBrownoutAt)) {
-                    firstBrownoutAt = now;
-                }
-            }
-        }
-        lastBrownedOut = brownedOut;
+        updateBrownouts(now, step, brownedOut);
 
         if (dsAttached) {
             if (dsSeen && !lastDs && dsEvents.size() < MAX_EVENTS_PER_DEVICE) {
@@ -484,6 +637,53 @@ public final class MatchSummary {
         return matchEnded;
     }
 
+    /**
+     * Counts brownouts from the controller's fault count where there is one, else from edges of the
+     * browned-out flag where that API works; the flag also gives the time spent browned out.
+     */
+    private void updateBrownouts(double now, double step, boolean brownedOut) {
+        long faultCount = brownoutInputs.faultCount;
+        // The first loop runs before AdvantageKit first captures the controller's data, so its
+        // count reads zero rather than the count since power-on.
+        if (faultCount >= 0 && ++faultCountReadings > 1) {
+            if (faultCountAtStart < 0) {
+                faultCountAtStart = faultCount;
+            }
+            long n = Math.max(0, faultCount - faultCountAtStart);
+            if (n > Math.max(0, faultBrownouts) && Double.isNaN(firstBrownoutAt)) {
+                firstBrownoutAt = now;
+            }
+            faultBrownouts = n;
+        }
+        boolean flag = brownoutInputs.brownedOutValid && brownedOut;
+        if (flag) {
+            brownoutSeconds += step;
+            if (!lastBrownedOut) {
+                flagBrownouts++;
+                if (Double.isNaN(firstBrownoutAt)) {
+                    firstBrownoutAt = now;
+                }
+            }
+        }
+        lastBrownedOut = flag;
+    }
+
+    /** Where the brownout count comes from: {@code faultCount}, {@code brownedOut}, or null. */
+    private String brownoutSource() {
+        if (faultBrownouts >= 0) {
+            return "faultCount";
+        }
+        return brownoutInputs.brownedOutValid ? "brownedOut" : null;
+    }
+
+    /** Brownouts in this log, or -1 where nothing working can tell. */
+    long brownoutCount() {
+        if (faultBrownouts >= 0) {
+            return faultBrownouts;
+        }
+        return brownoutInputs.brownedOutValid ? flagBrownouts : -1;
+    }
+
     private void updateDevices(double now, double step) {
         for (Bus b : buses) {
             b.tracked = 0;
@@ -539,37 +739,16 @@ public final class MatchSummary {
         }
     }
 
-    /** Called by {@link Alert#periodic()} for each alert that turned on since the last loop. */
+    /**
+     * Called by {@link Alert#periodic()} for each alert that turned on since the last loop. Held
+     * until the next {@link #update}, which sorts it: pre-match check results are counted only,
+     * alerts from before the first enable are kept apart, and the rest are the match's.
+     */
     void alertRaised(Level level, String text) {
         if (Thread.currentThread() != mainThread) {
             return; // the main thread owns this; an off-thread alert still shows on the DS
         }
-        String name;
-        switch (level) {
-            case HIGH -> {
-                errorsRaised++;
-                name = "error";
-            }
-            case MEDIUM -> {
-                warningsRaised++;
-                name = "warning";
-            }
-            default -> {
-                infosRaised++;
-                return; // counted, not listed
-            }
-        }
-        AlertRecord r = alertTexts.get(text);
-        if (r == null) {
-            if (alertTexts.size() >= MAX_ALERT_TEXTS) {
-                alertTextsDropped++;
-                return;
-            }
-            r = new AlertRecord(name, Double.isNaN(lastNow) ? Timer.getTimestamp() : lastNow);
-            alertTexts.put(text, r);
-        }
-        r.count++;
-        alertTextsChanged = true;
+        pendingAlerts.add(new PendingAlert(level, text));
     }
 
     // ── Log keys ─────────────────────────────────────────────────────────────
@@ -578,7 +757,7 @@ public final class MatchSummary {
         Logger.recordOutput("Summary/Battery/MinVolts", nanToZero(minVolts));
         Logger.recordOutput("Summary/Battery/SecondsUnder8V", secondsUnderLow);
         Logger.recordOutput("Summary/Battery/SecondsUnder7V", secondsUnderVeryLow);
-        Logger.recordOutput("Summary/Brownouts", brownouts);
+        Logger.recordOutput("Summary/Brownouts", brownoutCount());
         Logger.recordOutput("Summary/Loop/EnabledLoops", enabledLoops);
         Logger.recordOutput("Summary/Loop/Overruns", overruns);
         Logger.recordOutput("Summary/Loop/LongestMs", longestLoopSeconds * 1000);
@@ -607,13 +786,17 @@ public final class MatchSummary {
         Logger.recordOutput("Summary/Auto/Routine", autoRoutine);
         Logger.recordOutput("Summary/Auto/Ended", autoEnded);
         Logger.recordOutput("Summary/Auto/Seconds", nanToZero(autoSeconds));
-        Logger.recordOutput("Summary/Alerts/ErrorsRaised", errorsRaised);
-        Logger.recordOutput("Summary/Alerts/WarningsRaised", warningsRaised);
+        Logger.recordOutput("Summary/Alerts/ErrorsRaised", inMatch.errors);
+        Logger.recordOutput("Summary/Alerts/WarningsRaised", inMatch.warnings);
+        Logger.recordOutput(
+                "Summary/Alerts/BeforeFirstEnableRaised",
+                beforeFirstEnable.errors + beforeFirstEnable.warnings);
+        Logger.recordOutput("Summary/Alerts/PreMatchChecksRaised", preMatchChecksRaised);
         if (alertTextsChanged) {
             alertTextsChanged = false;
-            String[] raised = new String[alertTexts.size()];
+            String[] raised = new String[inMatch.texts.size()];
             int i = 0;
-            for (var e : alertTexts.entrySet()) {
+            for (var e : inMatch.texts.entrySet()) {
                 raised[i++] = e.getValue().level + " x" + e.getValue().count + ": " + e.getKey();
             }
             Logger.recordOutput("Summary/Alerts/Raised", raised);
@@ -662,8 +845,15 @@ public final class MatchSummary {
         j.field("secondsUnder7V", secondsUnderVeryLow);
         j.close();
         j.key("brownouts").open();
-        j.field("count", brownouts);
-        j.field("seconds", brownoutSeconds);
+        long count = brownoutCount();
+        if (count < 0) {
+            j.field("count", (String) null);
+        } else {
+            j.field("count", count);
+        }
+        String source = brownoutSource();
+        j.field("source", source);
+        j.field("seconds", brownoutInputs.brownedOutValid ? brownoutSeconds : Double.NaN);
         j.field("firstAt", firstBrownoutAt);
         j.close();
         j.key("loop").open();
@@ -722,23 +912,17 @@ public final class MatchSummary {
         j.field("seconds", autoSeconds);
         j.close();
         j.key("alerts").open();
-        j.field("errorsRaised", errorsRaised);
-        j.field("warningsRaised", warningsRaised);
-        j.field("infosRaised", infosRaised);
-        j.key("raised").array();
-        for (var e : alertTexts.entrySet()) {
-            AlertRecord r = e.getValue();
-            j.open();
-            j.field("level", r.level);
-            j.field("firstAt", r.firstAt);
-            j.field("count", r.count);
-            j.field("text", e.getKey());
-            j.close();
-        }
-        j.endArray();
-        if (alertTextsDropped > 0) {
-            j.field("moreTexts", alertTextsDropped);
-        }
+        j.field("errorsRaised", inMatch.errors);
+        j.field("warningsRaised", inMatch.warnings);
+        j.field("infosRaised", inMatch.infos);
+        inMatch.raisedToJson(j);
+        j.key("beforeFirstEnable").open();
+        j.field("errorsRaised", beforeFirstEnable.errors);
+        j.field("warningsRaised", beforeFirstEnable.warnings);
+        j.field("infosRaised", beforeFirstEnable.infos);
+        beforeFirstEnable.raisedToJson(j);
+        j.close();
+        j.field("preMatchChecksRaised", preMatchChecksRaised);
         j.close();
         j.key("peakTempC").open();
         for (Device d : devices) {
@@ -802,9 +986,14 @@ public final class MatchSummary {
             return this;
         }
 
+        /** A string field; null writes {@code null}. */
         void field(String k, String v) {
             key(k);
-            string(v);
+            if (v == null) {
+                sb.append("null");
+            } else {
+                string(v);
+            }
             first = false;
         }
 

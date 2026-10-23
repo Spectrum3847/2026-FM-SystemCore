@@ -599,6 +599,7 @@ public class Vision implements Subsystem {
                         "Stale Estimate Rejection",
                         (o, c) ->
                                 c.nowSeconds() - o.timestampSeconds() > config.questMaxAgeSeconds),
+                VisionGates.FUTURE_TIMESTAMP_GATE,
                 Gate.rejectIf(
                         "Out of Field Rejection",
                         (o, c) -> frc.rebuilt.FieldHelpers.poseOutOfField(o.pose2d())),

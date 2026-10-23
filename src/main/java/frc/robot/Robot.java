@@ -458,18 +458,14 @@ public class Robot extends SpectrumRobot {
 
         // Fixed shots: park at the spot, point the back at the hub, hold the chord. Hood and
         // flywheel from the spot's range, fed once they are there; no pose read, no aim checked.
-        // See ShotCalculator.SetShot. Bound before the bare X and A below so that letting go of LB
-        // first lands in what the buttons now say (track target, unjam), not IDLE.
+        // See ShotCalculator.SetShot. At most one face chord is true at a time (Pilot), so bind
+        // only rising edges, and go to IDLE only when all are let go.
         pilot.setShotTower_LB_A.onTrue(superStructure.setShotCommand(SetShot.TOWER));
         pilot.setShotLeftTrench_LB_X.onTrue(superStructure.setShotCommand(SetShot.LEFT_TRENCH));
         pilot.setShotRightTrench_LB_B.onTrue(superStructure.setShotCommand(SetShot.RIGHT_TRENCH));
-        pilot.anySetShot.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
-
         pilot.trackTarget_X.onTrue(superStructure.setStateCommand(WantedSuperState.TRACK_TARGET));
-        pilot.trackTarget_X.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
-
         pilot.unjam_A.onTrue(superStructure.setStateCommand(WantedSuperState.UNJAM));
-        pilot.unjam_A.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
+        pilot.anyFaceChord.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
 
         pilot.selectButton.onTrue(superStructure.setStateCommand(WantedSuperState.FORCE_HOME));
         pilot.selectButton.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));

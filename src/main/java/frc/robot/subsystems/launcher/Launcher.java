@@ -52,6 +52,9 @@ public class Launcher extends Mechanism {
             configForwardVoltageLimit(voltageLimit);
             configReverseVoltageLimit(-voltageLimit);
             configClockwise_Positive();
+            // Off until turned on. No trip in FM's 20 TXMAN1 matches (longest spin-up 1.06 s);
+            // in 3847's 28 logs, only during E11's CAN dropout.
+            configVelocityTrackingStop(1000.0 / 60, 2.0, false);
             setFollowerConfigs(
                     new FollowerConfig(
                             "Launcher Top Right",

@@ -70,6 +70,11 @@ public class Hood extends Mechanism {
             configReverseSoftLimit(minRotations, true);
             configNeutralBrakeMode(true);
             configClockwise_Positive();
+            // Off until turned on. Against FM's 20 TXMAN1 matches it trips only in Q06, where the
+            // hood stuck above home pushing up to 47 A for 4 and 13 s; the longest normal
+            // excursion is 1.0 s. 1 deg would also trip on the pre-homing hood resting 1 deg under
+            // its home goal (8 matches).
+            configPositionTrackingStop(Units.degreesToRotations(2), 2.0, false);
         }
     }
 

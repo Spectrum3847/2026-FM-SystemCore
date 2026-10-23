@@ -38,6 +38,8 @@ public class IndexerBed extends Mechanism {
             configLowerSupplyCurrentTime(lowerSupplyCurrentTime);
             configNeutralBrakeMode(false);
             configClockwise_Positive();
+            // No tracking stop: the bed stalls at its current limit against fuel while launching
+            // as a matter of course (3 to 8 s in 4 of 20 TXMAN1 matches, one clearing by itself).
             setFollowerConfigs(
                     new FollowerConfig(
                             "IndexerBed Follower 1",

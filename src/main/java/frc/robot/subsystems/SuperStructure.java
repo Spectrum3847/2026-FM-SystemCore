@@ -592,6 +592,19 @@ public class SuperStructure extends SubsystemBase {
                 .ignoringDisable(true);
     }
 
+    /** Releases every mechanism held by its tracking stop; one still stuck stops again. */
+    public Command clearTrackingStops() {
+        return Commands.runOnce(
+                () -> {
+                    hood.clearTrackingStop();
+                    launcher.clearTrackingStop();
+                    indexerTower.clearTrackingStop();
+                    indexerBed.clearTrackingStop();
+                    intakeExtension.clearTrackingStop();
+                    fuelIntake.clearTrackingStop();
+                });
+    }
+
     public Command brakeMechanisms() {
         return Commands.runOnce(
                         () -> {

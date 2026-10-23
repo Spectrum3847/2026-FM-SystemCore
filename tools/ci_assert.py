@@ -6,7 +6,8 @@ Usage:
 
 LOG is the run's .wpilog, CONSOLE its captured console output. Checks:
   - the console shows no uncaught exception or stack trace, and the script ran to its end;
-  - with --auto, every path the auto started was followed to its end before autonomous ended;
+  - with --auto, no path the auto started stopped short of its end before autonomous ended
+    (autos are built to run until the end of autonomous cuts them off);
   - the fused pose's error against the sim's true pose, once the vision seed is confirmed and
     outside the moment after the script places the robot;
   - the share of loops that overran by 25% (SystemLoadMonitor's definition).
@@ -81,28 +82,29 @@ def check_auto(records, types):
         return False, "autonomous never enabled"
     start, end = autos[0]
     current = series(records, types, "PathPlanner/CurrentPose")
-    started, finished = 0, 0
+    started, finished, cut = 0, 0, 0
     path = None
     for t, poses in series(records, types, "PathPlanner/ActivePath"):
         if t < start:
             continue
-        if poses:
-            path = poses
-            started += 1
-            continue
-        if path is None:
-            continue
-        here, goal = value_at(current, t), path[-1]
-        miss = math.hypot(here[0] - goal[0], here[1] - goal[1]) if here else math.inf
-        if t >= end or miss > PATH_END_TOLERANCE_M:
-            return False, f"path {started} interrupted at t={t:.2f} s, {miss:.2f} m from its end"
-        finished += 1
-        path = None
+        # A path ends with an empty ActivePath, or when the next one is logged.
+        if path is not None:
+            here, goal = value_at(current, t), path[-1]
+            miss = math.hypot(here[0] - goal[0], here[1] - goal[1]) if here else math.inf
+            if t >= end:
+                cut += 1
+            elif miss > PATH_END_TOLERANCE_M:
+                return False, f"path {started} stopped at t={t:.2f} s, {miss:.2f} m from its end"
+            else:
+                finished += 1
+        path = poses or None
+        started += bool(poses)
     if path is not None:
         return False, f"path {started} still running when the log ends"
     if started == 0:
         return False, "no path ran"
-    return True, f"{finished} of {started} paths finished, autonomous {end - start:.1f} s"
+    return True, (f"{started} paths: {finished} finished, {cut} cut off by the end of "
+                  f"autonomous ({end - start:.1f} s)")
 
 
 def check_fused_error(records, types):

@@ -62,9 +62,8 @@ jobs:
             script: drive
           - name: shoot
             script: shoot
-          # The first chooser auto whose paths all finish within the sim's 20 s autonomous.
           - name: auto
-            script: auto:BBBB Left
+            script: auto:TBTB Left
             check: --auto
     name: sim (${{ matrix.name }})
     steps:

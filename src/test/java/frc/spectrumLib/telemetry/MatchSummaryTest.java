@@ -3,6 +3,7 @@ package frc.spectrumLib.telemetry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -10,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -360,25 +362,66 @@ class MatchSummaryTest {
     }
 
     @Test
-    void writesAtomicallyBesideTheNewestLog() throws IOException {
-        File older = dir.resolve("akit_old.wpilog").toFile();
+    void writesBesideThisBootsLogEvenWhenTheClockIsBehind() throws IOException {
+        // SystemCore booted with its clock behind: this boot's log is stamped before older ones.
+        File older = dir.resolve("akit_26-10-16_txman1_q33.wpilog").toFile();
         File current = dir.resolve("akit_26-10-16_txman1_q34.wpilog").toFile();
-        File replay = dir.resolve("akit_26-10-16_txman1_q34_sim.wpilog").toFile();
+        File replay = dir.resolve("akit_26-10-16_txman1_q33_sim.wpilog").toFile();
         Files.writeString(older.toPath(), "x");
         Files.writeString(current.toPath(), "x");
         Files.writeString(replay.toPath(), "x");
-        assertTrue(older.setLastModified(1_000_000L));
-        assertTrue(current.setLastModified(2_000_000L));
-        assertTrue(replay.setLastModified(3_000_000L));
+        assertTrue(older.setLastModified(3_000_000L));
+        assertTrue(current.setLastModified(1_000_000L));
+        assertTrue(replay.setLastModified(4_000_000L));
+        var atBoot = Set.of(older.getName(), replay.getName());
 
-        File log = SummaryFileWriter.newestLog(dir.toFile());
+        File log = SummaryFileWriter.thisBootsLog(dir.toFile(), atBoot);
         assertEquals(current, log);
         File target = SummaryFileWriter.summaryFor(log);
         assertEquals("akit_26-10-16_txman1_q34.summary.json", target.getName());
 
-        SummaryFileWriter.writeAtomically(target.toPath(), "{\"version\":1}");
-        SummaryFileWriter.writeAtomically(target.toPath(), "{\"version\":1,\"n\":2}");
-        assertEquals("{\"version\":1,\"n\":2}", Files.readString(target.toPath()));
-        assertFalse(dir.resolve(target.getName() + ".tmp").toFile().exists());
+        // Nothing listed at boot (the sim): the newest log, never a replay output.
+        assertEquals(older, SummaryFileWriter.thisBootsLog(dir.toFile(), null));
+        // This boot's log not there (yet): no file rather than the wrong one.
+        assertNull(
+                SummaryFileWriter.thisBootsLog(
+                        dir.toFile(), Set.of(current.getName(), older.getName())));
+    }
+
+    @Test
+    void writesAtomicallyAndLastWriteWins() throws IOException {
+        Path target = dir.resolve("akit_q34.summary.json");
+        assertTrue(SummaryFileWriter.writeAtomically(target, "{\"version\":1}"));
+        assertTrue(SummaryFileWriter.writeAtomically(target, "{\"version\":1,\"n\":2}"));
+        assertEquals("{\"version\":1,\"n\":2}", Files.readString(target));
+        assertFalse(dir.resolve("akit_q34.summary.json.tmp").toFile().exists());
+    }
+
+    @Test
+    void aFailedWriteLeavesNoTemporaryFile() throws IOException {
+        // A folder in the target's place, with something in it: the rename over it fails.
+        Path target = dir.resolve("akit_q34.summary.json");
+        Files.createDirectory(target);
+        Files.writeString(target.resolve("inside"), "x");
+        assertThrows(
+                IOException.class, () -> SummaryFileWriter.writeAtomically(target, "{\"v\":1}"));
+        assertFalse(dir.resolve("akit_q34.summary.json.tmp").toFile().exists());
+    }
+
+    @Test
+    void theWriterThreadStartsWithTheWriterNotOnTheFirstWrite() throws Exception {
+        Files.writeString(dir.resolve("akit_q34.wpilog"), "x");
+        var writer = new SummaryFileWriter(dir.toFile());
+        // Started by the constructor (robot init, before the main thread goes real-time).
+        assertTrue(
+                Thread.getAllStackTraces().keySet().stream()
+                        .anyMatch(t -> t.getName().equals("MatchSummary") && t.isAlive()));
+        writer.submit("{\"version\":1}");
+        long deadline = System.nanoTime() + 5_000_000_000L;
+        while (writer.lastResult().isEmpty() && System.nanoTime() < deadline) {
+            Thread.sleep(10);
+        }
+        assertEquals("akit_q34.summary.json", writer.lastResult());
+        assertEquals("{\"version\":1}", Files.readString(dir.resolve("akit_q34.summary.json")));
     }
 }

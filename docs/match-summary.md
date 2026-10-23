@@ -19,9 +19,17 @@ Every value comes from logged inputs (motor inputs, the Driver Station, the loop
 gates, alerts), so replaying a log recomputes the same summary under `ReplayOutputs/Summary/`.
 Replay never writes the file.
 
-The file is built on the main thread when teleop ends and written by a background thread: a
-`.tmp` file, synced to disk, then renamed over the target, so a power cut leaves the old file or
-the new one, never half of one. `Summary/File` logs the file name written, or why it failed.
+The file is built on the main thread when teleop ends and written by a background thread, started
+during robot init so it does not inherit the main thread's real-time priority: a `.tmp` file,
+synced to disk, renamed over the target, then the folder synced so the rename survives too. A
+power cut leaves the old file or the new one, never half of one, and a failed write deletes its
+`.tmp`. (Windows cannot sync a folder, so the sim skips that step.) `Summary/File` logs the file
+name written, or why it failed.
+
+The log it sits beside is this boot's: a `.wpilog` that was not in the folder when the boot cleanup
+listed it (`LogStorage`), under the name AdvantageKit gave it once the match was known. Not the
+newest by time, since SystemCore can boot with its clock behind older logs. The sim, which has no
+boot listing, uses the newest.
 
 ## Log keys
 

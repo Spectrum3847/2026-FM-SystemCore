@@ -28,8 +28,8 @@ import org.wpilib.system.Timer;
  * also written as {@code <log name>.summary.json} next to the log, so the pit laptop and the log
  * site can read it without parsing the log. Power is usually cut on the way off the field, so the
  * file is written at once: the JSON is built on the main thread at the end of teleop and a
- * background thread writes it (tmp file, fsync, rename). Practice runs get the log keys only. The
- * keys and the file are documented in {@code docs/match-summary.md}.
+ * background thread writes it (tmp file, fsync, rename, folder fsync). Practice runs get the log
+ * keys only. The keys and the file are documented in {@code docs/match-summary.md}.
  *
  * <p>Everything is fed from logged inputs (motor inputs, the Driver Station, the robot clock,
  * battery and brownout inputs the robot passes in), so a replayed log recomputes the same summary.
@@ -230,7 +230,8 @@ public final class MatchSummary {
 
     /**
      * Creates the summary and starts listening for alerts. Create it early in the robot's
-     * constructor, on the main thread, so alerts raised while the robot starts are counted.
+     * constructor, on the main thread, so alerts raised while the robot starts are counted, and
+     * before the main thread is made real-time, since the file writer's thread starts here.
      *
      * @param logFolder the folder the log is written to, for the file; null for no file (replay)
      */

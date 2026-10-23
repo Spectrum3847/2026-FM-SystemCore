@@ -745,7 +745,11 @@ laptop then pulls them with the match log. The robot side is
   (NI `.dslog`/`.dsevents`, 20 MB), `dswpilog` (2027 DS log, 50 MB, stored as `.dswpilog` so older
   pit helpers never take it for a robot log and upload it), `audio` (`.m4a`/`.opus`, 20 MB), `video`
   (`.mp4`, 200 MB).
-- One connection at a time, each limited to 2 minutes in total.
+- If the robot enables mid-upload, the receiver stops within 64 KiB, keeps the partial file and
+  closes the connection without a reply; the client resumes from `X-Received` later.
+- Up to three connections at once, on threads created at robot init at minimum priority. A
+  connection gets 3 s to send its request head and 2 minutes in total. Two uploads of the same file
+  take turns.
 - Logged as `DSUpload/FilesReceived`, `BytesReceived`, `LastFile` and `LastError`.
 - Bench test on a laptop: `./gradlew compileJava`, then
   `java -cp build/classes/java/main frc.spectrumLib.telemetry.DsUploadReceiver <folder> <token> 5806`

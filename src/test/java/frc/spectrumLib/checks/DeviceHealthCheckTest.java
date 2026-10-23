@@ -97,6 +97,36 @@ class DeviceHealthCheckTest {
     }
 
     @Test
+    void aBrownoutRebootReportedOnTheFirstLoopBackCounts() {
+        Fake f = add("CANivore", "Hood (15)");
+        run(2);
+        f.connected = false; // rebooting
+        run(0.3);
+        f.connected = true;
+        f.reset = true;
+        run(0.02);
+        f.reset = false;
+        run(1);
+        CheckResult r = check.evaluate(now);
+        assertEquals(Status.WARN, r.status());
+        assertEquals("Hood (15) rebooted in the last minute - check power wiring", r.reason());
+    }
+
+    @Test
+    void aDeviceThatDropsBeforeArmingStillIgnoresItsFirstContact() {
+        Fake f = add("CANivore", "Hood (15)");
+        run(0.5);
+        f.connected = false;
+        run(0.2);
+        f.connected = true;
+        f.reset = true; // the first-contact report, late
+        run(0.02);
+        f.reset = false;
+        run(2);
+        assertEquals(Status.PASS, check.evaluate(now).status());
+    }
+
+    @Test
     void anOldRebootIsForgotten() {
         Fake f = add("CANivore", "Hood (15)");
         run(2);

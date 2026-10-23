@@ -111,14 +111,19 @@ public final class Params {
      * @param deployParamsDir the deploy folder's {@code params} directory
      * @param robot this robot's name, for {@code params/robots/<robot>/}
      * @param localDir the robot-local folder that survives deploys, or null for none (replay)
-     * @param transport where live tuning comes from, or null for no live tuning
+     * @param transport where live tuning comes from; used only in {@link TuningMode}
      */
     public static void start(
             Path deployParamsDir, String robot, Path localDir, ParamTransport transport) {
         STORE.configure(new ParamStore.Settings(deployParamsDir, robot, localDir));
-        if (transport != null) {
+        boolean live = transport != null && TuningMode.enabled();
+        if (live) {
             STORE.enableLive(transport);
             saveButton = transport.button("SaveParams");
+            STORE.problem(
+                    "tuning",
+                    ParamStore.Level.WARNING,
+                    "Tuning mode is on: dashboard changes to params apply while disabled");
         }
         if (writer == null) {
             // Started now, during init, so it does not inherit the main thread's real-time
@@ -140,7 +145,7 @@ public final class Params {
         started = true;
         Telemetry.log("Params/Robot", robot == null ? "" : robot);
         Telemetry.log("Params/LocalFolder", localDir == null ? "" : localDir.toString());
-        Telemetry.log("Params/LiveTuning", transport != null);
+        Telemetry.log("Params/LiveTuning", live);
         Logger.processInputs("Params", INPUTS);
         loggedValuesVersion = STORE.valuesVersion();
         report();
@@ -304,6 +309,11 @@ public final class Params {
 
     private static <T> com.fasterxml.jackson.databind.JsonNode defaultJson(Param<T> p) {
         return p.toJson(p.getDefault());
+    }
+
+    /** Whether live tuning is running (tuning mode on and a transport given). */
+    public static boolean liveTuning() {
+        return STORE.liveEnabled();
     }
 
     /** The declared param at {@code group/key}, or null. */

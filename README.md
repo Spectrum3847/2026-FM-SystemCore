@@ -784,8 +784,9 @@ then the robot's own `/home/systemcore/params/<group>.json`, which a deploy does
 is declared in code (`spectrumLib/params`), and the log records what it was and which file it came
 from under `Params/`. A bad file raises an alert and is skipped. So far only the `cameras` group
 (Limelight rewind lengths, the Quest battery alert, the settings resend period and
-`pushLimelightMounts`, in `CameraParams`) uses it. In the simulator, values can be changed live under
-`/Tuning/` while disabled; `FM_PARAMS_LOCAL=<folder>` gives the simulator a local folder to save to.
+`pushLimelightMounts`, in `CameraParams`) uses it. With `Constants.TUNING_MODE` on, values can be changed live
+under `/Tuning/` while disabled and saved to the robot with `/Tuning/SaveParams`; CI fails a PR to
+`main` that leaves it on. `FM_PARAMS_LOCAL=<folder>` gives the simulator a local folder to save to.
 
 ## Before the event: calibrate and check
 

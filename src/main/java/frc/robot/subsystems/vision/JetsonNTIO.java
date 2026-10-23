@@ -67,6 +67,7 @@ public class JetsonNTIO implements JetsonIO {
     private final StringSubscriber fieldMapHash;
     private final StringSubscriber fieldMapName;
     private final GenericSubscriber fieldMapLoadedAt;
+    private final StringSubscriber fieldMapError;
 
     private final NetworkTableInstance nt = NetworkTableInstance.getDefault();
 
@@ -111,6 +112,7 @@ public class JetsonNTIO implements JetsonIO {
         fieldMapHash = jetsonMap.getStringTopic("Hash").subscribe("");
         fieldMapName = jetsonMap.getStringTopic("Name").subscribe("");
         fieldMapLoadedAt = number(jetsonMap, "LoadedAt");
+        fieldMapError = jetsonMap.getStringTopic("Error").subscribe("");
 
         NetworkTable rewind = pv.getSubTable("rewind");
         recording = rewind.getBooleanTopic("recording").subscribe(false);
@@ -176,6 +178,7 @@ public class JetsonNTIO implements JetsonIO {
         inputs.fieldMapHash = fieldMapHash.get();
         inputs.fieldMapName = fieldMapName.get();
         inputs.fieldMapLoadedAt = read(fieldMapLoadedAt, Double.NaN);
+        inputs.fieldMapError = fieldMapError.get();
     }
 
     private long lastMetricsTime = 0;

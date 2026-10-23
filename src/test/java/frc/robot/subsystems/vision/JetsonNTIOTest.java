@@ -49,12 +49,15 @@ class JetsonNTIOTest {
         hash.set("2792cd4e868967b8");
         name.set("k2026RebuiltAndymark");
         loadedAt.set(1_790_000_000L);
+        var error = nt.getStringTopic("/photonvision/jetson/FieldMap/Error").publish();
+        error.set("none yet");
 
         JetsonInputs inputs = new JetsonInputs();
         io.updateInputs(inputs);
         assertEquals("2792cd4e868967b8", inputs.fieldMapHash);
         assertEquals("k2026RebuiltAndymark", inputs.fieldMapName);
         assertEquals(1_790_000_000.0, inputs.fieldMapLoadedAt, 1e-9);
+        assertEquals("none yet", inputs.fieldMapError);
 
         AprilTagFieldLayout layout =
                 AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltAndymark);
@@ -74,5 +77,6 @@ class JetsonNTIOTest {
         hash.close();
         name.close();
         loadedAt.close();
+        error.close();
     }
 }

@@ -258,9 +258,10 @@ one source of truth. At boot it publishes it for the Jetson:
   ([FieldMapHash](src/main/java/frc/spectrumLib/vision/FieldMapHash.java)).
 - `/SpectrumVision/FieldMap/Name`: the WPILib field's name, or `custom`.
 
-The Jetson reports the map it loaded at `/photonvision/jetson/FieldMap/Hash`, `Name` and `LoadedAt`
-(logged as `Vision/Jetson/FieldMap/*`). The Settings check fails when its hash differs from the
-robot's, and warns when the Jetson reports none.
+The Jetson reports the map it loaded at `/photonvision/jetson/FieldMap/Hash`, `Name`, `LoadedAt`
+and `Error` (logged as `Vision/Jetson/FieldMap/*`). It hashes the layout it parsed from the
+published JSON, so the robot publishes exactly the numbers it hashes. The Settings check fails when
+the Jetson's hash differs from the robot's, and warns (with its `Error`) when it reports none.
 
 **The whole Orin pipeline replays.**
 - [PhotonOrinIO](src/main/java/frc/robot/subsystems/vision/PhotonOrinIO.java) logs every PhotonLib

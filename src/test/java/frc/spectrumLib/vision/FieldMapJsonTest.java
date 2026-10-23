@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 import org.wpilib.vision.apriltag.AprilTagFields;
@@ -25,6 +26,22 @@ class FieldMapJsonTest {
                 Jsonb.instance().type(AprilTagFieldLayout.class).fromJson(FieldMapJson.of(layout));
         assertEquals(layout, back);
         assertEquals(FieldMapHash.of(layout), FieldMapHash.of(back));
+    }
+
+    /**
+     * The robot publishes {@code FieldMapHash.of(layout)} beside {@code FieldMapJson.of(layout)};
+     * the Jetson hashes the layout it parses from that JSON. They must be the same value.
+     */
+    @ParameterizedTest
+    @CsvSource({"k2026RebuiltAndymark,2792cd4e868967b8", "k2026RebuiltWelded,ca28a7c1139ed099"})
+    void publishedHashIsTheHashOfThePublishedJson(AprilTagFields field, String expected) {
+        AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(field);
+        String publishedJson = FieldMapJson.of(layout);
+        String publishedHash = FieldMapHash.of(layout);
+        AprilTagFieldLayout parsed =
+                Jsonb.instance().type(AprilTagFieldLayout.class).fromJson(publishedJson);
+        assertEquals(expected, publishedHash);
+        assertEquals(publishedHash, FieldMapHash.of(parsed));
     }
 
     /** What a coprocessor does: hash the numbers in the JSON it was sent. */

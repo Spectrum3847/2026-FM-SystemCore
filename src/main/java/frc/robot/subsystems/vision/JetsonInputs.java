@@ -63,6 +63,9 @@ public class JetsonInputs implements LoggableInputs {
     /** When the Jetson loaded it, Jetson unix seconds. */
     public double fieldMapLoadedAt = Double.NaN;
 
+    /** Why the Jetson could not load the robot's map, or empty. */
+    public String fieldMapError = "";
+
     @Override
     public void toLog(LogTable table) {
         table.put("Heartbeat", heartbeat);
@@ -94,6 +97,7 @@ public class JetsonInputs implements LoggableInputs {
         table.put("FieldMap/Hash", fieldMapHash);
         table.put("FieldMap/Name", fieldMapName);
         table.put("FieldMap/LoadedAt", fieldMapLoadedAt);
+        table.put("FieldMap/Error", fieldMapError);
     }
 
     @Override
@@ -128,5 +132,6 @@ public class JetsonInputs implements LoggableInputs {
         fieldMapHash = table.get("FieldMap/Hash", "");
         fieldMapName = table.get("FieldMap/Name", "");
         fieldMapLoadedAt = table.get("FieldMap/LoadedAt", Double.NaN);
+        fieldMapError = table.get("FieldMap/Error", "");
     }
 }

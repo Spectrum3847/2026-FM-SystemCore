@@ -159,15 +159,19 @@ final class PreMatch {
      * @param robotHash the canonical hash of the map the robot solves with
      * @param jetsonHash the hash the Jetson reports for the map it loaded, empty when it reports
      *     none
+     * @param jetsonError why the Jetson could not load the robot's map, or empty
      * @return PASS when they match, FAIL when they differ, WARN when the Jetson reports none, SKIP
      *     when no Jetson is expected
      */
-    static CheckResult jetsonFieldMap(boolean expected, String robotHash, String jetsonHash) {
+    static CheckResult jetsonFieldMap(
+            boolean expected, String robotHash, String jetsonHash, String jetsonError) {
         if (!expected) {
             return CheckResult.skip("no Jetson");
         }
         if (jetsonHash.isEmpty()) {
-            return CheckResult.warn("Jetson not reporting its map");
+            return CheckResult.warn(
+                    "Jetson not reporting its map"
+                            + (jetsonError.isEmpty() ? "" : " (" + jetsonError + ")"));
         }
         if (!jetsonHash.equals(robotHash)) {
             return CheckResult.fail(
@@ -198,7 +202,8 @@ final class PreMatch {
                         jetsonFieldMap(
                                 jetson.isExpected(),
                                 Vision.getTagLayoutHash(),
-                                jetson.getInputs().fieldMapHash);
+                                jetson.getInputs().fieldMapHash,
+                                jetson.getInputs().fieldMapError);
         SettingsCheck settings =
                 new SettingsCheck()
                         .info(

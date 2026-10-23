@@ -11,12 +11,12 @@ class PreMatchFieldMapTest {
 
     @Test
     void theSameMapPasses() {
-        assertEquals(Status.PASS, PreMatch.jetsonFieldMap(true, ROBOT, ROBOT).status());
+        assertEquals(Status.PASS, PreMatch.jetsonFieldMap(true, ROBOT, ROBOT, "").status());
     }
 
     @Test
     void aDifferentMapFails() {
-        CheckResult r = PreMatch.jetsonFieldMap(true, ROBOT, "ca28a7c1139ed099");
+        CheckResult r = PreMatch.jetsonFieldMap(true, ROBOT, "ca28a7c1139ed099", "");
         assertEquals(Status.FAIL, r.status());
         assertEquals(
                 "Jetson field map differs (Jetson ca28a7c1139ed099, robot 2792cd4e868967b8)",
@@ -25,13 +25,20 @@ class PreMatchFieldMapTest {
 
     @Test
     void noReportWarns() {
-        CheckResult r = PreMatch.jetsonFieldMap(true, ROBOT, "");
+        CheckResult r = PreMatch.jetsonFieldMap(true, ROBOT, "", "");
         assertEquals(Status.WARN, r.status());
         assertEquals("Jetson not reporting its map", r.reason());
     }
 
     @Test
+    void theJetsonsLoadErrorIsShown() {
+        CheckResult r = PreMatch.jetsonFieldMap(true, ROBOT, "", "Json did not parse");
+        assertEquals(Status.WARN, r.status());
+        assertEquals("Jetson not reporting its map (Json did not parse)", r.reason());
+    }
+
+    @Test
     void noJetsonExpectedSkips() {
-        assertEquals(Status.SKIP, PreMatch.jetsonFieldMap(false, ROBOT, "").status());
+        assertEquals(Status.SKIP, PreMatch.jetsonFieldMap(false, ROBOT, "", "").status());
     }
 }

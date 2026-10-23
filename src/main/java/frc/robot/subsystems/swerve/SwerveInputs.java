@@ -65,6 +65,12 @@ public class SwerveInputs implements LoggableInputs {
     public double onboardImuYawRadians = 0;
     public double onboardImuYawRateRadPerSec = 0;
 
+    /** Raw, m/s^2: WPILib does not apply the mount orientation to the accelerometer. */
+    public double onboardImuAccelX = 0;
+
+    public double onboardImuAccelY = 0;
+    public double onboardImuAccelZ = 0;
+
     public double odometryPeriodSeconds = 0;
     public int successfulDaqs = 0;
     public int failedDaqs = 0;
@@ -94,6 +100,9 @@ public class SwerveInputs implements LoggableInputs {
         table.put("OnboardImu/Present", onboardImuPresent);
         table.put("OnboardImu/YawRadians", onboardImuYawRadians);
         table.put("OnboardImu/YawRateRadPerSec", onboardImuYawRateRadPerSec);
+        table.put("OnboardImu/AccelX", onboardImuAccelX);
+        table.put("OnboardImu/AccelY", onboardImuAccelY);
+        table.put("OnboardImu/AccelZ", onboardImuAccelZ);
         table.put("OdometryPeriodSeconds", odometryPeriodSeconds);
         table.put("SuccessfulDaqs", successfulDaqs);
         table.put("FailedDaqs", failedDaqs);
@@ -125,6 +134,9 @@ public class SwerveInputs implements LoggableInputs {
         onboardImuYawRadians = table.get("OnboardImu/YawRadians", onboardImuYawRadians);
         onboardImuYawRateRadPerSec =
                 table.get("OnboardImu/YawRateRadPerSec", onboardImuYawRateRadPerSec);
+        onboardImuAccelX = table.get("OnboardImu/AccelX", onboardImuAccelX);
+        onboardImuAccelY = table.get("OnboardImu/AccelY", onboardImuAccelY);
+        onboardImuAccelZ = table.get("OnboardImu/AccelZ", onboardImuAccelZ);
         odometryPeriodSeconds = table.get("OdometryPeriodSeconds", odometryPeriodSeconds);
         successfulDaqs = table.get("SuccessfulDaqs", successfulDaqs);
         failedDaqs = table.get("FailedDaqs", failedDaqs);

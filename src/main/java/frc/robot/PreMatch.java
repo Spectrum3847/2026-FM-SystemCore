@@ -36,6 +36,7 @@ final class PreMatch {
                 .register("CAN", can(swerve))
                 .register("Homing", homing(hood))
                 .register("CameraHeading", vision.getCameraHeadings())
+                .register("GyroMount", swerve.getMountCheck())
                 .register("Auto", autoStart)
                 .register("Battery", battery())
                 .register("Coprocessors", coprocessors(vision))

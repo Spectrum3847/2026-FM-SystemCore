@@ -299,7 +299,8 @@ public class Robot extends SpectrumRobot {
         org.wpilib.system.Threads.setCurrentThreadPriority(priority);
         int now = org.wpilib.system.Threads.getCurrentThreadPriority();
         boolean ok = now == priority;
-        Logger.recordMetadata("MainThreadPriority", Integer.toString(now));
+        // An output, not metadata: AdvantageKit ignores recordMetadata after Logger.start().
+        Telemetry.log("System/MainThreadPriority", now);
         Telemetry.print(
                 "Main thread real-time priority "
                         + priority

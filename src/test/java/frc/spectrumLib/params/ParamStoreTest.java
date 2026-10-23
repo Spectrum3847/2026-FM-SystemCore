@@ -264,6 +264,36 @@ class ParamStoreTest {
     }
 
     @Test
+    void liveChangesAreAllowedOnlyDisabledOffTheField() {
+        assertTrue(Params.liveChangesAllowed(true, false), "disabled in the pit");
+        assertFalse(Params.liveChangesAllowed(true, true), "disabled between auto and teleop");
+        assertFalse(Params.liveChangesAllowed(false, false), "enabled in the pit");
+        assertFalse(Params.liveChangesAllowed(false, true), "enabled on the field");
+    }
+
+    @Test
+    void changeRequestedDuringAMatchWaitsForThePit() {
+        configure();
+        var t = new FakeTransport();
+        store.enableLive(t);
+        DoubleParam a = cams.number("a", 1, "");
+
+        t.values.put("cams/a", 4.0);
+        store.applyLive(Params.liveChangesAllowed(false, true)); // auto
+        store.applyLive(Params.liveChangesAllowed(true, true)); // auto-to-teleop gap
+        store.applyLive(Params.liveChangesAllowed(false, true)); // teleop
+        store.applyLive(Params.liveChangesAllowed(true, true)); // after the match, field attached
+        assertEquals(1.0, a.get(), "never applied with the field attached");
+        assertEquals(ParamSource.DEFAULT, a.source());
+        assertTrue(store.pendingLive().contains("cams/a"));
+
+        store.applyLive(Params.liveChangesAllowed(true, false)); // back in the pit
+        assertEquals(4.0, a.get());
+        assertEquals(ParamSource.LIVE, a.source());
+        assertTrue(store.pendingLive().isEmpty());
+    }
+
+    @Test
     void liveChangeBackBeforeDisableIsDropped() {
         configure();
         var t = new FakeTransport();

@@ -280,23 +280,24 @@ final class ParamStore {
     }
 
     /**
-     * Applies the transport's requested values. Only while disabled; a request made while enabled
-     * waits, and applies at the next disable unless it is changed back first.
+     * Applies the transport's requested values, only when {@code allowed} ({@link
+     * Params#liveChangesAllowed}). A request made while not allowed waits, and applies once allowed
+     * unless it is changed back first.
      */
-    void applyLive(boolean disabled) {
+    void applyLive(boolean allowed) {
         if (transport == null) {
             return;
         }
         boolean changed = false;
         for (var e : live.entrySet()) {
-            changed |= applyLive(e.getKey(), e.getValue(), disabled);
+            changed |= applyLive(e.getKey(), e.getValue(), allowed);
         }
         if (changed) {
             refreshSummaries();
         }
     }
 
-    private <T> boolean applyLive(Param<T> p, ParamTransport.LiveValue h, boolean disabled) {
+    private <T> boolean applyLive(Param<T> p, ParamTransport.LiveValue h, boolean allowed) {
         Object requested = h.get();
         if (requested == null) {
             return false;
@@ -318,7 +319,7 @@ final class ParamStore {
             pendingLive.remove(p.path());
             return false;
         }
-        if (!disabled) {
+        if (!allowed) {
             pendingLive.add(p.path());
             return false;
         }
@@ -329,7 +330,7 @@ final class ParamStore {
         return true;
     }
 
-    /** Params whose dashboard value differs from the applied one, waiting for a disable. */
+    /** Params whose dashboard value differs from the applied one, waiting until allowed. */
     Set<String> pendingLive() {
         return Collections.unmodifiableSet(pendingLive);
     }

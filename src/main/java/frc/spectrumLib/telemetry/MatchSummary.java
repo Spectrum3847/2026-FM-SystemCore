@@ -24,12 +24,14 @@ import org.wpilib.system.Timer;
  * reboots, Driver Station drops, vision counts, how auto went, alerts raised and peak motor
  * temperatures. Every value is logged under {@code Summary/...} once a second, in every log.
  *
- * <p>When an FMS match ends (match type not {@code NONE}, teleop enabled then not), the summary is
- * also written as {@code <log name>.summary.json} next to the log, so the pit laptop and the log
- * site can read it without parsing the log. Power is usually cut on the way off the field, so the
- * file is written at once: the JSON is built on the main thread at the end of teleop and a
- * background thread writes it (tmp file, fsync, rename). Practice runs get the log keys only. The
- * keys and the file are documented in {@code docs/match-summary.md}.
+ * <p>In an FMS match (match type not {@code NONE}) the summary is also written as {@code <log
+ * name>.summary.json} next to the log, so the pit laptop and the log site can read it without
+ * parsing the log. It is written when auto ends, when the Driver Station drops, on an E-stop and
+ * when teleop ends, and each write replaces the last: the matches most worth a summary are the ones
+ * that never reach the end of teleop. Power is usually cut on the way off the field, so the file is
+ * written at once: the JSON is built on the main thread and a background thread writes it (tmp
+ * file, fsync, rename). Practice runs get the log keys only. The keys and the file are documented
+ * in {@code docs/match-summary.md}.
  *
  * <p>Everything is fed from logged inputs (motor inputs, the Driver Station, the robot clock,
  * battery and brownout inputs the robot passes in), so a replayed log recomputes the same summary.
@@ -40,7 +42,7 @@ import org.wpilib.system.Timer;
  */
 public final class MatchSummary {
     /** Bumped when a field changes meaning or is removed. Adding a field does not bump it. */
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
 
     /** Battery thresholds whose time below is totalled. */
     public static final double LOW_VOLTS = 8.0;
@@ -211,10 +213,11 @@ public final class MatchSummary {
     private double teleopEnd = Double.NaN;
 
     private String autoRoutine = "";
-    private BooleanSupplier autoRunning;
-    private double autoCommandStart = Double.NaN;
     private String autoEnded = "";
     private double autoSeconds = Double.NaN;
+
+    private boolean lastEStopped;
+    private boolean lastFmsMatch;
 
     private int errorsRaised;
     private int warningsRaised;
@@ -314,37 +317,41 @@ public final class MatchSummary {
     }
 
     /**
-     * Records the auto routine that just started. Call from {@code autonomousInit()}, after it is
-     * scheduled.
+     * Records the auto routine that just started. Call from {@code autonomousInit()}.
      *
      * @param routine its name
-     * @param running whether it is still running (e.g. {@code command::isScheduled})
      */
-    public void autoStarted(String routine, BooleanSupplier running) {
-        autoStarted(routine, running, Timer.getTimestamp());
-    }
-
-    void autoStarted(String routine, BooleanSupplier running, double now) {
+    public void autoStarted(String routine) {
         autoRoutine = routine;
-        autoRunning = running;
-        autoCommandStart = now;
         autoEnded = "";
         autoSeconds = Double.NaN;
+    }
+
+    /**
+     * Records why the auto ended, as the robot's own auto tracking logged it, so the summary and
+     * that log agree. Main thread.
+     *
+     * @param reason the logged reason, recorded as is
+     * @param seconds how long the auto ran
+     */
+    public void autoEnded(String reason, double seconds) {
+        autoEnded = reason;
+        autoSeconds = seconds;
     }
 
     // ── Per loop ─────────────────────────────────────────────────────────────
 
     /**
-     * Advances every accumulator, logs the summary once a second, and on the loop an FMS match ends
-     * hands the file to the writer. Call once per loop, after the command scheduler, so this loop's
-     * motor inputs have been read.
+     * Advances every accumulator, logs the summary once a second, and on a loop that calls for the
+     * file (see {@link Write}) hands it to the writer. Call once per loop, after the command
+     * scheduler, so this loop's motor inputs have been read and the auto's end has been reported.
      *
      * @param batteryVolts the logged battery voltage
      * @param brownedOut the logged brownout state
      */
     public void periodic(double batteryVolts, boolean brownedOut) {
         double now = Timer.getTimestamp();
-        boolean ended =
+        Write write =
                 update(
                         now,
                         batteryVolts,
@@ -353,12 +360,13 @@ public final class MatchSummary {
                         RobotState.isEnabled(),
                         RobotState.isAutonomous(),
                         RobotState.isTeleop(),
+                        RobotState.isEStopped(),
                         MatchState.getMatchType() != MatchType.NONE);
-        if (ended || RobotLoop.everySeconds(LOG_PERIOD_SECONDS)) {
+        if (write != null || RobotLoop.everySeconds(LOG_PERIOD_SECONDS)) {
             log();
         }
-        if (ended && writer != null) {
-            writer.submit(toJson(matchInfo(), now));
+        if (write != null && writer != null) {
+            writer.submit(toJson(matchInfo(), now, write));
         }
     }
 
@@ -373,12 +381,30 @@ public final class MatchSummary {
                 MatchState.getMatchTime());
     }
 
+    /** Why the file was written; in the file as {@code writtenOn}. */
+    enum Write {
+        /** An E-stop: the robot is done for the match. */
+        E_STOP("eStop"),
+        /** The Driver Station stopped answering: the robot may be dead from here on. */
+        DS_LOST("dsLost"),
+        /** Teleop was disabled: the end of the match, or a comm drop within it. */
+        TELEOP_END("teleopEnd"),
+        /** Auto was disabled: the first summary of the match, in case nothing follows. */
+        AUTO_END("autoEnd");
+
+        final String key;
+
+        Write(String key) {
+            this.key = key;
+        }
+    }
+
     /**
      * Advances the accumulators by one loop.
      *
-     * @return whether an FMS match's teleop ended this loop
+     * @return why the file is due this loop, or null; only ever in an FMS match
      */
-    boolean update(
+    Write update(
             double now,
             double batteryVolts,
             boolean brownedOut,
@@ -386,6 +412,7 @@ public final class MatchSummary {
             boolean enabled,
             boolean autonomous,
             boolean teleop,
+            boolean eStopped,
             boolean fmsMatch) {
         double dt = Double.isNaN(lastNow) ? 0 : Math.max(0, now - lastNow);
         double step = Math.min(dt, MAX_STEP_SECONDS);
@@ -427,6 +454,7 @@ public final class MatchSummary {
         }
         lastBrownedOut = brownedOut;
 
+        boolean dsLost = dsSeen && lastDs && !dsAttached;
         if (dsAttached) {
             if (dsSeen && !lastDs && dsEvents.size() < MAX_EVENTS_PER_DEVICE) {
                 dsEvents.add(fmt(now) + " back");
@@ -455,33 +483,40 @@ public final class MatchSummary {
         if (autoEnabled && !lastAutoEnabled) {
             autoStart = now;
         }
-        if (autoEnabled && autoRunning != null && autoEnded.isEmpty()) {
-            if (!autoRunning.getAsBoolean()) {
-                autoEnded = "finished";
-                autoSeconds = now - autoCommandStart;
-            }
-        }
-        if (!autoEnabled && lastAutoEnabled) {
+        boolean autoPeriodEnded = !autoEnabled && lastAutoEnabled;
+        if (autoPeriodEnded) {
             autoEnd = now;
-            if (autoRunning != null && autoEnded.isEmpty()) {
-                autoEnded = "cut off";
-                autoSeconds = now - autoCommandStart;
-            }
         }
         if (teleopEnabled && !lastTeleopEnabled) {
             teleopStart = now;
         }
-        boolean matchEnded = false;
-        if (!teleopEnabled && lastTeleopEnabled) {
+        boolean teleopEnded = !teleopEnabled && lastTeleopEnabled;
+        if (teleopEnded) {
             teleopEnd = now;
             if (fmsMatch) {
-                matchEnded = true;
                 matchesEnded++;
             }
         }
+        boolean eStop = eStopped && !lastEStopped;
+        // The match type may go with the Driver Station when it drops, so last loop's counts too.
+        boolean inMatch = fmsMatch || lastFmsMatch;
         lastAutoEnabled = autoEnabled;
         lastTeleopEnabled = teleopEnabled;
-        return matchEnded;
+        lastEStopped = eStopped;
+        lastFmsMatch = fmsMatch;
+        if (!inMatch) {
+            return null;
+        }
+        if (eStop) {
+            return Write.E_STOP;
+        }
+        if (dsLost) {
+            return Write.DS_LOST;
+        }
+        if (teleopEnded) {
+            return Write.TELEOP_END;
+        }
+        return autoPeriodEnded ? Write.AUTO_END : null;
     }
 
     private void updateDevices(double now, double step) {
@@ -635,11 +670,12 @@ public final class MatchSummary {
     // ── File ─────────────────────────────────────────────────────────────────
 
     /** The summary as JSON, a few KB. Main thread: it reads every accumulator. */
-    String toJson(MatchInfo match, double now) {
+    String toJson(MatchInfo match, double now, Write write) {
         Json j = new Json();
         j.open();
         j.field("version", VERSION);
         j.field("writtenAt", now);
+        j.field("writtenOn", write.key);
         j.key("match").open();
         j.field("event", match.event());
         j.field("type", match.type());
@@ -718,7 +754,11 @@ public final class MatchSummary {
         j.close();
         j.key("auto").open();
         j.field("routine", autoRoutine);
-        j.field("ended", autoEnded);
+        if (autoEnded.isEmpty()) {
+            j.nullField("ended");
+        } else {
+            j.field("ended", autoEnded);
+        }
         j.field("seconds", autoSeconds);
         j.close();
         j.key("alerts").open();
@@ -805,6 +845,12 @@ public final class MatchSummary {
         void field(String k, String v) {
             key(k);
             string(v);
+            first = false;
+        }
+
+        void nullField(String k) {
+            key(k);
+            sb.append("null");
             first = false;
         }
 

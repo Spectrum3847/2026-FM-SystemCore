@@ -43,7 +43,7 @@ import org.wpilib.driverstation.RobotState;
  *       /home/systemcore/params/FM2026/}), which a deploy does not wipe: what was saved in the pit.
  *       A hard-stop group's file is used only on the robot it was saved on ({@link HardwareStamp});
  *   <li>live changes from the dashboard, only with a transport (tuning mode) and only while
- *       disabled.
+ *       disabled with no field attached ({@link #liveChangesAllowed}).
  * </ol>
  *
  * A file holds a JSON object of {@code key: value}; a value may also be an object with the value
@@ -150,7 +150,8 @@ public final class Params {
             STORE.problem(
                     "tuning",
                     ParamStore.Level.WARNING,
-                    "Tuning mode is on: dashboard changes to params apply while disabled");
+                    "Tuning mode is on: dashboard changes to params apply while disabled, off"
+                            + " the field");
         }
         if (writer == null) {
             // Started now, during init, so it does not inherit the main thread's real-time
@@ -202,13 +203,14 @@ public final class Params {
     }
 
     /**
-     * Applies live changes (disabled only), logs the values, handles a save. Call once per loop,
-     * before anything reads a param.
+     * Applies live changes ({@link #liveChangesAllowed}), logs the values, handles a save. Call
+     * once per loop, before anything reads a param.
      */
     public static void periodic() {
         boolean replay = Logger.hasReplaySource();
         if (!replay) {
-            STORE.applyLive(RobotState.isDisabled());
+            STORE.applyLive(
+                    liveChangesAllowed(RobotState.isDisabled(), RobotState.isFMSAttached()));
         }
         if (replay || STORE.valuesVersion() != loggedValuesVersion) {
             Logger.processInputs("Params", INPUTS);
@@ -219,6 +221,18 @@ public final class Params {
         }
         pollSave();
         report();
+    }
+
+    /**
+     * Whether a dashboard change may apply now: disabled, and no field attached. On the field the
+     * robot is disabled between auto and teleop, and a change applied there would run in teleop
+     * with nobody having checked it; it waits until the robot is back in the pit.
+     *
+     * @param disabled the robot is disabled
+     * @param fmsAttached a field management system is attached
+     */
+    static boolean liveChangesAllowed(boolean disabled, boolean fmsAttached) {
+        return disabled && !fmsAttached;
     }
 
     /** Asks for a save at the next {@link #periodic()}; refused unless disabled. */

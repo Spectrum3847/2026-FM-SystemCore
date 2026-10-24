@@ -2,10 +2,13 @@ package frc.robot;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import frc.robot.subsystems.SuperStructure.WantedSuperState;
 import frc.spectrumLib.gamepads.Gamepad;
 import frc.spectrumLib.gamepads.GamepadLayout;
+import frc.spectrumLib.params.Params;
+import frc.spectrumLib.params.TuningMode;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -433,5 +436,21 @@ class BindingsSmokeTest {
         assertFalse(override.getAsBoolean(), "LB+Y is the intake reset, not the feed override");
         operator.releaseAll();
         step(RELEASE_LOOPS);
+    }
+
+    /**
+     * Main never runs with tuning mode on: dashboards could change params. Checked on the booted
+     * robot, so it catches tuning mode turned on anywhere in the boot path, not only by {@link
+     * Constants#TUNING_MODE}. Skipped on other branches, where tuning mode may be on on purpose.
+     */
+    @Test
+    void tuningModeIsOffOnMain() {
+        assumeTrue(
+                "main".equals(System.getenv("GITHUB_BASE_REF"))
+                        || "refs/heads/main".equals(System.getenv("GITHUB_REF"))
+                        || "main".equals(BuildConstants.GIT_BRANCH),
+                "not main");
+        assertFalse(TuningMode.enabled(), "tuning mode is on after boot");
+        assertFalse(Params.liveTuning(), "params are live-tunable after boot");
     }
 }

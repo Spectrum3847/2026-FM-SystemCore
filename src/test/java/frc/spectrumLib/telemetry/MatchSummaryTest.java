@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import frc.spectrumLib.telemetry.MatchSummary.Write;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -38,22 +39,28 @@ class MatchSummaryTest {
         boolean enabled = false;
         boolean auto = false;
         boolean teleop = false;
+        boolean eStopped = false;
         boolean fms = true;
     }
 
     private double now = 10.0;
 
-    private boolean step(MatchSummary s, Loop l) {
+    private Write step(MatchSummary s, Loop l) {
         return step(s, l, DT);
     }
 
-    private boolean step(MatchSummary s, Loop l, double dt) {
+    private Write step(MatchSummary s, Loop l, double dt) {
         now += dt;
-        return s.update(now, l.volts, l.brownedOut, l.ds, l.enabled, l.auto, l.teleop, l.fms);
+        return s.update(
+                now, l.volts, l.brownedOut, l.ds, l.enabled, l.auto, l.teleop, l.eStopped, l.fms);
     }
 
     private static JSONObject json(MatchSummary s) throws ParseException {
-        return (JSONObject) new JSONParser().parse(s.toJson(Q12, 0));
+        return json(s, Write.TELEOP_END);
+    }
+
+    private static JSONObject json(MatchSummary s, Write write) throws ParseException {
+        return (JSONObject) new JSONParser().parse(s.toJson(Q12, 0, write));
     }
 
     private static JSONObject obj(JSONObject o, String... path) {
@@ -213,65 +220,151 @@ class MatchSummaryTest {
     }
 
     @Test
-    void autoThatFinishesEarlyAndAutoThatIsCutOff() throws ParseException {
+    void theAutoEndIsRecordedAsTheAutoReportedIt() throws ParseException {
         var s = new MatchSummary(null);
-        var running = new AtomicBoolean(true);
         var l = new Loop();
         step(s, l);
+        s.autoStarted("TBTB");
         l.enabled = true;
         l.auto = true;
-        s.autoStarted("TBTB", running::get, now);
         step(s, l);
+        // Still running: no reason yet, whatever the summary might guess.
+        assertNull(obj(json(s, Write.AUTO_END), "auto").get("ended"));
         step(s, l, 3.0);
-        running.set(false);
+        s.autoEnded("DISABLED_BY_FMS_EARLY", 3.02);
+        l.enabled = false;
         step(s, l);
         var auto = obj(json(s), "auto");
         assertEquals("TBTB", auto.get("routine"));
-        assertEquals("finished", auto.get("ended"));
-        assertEquals(3.04, num(auto, "seconds"), 1e-6);
+        assertEquals("DISABLED_BY_FMS_EARLY", auto.get("ended"));
+        assertEquals(3.02, num(auto, "seconds"), 1e-9);
 
-        var cut = new MatchSummary(null);
-        running.set(true);
-        cut.autoStarted("TBTB", running::get, now);
-        step(cut, l);
-        step(cut, l, 14.9);
-        l.enabled = false;
-        step(cut, l);
-        assertEquals("cut off", obj(json(cut), "auto").get("ended"));
+        // A second auto (a practice restart) starts clean.
+        s.autoStarted("BBBB");
+        assertNull(obj(json(s), "auto").get("ended"));
     }
 
     @Test
-    void fmsMatchEndsWhenTeleopIsDisabled() {
+    void anFmsMatchIsWrittenWhenAutoEndsAndAgainWhenTeleopEnds() throws ParseException {
         var s = new MatchSummary(null);
         var l = new Loop();
-        assertFalse(step(s, l)); // pre-match, disabled
+        assertNull(step(s, l)); // pre-match, disabled
         l.enabled = true;
         l.auto = true;
-        assertFalse(step(s, l));
+        assertNull(step(s, l));
         l.enabled = false; // the gap between auto and teleop
-        assertFalse(step(s, l));
+        assertEquals(Write.AUTO_END, step(s, l));
+        assertEquals("autoEnd", json(s, Write.AUTO_END).get("writtenOn"));
         l.auto = false;
         l.teleop = true;
-        assertFalse(step(s, l));
+        assertNull(step(s, l));
         l.enabled = true;
-        assertFalse(step(s, l));
-        assertFalse(step(s, l));
+        assertNull(step(s, l));
+        assertNull(step(s, l));
         l.enabled = false;
-        assertTrue(step(s, l));
-        assertFalse(step(s, l)); // once
+        assertEquals(Write.TELEOP_END, step(s, l));
+        assertNull(step(s, l)); // once
     }
 
     @Test
-    void practiceRunsNeverEndAMatch() {
+    void aDeadRobotAfterAutoStillHasItsAutoEndFile() {
+        // The robot never enables in teleop (dead on the field, or rebooted): the auto-end write
+        // is the file.
+        var s = new MatchSummary(null);
+        var l = new Loop();
+        step(s, l);
+        l.enabled = true;
+        l.auto = true;
+        step(s, l);
+        l.enabled = false;
+        assertEquals(Write.AUTO_END, step(s, l));
+        l.auto = false;
+        l.teleop = true;
+        for (int i = 0; i < 100; i++) {
+            assertNull(step(s, l));
+        }
+    }
+
+    @Test
+    void anEStopInAutoIsWrittenAtOnce() {
+        var s = new MatchSummary(null);
+        var l = new Loop();
+        step(s, l);
+        l.enabled = true;
+        l.auto = true;
+        step(s, l);
+        // E-stop (or A-stop) disables the robot the same loop: the E-stop is the reason.
+        l.eStopped = true;
+        l.enabled = false;
+        assertEquals(Write.E_STOP, step(s, l));
+        assertNull(step(s, l)); // once while it stays E-stopped
+    }
+
+    @Test
+    void anEStopInTeleopIsWrittenAtOnce() {
+        var s = new MatchSummary(null);
+        var l = new Loop();
+        l.teleop = true;
+        l.enabled = true;
+        step(s, l);
+        l.eStopped = true;
+        assertEquals(Write.E_STOP, step(s, l));
+        l.enabled = false;
+        assertEquals(Write.TELEOP_END, step(s, l)); // the disable that follows rewrites it
+    }
+
+    @Test
+    void aDriverStationDropInAnFmsMatchIsWritten() {
+        var s = new MatchSummary(null);
+        var l = new Loop();
+        step(s, l);
+        l.teleop = true;
+        l.enabled = true;
+        step(s, l);
+        // The DS drops: the robot disables, and the match type may go with it.
+        l.ds = false;
+        l.enabled = false;
+        l.fms = false;
+        assertEquals(Write.DS_LOST, step(s, l));
+        assertNull(step(s, l));
+        // It comes back and the match goes on: teleop's end is written again.
+        l.ds = true;
+        l.fms = true;
+        l.enabled = true;
+        assertNull(step(s, l));
+        l.enabled = false;
+        assertEquals(Write.TELEOP_END, step(s, l));
+    }
+
+    @Test
+    void aDriverStationDropBeforeItFirstConnectsIsNotWritten() {
+        var s = new MatchSummary(null);
+        var l = new Loop();
+        l.ds = false; // booting
+        assertNull(step(s, l));
+        assertNull(step(s, l));
+    }
+
+    @Test
+    void practiceRunsAreNeverWritten() {
         var s = new MatchSummary(null);
         var l = new Loop();
         l.fms = false; // match type NONE
-        l.teleop = true;
+        l.auto = true;
         step(s, l);
         l.enabled = true;
-        assertFalse(step(s, l));
+        assertNull(step(s, l));
         l.enabled = false;
-        assertFalse(step(s, l));
+        assertNull(step(s, l));
+        l.auto = false;
+        l.teleop = true;
+        l.enabled = true;
+        assertNull(step(s, l));
+        l.eStopped = true;
+        assertNull(step(s, l));
+        l.ds = false;
+        l.enabled = false;
+        assertNull(step(s, l));
     }
 
     @Test
@@ -357,7 +450,7 @@ class MatchSummaryTest {
             step(s, l);
             s.alertRaised(Level.HIGH, "alert " + i);
         }
-        String text = s.toJson(Q12, 0);
+        String text = s.toJson(Q12, 0, Write.TELEOP_END);
         assertTrue(text.length() < 16_000, "summary is " + text.length() + " bytes");
     }
 

@@ -7,24 +7,36 @@ every Spectrum robot can use it). It is in two places:
 - **Log keys** `Summary/...`, in every log, practice or match, updated once a second.
 - **A file** `<log name>.summary.json` next to the log (`akit_26-10-16_20-11-57_txman1_q34.wpilog`
   gets `akit_26-10-16_20-11-57_txman1_q34.summary.json`), written only for FMS matches (match
-  type not None), on the loop teleop ends. It is about 2 KB, and the pit laptop, the log-triage
-  skill and the log site can read it before parsing the log.
+  type not None). It is about 2 KB, and the pit laptop, the log-triage skill and the log site can
+  read it before parsing the log.
+
+The file is written on the loop each of these happens, and each write replaces the last:
+
+| `writtenOn` | When |
+| --- | --- |
+| `autoEnd` | auto is disabled |
+| `dsLost` | the Driver Station stops answering (in an FMS match this loop or the last, since the match type can go with the DS) |
+| `eStop` | the robot is E-stopped (or A-stopped) |
+| `teleopEnd` | teleop is disabled: the end of the match, or a drop within it |
+
+So a robot E-stopped in auto, dead after auto, or rebooted mid-match still has a file: the matches
+most worth one are the ones that never reach the end of teleop. A reboot starts a new log, so the
+log from before it keeps the file written up to then.
 
 The scope is the whole log, from boot. The robot is powered off between matches, so that is one
-match plus the time in the queue. If teleop is disabled and enabled again in the same match (a
-comm drop), the file is written again at the next end and the last write wins.
+match plus the time in the queue.
 
 Every value comes from logged inputs (motor inputs, the Driver Station, the loop clock, the
 `Runtime/BatteryVoltage` and `Runtime/BrownedOut` inputs) or from code that runs on them (vision
 gates, alerts), so replaying a log recomputes the same summary under `ReplayOutputs/Summary/`.
 Replay never writes the file.
 
-The file is built on the main thread when teleop ends and written by a background thread, started
-during robot init so it does not inherit the main thread's real-time priority: a `.tmp` file,
-synced to disk, renamed over the target, then the folder synced so the rename survives too. A
-power cut leaves the old file or the new one, never half of one, and a failed write deletes its
-`.tmp`. (Windows cannot sync a folder, so the sim skips that step.) `Summary/File` logs the file
-name written, or why it failed.
+The file is built on the main thread and written by a background thread, started during robot
+init so it does not inherit the main thread's real-time priority: a `.tmp` file, synced to disk,
+renamed over the target, then the folder synced so the rename survives too. A power cut leaves the
+old file or the new one, never half of one, and a failed write deletes its `.tmp`. (Windows cannot
+sync a folder, so the sim skips that step.) `Summary/File` logs the file name written, or why it
+failed.
 
 The log it sits beside is this boot's: a `.wpilog` that was not in the folder when the boot cleanup
 listed it (`LogStorage`), under the name AdvantageKit gave it once the match was known. Not the
@@ -44,15 +56,15 @@ boot listing, uses the newest.
 | `Summary/Devices/Drops`, `Reboots` | totals over every tracked CAN device |
 | `Summary/PeakTempC/<mechanism>` | hottest reading while the motor was connected |
 | `Summary/Vision/<source>/Accepted`, `Rejected` | the source's running counts since boot |
-| `Summary/Auto/Routine`, `Ended`, `Seconds` | the auto that ran; `finished` (stopped on its own) or `cut off` (still running when auto ended), and how long it ran |
+| `Summary/Auto/Routine`, `Ended`, `Seconds` | the auto that ran, why it ended and how long it ran, as `Auton/EndReason` and `Auton/EndElapsedSeconds` logged them (`FINISHED`, `END_OF_PERIOD`, `DISABLED_BY_FMS_EARLY`, `DS_DISCONNECTED`, `E_STOP`, ...; see `AutoEnd.Reason`); empty while it runs |
 | `Summary/Alerts/ErrorsRaised`, `WarningsRaised` | times an error or warning alert turned on (seen once per loop, so an alert cleared and set again within a loop is not raised again) |
 | `Summary/Alerts/Raised` | each distinct error and warning text, as `error x2: <text>` |
-| `Summary/MatchesEnded` | FMS match ends seen (the file is written on each) |
+| `Summary/MatchesEnded` | FMS teleop ends seen |
 | `Summary/File` | the last file written, or the error |
 
 Durations credit at most 0.5 s per loop, so a stall does not count as time spent below a voltage.
 
-## File (`"version": 1`)
+## File (`"version": 2`)
 
 Times (`...At`, `...Start`, `...End`, the start of each event string) are robot seconds, the log's
 own timestamps, so they can be found in AdvantageScope. A value that never happened is `null`.
@@ -62,8 +74,9 @@ dropped for 0.6 s in teleop:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "writtenAt": 679.733,
+  "writtenOn": "teleopEnd",
   "match": {"event": "TXMAN1", "type": "QUALIFICATION", "number": 34, "replay": 1,
             "alliance": "RED", "station": 1, "matchTimeAtEnd": 0.0},
   "phases": {"autoStart": 516.676, "autoEnd": 532.154, "teleopStart": 539.724,
@@ -83,7 +96,7 @@ dropped for 0.6 s in teleop:
                          "events": ["608.87 drop", "609.49 back"]}},
   "neverConnected": [],
   "vision": {"LL-Left/MT1": {"accepted": 1770, "rejected": 2942}},
-  "auto": {"routine": "TBTB Full - Right", "ended": "cut off", "seconds": 15.478},
+  "auto": {"routine": "TBTB Full - Right", "ended": "END_OF_PERIOD", "seconds": 15.478},
   "alerts": {"errorsRaised": 7, "warningsRaised": 8, "infosRaised": 2,
              "raised": [{"level": "error", "firstAt": 608.874, "count": 1,
                          "text": "Pigeon IMU Disconnected"}]},
@@ -95,8 +108,11 @@ dropped for 0.6 s in teleop:
   (`moreEvents` counts the rest). `neverConnected` lists devices that never answered.
 - `alerts.raised` lists each distinct error and warning text once, up to 20 (`moreTexts` counts
   the rest). Info alerts are only counted.
+- `auto.ended` is the reason `AutoEnd` logged as `Auton/EndReason`, verbatim, and `auto.seconds`
+  its elapsed time; `ended` is `null` if the auto had not ended when the file was written.
 - Adding a field does not change `version`; renaming or removing one, or changing what one means,
-  does.
+  does. Version 2: `auto.ended` became `AutoEnd`'s reason (version 1 had `finished` or `cut off`),
+  and `writtenOn` was added.
 
 ## Using it on another robot
 
@@ -108,7 +124,8 @@ matchSummary = new MatchSummary(logFolderOrNullInReplay);
 matchSummary.addMechanism(launcher, busLabel);           // leader and followers
 matchSummary.addDevice("Pigeon", "CANivore", () -> in.gyroConnected, () -> in.gyroResetOccurred, null);
 matchSummary.addVisionSource(s.getName(), s::getAcceptedCount, s::getRejectedCount);
-// autonomousInit(), after scheduling: matchSummary.autoStarted(name, command::isScheduled);
+// autonomousInit(): matchSummary.autoStarted(name);
+// when the auto command ends: matchSummary.autoEnded(reason, seconds);
 // robotPeriodic(), after the scheduler: matchSummary.periodic(batteryVoltsInput, brownedOutInput);
 ```
 

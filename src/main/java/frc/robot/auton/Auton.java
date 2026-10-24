@@ -11,6 +11,7 @@ import frc.robot.subsystems.SuperStructure.WantedSuperState;
 import frc.spectrumLib.framework.SpectrumState;
 import frc.spectrumLib.telemetry.Telemetry;
 import java.io.IOException;
+import java.util.function.Consumer;
 import org.json.simple.parser.ParseException;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 import org.wpilib.command2.Command;
@@ -98,6 +99,11 @@ public class Auton {
         } else {
             Telemetry.print("No Auton Command Found");
         }
+    }
+
+    /** Tells the listener why each auto ended, after it is logged (the match summary). */
+    public void onAutoEnded(Consumer<AutoEnd.Ended> listener) {
+        autoEnd.onEnded(listener);
     }
 
     public Command doNothing() {

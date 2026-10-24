@@ -1,5 +1,8 @@
 package frc.robot.subsystems.hood;
 
+import org.littletonrobotics.junction.LogTable;
+import org.littletonrobotics.junction.inputs.LoggableInputs;
+
 /**
  * Finds the hood's bottom stop, so its angle does not depend on where it rested at power-on. Pure
  * logic: {@link Hood} fills an {@link Inputs} from logged inputs each loop and applies the {@link
@@ -93,7 +96,8 @@ public final class HoodHoming {
      * @param teleop the Driver Station is in teleop
      * @param motorConnected the hood motor's signals are arriving
      * @param motorReset the hood motor rebooted this loop, restarting its position
-     * @param positionDeg measured hood angle
+     * @param positionDeg measured hood angle; NaN while a zero has not reached the readings, which
+     *     starts no re-home on stow
      * @param degPerSec measured hood speed
      * @param wantsHome the hood is being sent to its stop
      * @param trackingStopped the hood's tracking stop holds it in neutral
@@ -121,6 +125,44 @@ public final class HoodHoming {
      */
     public record Output(
             Action action, boolean resetPosition, boolean zeroed, State state, boolean timedOut) {}
+
+    /**
+     * Logged as an input under {@code Hood/Homing}, true on every robot and sim run, so a log says
+     * whether it was recorded with homing. A log from before homing existed has no such key, and
+     * replaying it reads false.
+     */
+    public static final class LogMarker implements LoggableInputs {
+        public boolean recordedWithHoming = true;
+
+        @Override
+        public void toLog(LogTable table) {
+            table.put("RecordedWithHoming", recordedWithHoming);
+        }
+
+        @Override
+        public void fromLog(LogTable table) {
+            recordedWithHoming = table.get("RecordedWithHoming", false);
+        }
+    }
+
+    /**
+     * Whether to skip homing and treat the hood as zeroed: only when replaying a log recorded
+     * before homing existed. That robot trusted its boot angle and never wrote a zero, so its
+     * readings never show one, and waiting for one would hold the replayed shot gate where the
+     * robot fired.
+     *
+     * @param replay running in replay
+     * @param recordedWithHoming the log's {@link LogMarker}
+     * @return {@code true} to treat the hood as zeroed without homing
+     */
+    public static boolean assumeZeroedForReplay(boolean replay, boolean recordedWithHoming) {
+        return replay && !recordedWithHoming;
+    }
+
+    /** The output while {@link #assumeZeroedForReplay}: zeroed, closed loop, no zero written. */
+    public static Output assumedZeroed() {
+        return new Output(Action.CLOSED_LOOP, false, true, State.ZEROED, false);
+    }
 
     private final Params params;
 

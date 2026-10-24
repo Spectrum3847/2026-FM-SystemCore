@@ -363,11 +363,11 @@ public class Robot extends SpectrumRobot {
                     "Swerve " + SwerveAlignment.MODULE_NAMES[i],
                     drivetrain,
                     () -> in.moduleConnected.length != 4 || in.moduleConnected[m],
-                    () -> m < in.moduleResetOccurred.length && in.moduleResetOccurred[m],
+                    () -> swerve.moduleRebootedThisLoop(m),
                     null);
         }
         matchSummary.addDevice(
-                "Pigeon", drivetrain, () -> in.gyroConnected, () -> in.gyroResetOccurred, null);
+                "Pigeon", drivetrain, () -> in.gyroConnected, swerve::gyroRebootedThisLoop, null);
         for (PoseSource s : vision.getAllSources()) {
             matchSummary.addVisionSource(s.getName(), s::getAcceptedCount, s::getRejectedCount);
         }

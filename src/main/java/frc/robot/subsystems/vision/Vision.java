@@ -1027,11 +1027,18 @@ public class Vision implements Subsystem {
                 config.seedXyStdDev,
                 Units.degreesToRadians(config.seedThetaStdDevDeg));
         poseHeadingSeeded = true;
+        multiTagSeedCount++;
         trackSeedConfirmation(o);
     }
 
     /** Times the pose was seeded while enabled; logged so a match log shows it happened. */
     private int enabledSeedCount = 0;
+
+    /**
+     * Times any track was seeded from a multi-tag MegaTag1 solve since boot. The pre-match start
+     * check compares it across a placement to know the pose came from a camera, not the code.
+     */
+    @Getter private long multiTagSeedCount = 0;
 
     /**
      * Seeds the pose during the match when nothing seeded it before enable, then confirms that seed
@@ -1072,6 +1079,7 @@ public class Vision implements Subsystem {
                     Units.degreesToRadians(config.seedThetaStdDevDeg));
             poseHeadingSeeded = true;
             enabledSeedCount++;
+            multiTagSeedCount++;
             resetQuestToRobotPose();
             Telemetry.print(
                     String.format(
@@ -1295,6 +1303,7 @@ public class Vision implements Subsystem {
         Telemetry.logDash("Vision/ChassisSource", useMt2 ? "MT2" : "MT1");
         Telemetry.logDash("Vision/GrossHeadingCorrections", (long) grossHeadingCorrections);
         Telemetry.log("Vision/EnabledSeedCount", (long) enabledSeedCount);
+        Telemetry.log("Vision/MultiTagSeedCount", multiTagSeedCount);
         Telemetry.logDash(
                 "Vision/SecondsSinceFusedEstimate", Math.min(secondsSinceFusedEstimate(), 999.0));
         if (Telemetry.slowLogThisLoop()) {

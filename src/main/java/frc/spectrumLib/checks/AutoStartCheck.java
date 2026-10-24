@@ -8,9 +8,13 @@ import org.wpilib.math.geometry.Pose2d;
  * An auto is selected, its file loaded, and the robot sits on its starting pose (254 2025's "Near
  * Auto Starting Pose").
  *
- * <p>The pose comparison needs a vision-seeded pose: before that the robot's pose is only where the
- * code put it, so the check warns that the start is unverified. After the first enable it no longer
- * compares: the robot has driven, and the start of the path is history.
+ * <p>The pose comparison needs a multi-tag vision seed taken after the code last put the pose on
+ * the start. Before that the pose is only where the code put it, and comparing it with the start
+ * would compare the start with itself, so the check warns that the start is unverified.
+ *
+ * <p>Once the robot is enabled it stops comparing: the robot has driven, and the start of the path
+ * is history. It re-arms for the next match on a rising edge of FMS attach or a new match number,
+ * and then needs a fresh seed too.
  */
 public final class AutoStartCheck implements Check {
 
@@ -31,9 +35,12 @@ public final class AutoStartCheck implements Check {
      * @param start the first path's starting pose, flipped and mirrored as it will run; empty if no
      *     path loaded
      * @param robotPose the robot's fused pose
-     * @param poseSeeded whether vision has seeded the pose's heading
+     * @param placements times the code has put the pose on the start since boot
+     * @param multiTagSeeds times vision has seeded the pose from a multi-tag solve since boot
      * @param alliancePresent whether the Driver Station has reported an alliance
-     * @param hasBeenEnabled whether the robot has been enabled since boot
+     * @param enabled whether the robot is enabled this loop
+     * @param fmsAttached whether the FMS is attached this loop
+     * @param matchNumber the match number the Driver Station reports
      */
     public record State(
             String autoName,
@@ -41,14 +48,23 @@ public final class AutoStartCheck implements Check {
             boolean fileFound,
             Optional<Pose2d> start,
             Pose2d robotPose,
-            boolean poseSeeded,
+            long placements,
+            long multiTagSeeds,
             boolean alliancePresent,
-            boolean hasBeenEnabled) {}
+            boolean enabled,
+            boolean fmsAttached,
+            int matchNumber) {}
 
     private final Supplier<State> state;
     private double offSince = Double.NaN;
     private double distance = Double.NaN;
     private double headingError = Double.NaN;
+
+    private long lastPlacements = 0;
+    private boolean lastFmsAttached = false;
+    private int lastMatchNumber = 0;
+    private long seedsAtBaseline = 0;
+    private boolean enabledSinceArmed = false;
 
     /**
      * @param state this loop's auto selection and robot pose
@@ -57,10 +73,32 @@ public final class AutoStartCheck implements Check {
         this.state = state;
     }
 
+    /** Moves the seed baseline on a placement or a re-arm, and latches an enable. */
+    private void track(State s) {
+        boolean rearm = (s.fmsAttached() && !lastFmsAttached) || s.matchNumber() != lastMatchNumber;
+        if (rearm) {
+            enabledSinceArmed = false;
+        }
+        if (rearm || s.placements() != lastPlacements) {
+            seedsAtBaseline = s.multiTagSeeds();
+        }
+        enabledSinceArmed |= s.enabled();
+        lastPlacements = s.placements();
+        lastFmsAttached = s.fmsAttached();
+        lastMatchNumber = s.matchNumber();
+    }
+
+    private boolean seededSinceBaseline(State s) {
+        return s.multiTagSeeds() > seedsAtBaseline;
+    }
+
     @Override
     public void observe(double now) {
         State s = state.get();
-        if (s == null || s.start().isEmpty() || !s.poseSeeded() || s.hasBeenEnabled()) {
+        if (s != null) {
+            track(s);
+        }
+        if (s == null || s.start().isEmpty() || !seededSinceBaseline(s) || enabledSinceArmed) {
             offSince = Double.NaN;
             distance = Double.NaN;
             headingError = Double.NaN;
@@ -97,15 +135,13 @@ public final class AutoStartCheck implements Check {
             return CheckResult.warn(
                     "no alliance from the Driver Station, so the start is not flipped yet");
         }
-        if (s.hasBeenEnabled()) {
+        if (enabledSinceArmed) {
             return CheckResult.pass(
-                    s.autoName() + " selected; start pose not checked after the first enable");
+                    s.autoName() + " selected; start pose not checked after an enable this match");
         }
-        if (!s.poseSeeded()) {
+        if (!seededSinceBaseline(s)) {
             return CheckResult.warn(
-                    "start pose unverified: no camera has seeded the pose yet ("
-                            + s.autoName()
-                            + ")");
+                    "start pose unverified: no fresh multi-tag vision seed (" + s.autoName() + ")");
         }
         String where = String.format("%.2f m and %.0f deg", distance, headingError);
         if (!Double.isNaN(offSince) && now - offSince >= HOLD_SECONDS) {

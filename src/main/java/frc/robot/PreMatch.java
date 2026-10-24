@@ -77,9 +77,9 @@ final class PreMatch {
                             drivetrain,
                             SwerveAlignment.MODULE_NAMES[i] + " module",
                             () -> in.moduleConnected.length != 4 || in.moduleConnected[m])
-                    .resets(() -> m < in.moduleResetOccurred.length && in.moduleResetOccurred[m]);
+                    .resets(() -> swerve.moduleRebootedThisLoop(m));
         }
-        can.add(drivetrain, "Pigeon", () -> in.gyroConnected).resets(() -> in.gyroResetOccurred);
+        can.add(drivetrain, "Pigeon", () -> in.gyroConnected).resets(swerve::gyroRebootedThisLoop);
         for (Mechanism m : Mechanism.all()) {
             can.addMechanism(m, CanBuses.label(m.config.getId().getBus()));
         }

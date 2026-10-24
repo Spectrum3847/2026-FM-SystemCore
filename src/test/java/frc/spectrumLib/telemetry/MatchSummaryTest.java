@@ -3,15 +3,18 @@ package frc.spectrumLib.telemetry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import frc.spectrumLib.checks.CheckResult;
 import frc.spectrumLib.checks.PreMatchChecks;
+import frc.spectrumLib.telemetry.MatchSummary.Write;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -39,22 +42,28 @@ class MatchSummaryTest {
         boolean enabled = false;
         boolean auto = false;
         boolean teleop = false;
+        boolean eStopped = false;
         boolean fms = true;
     }
 
     private double now = 10.0;
 
-    private boolean step(MatchSummary s, Loop l) {
+    private Write step(MatchSummary s, Loop l) {
         return step(s, l, DT);
     }
 
-    private boolean step(MatchSummary s, Loop l, double dt) {
+    private Write step(MatchSummary s, Loop l, double dt) {
         now += dt;
-        return s.update(now, l.volts, l.brownedOut, l.ds, l.enabled, l.auto, l.teleop, l.fms);
+        return s.update(
+                now, l.volts, l.brownedOut, l.ds, l.enabled, l.auto, l.teleop, l.eStopped, l.fms);
     }
 
     private static JSONObject json(MatchSummary s) throws ParseException {
-        return (JSONObject) new JSONParser().parse(s.toJson(Q12, 0));
+        return json(s, Write.TELEOP_END);
+    }
+
+    private static JSONObject json(MatchSummary s, Write write) throws ParseException {
+        return (JSONObject) new JSONParser().parse(s.toJson(Q12, 0, write));
     }
 
     private static JSONObject obj(JSONObject o, String... path) {
@@ -276,65 +285,151 @@ class MatchSummaryTest {
     }
 
     @Test
-    void autoThatFinishesEarlyAndAutoThatIsCutOff() throws ParseException {
+    void theAutoEndIsRecordedAsTheAutoReportedIt() throws ParseException {
         var s = new MatchSummary(null);
-        var running = new AtomicBoolean(true);
         var l = new Loop();
         step(s, l);
+        s.autoStarted("TBTB");
         l.enabled = true;
         l.auto = true;
-        s.autoStarted("TBTB", running::get, now);
         step(s, l);
+        // Still running: no reason yet, whatever the summary might guess.
+        assertNull(obj(json(s, Write.AUTO_END), "auto").get("ended"));
         step(s, l, 3.0);
-        running.set(false);
+        s.autoEnded("DISABLED_BY_FMS_EARLY", 3.02);
+        l.enabled = false;
         step(s, l);
         var auto = obj(json(s), "auto");
         assertEquals("TBTB", auto.get("routine"));
-        assertEquals("finished", auto.get("ended"));
-        assertEquals(3.04, num(auto, "seconds"), 1e-6);
+        assertEquals("DISABLED_BY_FMS_EARLY", auto.get("ended"));
+        assertEquals(3.02, num(auto, "seconds"), 1e-9);
 
-        var cut = new MatchSummary(null);
-        running.set(true);
-        cut.autoStarted("TBTB", running::get, now);
-        step(cut, l);
-        step(cut, l, 14.9);
-        l.enabled = false;
-        step(cut, l);
-        assertEquals("cut off", obj(json(cut), "auto").get("ended"));
+        // A second auto (a practice restart) starts clean.
+        s.autoStarted("BBBB");
+        assertNull(obj(json(s), "auto").get("ended"));
     }
 
     @Test
-    void fmsMatchEndsWhenTeleopIsDisabled() {
+    void anFmsMatchIsWrittenWhenAutoEndsAndAgainWhenTeleopEnds() throws ParseException {
         var s = new MatchSummary(null);
         var l = new Loop();
-        assertFalse(step(s, l)); // pre-match, disabled
+        assertNull(step(s, l)); // pre-match, disabled
         l.enabled = true;
         l.auto = true;
-        assertFalse(step(s, l));
+        assertNull(step(s, l));
         l.enabled = false; // the gap between auto and teleop
-        assertFalse(step(s, l));
+        assertEquals(Write.AUTO_END, step(s, l));
+        assertEquals("autoEnd", json(s, Write.AUTO_END).get("writtenOn"));
         l.auto = false;
         l.teleop = true;
-        assertFalse(step(s, l));
+        assertNull(step(s, l));
         l.enabled = true;
-        assertFalse(step(s, l));
-        assertFalse(step(s, l));
+        assertNull(step(s, l));
+        assertNull(step(s, l));
         l.enabled = false;
-        assertTrue(step(s, l));
-        assertFalse(step(s, l)); // once
+        assertEquals(Write.TELEOP_END, step(s, l));
+        assertNull(step(s, l)); // once
     }
 
     @Test
-    void practiceRunsNeverEndAMatch() {
+    void aDeadRobotAfterAutoStillHasItsAutoEndFile() {
+        // The robot never enables in teleop (dead on the field, or rebooted): the auto-end write
+        // is the file.
+        var s = new MatchSummary(null);
+        var l = new Loop();
+        step(s, l);
+        l.enabled = true;
+        l.auto = true;
+        step(s, l);
+        l.enabled = false;
+        assertEquals(Write.AUTO_END, step(s, l));
+        l.auto = false;
+        l.teleop = true;
+        for (int i = 0; i < 100; i++) {
+            assertNull(step(s, l));
+        }
+    }
+
+    @Test
+    void anEStopInAutoIsWrittenAtOnce() {
+        var s = new MatchSummary(null);
+        var l = new Loop();
+        step(s, l);
+        l.enabled = true;
+        l.auto = true;
+        step(s, l);
+        // E-stop (or A-stop) disables the robot the same loop: the E-stop is the reason.
+        l.eStopped = true;
+        l.enabled = false;
+        assertEquals(Write.E_STOP, step(s, l));
+        assertNull(step(s, l)); // once while it stays E-stopped
+    }
+
+    @Test
+    void anEStopInTeleopIsWrittenAtOnce() {
+        var s = new MatchSummary(null);
+        var l = new Loop();
+        l.teleop = true;
+        l.enabled = true;
+        step(s, l);
+        l.eStopped = true;
+        assertEquals(Write.E_STOP, step(s, l));
+        l.enabled = false;
+        assertEquals(Write.TELEOP_END, step(s, l)); // the disable that follows rewrites it
+    }
+
+    @Test
+    void aDriverStationDropInAnFmsMatchIsWritten() {
+        var s = new MatchSummary(null);
+        var l = new Loop();
+        step(s, l);
+        l.teleop = true;
+        l.enabled = true;
+        step(s, l);
+        // The DS drops: the robot disables, and the match type may go with it.
+        l.ds = false;
+        l.enabled = false;
+        l.fms = false;
+        assertEquals(Write.DS_LOST, step(s, l));
+        assertNull(step(s, l));
+        // It comes back and the match goes on: teleop's end is written again.
+        l.ds = true;
+        l.fms = true;
+        l.enabled = true;
+        assertNull(step(s, l));
+        l.enabled = false;
+        assertEquals(Write.TELEOP_END, step(s, l));
+    }
+
+    @Test
+    void aDriverStationDropBeforeItFirstConnectsIsNotWritten() {
+        var s = new MatchSummary(null);
+        var l = new Loop();
+        l.ds = false; // booting
+        assertNull(step(s, l));
+        assertNull(step(s, l));
+    }
+
+    @Test
+    void practiceRunsAreNeverWritten() {
         var s = new MatchSummary(null);
         var l = new Loop();
         l.fms = false; // match type NONE
-        l.teleop = true;
+        l.auto = true;
         step(s, l);
         l.enabled = true;
-        assertFalse(step(s, l));
+        assertNull(step(s, l));
         l.enabled = false;
-        assertFalse(step(s, l));
+        assertNull(step(s, l));
+        l.auto = false;
+        l.teleop = true;
+        l.enabled = true;
+        assertNull(step(s, l));
+        l.eStopped = true;
+        assertNull(step(s, l));
+        l.ds = false;
+        l.enabled = false;
+        assertNull(step(s, l));
     }
 
     @Test
@@ -522,30 +617,71 @@ class MatchSummaryTest {
             s.alertRaised(Level.HIGH, "alert " + i);
             s.alertRaised(Level.MEDIUM, "Pre-match, Battery: " + i + " V");
         }
-        String text = s.toJson(Q12, 0);
+        String text = s.toJson(Q12, 0, Write.TELEOP_END);
         assertTrue(text.length() < 16_000, "summary is " + text.length() + " bytes");
     }
 
     @Test
-    void writesAtomicallyBesideTheNewestLog() throws IOException {
-        File older = dir.resolve("akit_old.wpilog").toFile();
+    void writesBesideThisBootsLogEvenWhenTheClockIsBehind() throws IOException {
+        // SystemCore booted with its clock behind: this boot's log is stamped before older ones.
+        File older = dir.resolve("akit_26-10-16_txman1_q33.wpilog").toFile();
         File current = dir.resolve("akit_26-10-16_txman1_q34.wpilog").toFile();
-        File replay = dir.resolve("akit_26-10-16_txman1_q34_sim.wpilog").toFile();
+        File replay = dir.resolve("akit_26-10-16_txman1_q33_sim.wpilog").toFile();
         Files.writeString(older.toPath(), "x");
         Files.writeString(current.toPath(), "x");
         Files.writeString(replay.toPath(), "x");
-        assertTrue(older.setLastModified(1_000_000L));
-        assertTrue(current.setLastModified(2_000_000L));
-        assertTrue(replay.setLastModified(3_000_000L));
+        assertTrue(older.setLastModified(3_000_000L));
+        assertTrue(current.setLastModified(1_000_000L));
+        assertTrue(replay.setLastModified(4_000_000L));
+        var atBoot = Set.of(older.getName(), replay.getName());
 
-        File log = SummaryFileWriter.newestLog(dir.toFile());
+        File log = SummaryFileWriter.thisBootsLog(dir.toFile(), atBoot);
         assertEquals(current, log);
         File target = SummaryFileWriter.summaryFor(log);
         assertEquals("akit_26-10-16_txman1_q34.summary.json", target.getName());
 
-        SummaryFileWriter.writeAtomically(target.toPath(), "{\"version\":1}");
-        SummaryFileWriter.writeAtomically(target.toPath(), "{\"version\":1,\"n\":2}");
-        assertEquals("{\"version\":1,\"n\":2}", Files.readString(target.toPath()));
-        assertFalse(dir.resolve(target.getName() + ".tmp").toFile().exists());
+        // Nothing listed at boot (the sim): the newest log, never a replay output.
+        assertEquals(older, SummaryFileWriter.thisBootsLog(dir.toFile(), null));
+        // This boot's log not there (yet): no file rather than the wrong one.
+        assertNull(
+                SummaryFileWriter.thisBootsLog(
+                        dir.toFile(), Set.of(current.getName(), older.getName())));
+    }
+
+    @Test
+    void writesAtomicallyAndLastWriteWins() throws IOException {
+        Path target = dir.resolve("akit_q34.summary.json");
+        assertTrue(SummaryFileWriter.writeAtomically(target, "{\"version\":1}"));
+        assertTrue(SummaryFileWriter.writeAtomically(target, "{\"version\":1,\"n\":2}"));
+        assertEquals("{\"version\":1,\"n\":2}", Files.readString(target));
+        assertFalse(dir.resolve("akit_q34.summary.json.tmp").toFile().exists());
+    }
+
+    @Test
+    void aFailedWriteLeavesNoTemporaryFile() throws IOException {
+        // A folder in the target's place, with something in it: the rename over it fails.
+        Path target = dir.resolve("akit_q34.summary.json");
+        Files.createDirectory(target);
+        Files.writeString(target.resolve("inside"), "x");
+        assertThrows(
+                IOException.class, () -> SummaryFileWriter.writeAtomically(target, "{\"v\":1}"));
+        assertFalse(dir.resolve("akit_q34.summary.json.tmp").toFile().exists());
+    }
+
+    @Test
+    void theWriterThreadStartsWithTheWriterNotOnTheFirstWrite() throws Exception {
+        Files.writeString(dir.resolve("akit_q34.wpilog"), "x");
+        var writer = new SummaryFileWriter(dir.toFile());
+        // Started by the constructor (robot init, before the main thread goes real-time).
+        assertTrue(
+                Thread.getAllStackTraces().keySet().stream()
+                        .anyMatch(t -> t.getName().equals("MatchSummary") && t.isAlive()));
+        writer.submit("{\"version\":1}");
+        long deadline = System.nanoTime() + 5_000_000_000L;
+        while (writer.lastResult().isEmpty() && System.nanoTime() < deadline) {
+            Thread.sleep(10);
+        }
+        assertEquals("akit_q34.summary.json", writer.lastResult());
+        assertEquals("{\"version\":1}", Files.readString(dir.resolve("akit_q34.summary.json")));
     }
 }

@@ -4,20 +4,29 @@
 
 name: Replay
 
+# A cache saved by a pull_request run can be restored only by that PR, so every PR missed and
+# downloaded the release logs (about 1.1 GB). Runs on main save the cut fixtures where every PR can
+# restore them, and the weekly run keeps that entry from being evicted when the cache is full.
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
+  push:
+    branches: [ "main" ]
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: replay-${{ github.event.pull_request.number }}
+  group: replay-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   # The logs stay out of git: the PR's fixtures.json says which windows of which release logs to
-  # replay, and the cut windows are cached until that list or the tools that cut them change.
+  # replay, and the cut windows are cached until that list or the tools that cut them change. Off
+  # a PR, only this job runs.
   fixtures:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -32,12 +41,13 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: replay-fixtures
-          key: replay-fixtures-${{ hashFiles('src/test/resources/replay/fixtures.json', 'tools/fetch_replay_fixtures.py', 'tools/trim_wpilog.py', 'tools/wpilog_summary.py') }}
+          key: replay-fixtures-${{ hashFiles('src/test/resources/replay/fixtures.json', 'tools/fetch_replay_fixtures.py', 'tools/trim_wpilog.py') }}
 
       - name: Fetch and cut the fixtures
         run: python3 tools/fetch_replay_fixtures.py replay-fixtures
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name == 'pull_request'
         with:
           name: replay-fixtures
           path: replay-fixtures/*.wpilog
@@ -45,6 +55,7 @@ jobs:
 
   replay:
     needs: fixtures
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:

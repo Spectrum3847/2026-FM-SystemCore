@@ -59,6 +59,20 @@ jobs:
             exit 1
           fi
 
+      # Robot.java passes Constants.TUNING_MODE in; any other call could turn tuning mode on behind
+      # the constant. Tests (src/test) may call it.
+      - name: Nothing else turns tuning mode on
+        run: |
+          bad=$(grep -rnE 'TuningMode\s*(\.|::)\s*set\b|import\s+static\s+[a-zA-Z.]*TuningMode\.' src/main/java \
+            | grep -vE '^src/main/java/frc/robot/Robot\.java:[0-9]+: *TuningMode\.set\(Constants\.TUNING_MODE\);$' \
+            | grep -vE ':[0-9]+: *TuningMode\.set\(false\);$' || true)
+          if [ -n "$bad" ]; then
+            echo "$bad" | while IFS=: read -r file line _; do
+              echo "::error file=$file,line=$line::Only Robot.java may set tuning mode, from Constants.TUNING_MODE"
+            done
+            exit 1
+          fi
+
   # Each scripted sim runs in real time, then tools/ci_assert.py checks its log.
   sim:
     runs-on: ubuntu-latest

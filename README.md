@@ -113,6 +113,8 @@ The replay fixtures are windows of real match logs, listed in
 are not committed: [tools/fetch_replay_fixtures.py](tools/fetch_replay_fixtures.py) downloads the
 release asset each comes from (the redacted `TXMAN1-logs` copies), checks the log's SHA-256 and cuts
 the window with `trim_wpilog.py`. CI caches the cut windows until the list or those tools change.
+The cache is saved by the Replay workflow's runs on main (each push, and weekly), since a cache a PR
+saves can be restored only by that PR.
 Today: TXMAN1 Q24 180-215 s (pre-match through the vision seed in auto, two auto launches, the start
 of teleop), Q32 290-335 s (seven teleop volleys, two fed by the gate timeout) and Playoff 20
 350-395 s (the event's last code, one volley fed while the pose was untrusted).
@@ -742,10 +744,22 @@ laptop then pulls them with the match log. The robot side is
 - Files land in `/home/systemcore/logs/ds/` (internal storage even with a USB stick in; the pit
   pulls from there). Above 1.5 GB, finished and partial files from earlier boots go first, then
   this boot's in the order they arrived; never below 1 GB of free disk. Kinds and caps: `dslog`
-  (NI `.dslog`/`.dsevents`, 20 MB), `dswpilog` (2027 DS log, 50 MB, stored as `.dswpilog` so older
+  (NI `.dslog`/`.dsevents`, 20 MB), `dswpilog` (2027 DS log, a whole day's session, 400 MB, stored as `.dswpilog` so older
   pit helpers never take it for a robot log and upload it), `audio` (`.m4a`/`.opus`, 20 MB), `video`
   (`.mp4`, 200 MB).
-- One connection at a time, each limited to 2 minutes in total.
+- **Extend** (`dslog` and `dswpilog` only). The DS session log grows all day, so after each match
+  the client sends only what is new. HEAD on a finished log adds `X-Sha256-Prefix-Supported: 1`.
+  `PUT /upload/<kind>/<name>?offset=<n>&total=<N>&extend=1`, with `X-Prefix-Sha256` set to the
+  SHA-256 of the client's first n bytes (n = the finished file's length, N > n), turns the finished
+  file back into a partial one and appends; later chunks are plain offset PUTs. If the hash differs
+  (or n isn't the finished length), the reply is 409 with `X-Extend: mismatch`, and the client sends
+  from offset 0. The robot hashes logs as they arrive, so it reads a file back only for one left
+  from an earlier boot, and stops if the robot enables.
+- If the robot enables mid-upload, the receiver stops within 64 KiB, keeps the partial file and
+  closes the connection without a reply; the client resumes from `X-Received` later.
+- Up to three connections at once, on threads created at robot init at minimum priority. A
+  connection gets 3 s to send its request head and 2 minutes in total. Two uploads of the same file
+  take turns.
 - Logged as `DSUpload/FilesReceived`, `BytesReceived`, `LastFile` and `LastError`.
 - Bench test on a laptop: `./gradlew compileJava`, then
   `java -cp build/classes/java/main frc.spectrumLib.telemetry.DsUploadReceiver <folder> <token> 5806`

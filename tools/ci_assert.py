@@ -5,7 +5,8 @@ Usage:
     python tools/ci_assert.py LOG CONSOLE [--auto]
 
 LOG is the run's .wpilog, CONSOLE its captured console output. Checks:
-  - the console shows no uncaught exception or stack trace, and the script ran to its end;
+  - the console shows no crash (an uncaught exception or the robot program quitting; errors WPILib
+    reports with a stack trace and carries on from are not crashes), and the script ran to its end;
   - with --auto, no path the auto started stopped short of its end before autonomous ended
     (autos are built to run until the end of autonomous cuts them off);
   - the fused pose's error against the sim's true pose, once the vision seed is confirmed and
@@ -30,10 +31,13 @@ PATH_END_TOLERANCE_M = 0.30
 # The fused pose takes about 0.1 s to follow the robot when the script teleports it.
 PLACE_SETTLE_S = 0.25
 
+# What WPILib's RobotBase prints when robot code throws or startCompetition returns, what Java
+# prints when another thread dies, and Robot's CrashTracker (only called on the way to a crash). Not
+# stack trace lines alone: DriverStationErrors.reportError prints one for errors the program
+# survives, such as Rotation2d's "x and y components of Rotation2d are zero".
 CRASH = re.compile(
-    r"Unhandled exception|quit unexpectedly|Exception in thread|^\s+at [\w$.<>/]+\(.*\)\s*$"
-    r"|Caused by:|CrashTracker",
-    re.MULTILINE,
+    r"Unhandled exception|quit unexpectedly|Unexpected return from startCompetition"
+    r"|Exception in thread|CrashTracker"
 )
 
 
@@ -129,7 +133,9 @@ def check_fused_error(records, types):
 def check_overruns(records, types):
     period = float(value_at(series(records, types, "RealMetadata/LoopPeriodSeconds"), math.inf)
                    or 0.02)
-    ts = [v / 1e6 for _, v in series(records, types, "Timestamp")]
+    # AdvantageKit records one cycle at the end of robot init. The gap from it to the first loop
+    # is init's tail and the sim's startup (seconds on a CI runner), not a loop.
+    ts = [v / 1e6 for _, v in series(records, types, "Timestamp")][1:]
     dts = [b - a for a, b in zip(ts, ts[1:])]
     if not dts:
         return False, "no loops"

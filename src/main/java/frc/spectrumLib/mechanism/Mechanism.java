@@ -33,6 +33,8 @@ import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.util.CanDeviceId;
 import frc.spectrumLib.util.Conversions;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.DoubleSupplier;
 import lombok.*;
 import org.littletonrobotics.junction.Logger;
@@ -143,6 +145,24 @@ public abstract class Mechanism implements Subsystem {
     private SignalRole leaderRole = SignalRole.LEADER;
 
     private String positionLostKey;
+
+    /**
+     * Position writes go out on this thread. {@code setPosition} waits up to 100 ms for the device
+     * to answer, and even with no wait it took about 7 ms in simulation; homing writes while
+     * enabled. One thread keeps each motor's writes in order. It logs nothing.
+     */
+    private static final ExecutorService POSITION_WRITER =
+            Executors.newSingleThreadExecutor(
+                    r -> {
+                        Thread t = new Thread(r, "PositionWriter");
+                        t.setDaemon(true);
+                        return t;
+                    });
+
+    /** A position write sent off the main thread, until the readings show it. */
+    private final PositionWrite positionWrite = new PositionWrite();
+
+    private String positionWritePendingKey;
 
     /** Set by {@link #simulateReboot()}: the next loop reports a reset. */
     private boolean simRebootPending = false;
@@ -327,6 +347,7 @@ public abstract class Mechanism implements Subsystem {
             signalRatesPending = new boolean[1 + followerSupplySignals.length];
             resetAlert = new Alert("", Level.HIGH);
             positionLostKey = inputsKey + "/PositionLost";
+            positionWritePendingKey = inputsKey + "/PositionWritePending";
 
             if (!Double.isNaN(config.trackingTolerance)) {
                 trackingStop =
@@ -911,6 +932,15 @@ public abstract class Mechanism implements Subsystem {
         inputs.followerResetOccurred = followerReset;
         // Records the readings on the robot; overwrites them from the log in replay.
         Logger.processInputs(inputsKey, inputs);
+        double resend =
+                positionWrite.update(
+                        Timer.getTimestamp(),
+                        inputs.connected,
+                        inputs.positionRotations,
+                        inputs.velocityRps);
+        if (!Double.isNaN(resend)) {
+            sendPosition(resend);
+        }
         handleResets();
         updateTrackingStop();
         checkSoftLimitParams();
@@ -1013,6 +1043,7 @@ public abstract class Mechanism implements Subsystem {
         }
         if (hasSoftLimits()) {
             Logger.recordOutput(positionLostKey, resetMonitor.isPositionLost());
+            Logger.recordOutput(positionWritePendingKey, positionWrite.isPending());
         }
         // Each rate call blocks until the device answers, so never while enabled.
         if (RobotState.isDisabled() && Constants.hasHardware()) {
@@ -1041,7 +1072,7 @@ public abstract class Mechanism implements Subsystem {
         if (Constants.currentMode != Constants.Mode.SIM || !isAttached()) {
             return;
         }
-        motor.setPosition(0);
+        sendPosition(0);
         simRebootPending = true;
     }
 
@@ -1090,6 +1121,20 @@ public abstract class Mechanism implements Subsystem {
     }
 
     /**
+     * A position write ({@link #setMotorPosition}) went out and the readings do not show it yet, so
+     * they are still measured from the old zero. Setpoints are held meanwhile; logic that reads the
+     * position as homed should wait too. Usually a loop or two.
+     *
+     * @return {@code true} until the readings show the written position
+     */
+    public boolean isPositionWritePending() {
+        if (config.attached) {
+            refreshSignalsOncePerLoop();
+        }
+        return positionWrite.isPending();
+    }
+
+    /**
      * The leader's reset input this loop, after refreshing it. A mechanism that homes itself
      * restarts its homing on this.
      *
@@ -1104,13 +1149,14 @@ public abstract class Mechanism implements Subsystem {
     }
 
     /**
-     * Sends neutral instead of a setpoint while the position is lost or the tracking stop holds.
+     * Sends neutral instead of a setpoint while the position is lost, a position write has not
+     * landed, or the tracking stop holds.
      *
      * @return {@code true} when the caller must not send its setpoint
      */
     private boolean holdForStop() {
         refreshSignalsOncePerLoop();
-        if (!resetMonitor.isPositionLost() && !isTrackingStopped()) {
+        if (!resetMonitor.isPositionLost() && !positionWrite.isPending() && !isTrackingStopped()) {
             return false;
         }
         motor.stopMotor();
@@ -1137,7 +1183,8 @@ public abstract class Mechanism implements Subsystem {
         boolean tracking =
                 closedLoop == watched
                         && closedLoopSentLoop == RobotLoop.count() - 1
-                        && !resetMonitor.isPositionLost();
+                        && !resetMonitor.isPositionLost()
+                        && !positionWrite.isPending();
         // A goal past a soft limit stops the motor at the limit, which is not a jam.
         double error =
                 watched == ClosedLoop.VELOCITY
@@ -1608,14 +1655,26 @@ public abstract class Mechanism implements Subsystem {
     /**
      * Sets the motor's internal position register to the specified value without moving the motor.
      *
+     * <p>Sent off the main thread ({@link #sendPosition}), since homing calls this while enabled.
+     * Until the readings show the new position, {@link #isPositionWritePending()} is true and
+     * setpoints are held ({@link PositionWrite}).
+     *
      * @param rotations the position to write to the motor in rotations
      */
     protected void setMotorPosition(DoubleSupplier rotations) {
         if (isAttached()) {
-            motor.setPosition(rotations.getAsDouble());
+            double position = rotations.getAsDouble();
+            sendPosition(position);
+            positionWrite.sent(Timer.getTimestamp(), position, inputs.positionRotations);
         }
         resetMonitor.positionRestored();
         clearTrackingStop();
+    }
+
+    /** Writes the motor's position on {@link #POSITION_WRITER}; returns at once. */
+    private void sendPosition(double rotations) {
+        TalonFX talon = motor;
+        POSITION_WRITER.execute(() -> talon.setPosition(rotations));
     }
 
     /**

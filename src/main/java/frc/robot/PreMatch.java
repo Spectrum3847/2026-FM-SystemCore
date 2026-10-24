@@ -209,7 +209,7 @@ final class PreMatch {
                         .collect(Collectors.toCollection(TreeSet::new));
         // Vision solves with Event.APRILTAG_FIELD (in replay, the match's field), so the robot's
         // own map is the event's by construction. The Jetson reports the hash of the map it
-        // loaded; the Limelights' maps are not readable from the robot.
+        // loaded.
         Supplier<CheckResult> jetsonMap =
                 () ->
                         jetsonFieldMap(
@@ -225,8 +225,7 @@ final class PreMatch {
                                                 + Vision.getTagField().name()
                                                 + (jetsonMap.get().status() == Status.PASS
                                                         ? ", Jetson's map matches"
-                                                        : "")
-                                                + " (Limelight maps unchecked)")
+                                                        : ""))
                         .add(() -> reasonIf(jetsonMap.get(), Status.FAIL), Status.FAIL)
                         .add(() -> reasonIf(jetsonMap.get(), Status.WARN), Status.WARN)
                         .add(

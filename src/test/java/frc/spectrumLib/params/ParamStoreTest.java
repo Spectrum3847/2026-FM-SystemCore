@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,8 +45,13 @@ class ParamStoreTest {
         return deploy.resolve("robots").resolve(robot).resolve("cams.json");
     }
 
+    /** This robot's local folder: {@code <local>/<robot>/}. */
+    private Path robotLocal() {
+        return local.resolve("FM2026");
+    }
+
     private Path localFile() {
-        return local.resolve("cams.json");
+        return robotLocal().resolve("cams.json");
     }
 
     private void configure() {
@@ -169,6 +175,34 @@ class ParamStoreTest {
     }
 
     @Test
+    void duplicateKeyMakesTheFileUnreadable() throws IOException {
+        file(deployFile(), "{\"a\": 1}");
+        file(localFile(), "{\"a\": 3, \"a\": 4}");
+        configure();
+        DoubleParam a = cams.number("a", 0, "");
+        assertEquals(1.0, a.get(), "neither duplicate is used");
+        assertEquals(ParamSource.DEPLOY, a.source());
+        assertTrue(hasProblem(ParamStore.Level.ERROR, "unreadable (Duplicate field 'a'"));
+    }
+
+    @Test
+    void duplicateKeyInsideAWrappedValueMakesTheFileUnreadable() throws IOException {
+        file(localFile(), "{\"a\": {\"value\": 3, \"value\": 4}}");
+        configure();
+        assertEquals(0.0, cams.number("a", 0, "").get());
+        assertTrue(hasProblem(ParamStore.Level.ERROR, "Duplicate field 'value'"));
+    }
+
+    @Test
+    void checkFileReportsADuplicateKey() throws IOException {
+        cams.number("a", 0, "");
+        file(deployFile(), "{\"a\": 1, \"a\": 1}");
+        var problems = store.checkFile(deployFile());
+        assertEquals(1, problems.size());
+        assertTrue(problems.get(0).contains("Duplicate field 'a'"), problems.get(0));
+    }
+
+    @Test
     void wrongTypeOrOutOfBoundsValueIsSkipped() throws IOException {
         file(deployFile(), "{\"a\": 1, \"b\": 1, \"i\": 2}");
         file(robotFile("FM2026"), "{\"a\": \"fast\", \"b\": 500, \"i\": 2.5}");
@@ -264,6 +298,36 @@ class ParamStoreTest {
     }
 
     @Test
+    void liveChangesAreAllowedOnlyDisabledOffTheField() {
+        assertTrue(Params.liveChangesAllowed(true, false), "disabled in the pit");
+        assertFalse(Params.liveChangesAllowed(true, true), "disabled between auto and teleop");
+        assertFalse(Params.liveChangesAllowed(false, false), "enabled in the pit");
+        assertFalse(Params.liveChangesAllowed(false, true), "enabled on the field");
+    }
+
+    @Test
+    void changeRequestedDuringAMatchWaitsForThePit() {
+        configure();
+        var t = new FakeTransport();
+        store.enableLive(t);
+        DoubleParam a = cams.number("a", 1, "");
+
+        t.values.put("cams/a", 4.0);
+        store.applyLive(Params.liveChangesAllowed(false, true)); // auto
+        store.applyLive(Params.liveChangesAllowed(true, true)); // auto-to-teleop gap
+        store.applyLive(Params.liveChangesAllowed(false, true)); // teleop
+        store.applyLive(Params.liveChangesAllowed(true, true)); // after the match, field attached
+        assertEquals(1.0, a.get(), "never applied with the field attached");
+        assertEquals(ParamSource.DEFAULT, a.source());
+        assertTrue(store.pendingLive().contains("cams/a"));
+
+        store.applyLive(Params.liveChangesAllowed(true, false)); // back in the pit
+        assertEquals(4.0, a.get());
+        assertEquals(ParamSource.LIVE, a.source());
+        assertTrue(store.pendingLive().isEmpty());
+    }
+
+    @Test
     void liveChangeBackBeforeDisableIsDropped() {
         configure();
         var t = new FakeTransport();
@@ -332,7 +396,7 @@ class ParamStoreTest {
         assertEquals(1.0, saved.get("a").get("replaced").doubleValue());
         assertEquals("2026-10-23T12:00:00Z", saved.get("a").get("savedAt").textValue());
         assertFalse(saved.has("b"));
-        assertFalse(Files.exists(local.resolve("cams.json.tmp")));
+        assertFalse(Files.exists(robotLocal().resolve("cams.json.tmp")));
 
         var next = new ParamStore();
         next.configure(new ParamStore.Settings(deploy, "FM2026", local));
@@ -396,8 +460,46 @@ class ParamStoreTest {
         t.values.put("cams/a", 2.0);
         store.applyLive(true);
         ParamStore.write(store.prepareSave("now"));
-        assertEquals("{broken", Files.readString(local.resolve("cams.json.bad")));
+        assertEquals("{broken", Files.readString(robotLocal().resolve("cams.json.bad")));
         assertEquals(2.0, ParamStore.parseObject(localFile()).get("a").get("value").doubleValue());
+    }
+
+    @Test
+    void staleTempFromAnInterruptedSaveIsDeletedAtBootAndNeverRead() throws IOException {
+        file(localFile(), "{\"a\": 3}");
+        file(robotLocal().resolve("cams.json.tmp"), "{\"a\": ");
+        file(local.resolve("cams.json.tmp"), "{\"a\": ");
+        configure();
+        DoubleParam a = cams.number("a", 0, "");
+        assertEquals(3.0, a.get(), "the whole old file, not the half-written one");
+        assertFalse(Files.exists(robotLocal().resolve("cams.json.tmp")));
+        assertFalse(Files.exists(local.resolve("cams.json.tmp")), "the old flat folder's too");
+        assertTrue(store.problems().keySet().stream().noneMatch(k -> k.startsWith("file:")));
+    }
+
+    @Test
+    void saveOverAStaleTempWritesTheWholeFile() throws IOException {
+        configure();
+        var t = new FakeTransport();
+        store.enableLive(t);
+        cams.number("a", 0, "");
+        t.values.put("cams/a", 2.0);
+        store.applyLive(true);
+        ParamStore.SaveJob job = store.prepareSave("now");
+        file(robotLocal().resolve("cams.json.tmp"), "x".repeat(10_000));
+        ParamStore.write(job);
+        assertEquals(2.0, ParamStore.parseObject(localFile()).get("a").get("value").doubleValue());
+        assertFalse(Files.exists(robotLocal().resolve("cams.json.tmp")));
+    }
+
+    @Test
+    void folderFlushIsBestEffort() throws IOException {
+        Files.createDirectories(local);
+        boolean flushed = ParamStore.forceDirectory(local);
+        if (!System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")) {
+            assertTrue(flushed, "a Linux folder can be flushed");
+        }
+        assertFalse(ParamStore.forceDirectory(local.resolve("missing")));
     }
 
     @Test
@@ -405,5 +507,208 @@ class ParamStoreTest {
         store.configure(new ParamStore.Settings(deploy, "FM2026", null));
         cams.number("a", 0, "");
         assertEquals(null, store.prepareSave("now"));
+    }
+
+    // ── Robot folder and hardware stamps ────────────────────────────────────
+
+    private static final double[] THIS_ROBOT = {0.1, 0.2, 0.3, 0.4};
+    private static final double[] SAVING = {0.15, 0.2, 0.3, 0.4};
+    private static final double[] OTHER_ROBOT = {-0.3, 0.05, 0.45, -0.1};
+
+    /** A chassis whose devices read {@code atBoot}, and which saves {@link #SAVING} next. */
+    private static HardwareStamp chassis(double[] atBoot) {
+        return new HardwareStamp(
+                "Chassis", "test offsets", atBoot, 0.001, () -> List.of(THIS_ROBOT, SAVING));
+    }
+
+    private void configureStamped(double[] atBoot) {
+        store.configure(
+                new ParamStore.Settings(deploy, "FM2026", local, Map.of("cams", chassis(atBoot))));
+    }
+
+    private static String stampJson(double[]... accept) {
+        StringBuilder b = new StringBuilder("{\"what\": \"test offsets\", \"accept\": [");
+        for (int i = 0; i < accept.length; i++) {
+            b.append(i == 0 ? "" : ", ").append(java.util.Arrays.toString(accept[i]));
+        }
+        return b.append("]}").toString();
+    }
+
+    @Test
+    void anotherRobotConfigsLocalFolderIsIgnored() throws IOException {
+        file(local.resolve("PM2026").resolve("cams.json"), "{\"a\": 9}");
+        configure();
+        assertEquals(0.0, cams.number("a", 0, "").get());
+    }
+
+    @Test
+    void stampedFileFromThisRobotIsUsed() throws IOException {
+        file(robotFile("FM2026"), "{\"a\": 1}");
+        file(localFile(), "{\"$hardware\": " + stampJson(THIS_ROBOT) + ", \"a\": 3}");
+        configureStamped(new double[] {0.1004, 0.2, 0.3, 0.4});
+        DoubleParam a = cams.number("a", 0, "");
+        assertEquals(3.0, a.get());
+        assertEquals(ParamSource.LOCAL, a.source());
+        assertFalse(hasProblem(ParamStore.Level.INFO, "no code declares"), "the stamp is no param");
+        assertTrue(store.problems().keySet().stream().noneMatch(k -> k.startsWith("file:")));
+    }
+
+    @Test
+    void stampedFileFromAnotherRobotIsRefusedAndGitIsUsed() throws IOException {
+        file(robotFile("FM2026"), "{\"a\": 1}");
+        file(localFile(), "{\"$hardware\": " + stampJson(OTHER_ROBOT) + ", \"a\": 3}");
+        configureStamped(THIS_ROBOT);
+        DoubleParam a = cams.number("a", 0, "");
+        assertEquals(1.0, a.get());
+        assertEquals(ParamSource.ROBOT, a.source());
+        assertTrue(hasProblem(ParamStore.Level.ERROR, "was saved on another robot"));
+        assertTrue(hasProblem(ParamStore.Level.ERROR, "its cams values are not used"));
+    }
+
+    @Test
+    void unstampedFileOfAHardStopGroupIsRefused() throws IOException {
+        file(localFile(), "{\"a\": 3}");
+        configureStamped(THIS_ROBOT);
+        assertEquals(0.0, cams.number("a", 0, "").get());
+        assertTrue(hasProblem(ParamStore.Level.ERROR, "has no hardware stamp"));
+    }
+
+    @Test
+    void unreadableHardwareRefusesTheFile() throws IOException {
+        file(localFile(), "{\"$hardware\": " + stampJson(THIS_ROBOT) + ", \"a\": 3}");
+        configureStamped(null);
+        assertEquals(0.0, cams.number("a", 0, "").get());
+        assertTrue(hasProblem(ParamStore.Level.ERROR, "could not be read at boot"));
+    }
+
+    @Test
+    void groupWithoutAStampIgnoresOne() throws IOException {
+        file(
+                robotLocal().resolve("other.json"),
+                "{\"$hardware\": " + stampJson(OTHER_ROBOT) + ", \"b\": 2}");
+        configureStamped(THIS_ROBOT);
+        DoubleParam b = new ParamGroup("other", store::register).number("b", 0, "");
+        assertEquals(2.0, b.get());
+        assertEquals(ParamSource.LOCAL, b.source());
+        assertFalse(hasProblem(ParamStore.Level.INFO, "no code declares"));
+    }
+
+    /** Save on this robot, boot it again, then boot another robot with the same controller. */
+    @Test
+    void savedStampMatchesThisRobotAfterTheRebootAndNotAnother() throws IOException {
+        configureStamped(THIS_ROBOT);
+        var t = new FakeTransport();
+        store.enableLive(t);
+        cams.number("a", 0, "");
+        t.values.put("cams/a", 2.0);
+        store.applyLive(true);
+        ParamStore.write(store.prepareSave("now"));
+        ObjectNode saved = ParamStore.parseObject(localFile());
+        assertEquals(HardwareStamp.KEY, saved.fieldNames().next(), "stamp first");
+        assertEquals(2, saved.get(HardwareStamp.KEY).get("accept").size());
+
+        for (double[] reading : List.of(THIS_ROBOT, SAVING)) {
+            var next = new ParamStore();
+            next.configure(
+                    new ParamStore.Settings(
+                            deploy, "FM2026", local, Map.of("cams", chassis(reading))));
+            DoubleParam a = new ParamGroup("cams", next::register).number("a", 0, "");
+            assertEquals(2.0, a.get());
+            assertEquals(ParamSource.LOCAL, a.source());
+        }
+
+        var other = new ParamStore();
+        other.configure(
+                new ParamStore.Settings(
+                        deploy, "FM2026", local, Map.of("cams", chassis(OTHER_ROBOT))));
+        DoubleParam a = new ParamGroup("cams", other::register).number("a", 0, "");
+        assertEquals(0.0, a.get());
+        assertTrue(
+                other.problems().values().stream()
+                        .anyMatch(p -> p.level() == ParamStore.Level.ERROR));
+    }
+
+    @Test
+    void saveMovesARefusedFileAsideAndDropsItsValues() throws IOException {
+        file(localFile(), "{\"$hardware\": " + stampJson(OTHER_ROBOT) + ", \"a\": 3, \"x\": 1}");
+        configureStamped(THIS_ROBOT);
+        cams.number("a", 0, "");
+        ParamStore.write(store.prepareSave("now"));
+        assertTrue(
+                Files.readString(robotLocal().resolve("cams.json.refused")).contains("\"a\": 3"));
+        ObjectNode saved = ParamStore.parseObject(localFile());
+        assertFalse(saved.has("a"));
+        assertFalse(saved.has("x"), "the other robot's undeclared keys are not carried over");
+        assertTrue(saved.has(HardwareStamp.KEY));
+    }
+
+    // ── Files saved before the folder was per robot ─────────────────────────
+
+    private Path legacyFile() {
+        return local.resolve("cams.json");
+    }
+
+    @Test
+    void oldFolderFileIsReadUntilTheNextSaveMovesIt() throws IOException {
+        file(legacyFile(), "{\"a\": 3}");
+        configure();
+        DoubleParam a = cams.number("a", 0, "");
+        assertEquals(3.0, a.get());
+        assertEquals(ParamSource.LOCAL, a.source());
+        assertTrue(hasProblem(ParamStore.Level.INFO, "the next save moves it to"));
+
+        ParamStore.write(store.prepareSave("now"));
+        assertFalse(Files.exists(legacyFile()));
+        assertTrue(Files.exists(local.resolve("cams.json.moved")));
+        assertEquals(3, ParamStore.parseObject(localFile()).get("a").intValue());
+
+        var next = new ParamStore();
+        next.configure(new ParamStore.Settings(deploy, "FM2026", local));
+        DoubleParam a2 = new ParamGroup("cams", next::register).number("a", 0, "");
+        assertEquals(3.0, a2.get());
+        assertTrue(next.problems().keySet().stream().noneMatch(k -> k.startsWith("file:")));
+    }
+
+    @Test
+    void oldFolderFileIsIgnoredOnceThisRobotsExists() throws IOException {
+        file(legacyFile(), "{\"a\": 9}");
+        file(localFile(), "{\"a\": 3}");
+        configure();
+        assertEquals(3.0, cams.number("a", 0, "").get());
+        assertFalse(hasProblem(ParamStore.Level.INFO, "the next save moves it"));
+    }
+
+    @Test
+    void oldFolderFileOfAHardStopGroupIsRefusedAndRetiredBySave() throws IOException {
+        file(robotFile("FM2026"), "{\"a\": 1}");
+        file(legacyFile(), "{\"a\": 3}");
+        configureStamped(THIS_ROBOT);
+        DoubleParam a = cams.number("a", 0, "");
+        assertEquals(1.0, a.get(), "an old file has no stamp, so it may be another robot's");
+        assertEquals(ParamSource.ROBOT, a.source());
+        assertTrue(hasProblem(ParamStore.Level.ERROR, "saved before files were per robot"));
+        assertTrue(hasProblem(ParamStore.Level.ERROR, "has no hardware stamp"));
+
+        ParamStore.write(store.prepareSave("now"));
+        assertFalse(Files.exists(legacyFile()));
+        assertEquals("{\"a\": 3}", Files.readString(local.resolve("cams.json.refused")));
+        ObjectNode saved = ParamStore.parseObject(localFile());
+        assertFalse(saved.has("a"));
+        assertTrue(saved.has(HardwareStamp.KEY));
+    }
+
+    @Test
+    void stampedOldFolderFileFromThisRobotIsMigrated() throws IOException {
+        file(legacyFile(), "{\"$hardware\": " + stampJson(THIS_ROBOT) + ", \"a\": 3}");
+        configureStamped(THIS_ROBOT);
+        assertEquals(3.0, cams.number("a", 0, "").get());
+    }
+
+    @Test
+    void noRobotNameKeepsTheFlatFolder() throws IOException {
+        file(legacyFile(), "{\"a\": 3}");
+        store.configure(new ParamStore.Settings(deploy, null, local));
+        assertEquals(3.0, cams.number("a", 0, "").get());
+        assertFalse(hasProblem(ParamStore.Level.INFO, "the next save moves it"));
     }
 }

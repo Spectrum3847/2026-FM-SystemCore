@@ -4,6 +4,7 @@ import frc.rebuilt.Field;
 import frc.rebuilt.ShotCalculator;
 import frc.spectrumLib.gamepads.GamepadLayout;
 import frc.spectrumLib.mechanism.Mechanism;
+import frc.spectrumLib.telemetry.Telemetry;
 import java.util.List;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.Logger;
@@ -181,6 +182,22 @@ public final class SimScript {
 
     private static int lastStep = -1;
 
+    /**
+     * Loops in a row the swerve's CTRE signals must be fresh before the script enables. On a busy
+     * CI runner Phoenix's simulated devices sometimes report stale positions and yaw for a moment,
+     * and enabling into that jumped the pose by up to 0.5 m.
+     */
+    private static final int FRESH_LOOPS_TO_ENABLE = 25;
+
+    /** Longest the script holds the enable for fresh signals before enabling anyway. */
+    private static final double MAX_ENABLE_HOLD_SECONDS = 5.0;
+
+    private static int freshLoops = 0;
+    private static int lastFailedDaqs = -1;
+    private static double lastLoopTime = Double.NaN;
+    private static boolean enableReleased = false;
+    private static double enableHoldStart = Double.NaN;
+
     /** Metres from the field edge inside which the script stops translating (sim has no walls). */
     private static final double EDGE_MARGIN_METERS = 1.0;
 
@@ -256,7 +273,7 @@ public final class SimScript {
             actions.placeRobot = true;
             actions.placePose = new Pose2d(hub.getX() - 2.5, hub.getY(), Rotation2d.k180deg);
         }
-        double t = now - start;
+        double t = holdForFreshSignals(now, steps[0][UNTIL]);
         rebootMotors(t);
         if (!questResetDone && t > 4.0) {
             // What the operator's LB+X does: put the QuestNav's frame on the robot's pose.
@@ -307,6 +324,61 @@ public final class SimScript {
         exitWhenDone(t, steps[steps.length - 1][UNTIL]);
     }
 
+    /**
+     * Script seconds, held just short of {@code enableAt} until the swerve's CTRE signals have been
+     * fresh for {@link #FRESH_LOOPS_TO_ENABLE} loops: no failed odometry DAQ, every module and the
+     * Pigeon connected, odometry samples arriving and the loop on time. Gives up after {@link
+     * #MAX_ENABLE_HOLD_SECONDS} and enables anyway, so a sim that never settles still runs.
+     */
+    private static double holdForFreshSignals(double now, double enableAt) {
+        var in = Robot.getSwerve().getInputs();
+        boolean daqOk = lastFailedDaqs >= 0 && in.failedDaqs == lastFailedDaqs;
+        lastFailedDaqs = in.failedDaqs;
+        boolean onTime =
+                !Double.isNaN(lastLoopTime)
+                        && now - lastLoopTime <= 1.25 * Constants.LOOP_PERIOD_SECONDS;
+        lastLoopTime = now;
+        boolean modulesOk = in.moduleConnected.length > 0;
+        for (boolean ok : in.moduleConnected) {
+            modulesOk &= ok;
+        }
+        boolean fresh =
+                daqOk
+                        && onTime
+                        && modulesOk
+                        && in.gyroConnected
+                        && in.odometryTimestamps.length > 0;
+        freshLoops = fresh ? freshLoops + 1 : 0;
+
+        double t = now - start;
+        if (enableReleased || t < enableAt) {
+            return t;
+        }
+        if (Double.isNaN(enableHoldStart)) {
+            enableHoldStart = now;
+        }
+        if (freshLoops >= FRESH_LOOPS_TO_ENABLE) {
+            enableReleased = true;
+        } else if (now - enableHoldStart >= MAX_ENABLE_HOLD_SECONDS) {
+            enableReleased = true;
+            Telemetry.print(
+                    "SimScript: CTRE signals still not fresh after "
+                            + MAX_ENABLE_HOLD_SECONDS
+                            + " s; enabling anyway");
+        } else {
+            // Slide the script's clock so it resumes from here once the signals settle.
+            start = now - enableAt + 1e-6;
+            return enableAt - 1e-6;
+        }
+        if (now > enableHoldStart) {
+            Telemetry.print(
+                    String.format(
+                            "SimScript: held the enable %.2f s for fresh CTRE signals",
+                            now - enableHoldStart));
+        }
+        return t;
+    }
+
     private static double column(double[] step, int column) {
         return column < step.length ? step[column] : 0;
     }
@@ -348,7 +420,7 @@ public final class SimScript {
                     .getEntry("selected")
                     .setString(autoName);
         }
-        double t = now - start;
+        double t = holdForFreshSignals(now, 6.0);
         rebootMotors(t);
         DriverStationSim.setEnabled(t >= 6.0 && t < 6.0 + AUTO_SECONDS);
         // Known limitation: a simulated DS change made mid-loop reaches AdvantageKit's HAL snapshot

@@ -305,7 +305,9 @@ public final class OdometryGuard {
                 double vx = twist[0] - twist[2] * loc.getY();
                 double vy = twist[1] + twist[2] * loc.getX();
                 double d = Math.hypot(vx, vy);
-                if (d > 1e-9) {
+                // Rotation2d reports an error (with a stack trace) and points at 0 rad for a vector
+                // of 1e-6 or less; under that the module keeps its last angle.
+                if (d > 1e-6) {
                     outDistances[m] += d;
                     outAngles[m] = new Rotation2d(vx, vy);
                 }

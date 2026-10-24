@@ -264,7 +264,7 @@ public class Vision implements Subsystem {
 
     /**
      * The field the robot solves with: this event's ({@code Event.APRILTAG_FIELD}), or in replay
-     * the match's (see {@link TagField}). The Jetson's and Limelights' must match.
+     * the match's (see {@link TagField}). The Jetson's must match.
      */
     @Getter private static AprilTagFields tagField;
 
@@ -356,7 +356,7 @@ public class Vision implements Subsystem {
         this.config = config;
         this.swerve = swerve;
         this.fusion = swerve.getPoseFusion();
-        // The event's field, or in replay the match's. The Jetson's and Limelights' must match.
+        // The event's field, or in replay the match's. The Jetson's must match.
         TagField.Choice field = TagField.load(Event.APRILTAG_FIELD);
         tagField = field.field();
         tagLayout = field.layout();

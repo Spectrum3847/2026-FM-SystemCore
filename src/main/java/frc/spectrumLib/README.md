@@ -136,9 +136,12 @@ ones winning:
 1. the default in the declaration;
 2. `<deploy>/params/<group>.json`, in git;
 3. `<deploy>/params/robots/<robot>/<group>.json`, for one robot;
-4. `<group>.json` in a robot-local folder outside the deploy folder (FM: `/home/systemcore/params/`),
-   which a deploy does not wipe;
-5. live changes from the dashboard, only with a transport and only while disabled.
+4. `<group>.json` in a robot-local folder outside the deploy folder, one per robot config (FM:
+   `/home/systemcore/params/FM2026/`), which a deploy does not wipe. A hard-stop group's file
+   (swerve offsets, soft limits) carries a `HardwareStamp` and is used only on the robot it was
+   saved on;
+5. live changes from the dashboard, only with a transport (tuning mode) and only while disabled
+   with no FMS attached (`Params.liveChangesAllowed`); a change made on the field waits until then.
 
 ```java
 private static final ParamGroup CAMERAS = Params.group("cameras");
@@ -151,7 +154,7 @@ A missing file is skipped; an unreadable file, or a value of the wrong type or o
 an alert and the layer below is used, so a bad file never stops the robot booting. Every value and
 the layer it came from are logged as inputs (`Params/Values/*`, `Params/Sources/*`), so replay runs
 on the robot's values. The `SaveParams` button writes values that differ from git to the local
-folder, disabled only, on a background thread. Subsystem code sees only `Param`; the transport
+folder, disabled only, on a background thread, stamping the hard-stop groups. Subsystem code sees only `Param`; the transport
 (`NetworkTablesTransport` on AdvantageKit's LoggedNetwork inputs today) is chosen once in `Robot`.
 
 |        Class           |                                  Description                                  |
@@ -160,6 +163,7 @@ folder, disabled only, on a background thread. Subsystem code sees only `Param`;
 | `ParamGroup`           | Declares `number`, `integer`, `bool` and `string` params of one group (file)  |
 | `DoubleParam` etc.     | A declared param; `get()`, `source()`, `version()`                            |
 | `ParamTransport`       | Where live tuning comes from; `NetworkTablesTransport` is today's             |
+| `HardwareStamp`        | Ties a hard-stop group's local file to the robot's own devices' readings      |
 
 ---
 

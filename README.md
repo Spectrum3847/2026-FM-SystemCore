@@ -113,6 +113,8 @@ The replay fixtures are windows of real match logs, listed in
 are not committed: [tools/fetch_replay_fixtures.py](tools/fetch_replay_fixtures.py) downloads the
 release asset each comes from (the redacted `TXMAN1-logs` copies), checks the log's SHA-256 and cuts
 the window with `trim_wpilog.py`. CI caches the cut windows until the list or those tools change.
+The cache is saved by the Replay workflow's runs on main (each push, and weekly), since a cache a PR
+saves can be restored only by that PR.
 Today: TXMAN1 Q24 180-215 s (pre-match through the vision seed in auto, two auto launches, the start
 of teleop), Q32 290-335 s (seven teleop volleys, two fed by the gate timeout) and Playoff 20
 350-395 s (the event's last code, one volley fed while the pose was untrusted).

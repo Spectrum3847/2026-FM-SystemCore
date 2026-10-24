@@ -175,6 +175,34 @@ class ParamStoreTest {
     }
 
     @Test
+    void duplicateKeyMakesTheFileUnreadable() throws IOException {
+        file(deployFile(), "{\"a\": 1}");
+        file(localFile(), "{\"a\": 3, \"a\": 4}");
+        configure();
+        DoubleParam a = cams.number("a", 0, "");
+        assertEquals(1.0, a.get(), "neither duplicate is used");
+        assertEquals(ParamSource.DEPLOY, a.source());
+        assertTrue(hasProblem(ParamStore.Level.ERROR, "unreadable (Duplicate field 'a'"));
+    }
+
+    @Test
+    void duplicateKeyInsideAWrappedValueMakesTheFileUnreadable() throws IOException {
+        file(localFile(), "{\"a\": {\"value\": 3, \"value\": 4}}");
+        configure();
+        assertEquals(0.0, cams.number("a", 0, "").get());
+        assertTrue(hasProblem(ParamStore.Level.ERROR, "Duplicate field 'value'"));
+    }
+
+    @Test
+    void checkFileReportsADuplicateKey() throws IOException {
+        cams.number("a", 0, "");
+        file(deployFile(), "{\"a\": 1, \"a\": 1}");
+        var problems = store.checkFile(deployFile());
+        assertEquals(1, problems.size());
+        assertTrue(problems.get(0).contains("Duplicate field 'a'"), problems.get(0));
+    }
+
+    @Test
     void wrongTypeOrOutOfBoundsValueIsSkipped() throws IOException {
         file(deployFile(), "{\"a\": 1, \"b\": 1, \"i\": 2}");
         file(robotFile("FM2026"), "{\"a\": \"fast\", \"b\": 500, \"i\": 2.5}");
@@ -404,6 +432,44 @@ class ParamStoreTest {
         ParamStore.write(store.prepareSave("now"));
         assertEquals("{broken", Files.readString(robotLocal().resolve("cams.json.bad")));
         assertEquals(2.0, ParamStore.parseObject(localFile()).get("a").get("value").doubleValue());
+    }
+
+    @Test
+    void staleTempFromAnInterruptedSaveIsDeletedAtBootAndNeverRead() throws IOException {
+        file(localFile(), "{\"a\": 3}");
+        file(robotLocal().resolve("cams.json.tmp"), "{\"a\": ");
+        file(local.resolve("cams.json.tmp"), "{\"a\": ");
+        configure();
+        DoubleParam a = cams.number("a", 0, "");
+        assertEquals(3.0, a.get(), "the whole old file, not the half-written one");
+        assertFalse(Files.exists(robotLocal().resolve("cams.json.tmp")));
+        assertFalse(Files.exists(local.resolve("cams.json.tmp")), "the old flat folder's too");
+        assertTrue(store.problems().keySet().stream().noneMatch(k -> k.startsWith("file:")));
+    }
+
+    @Test
+    void saveOverAStaleTempWritesTheWholeFile() throws IOException {
+        configure();
+        var t = new FakeTransport();
+        store.enableLive(t);
+        cams.number("a", 0, "");
+        t.values.put("cams/a", 2.0);
+        store.applyLive(true);
+        ParamStore.SaveJob job = store.prepareSave("now");
+        file(robotLocal().resolve("cams.json.tmp"), "x".repeat(10_000));
+        ParamStore.write(job);
+        assertEquals(2.0, ParamStore.parseObject(localFile()).get("a").get("value").doubleValue());
+        assertFalse(Files.exists(robotLocal().resolve("cams.json.tmp")));
+    }
+
+    @Test
+    void folderFlushIsBestEffort() throws IOException {
+        Files.createDirectories(local);
+        boolean flushed = ParamStore.forceDirectory(local);
+        if (!System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win")) {
+            assertTrue(flushed, "a Linux folder can be flushed");
+        }
+        assertFalse(ParamStore.forceDirectory(local.resolve("missing")));
     }
 
     @Test

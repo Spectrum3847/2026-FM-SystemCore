@@ -1,14 +1,20 @@
 package frc.spectrumLib.params;
 
+import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -27,7 +33,14 @@ import java.util.TreeMap;
  * {@link Params} wires it to the logger, alerts and the transport.
  */
 final class ParamStore {
-    static final ObjectMapper JSON = new ObjectMapper();
+    /**
+     * Strict about duplicate keys: with two entries for one key, which one wins is invisible in the
+     * file, so the file is unreadable instead.
+     */
+    static final ObjectMapper JSON =
+            JsonMapper.builder().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build();
+
+    private static final String TEMP_SUFFIX = ".tmp";
 
     enum Level {
         ERROR,
@@ -114,6 +127,12 @@ final class ParamStore {
     /** Points the store at its files and re-resolves every param already declared. */
     void configure(Settings s) {
         settings = s;
+        if (s.localDir() != null) {
+            deleteStaleTemps(s.localDir());
+        }
+        if (s.legacyDir() != null) {
+            deleteStaleTemps(s.legacyDir());
+        }
         layers.clear();
         problems.keySet()
                 .removeIf(
@@ -526,11 +545,12 @@ final class ParamStore {
 
     /**
      * Writes a save. Blocking file I/O: never on the main thread. Each file is written to a
-     * temporary file and moved over the old one, so a power cut leaves the old file or the new one,
-     * never half of one. An unreadable file is kept as {@code <name>.bad}, and a hard-stop file
-     * saved on another robot as {@code <name>.refused}, rather than overwritten. A file still in
-     * the folder files were saved to before they were per robot is renamed once its replacement is
-     * written ({@code .moved}, or {@code .bad} / {@code .refused}), so it is read only until then.
+     * temporary file, flushed to the disk and moved over the old one, then the folder is flushed,
+     * so a power cut leaves the old file or the new one, never half of one or an empty one. An
+     * unreadable file is kept as {@code <name>.bad}, and a hard-stop file saved on another robot as
+     * {@code <name>.refused}, rather than overwritten. A file still in the folder files were saved
+     * to before they were per robot is renamed once its replacement is written ({@code .moved}, or
+     * {@code .bad} / {@code .refused}), so it is read only until then.
      */
     static void write(SaveJob job) throws IOException {
         Files.createDirectories(job.dir());
@@ -541,11 +561,10 @@ final class ParamStore {
         }
         for (var e : job.files().entrySet()) {
             Path target = job.dir().resolve(e.getKey());
-            Path tmp = job.dir().resolve(e.getKey() + ".tmp");
-            Files.writeString(
+            Path tmp = job.dir().resolve(e.getKey() + TEMP_SUFFIX);
+            writeAndForce(
                     tmp,
-                    JSON.writerWithDefaultPrettyPrinter().writeValueAsString(e.getValue()) + "\n",
-                    StandardCharsets.UTF_8);
+                    JSON.writerWithDefaultPrettyPrinter().writeValueAsString(e.getValue()) + "\n");
             try {
                 Files.move(
                         tmp,
@@ -560,6 +579,61 @@ final class ParamStore {
             if (Files.exists(e.getKey())) {
                 Files.move(e.getKey(), e.getValue(), StandardCopyOption.REPLACE_EXISTING);
             }
+        }
+        forceDirectory(job.dir());
+        for (Path retired : job.retire().values()) {
+            if (!retired.getParent().equals(job.dir())) {
+                forceDirectory(retired.getParent());
+            }
+        }
+    }
+
+    /**
+     * Writes the file and waits until it is on the disk. Without this the rename can reach the disk
+     * before the data, and a power cut leaves an empty file under the real name.
+     */
+    private static void writeAndForce(Path path, String text) throws IOException {
+        try (FileChannel ch =
+                FileChannel.open(
+                        path,
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.TRUNCATE_EXISTING,
+                        StandardOpenOption.WRITE)) {
+            ByteBuffer buf = ByteBuffer.wrap(text.getBytes(StandardCharsets.UTF_8));
+            while (buf.hasRemaining()) {
+                ch.write(buf);
+            }
+            ch.force(true);
+        }
+    }
+
+    /**
+     * Flushes the folder itself, so the renames survive a power cut. Best effort: Windows cannot
+     * open a folder this way, and the simulator is the only thing that saves there.
+     */
+    static boolean forceDirectory(Path dir) {
+        try (FileChannel ch = FileChannel.open(dir, StandardOpenOption.READ)) {
+            ch.force(true);
+            return true;
+        } catch (IOException | UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Deletes the temporary files of a save that a power cut or crash interrupted. The real files
+     * are whole, old or new; a temporary file is never read.
+     */
+    static void deleteStaleTemps(Path dir) {
+        if (!Files.isDirectory(dir)) {
+            return;
+        }
+        try (DirectoryStream<Path> temps = Files.newDirectoryStream(dir, "*.json" + TEMP_SUFFIX)) {
+            for (Path tmp : temps) {
+                Files.deleteIfExists(tmp);
+            }
+        } catch (IOException e) {
+            // Left for the next boot; the save overwrites it anyway.
         }
     }
 

@@ -151,13 +151,18 @@ register what the robot has and call it once per loop after the command schedule
 ```java
 matchSummary = new MatchSummary(logFolderOrNullInReplay);
 matchSummary.addMechanism(launcher, busLabel);           // leader and followers
-matchSummary.addDevice("Pigeon", "CANivore", () -> in.gyroConnected, () -> in.gyroResetOccurred, null);
+matchSummary.addDevice("Pigeon", "CANivore", () -> in.gyroConnected, swerve::gyroRebootedThisLoop, null);
 matchSummary.addVisionSource(s.getName(), s::getAcceptedCount, s::getRejectedCount);
 // autonomousInit(): matchSummary.autoStarted(name);
 // when the auto command ends: matchSummary.autoEnded(reason, seconds);
 // once the brownout API is known to work (or not): matchSummary.setBrownedOutAvailable(ok);
 // robotPeriodic(), after the scheduler: matchSummary.periodic(batteryVoltsInput, brownedOutInput);
 ```
+
+A device's reboot supplier must leave out Phoenix's reset report on the first contact after boot,
+or every boot counts a reboot per device. `addMechanism` does that through `MotorResetMonitor`; for
+the drivetrain, pass `Swerve`'s filtered `moduleRebootedThisLoop(m)` and `gyroRebootedThisLoop()`,
+not the raw `ModuleResetOccurred` and `GyroResetOccurred` inputs.
 
 In the sim, `FM_SIM_MATCH=Q12` makes the Driver Station report an FMS match, so a scripted run
 writes the file into `logs/`.

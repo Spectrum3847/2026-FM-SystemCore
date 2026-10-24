@@ -337,6 +337,33 @@ final class ParamStore {
         return out;
     }
 
+    /**
+     * Whether a file layer already read gave this param a value it refused (wrong type or out of
+     * bounds), could not be read at all where it exists, or was refused whole (a hard-stop file
+     * saved on another robot). Reads nothing from disk and changes nothing.
+     */
+    boolean refusedInFile(Param<?> p) {
+        List<Layer> group = layers.get(p.group());
+        if (group == null) {
+            return false;
+        }
+        for (Layer layer : group) {
+            if (layer.unreadable() || layer.refused()) {
+                return true;
+            }
+            JsonNode node = layer.values() == null ? null : layer.values().get(p.key());
+            if (node == null) {
+                continue;
+            }
+            try {
+                p.fromJson(unwrap(node));
+            } catch (IllegalArgumentException e) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // ── Checking a file without applying it ─────────────────────────────────
 
     /**

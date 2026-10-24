@@ -24,6 +24,10 @@ import java.util.Map;
  * much. It cannot tell which camera of a disagreeing pair is wrong; it names both. Only multi-tag
  * frames count: a single tag's heading can flip, and MegaTag2-style solves take the heading from
  * the robot, so they must not be passed in.
+ *
+ * <p>Only a camera the robot fuses can fail the check. One that is only logged (a SystemCore camera
+ * with a placeholder mount, an Orin camera switched off) warns at most: its heading cannot move the
+ * pose, so it is no reason to call the robot NO-GO.
  */
 public final class CameraHeadingCheck implements Check {
 
@@ -63,6 +67,7 @@ public final class CameraHeadingCheck implements Check {
     private record Sample(double time, double offsetDeg) {}
 
     private final Map<String, ArrayDeque<Sample>> cameras = new LinkedHashMap<>();
+    private final Map<String, Boolean> fused = new LinkedHashMap<>();
     private double fusedOffsetDeg = Double.NaN;
     private Status lastStatus = Status.PASS;
     private double lastGyroDeg = Double.NaN;
@@ -88,6 +93,30 @@ public final class CameraHeadingCheck implements Check {
             int tagCount,
             double yawRateRadPerSec,
             double now) {
+        addFrame(camera, true, cameraHeadingDeg, gyroYawDeg, tagCount, yawRateRadPerSec, now);
+    }
+
+    /**
+     * Records one camera frame, saying whether the robot fuses that camera. Ignored unless it saw
+     * two or more tags and the robot was turning slower than {@link #MAX_YAW_RATE}.
+     *
+     * @param camera the camera's name
+     * @param cameraFused whether any of the camera's sources is fused into the pose now
+     * @param cameraHeadingDeg the robot heading the camera solved
+     * @param gyroYawDeg the gyro's yaw at the frame
+     * @param tagCount tags in the solve
+     * @param yawRateRadPerSec the robot's turn rate now
+     * @param now this loop's robot time
+     */
+    public void addFrame(
+            String camera,
+            boolean cameraFused,
+            double cameraHeadingDeg,
+            double gyroYawDeg,
+            int tagCount,
+            double yawRateRadPerSec,
+            double now) {
+        fused.put(camera, cameraFused);
         ArrayDeque<Sample> samples = cameras.computeIfAbsent(camera, c -> new ArrayDeque<>());
         if (tagCount < 2 || Math.abs(yawRateRadPerSec) > MAX_YAW_RATE) {
             return;
@@ -165,56 +194,59 @@ public final class CameraHeadingCheck implements Check {
             return noCamera();
         }
 
-        // The worst pair of cameras, then the worst camera against the fused heading.
-        double worstPair = 0;
-        String pair = null;
-        for (int i = 0; i < names.size(); i++) {
-            for (int j = i + 1; j < names.size(); j++) {
-                double d = Math.abs(wrap(offsets.get(i) - offsets.get(j)));
-                if (d > worstPair) {
-                    worstPair = d;
-                    pair = names.get(i) + " and " + names.get(j);
-                }
-            }
-        }
-        double worstFused = 0;
-        String vsFused = null;
-        if (Double.isFinite(fusedOffsetDeg)) {
-            for (int i = 0; i < names.size(); i++) {
-                double d = Math.abs(wrap(offsets.get(i) - fusedOffsetDeg));
-                if (d > worstFused) {
-                    worstFused = d;
-                    vsFused = names.get(i);
-                }
-            }
-        }
-
-        String pairText =
-                pair == null
-                        ? null
-                        : String.format("%s disagree on heading by %.0f deg", pair, worstPair);
-        String fusedText =
-                vsFused == null
-                        ? null
-                        : String.format(
-                                "%s is %.0f deg from the robot heading", vsFused, worstFused);
-        double worst = Math.max(worstPair, worstFused);
-        // The pair when it is as bad a verdict, so the line does not flip between the two
-        // findings as their medians trade a degree.
-        String text =
-                pairText != null && severity(worstPair) >= severity(worstFused)
-                        ? pairText
-                        : fusedText;
         // A verdict holds until the error is a degree back inside its threshold: a median sitting
         // on the line would otherwise flip the alert every evaluation (TXMAN1 Q24 replay).
         double margin = 1;
-        if (worst > FAIL_DEG - (lastStatus == Status.FAIL ? margin : 0)) {
-            lastStatus = Status.FAIL;
-            return CheckResult.fail(text + " - a camera's mount yaw is wrong");
+        double failAt = FAIL_DEG - (lastStatus == Status.FAIL ? margin : 0);
+        double warnAt = WARN_DEG - (lastStatus.ordinal() >= Status.WARN.ordinal() ? margin : 0);
+
+        // The worst pair of cameras, then the worst camera against the fused heading.
+        Finding pair = null;
+        double worst = 0;
+        for (int i = 0; i < names.size(); i++) {
+            for (int j = i + 1; j < names.size(); j++) {
+                double d = Math.abs(wrap(offsets.get(i) - offsets.get(j)));
+                worst = Math.max(worst, d);
+                Finding f =
+                        new Finding(
+                                String.format(
+                                        "%s and %s disagree on heading by %.0f deg",
+                                        names.get(i), names.get(j), d),
+                                d,
+                                severity(d, failAt, warnAt, isFused(names.get(i), names.get(j))),
+                                unfused(names.get(i), names.get(j)));
+                pair = f.worseThan(pair) ? f : pair;
+            }
         }
-        if (worst > WARN_DEG - (lastStatus.ordinal() >= Status.WARN.ordinal() ? margin : 0)) {
+        Finding vsFused = null;
+        if (Double.isFinite(fusedOffsetDeg)) {
+            for (int i = 0; i < names.size(); i++) {
+                double d = Math.abs(wrap(offsets.get(i) - fusedOffsetDeg));
+                worst = Math.max(worst, d);
+                Finding f =
+                        new Finding(
+                                String.format(
+                                        "%s is %.0f deg from the robot heading", names.get(i), d),
+                                d,
+                                severity(d, failAt, warnAt, isFused(names.get(i))),
+                                unfused(names.get(i)));
+                vsFused = f.worseThan(vsFused) ? f : vsFused;
+            }
+        }
+
+        // The pair when it is as bad a verdict, so the line does not flip between the two
+        // findings as their medians trade a degree.
+        Finding top =
+                pair != null && (vsFused == null || pair.severity() >= vsFused.severity())
+                        ? pair
+                        : vsFused;
+        if (top != null && top.severity() == 2) {
+            lastStatus = Status.FAIL;
+            return CheckResult.fail(top.text() + " - a camera's mount yaw is wrong");
+        }
+        if (top != null && top.severity() == 1) {
             lastStatus = Status.WARN;
-            return CheckResult.warn(text + " - check the camera mount yaw");
+            return CheckResult.warn(top.text() + " - check the camera mount yaw" + top.note());
         }
         lastStatus = Status.PASS;
         return CheckResult.pass(
@@ -224,8 +256,40 @@ public final class CameraHeadingCheck implements Check {
                         + (Double.isFinite(fusedOffsetDeg) ? "" : " (pose not seeded yet)"));
     }
 
-    private static int severity(double deg) {
-        return deg > FAIL_DEG ? 2 : deg > WARN_DEG ? 1 : 0;
+    /**
+     * One disagreement: its line, size, severity (2 fail, 1 warn) and a note on unfused cameras.
+     */
+    private record Finding(String text, double deg, int severity, String note) {
+        boolean worseThan(Finding other) {
+            return other == null
+                    || severity > other.severity
+                    || (severity == other.severity && deg > other.deg);
+        }
+    }
+
+    private static int severity(double deg, double failAt, double warnAt, boolean canFail) {
+        int s = deg > failAt ? 2 : deg > warnAt ? 1 : 0;
+        return canFail ? s : Math.min(s, 1);
+    }
+
+    private boolean isFused(String... names) {
+        for (String n : names) {
+            if (!fused.getOrDefault(n, true)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Names the cameras that are not fused, as a suffix for the reason, or "". */
+    private String unfused(String... names) {
+        List<String> out = new ArrayList<>();
+        for (String n : names) {
+            if (!fused.getOrDefault(n, true)) {
+                out.add(n);
+            }
+        }
+        return out.isEmpty() ? "" : " (" + String.join(", ", out) + " not fused)";
     }
 
     /** The median of angles that may straddle +/-180: measured from the first, then put back. */

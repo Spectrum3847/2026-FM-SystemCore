@@ -19,6 +19,7 @@ import frc.spectrumLib.localization.PoseSource;
 import frc.spectrumLib.mechanism.Mechanism;
 import java.util.Arrays;
 import java.util.List;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -29,23 +30,28 @@ final class PreMatch {
     private PreMatch() {}
 
     static PreMatchChecks create(
-            Swerve swerve, Vision vision, Hood hood, AutoStartCheck autoStart) {
+            Swerve swerve,
+            Vision vision,
+            Hood hood,
+            AutoStartCheck autoStart,
+            OptionalDouble batteryVoltsOffset) {
         return new PreMatchChecks("PreMatch")
                 .register("CAN", can(swerve))
                 .register("Homing", homing(hood))
                 .register("CameraHeading", vision.getCameraHeadings())
                 .register("GyroMount", swerve.getMountCheck())
                 .register("Auto", autoStart)
-                .register("Battery", battery())
+                .register("Battery", battery(batteryVoltsOffset))
                 .register("Coprocessors", coprocessors(vision))
                 .register("Settings", settings(swerve, vision));
     }
 
     /** The simulator's battery is a constant 12 V, which would only ever warn. */
-    private static Check battery() {
+    private static Check battery(OptionalDouble offsetVolts) {
         BatteryCheck battery =
                 new BatteryCheck(
                         RuntimeInputs::batteryVoltage,
+                        offsetVolts,
                         RobotState::isDisabled,
                         () -> BatteryCheck.Identity.NONE);
         return new Check() {
@@ -75,9 +81,9 @@ final class PreMatch {
                             drivetrain,
                             SwerveAlignment.MODULE_NAMES[i] + " module",
                             () -> in.moduleConnected.length != 4 || in.moduleConnected[m])
-                    .resets(() -> m < in.moduleResetOccurred.length && in.moduleResetOccurred[m]);
+                    .resets(() -> swerve.moduleRebootedThisLoop(m));
         }
-        can.add(drivetrain, "Pigeon", () -> in.gyroConnected).resets(() -> in.gyroResetOccurred);
+        can.add(drivetrain, "Pigeon", () -> in.gyroConnected).resets(swerve::gyroRebootedThisLoop);
         for (Mechanism m : Mechanism.all()) {
             can.addMechanism(m, CanBuses.label(m.config.getId().getBus()));
         }

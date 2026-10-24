@@ -248,7 +248,7 @@ public final class LogStorage {
         for (LogFile f : list(new File(folder))) {
             names.add(f.name());
         }
-        bootLogs = names;
+        bootLogs = Collections.unmodifiableSet(names);
     }
 
     /**
@@ -338,5 +338,13 @@ public final class LogStorage {
     /** The folder chosen at boot. */
     public static String folder() {
         return folder;
+    }
+
+    /**
+     * The log names in {@link #folder()} before this boot's log was opened, so a log not among them
+     * is this boot's whatever its time; null where {@link #cleanUpAtBoot()} has not run (the sim).
+     */
+    static Set<String> logsAtBoot() {
+        return bootLogs;
     }
 }

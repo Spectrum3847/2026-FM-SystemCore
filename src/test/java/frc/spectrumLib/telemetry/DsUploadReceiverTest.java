@@ -3,6 +3,7 @@ package frc.spectrumLib.telemetry;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -19,8 +20,11 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -481,5 +485,145 @@ class DsUploadReceiverTest {
         long ms = (System.nanoTime() - t0) / 1_000_000;
         assertEquals(0, out.size());
         assertTrue(ms < DsUploadReceiver.HEAD_TIMEOUT_MS + 1000, "took " + ms + " ms");
+    }
+
+    // ── extend ──────────────────────────────────────────────────────────────────────────────────
+
+    private static final String DSLOG_URL = "/upload/dslog/" + DSLOG.replace(" ", "%20");
+
+    private static String sha(byte[] b, int n) {
+        try {
+            MessageDigest d = MessageDigest.getInstance("SHA-256");
+            d.update(b, 0, n);
+            return HexFormat.of().formatHex(d.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static byte[] copy(byte[] b, int from, int to) {
+        return Arrays.copyOfRange(b, from, to);
+    }
+
+    private Reply extend(String base, int n, int total, byte[] chunk, String hash)
+            throws IOException {
+        Map<String, String> h = new HashMap<>();
+        h.put(DsUploadReceiver.TOKEN_HEADER, TOKEN);
+        h.put("content-length", Integer.toString(chunk.length));
+        h.put(DsUploadReceiver.PREFIX_HASH_HEADER, hash);
+        return rx.handle(
+                "PUT",
+                base + "?offset=" + n + "&total=" + total + "&extend=1",
+                h,
+                new ByteArrayInputStream(chunk));
+    }
+
+    @Test
+    void aGrownSessionLogIsExtendedNotResent() throws IOException {
+        byte[] log = bytes(3000, 6); // the session log after three matches
+        assertEquals(200, put(DSLOG_URL + "?offset=0&total=1000", copy(log, 0, 1000)).status());
+        Reply h = head(DSLOG_URL);
+        assertEquals("1", h.headers().get(DsUploadReceiver.PREFIX_SUPPORTED_HEADER));
+        assertEquals("1000", h.headers().get("X-Received"));
+        assertEquals("true", h.headers().get("X-Complete"));
+
+        Reply r = extend(DSLOG_URL, 1000, 2000, copy(log, 1000, 1300), sha(log, 1000));
+        assertEquals(200, r.status());
+        assertEquals("1300", r.headers().get("X-Received"));
+        assertEquals("false", r.headers().get("X-Complete"));
+        assertFalse(Files.exists(dir.resolve(DSLOG)), "the finished copy became the partial one");
+        assertEquals("1300", head(DSLOG_URL).headers().get("X-Received"));
+        assertNull(head(DSLOG_URL).headers().get(DsUploadReceiver.PREFIX_SUPPORTED_HEADER));
+        Reply rest = put(DSLOG_URL + "?offset=1300&total=2000", copy(log, 1300, 2000));
+        assertEquals("true", rest.headers().get("X-Complete"));
+        assertArrayEquals(copy(log, 0, 2000), Files.readAllBytes(dir.resolve(DSLOG)));
+
+        // After the next match: hashed as it arrived, so neither extend read the file back.
+        r = extend(DSLOG_URL, 2000, 3000, copy(log, 2000, 3000), sha(log, 2000));
+        assertEquals("true", r.headers().get("X-Complete"));
+        assertArrayEquals(log, Files.readAllBytes(dir.resolve(DSLOG)));
+        assertEquals(0, rx.filesHashed());
+    }
+
+    @Test
+    void aFileFromAnEarlierBootIsHashedOnceThenCached() throws IOException {
+        byte[] log = bytes(2000, 8);
+        Files.write(dir.resolve(DSLOG), copy(log, 0, 1500));
+        String wrong = sha(log, 1499);
+        assertEquals(409, extend(DSLOG_URL, 1500, 2000, copy(log, 1500, 2000), wrong).status());
+        assertEquals(1, rx.filesHashed());
+        Reply r = extend(DSLOG_URL, 1500, 2000, copy(log, 1500, 2000), sha(log, 1500));
+        assertEquals(200, r.status());
+        assertEquals(1, rx.filesHashed(), "the retry used the cached hash");
+        assertArrayEquals(log, Files.readAllBytes(dir.resolve(DSLOG)));
+    }
+
+    @Test
+    void aMismatchIsA409AndLeavesTheFileAlone() throws IOException {
+        byte[] old = bytes(1000, 1);
+        put(DSLOG_URL + "?offset=0&total=1000", old);
+        byte[] other = bytes(1500, 2); // a different session under the same name
+        Reply r = extend(DSLOG_URL, 1000, 1500, copy(other, 1000, 1500), sha(other, 1000));
+        assertEquals(409, r.status());
+        assertEquals("mismatch", r.headers().get(DsUploadReceiver.EXTEND_HEADER));
+        assertArrayEquals(old, Files.readAllBytes(dir.resolve(DSLOG)));
+        assertFalse(Files.exists(dir.resolve(DSLOG + ".part")));
+        // the client's fallback: the whole file from offset 0
+        Reply again = put(DSLOG_URL + "?offset=0&total=1500", other);
+        assertEquals("true", again.headers().get("X-Complete"));
+        assertArrayEquals(other, Files.readAllBytes(dir.resolve(DSLOG)));
+    }
+
+    @Test
+    void anExtendFromAnythingButTheWholeFinishedFileIsAMismatch() throws IOException {
+        byte[] log = bytes(2000, 3);
+        put(DSLOG_URL + "?offset=0&total=1000", copy(log, 0, 1000));
+        Reply r = extend(DSLOG_URL, 900, 2000, copy(log, 900, 2000), sha(log, 900));
+        assertEquals(409, r.status());
+        assertEquals("mismatch", r.headers().get(DsUploadReceiver.EXTEND_HEADER));
+        assertEquals(0, rx.filesHashed(), "a wrong length is refused without reading the file");
+        String fresh = "/upload/dslog/2026_10_17%2009_00_00%20Sat.dslog";
+        r = extend(fresh, 100, 200, bytes(100, 1), sha(log, 100));
+        assertEquals("mismatch", r.headers().get(DsUploadReceiver.EXTEND_HEADER));
+    }
+
+    @Test
+    void extendIsOnlyForDsLogs() throws IOException {
+        put("/upload/audio/a.m4a?offset=0&total=10", bytes(10, 1));
+        Reply h = head("/upload/audio/a.m4a");
+        assertNull(h.headers().get(DsUploadReceiver.PREFIX_SUPPORTED_HEADER));
+        Reply r = extend("/upload/audio/a.m4a", 10, 20, bytes(10, 2), sha(bytes(10, 1), 10));
+        assertEquals(400, r.status());
+        assertArrayEquals(bytes(10, 1), Files.readAllBytes(dir.resolve("a.m4a")));
+    }
+
+    @Test
+    void aDsWpilogCanBeExtended() throws IOException {
+        byte[] log = bytes(600, 4);
+        String base = "/upload/dswpilog/FRC_DS_1.wpilog";
+        put(base + "?offset=0&total=400", copy(log, 0, 400));
+        assertEquals("1", head(base).headers().get(DsUploadReceiver.PREFIX_SUPPORTED_HEADER));
+        Reply r = extend(base, 400, 600, copy(log, 400, 600), sha(log, 400));
+        assertEquals("true", r.headers().get("X-Complete"));
+        assertArrayEquals(log, Files.readAllBytes(dir.resolve("FRC_DS_1.dswpilog")));
+    }
+
+    @Test
+    void aBadExtendRequestIsA400() throws IOException {
+        byte[] log = bytes(1000, 5);
+        put(DSLOG_URL + "?offset=0&total=1000", log);
+        assertEquals(400, extend(DSLOG_URL, 1000, 1000, new byte[0], sha(log, 1000)).status());
+        assertEquals(400, extend(DSLOG_URL, 1000, 1100, bytes(100, 1), "abc").status());
+        assertArrayEquals(log, Files.readAllBytes(dir.resolve(DSLOG)));
+    }
+
+    @Test
+    void anExtendWhileEnabledIsRefusedButNotAMismatch() throws IOException {
+        byte[] log = bytes(1000, 5);
+        put(DSLOG_URL + "?offset=0&total=1000", log);
+        rx.setRobotEnabled(true);
+        Reply r = extend(DSLOG_URL, 1000, 1100, bytes(100, 1), sha(log, 1000));
+        assertEquals(409, r.status());
+        assertNull(r.headers().get(DsUploadReceiver.EXTEND_HEADER));
     }
 }

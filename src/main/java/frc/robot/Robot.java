@@ -533,9 +533,8 @@ public class Robot extends SpectrumRobot {
                     default -> "Unknown";
                 });
 
-        // First, so no log file or dashboard ever gets the radio's Wi-Fi key hashes (replay too:
-        // older logs still carry them).
-        Logger.addDataReceiver(new RadioStatusRedactor());
+        // Every receiver goes through RadioStatusRedactor.addFirst, so no log file or dashboard
+        // ever gets the radio's Wi-Fi key hashes (replay too: older logs still carry them).
         switch (Constants.currentMode) {
             case REAL:
                 // A USB stick if one is inserted (AdvantageKit's default /U/logs), otherwise the
@@ -544,21 +543,23 @@ public class Robot extends SpectrumRobot {
                 String logFolder = LogStorage.chooseFolder();
                 // Before Logger.start(), so the cleanup cannot delete this boot's log.
                 LogStorage.cleanUpAtBoot();
-                Logger.addDataReceiver(new WPILOGWriter(logFolder));
                 Logger.recordMetadata("LogFolder", LogStorage.folder());
                 // Dashboard keys to NT at ~50 Hz; the log file keeps everything, every cycle.
-                Logger.addDataReceiver(new DashboardReceiver(new NT4Publisher(), ntEveryN()));
+                RadioStatusRedactor.addFirst(
+                        new WPILOGWriter(logFolder),
+                        new DashboardReceiver(new NT4Publisher(), ntEveryN()));
                 break;
             case SIM:
                 // Log to NT for AdvantageScope and to ./logs for replay practice.
-                Logger.addDataReceiver(new WPILOGWriter("logs"));
-                Logger.addDataReceiver(new DashboardReceiver(new NT4Publisher(), ntEveryN()));
+                RadioStatusRedactor.addFirst(
+                        new WPILOGWriter("logs"),
+                        new DashboardReceiver(new NT4Publisher(), ntEveryN()));
                 break;
             case REPLAY:
                 setUseTiming(false); // Run as fast as possible
                 String logPath = LogFileUtil.findReplayLog();
                 Logger.setReplaySource(new WPILOGReader(logPath));
-                Logger.addDataReceiver(
+                RadioStatusRedactor.addFirst(
                         new WPILOGWriter(LogFileUtil.addPathSuffix(logPath, "_sim")));
                 break;
         }

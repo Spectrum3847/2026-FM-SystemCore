@@ -170,14 +170,15 @@ final class PreMatch {
                 Arrays.stream(vision.getConfig().getOrinExcludedTags())
                         .boxed()
                         .collect(Collectors.toCollection(TreeSet::new));
-        // Vision solves with Event.APRILTAG_FIELD, so the robot's own map is the event's by
-        // construction. The Limelights' and the Jetson's maps are not readable from the robot.
+        // Vision solves with Event.APRILTAG_FIELD (in replay, the match's field), so the robot's
+        // own map is the event's by construction. The Limelights' and the Jetson's maps are not
+        // readable from the robot.
         SettingsCheck settings =
                 new SettingsCheck()
                         .info(
                                 () ->
                                         "field "
-                                                + Vision.TAG_FIELD.name()
+                                                + Vision.getTagField().name()
                                                 + " (robot's map; camera maps unchecked)")
                         .add(
                                 () ->

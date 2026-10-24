@@ -555,6 +555,16 @@ class ParamStoreTest {
     }
 
     @Test
+    void refusedInFileNamesAFileSavedOnAnotherRobot() throws IOException {
+        file(robotFile("FM2026"), "{\"a\": 1}");
+        file(localFile(), "{\"$hardware\": " + stampJson(OTHER_ROBOT) + ", \"a\": 3}");
+        configureStamped(THIS_ROBOT);
+        DoubleParam a = cams.number("a", 0, "");
+        assertEquals(1.0, a.get());
+        assertTrue(store.refusedInFile(a));
+    }
+
+    @Test
     void anotherRobotConfigsLocalFolderIsIgnored() throws IOException {
         file(local.resolve("PM2026").resolve("cams.json"), "{\"a\": 9}");
         configure();

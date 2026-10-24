@@ -22,12 +22,14 @@ import org.wpilib.driverstation.Alert.Level;
  *       Elastic and the pit app.
  *   <li>{@code Summary}: one line per check, {@code "FAIL CAN: ..."}, on NetworkTables too.
  *   <li>{@code Checks/<name>/Status} and {@code Checks/<name>/Reason}.
- *   <li>{@code Active}: whether the checks are running (disabled). While enabled the last results
- *       stay published but nothing is re-judged.
+ *   <li>{@code Active}: whether the checks are running (disabled, before a match starts). While
+ *       not, the last results stay published but nothing is re-judged.
  * </ul>
  *
  * <p>A failing check raises a HIGH alert and a warning a MEDIUM one, both cleared on enable: in a
- * match the subsystems' own alerts speak for themselves.
+ * match the subsystems' own alerts speak for themselves. Once a match has started (the first enable
+ * with the FMS attached), the checks stay quiet until the FMS detaches, so the disabled gap between
+ * auto and teleop raises nothing; the pre-match results stay published as they were.
  *
  * <p>One check is evaluated per loop, in turn, so the cost is one check's work whatever the number
  * registered. Every check's {@link Check#observe} still runs every loop.
@@ -47,6 +49,7 @@ public final class PreMatchChecks {
     private final Sink sink;
     private int next = 0;
     private boolean wasActive = false;
+    private boolean matchStarted = false;
     private boolean go = false;
     private String reason = "Not checked yet";
 
@@ -88,12 +91,31 @@ public final class PreMatchChecks {
     }
 
     /**
-     * Runs the checks. Call once per loop on the main thread, after this loop's inputs are read.
+     * Runs the checks with no FMS attached. Call once per loop on the main thread, after this
+     * loop's inputs are read.
      *
      * @param disabled whether the robot is disabled; the checks judge only then
      * @param nowSeconds this loop's robot time
      */
     public void periodic(boolean disabled, double nowSeconds) {
+        periodic(disabled, false, nowSeconds);
+    }
+
+    /**
+     * Runs the checks. Call once per loop on the main thread, after this loop's inputs are read.
+     *
+     * @param disabled whether the robot is disabled; the checks judge only then, and not between
+     *     the periods of a match
+     * @param fmsAttached whether the FMS is attached, a logged input
+     * @param nowSeconds this loop's robot time
+     */
+    public void periodic(boolean disabled, boolean fmsAttached, double nowSeconds) {
+        if (!fmsAttached) {
+            matchStarted = false;
+        } else if (!disabled) {
+            matchStarted = true;
+        }
+        boolean judge = disabled && !matchStarted;
         for (Entry e : entries) {
             try {
                 e.check.observe(nowSeconds);
@@ -102,7 +124,7 @@ public final class PreMatchChecks {
                 e.result = CheckResult.warn("check error: " + ex);
             }
         }
-        if (!disabled) {
+        if (!judge) {
             if (wasActive) {
                 wasActive = false;
                 for (Entry e : entries) {
@@ -138,6 +160,13 @@ public final class PreMatchChecks {
         sink.result(e.name, e.result);
         summarize();
         sink.overall(go, reason, summary(), true);
+    }
+
+    /**
+     * Whether a match has started (enabled with the FMS attached) and the FMS is still attached.
+     */
+    public boolean isMatchStarted() {
+        return matchStarted;
     }
 
     /** Whether no check fails (and every check has been judged since the robot disabled). */

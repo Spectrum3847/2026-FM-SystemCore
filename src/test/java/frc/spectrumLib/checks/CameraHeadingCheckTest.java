@@ -132,6 +132,56 @@ class CameraHeadingCheckTest {
         assertTrue(r.reason().startsWith("no camera has seen 2+ tags"), r.reason());
     }
 
+    /**
+     * Two seconds of frames from a fused camera with no error and an unfused one with {@code err}.
+     */
+    private void fusedAndUnfused(double err) {
+        for (int i = 0; i < 100; i++) {
+            check.addFrame("LL-Back", true, 30, 0, 3, 0, now);
+            check.addFrame("limelightsc0", false, 30 + err, 0, 3, 0, now);
+            now += 0.02;
+        }
+    }
+
+    @Test
+    void aCameraNothingFusesOnlyWarns() {
+        // A SystemCore camera on its placeholder mount, logged but not fused.
+        fusedAndUnfused(170);
+        check.setRobotHeading(30, 0);
+        CheckResult r = settled();
+        assertEquals(Status.WARN, r.status());
+        assertEquals(
+                "LL-Back and limelightsc0 disagree on heading by 170 deg - check the camera mount"
+                        + " yaw (limelightsc0 not fused)",
+                r.reason());
+    }
+
+    @Test
+    void aFusedPairStillFailsBesideAnUnfusedCamera() {
+        for (int i = 0; i < 100; i++) {
+            check.addFrame("LL-Back", true, 0, 0, 3, 0, now);
+            check.addFrame("LL-Left", true, 172, 0, 3, 0, now);
+            check.addFrame("limelightsc0", false, 90, 0, 3, 0, now);
+            now += 0.02;
+        }
+        CheckResult r = settled();
+        assertEquals(Status.FAIL, r.status());
+        assertEquals(
+                "LL-Back and LL-Left disagree on heading by 172 deg - a camera's mount yaw is wrong",
+                r.reason());
+    }
+
+    @Test
+    void switchingFusionOnLetsTheCameraFail() {
+        fusedAndUnfused(170);
+        assertEquals(Status.WARN, settled().status());
+        for (int i = 0; i < 100; i++) {
+            check.addFrame("limelightsc0", true, 200, 0, 3, 0, now);
+            now += 0.02;
+        }
+        assertEquals(Status.FAIL, settled().status());
+    }
+
     @Test
     void oldFramesAgeOut() {
         frames(0, 0, 0, 172);

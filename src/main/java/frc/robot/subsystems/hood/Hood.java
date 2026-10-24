@@ -2,6 +2,7 @@ package frc.robot.subsystems.hood;
 
 import com.ctre.phoenix6.hardware.TalonFX;
 import frc.rebuilt.ShotCalculator;
+import frc.robot.Constants;
 import frc.robot.RobotSim;
 import frc.spectrumLib.checks.HomingCheck;
 import frc.spectrumLib.hardware.CanBuses;
@@ -14,6 +15,7 @@ import frc.spectrumLib.sim.ArmSim;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import lombok.Getter;
+import org.littletonrobotics.junction.Logger;
 import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.util.Units;
@@ -151,22 +153,39 @@ public class Hood extends Mechanism {
      */
     @Getter private double shotTargetDegrees = Double.NaN;
 
+    private boolean goalWasClamped = false;
+
     private void applyStates(HoodHoming.Action action) {
-        double wantedDegrees = homing.getParams().stopDeg();
-        shotTargetDegrees = Double.NaN;
+        double requestedDegrees = homing.getParams().stopDeg();
         switch (systemState) {
             case HOME, STOPPED:
                 break;
             case AIM_AT_TARGET:
-                var params = ShotCalculator.getInstance().getParameters();
-                wantedDegrees = params.hoodAngle();
-                shotTargetDegrees = wantedDegrees;
+                requestedDegrees = ShotCalculator.getInstance().getParameters().hoodAngle();
                 break;
             case SET_SHOT:
-                wantedDegrees = ShotCalculator.getSetShotHoodDegrees();
-                shotTargetDegrees = wantedDegrees;
+                requestedDegrees = ShotCalculator.getSetShotHoodDegrees();
                 break;
         }
+        // The shot model can ask past the soft limits the hood booted with (a narrowed hoodForward
+        // param). The hood would stall at the limit while the shot gate waited out its timeout,
+        // so it goes to the limit, and the gate and the tracking stop compare against that.
+        final double requested = requestedDegrees;
+        double wantedDegrees =
+                rotationsToDegrees(() -> clampToSoftLimits(degreesToRotations(() -> requested)));
+        boolean clamped = Math.abs(wantedDegrees - requestedDegrees) > 1e-9;
+        boolean onShot =
+                systemState == SystemState.AIM_AT_TARGET || systemState == SystemState.SET_SHOT;
+        shotTargetDegrees = onShot ? wantedDegrees : Double.NaN;
+        Telemetry.log("Hood/RequestedDegrees", requestedDegrees, "degrees");
+        Telemetry.log("Hood/GoalClamped", clamped);
+        if (clamped && !goalWasClamped) {
+            Telemetry.print(
+                    String.format(
+                            "Hood: %.1f deg asked, past the soft limits; going to %.1f deg",
+                            requestedDegrees, wantedDegrees));
+        }
+        goalWasClamped = clamped;
         // Homing owns the motor while it runs, and refuses setpoints until the hood is zeroed.
         if (action == HoodHoming.Action.DRIVE_TO_STOP) {
             setVoltageOutputNoSoftLimit(() -> homing.getParams().volts());
@@ -192,12 +211,17 @@ public class Hood extends Mechanism {
                     Level.HIGH);
 
     /**
-     * The hood has found its bottom stop since boot, so its angle can be trusted. Until then it
-     * holds in brake and the shot gate holds.
+     * The hood has found its bottom stop since boot and its readings show the zero, so its angle
+     * can be trusted. Until then it holds in brake and the shot gate holds.
      */
     public boolean isZeroed() {
-        return homing.isZeroed();
+        return assumedZeroedForReplay || (homing.isZeroed() && !isPositionWritePending());
     }
+
+    private final HoodHoming.LogMarker homingLogMarker = new HoodHoming.LogMarker();
+
+    /** Replaying a log from before homing existed: see {@link HoodHoming#assumeZeroedForReplay}. */
+    private boolean assumedZeroedForReplay = false;
 
     private HoodHoming.State homingState = HoodHoming.State.NOT_ZEROED;
 
@@ -231,18 +255,28 @@ public class Hood extends Mechanism {
 
     @Override
     public void periodic() {
+        Logger.processInputs("Hood/Homing", homingLogMarker);
+        assumedZeroedForReplay =
+                HoodHoming.assumeZeroedForReplay(
+                        Constants.currentMode == Constants.Mode.REPLAY,
+                        homingLogMarker.recordedWithHoming);
+        // Right after a zero the readings are still from the old one: no angle until they catch up.
+        double positionDeg = isPositionWritePending() ? Double.NaN : getPositionDegrees();
         var homed =
-                homing.update(
-                        new HoodHoming.Inputs(
-                                Timer.getTimestamp(),
-                                RobotState.isEnabled(),
-                                RobotState.isAutonomous(),
-                                RobotState.isTeleop(),
-                                isMotorConnected(),
-                                motorResetThisLoop(),
-                                getPositionDegrees(),
-                                getVelocityRPM() * 6.0, // mechanism RPM to deg/s
-                                wantedState == WantedState.HOME));
+                assumedZeroedForReplay
+                        ? HoodHoming.assumedZeroed()
+                        : homing.update(
+                                new HoodHoming.Inputs(
+                                        Timer.getTimestamp(),
+                                        RobotState.isEnabled(),
+                                        RobotState.isAutonomous(),
+                                        RobotState.isTeleop(),
+                                        isMotorConnected(),
+                                        motorResetThisLoop(),
+                                        positionDeg,
+                                        getVelocityRPM() * 6.0, // mechanism RPM to deg/s
+                                        wantedState == WantedState.HOME,
+                                        isTrackingStopped()));
         if (homed.resetPosition()) {
             setMotorPosition(() -> degreesToRotations(() -> homing.getParams().stopDeg()));
         }
@@ -254,7 +288,8 @@ public class Hood extends Mechanism {
         Telemetry.log("Hood/WantedState", wantedState.toString());
         Telemetry.log("Hood/SystemState", systemState.toString());
         Telemetry.log("Hood/CurrentCommand", getCurrentCommandName());
-        Telemetry.log("Hood/Zeroed", homed.zeroed());
+        Telemetry.log("Hood/Zeroed", isZeroed());
+        Telemetry.log("Hood/Homing/AssumedZeroedForReplay", assumedZeroedForReplay);
         Telemetry.log("Hood/HomingState", homed.state().label);
         // Voltage, currents, temperature and connection at 10 Hz (offseason); the
         // same signals are also recorded every loop as inputs under Mechanisms/.

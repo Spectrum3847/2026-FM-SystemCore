@@ -9,6 +9,7 @@ import frc.robot.subsystems.hood.HoodHoming.Output;
 import frc.robot.subsystems.hood.HoodHoming.State;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.littletonrobotics.junction.LogTable;
 
 class HoodHomingTest {
     private static final double LOOP = 0.01;
@@ -26,6 +27,7 @@ class HoodHomingTest {
     private double position;
     private double speed;
     private boolean wantsHome;
+    private boolean trackingStopped;
 
     @BeforeEach
     void setUp() {
@@ -38,6 +40,7 @@ class HoodHomingTest {
         position = STOP;
         speed = 0;
         wantsHome = false;
+        trackingStopped = false;
     }
 
     private Output step() {
@@ -52,7 +55,8 @@ class HoodHomingTest {
                                 motorReset,
                                 position,
                                 speed,
-                                wantsHome));
+                                wantsHome,
+                                trackingStopped));
         now += LOOP;
         motorReset = false;
         return out;
@@ -227,6 +231,86 @@ class HoodHomingTest {
         wantsHome = true;
         position = STOP;
         assertEquals(Action.DRIVE_TO_STOP, step().action(), "the next visit re-homes");
+    }
+
+    @Test
+    void noReHomeWhileTheTrackingStopHolds() {
+        enabled = true;
+        stepUntilReset(30);
+        position = 20;
+        steps(10);
+        // Jammed near home: the tracking stop latched. A stow re-home would stall on the jam.
+        trackingStopped = true;
+        wantsHome = true;
+        position = STOP + 1;
+        for (int i = 0; i < 100; i++) {
+            Output out = step();
+            assertFalse(out.action() == Action.DRIVE_TO_STOP || out.resetPosition());
+        }
+        // A reboot asks for a full attempt, which also waits for the operator's clear.
+        motorReset = true;
+        for (int i = 0; i < 100; i++) {
+            Output out = step();
+            assertFalse(out.action() == Action.DRIVE_TO_STOP || out.resetPosition());
+            assertEquals(Action.HOLD, out.action());
+        }
+        trackingStopped = false;
+        assertEquals(Action.DRIVE_TO_STOP, step().action(), "homes once cleared");
+    }
+
+    @Test
+    void aModeStartAttemptCutShortByTheTrackingStopRunsAfterTheClear() {
+        enabled = true;
+        auto = true;
+        teleop = false;
+        position = 30;
+        speed = -50;
+        assertEquals(Action.DRIVE_TO_STOP, step().action());
+        trackingStopped = true;
+        assertEquals(Action.HOLD, steps(20).action());
+        trackingStopped = false;
+        assertEquals(Action.DRIVE_TO_STOP, step().action());
+    }
+
+    @Test
+    void aLogWithTheHomingMarkerHomesNormally() {
+        HoodHoming.LogMarker marker = new HoodHoming.LogMarker();
+        LogTable table = new LogTable(0);
+        marker.toLog(table);
+        HoodHoming.LogMarker replayed = new HoodHoming.LogMarker();
+        replayed.fromLog(table);
+        assertTrue(replayed.recordedWithHoming);
+        assertFalse(HoodHoming.assumeZeroedForReplay(true, replayed.recordedWithHoming));
+    }
+
+    @Test
+    void aLogFromBeforeHomingIsAssumedZeroedInReplayOnly() {
+        HoodHoming.LogMarker replayed = new HoodHoming.LogMarker();
+        replayed.fromLog(new LogTable(0)); // no Hood/Homing keys in the log
+        assertFalse(replayed.recordedWithHoming);
+        assertTrue(HoodHoming.assumeZeroedForReplay(true, replayed.recordedWithHoming));
+        // On the robot and in sim the marker is never read from a log, and homing still runs.
+        assertFalse(HoodHoming.assumeZeroedForReplay(false, false));
+        assertFalse(
+                HoodHoming.assumeZeroedForReplay(
+                        false, new HoodHoming.LogMarker().recordedWithHoming));
+        Output out = HoodHoming.assumedZeroed();
+        assertTrue(out.zeroed());
+        assertFalse(out.resetPosition());
+        assertEquals(Action.CLOSED_LOOP, out.action());
+    }
+
+    @Test
+    void noAngleWhileAZeroLandsStartsNoReHome() {
+        enabled = true;
+        stepUntilReset(30);
+        position = 30;
+        steps(10);
+        wantsHome = true;
+        position = Double.NaN; // a zero the readings have not shown yet
+        assertEquals(Action.CLOSED_LOOP, steps(5).action());
+        position = STOP + 1;
+        assertEquals(Action.DRIVE_TO_STOP, step().action(), "re-homes once the angle is back");
     }
 
     @Test

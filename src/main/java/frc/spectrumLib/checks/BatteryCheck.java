@@ -1,5 +1,8 @@
 package frc.spectrumLib.checks;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.OptionalDouble;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
@@ -10,6 +13,10 @@ import java.util.function.Supplier;
  * <p>Voltage: disabled, the robot draws only its controllers and coprocessors, so the reading is
  * close to the pack's resting voltage. It must stay under a threshold for {@link #HOLD_SECONDS}
  * before it counts, so a mechanism moved by hand or a camera booting does not trip it.
+ *
+ * <p>The thresholds are for the voltage at the battery. Each controller reads it a little off, so
+ * the reading is corrected by the robot's calibration offset. A robot whose offset has not been
+ * measured warns at most on voltage: a FAIL there could be the controller, not the battery.
  *
  * <p>Same battery (6328 2024): when a match starts, the battery's ID is saved; at the next boot,
  * the same ID means nobody swapped it. Needs a battery ID (an NFC tag reader); without one this
@@ -37,6 +44,7 @@ public final class BatteryCheck implements Check {
     }
 
     private final DoubleSupplier volts;
+    private final OptionalDouble offsetVolts;
     private final BooleanSupplier atRest;
     private final Supplier<Identity> identity;
     private double underWarnSince = Double.NaN;
@@ -44,22 +52,43 @@ public final class BatteryCheck implements Check {
     private double lastVolts = Double.NaN;
 
     /**
+     * A check on a reading that is already calibrated (offset 0).
+     *
      * @param volts battery voltage, a logged input
      * @param atRest whether the robot is disabled; sag while enabled is load, not charge
      * @param identity the battery in the robot and the one in the last match; {@link Identity#NONE}
      *     without a reader
      */
     public BatteryCheck(DoubleSupplier volts, BooleanSupplier atRest, Supplier<Identity> identity) {
+        this(volts, OptionalDouble.of(0), atRest, identity);
+    }
+
+    /**
+     * @param volts battery voltage as the controller reads it, a logged input
+     * @param offsetVolts added to the reading to give the voltage at the battery; empty when it has
+     *     not been measured on this robot
+     * @param atRest whether the robot is disabled; sag while enabled is load, not charge
+     * @param identity the battery in the robot and the one in the last match; {@link Identity#NONE}
+     *     without a reader
+     */
+    public BatteryCheck(
+            DoubleSupplier volts,
+            OptionalDouble offsetVolts,
+            BooleanSupplier atRest,
+            Supplier<Identity> identity) {
         this.volts = volts;
+        this.offsetVolts = offsetVolts;
         this.atRest = atRest;
         this.identity = identity;
     }
 
     @Override
     public void observe(double now) {
-        double v = volts.getAsDouble();
+        double raw = volts.getAsDouble();
+        boolean reading = raw > NO_READING_VOLTS;
+        double v = reading ? raw + offsetVolts.orElse(0) : raw;
         lastVolts = v;
-        boolean reading = v > NO_READING_VOLTS && atRest.getAsBoolean();
+        reading &= atRest.getAsBoolean();
         underWarnSince = track(reading && v < WARN_VOLTS, underWarnSince, now);
         underFailSince = track(reading && v < FAIL_VOLTS, underFailSince, now);
     }
@@ -85,8 +114,12 @@ public final class BatteryCheck implements Check {
         if (!(lastVolts > NO_READING_VOLTS)) {
             return CheckResult.warn("no battery voltage reading");
         }
+        boolean calibrated = offsetVolts.isPresent();
         if (held(underFailSince, now)) {
-            return CheckResult.fail(volt + idText + ": swap the battery");
+            return calibrated
+                    ? CheckResult.fail(volt + idText + ": swap the battery")
+                    : CheckResult.warn(
+                            volt + idText + ": swap the battery? (voltage reading not calibrated)");
         }
         if (same) {
             return CheckResult.fail(
@@ -97,8 +130,20 @@ public final class BatteryCheck implements Check {
                             + ")");
         }
         if (held(underWarnSince, now)) {
-            return CheckResult.warn(volt + idText + ": not fully charged");
+            return CheckResult.warn(
+                    volt
+                            + idText
+                            + ": not fully charged"
+                            + (calibrated ? "" : " (voltage reading not calibrated)"));
         }
-        return CheckResult.pass(volt + (known ? idText : " (no battery ID reader)"));
+        List<String> notes = new ArrayList<>();
+        if (!known) {
+            notes.add("no battery ID reader");
+        }
+        if (!calibrated) {
+            notes.add("voltage reading not calibrated");
+        }
+        return CheckResult.pass(
+                volt + idText + (notes.isEmpty() ? "" : " (" + String.join(", ", notes) + ")"));
     }
 }

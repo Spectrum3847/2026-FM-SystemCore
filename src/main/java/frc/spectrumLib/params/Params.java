@@ -21,7 +21,9 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.inputs.LoggableInputs;
 import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.driverstation.RobotState;
 
@@ -37,10 +39,11 @@ import org.wpilib.driverstation.RobotState;
  *   <li>the default in the declaration;
  *   <li>{@code <deploy>/params/<group>.json}, in git;
  *   <li>{@code <deploy>/params/robots/<robot>/<group>.json}, for one robot, in git;
- *   <li>{@code <group>.json} in the robot-local folder (e.g. {@code /home/systemcore/params/}),
- *       which a deploy does not wipe: what was saved in the pit;
+ *   <li>{@code <robot>/<group>.json} in the robot-local folder (e.g. {@code
+ *       /home/systemcore/params/FM2026/}), which a deploy does not wipe: what was saved in the pit.
+ *       A hard-stop group's file is used only on the robot it was saved on ({@link HardwareStamp});
  *   <li>live changes from the dashboard, only with a transport (tuning mode) and only while
- *       disabled.
+ *       disabled with no field attached ({@link #liveChangesAllowed}).
  * </ol>
  *
  * A file holds a JSON object of {@code key: value}; a value may also be an object with the value
@@ -48,9 +51,18 @@ import org.wpilib.driverstation.RobotState;
  *
  * <h2>Never stops the robot booting</h2>
  *
- * A missing file is skipped. An unreadable file, or a value of the wrong type or out of bounds, is
- * skipped too, and raises an alert; the value comes from the layer below. A key no code declares
- * raises an info alert, since it is usually a typo. A bad default in code is a bug and throws.
+ * A missing file is skipped. An unreadable file (bad JSON, or a key given twice), or a value of the
+ * wrong type or out of bounds, is skipped too, and raises an alert; the value comes from the layer
+ * below. A key no code declares raises an info alert, since it is usually a typo. A bad default in
+ * code is a bug and throws.
+ *
+ * <h2>Moving a controller between robots</h2>
+ *
+ * The local folder is per robot config, and a hard-stop group's file (swerve offsets, soft limits)
+ * carries a {@link HardwareStamp}: a file saved on another robot, or one whose robot cannot be
+ * checked, is refused with an error alert and the group's values come from git. A file saved before
+ * the folder was per robot ({@code <local>/<group>.json}) is read from there until the next save
+ * moves it; a hard-stop group's such file has no stamp, so it is refused the same way.
  *
  * <h2>Replay</h2>
  *
@@ -62,7 +74,7 @@ import org.wpilib.driverstation.RobotState;
  *
  * The transport's {@code SaveParams} button, or {@link #requestSave()}, writes every value that
  * differs from the git layers to the robot-local folder. Disabled only; the file write runs on a
- * background thread.
+ * background thread and reaches the disk before it replaces the old file.
  *
  * <p>Main thread only.
  */
@@ -104,18 +116,33 @@ public final class Params {
         }
     }
 
+    /** {@link #start(Path, String, Path, ParamTransport, Map)} with no hard-stop groups. */
+    public static void start(
+            Path deployParamsDir, String robot, Path localRoot, ParamTransport transport) {
+        start(deployParamsDir, robot, localRoot, transport, Map.of());
+    }
+
     /**
      * Reads the params files and re-resolves anything declared so far. Call once at boot, after
      * {@code Logger.start()} and before the subsystems are built.
      *
      * @param deployParamsDir the deploy folder's {@code params} directory
-     * @param robot this robot's name, for {@code params/robots/<robot>/}
-     * @param localDir the robot-local folder that survives deploys, or null for none (replay)
+     * @param robot this robot's name, for {@code params/robots/<robot>/} and {@code
+     *     <localRoot>/<robot>/}
+     * @param localRoot the robot-local folder that survives deploys, or null for none (replay)
      * @param transport where live tuning comes from; used only in {@link TuningMode}
+     * @param stamps the hard-stop groups, whose local file must have been saved on this robot
      */
     public static void start(
-            Path deployParamsDir, String robot, Path localDir, ParamTransport transport) {
-        STORE.configure(new ParamStore.Settings(deployParamsDir, robot, localDir));
+            Path deployParamsDir,
+            String robot,
+            Path localRoot,
+            ParamTransport transport,
+            Map<String, HardwareStamp> stamps) {
+        new HashSet<>(stamps.values()).forEach(Params::logStamp);
+        ParamStore.Settings settings =
+                new ParamStore.Settings(deployParamsDir, robot, localRoot, Map.copyOf(stamps));
+        STORE.configure(settings);
         boolean live = transport != null && TuningMode.enabled();
         if (live) {
             STORE.enableLive(transport);
@@ -123,7 +150,8 @@ public final class Params {
             STORE.problem(
                     "tuning",
                     ParamStore.Level.WARNING,
-                    "Tuning mode is on: dashboard changes to params apply while disabled");
+                    "Tuning mode is on: dashboard changes to params apply while disabled, off"
+                            + " the field");
         }
         if (writer == null) {
             // Started now, during init, so it does not inherit the main thread's real-time
@@ -144,6 +172,7 @@ public final class Params {
         }
         started = true;
         Telemetry.log("Params/Robot", robot == null ? "" : robot);
+        Path localDir = settings.localDir();
         Telemetry.log("Params/LocalFolder", localDir == null ? "" : localDir.toString());
         Telemetry.log("Params/LiveTuning", live);
         Logger.processInputs("Params", INPUTS);
@@ -151,14 +180,37 @@ public final class Params {
         report();
     }
 
+    /** The stamp's readings as an input, so replay sees the ones the robot read. */
+    private static void logStamp(HardwareStamp stamp) {
+        Logger.processInputs(
+                "Params/Hardware/" + stamp.name(),
+                new LoggableInputs() {
+                    @Override
+                    public void toLog(LogTable table) {
+                        double[] readings = stamp.atBoot();
+                        table.put("Read", readings != null);
+                        table.put("Readings", readings == null ? new double[0] : readings);
+                    }
+
+                    @Override
+                    public void fromLog(LogTable table) {
+                        stamp.restore(
+                                table.get("Read", false)
+                                        ? table.get("Readings", new double[0])
+                                        : null);
+                    }
+                });
+    }
+
     /**
-     * Applies live changes (disabled only), logs the values, handles a save. Call once per loop,
-     * before anything reads a param.
+     * Applies live changes ({@link #liveChangesAllowed}), logs the values, handles a save. Call
+     * once per loop, before anything reads a param.
      */
     public static void periodic() {
         boolean replay = Logger.hasReplaySource();
         if (!replay) {
-            STORE.applyLive(RobotState.isDisabled());
+            STORE.applyLive(
+                    liveChangesAllowed(RobotState.isDisabled(), RobotState.isFMSAttached()));
         }
         if (replay || STORE.valuesVersion() != loggedValuesVersion) {
             Logger.processInputs("Params", INPUTS);
@@ -169,6 +221,18 @@ public final class Params {
         }
         pollSave();
         report();
+    }
+
+    /**
+     * Whether a dashboard change may apply now: disabled, and no field attached. On the field the
+     * robot is disabled between auto and teleop, and a change applied there would run in teleop
+     * with nobody having checked it; it waits until the robot is back in the pit.
+     *
+     * @param disabled the robot is disabled
+     * @param fmsAttached a field management system is attached
+     */
+    static boolean liveChangesAllowed(boolean disabled, boolean fmsAttached) {
+        return disabled && !fmsAttached;
     }
 
     /** Asks for a save at the next {@link #periodic()}; refused unless disabled. */

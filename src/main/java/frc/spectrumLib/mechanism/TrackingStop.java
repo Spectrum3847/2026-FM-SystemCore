@@ -65,7 +65,7 @@ public final class TrackingStop {
         return false;
     }
 
-    /** Releases the stop: a re-home, or the operator's override. */
+    /** Releases the stop: the operator's override. */
     public void clear() {
         stopped = false;
         fault = false;
@@ -77,7 +77,7 @@ public final class TrackingStop {
         return fault;
     }
 
-    /** The mechanism is held in neutral until disabled, re-homed or cleared. */
+    /** The mechanism is held in neutral until disabled or cleared. */
     public boolean isStopped() {
         return stopped;
     }

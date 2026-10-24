@@ -754,30 +754,56 @@ public class Vision implements Subsystem {
     /**
      * Gives the pre-match heading check this loop's full-pose frames. MegaTag2 and the Orin's
      * gyro-held solves take their heading from the robot, so only MegaTag1 and the Orin's own
-     * solves count.
+     * solves count. A camera none of whose sources is fused can only warn: SystemCore cameras with
+     * placeholder mounts are logged but not used.
      */
     private void feedCameraHeadings(double now) {
         double gyroDeg = fusion.getLastGyro().getDegrees();
         double yawRate = swerve.getYawRateRadPerSec();
-        for (List<PoseSource> sources : List.of(mt1Sources, scMt1Sources, orinSources)) {
-            for (PoseSource s : sources) {
-                PoseSourceInputs in = s.getInputs();
-                String camera = s.getName().replace("/MT1", "");
-                int n = Math.min(in.poses.length, in.tagCounts.length);
-                for (int i = 0; i < n; i++) {
-                    cameraHeadings.addFrame(
-                            camera,
-                            Math.toDegrees(in.poses[i].getRotation().getZ()),
-                            gyroDeg,
-                            in.tagCounts[i],
-                            yawRate,
-                            now);
-                }
+        for (int i = 0; i < mt1Sources.size(); i++) {
+            feedCameraHeading(
+                    mt1Sources.get(i),
+                    mt1Sources.get(i).isEnabled() || mt2Sources.get(i).isEnabled(),
+                    gyroDeg,
+                    yawRate,
+                    now);
+        }
+        for (int i = 0; i < scMt1Sources.size(); i++) {
+            feedCameraHeading(
+                    scMt1Sources.get(i),
+                    scMt1Sources.get(i).isEnabled() || scMt2Sources.get(i).isEnabled(),
+                    gyroDeg,
+                    yawRate,
+                    now);
+        }
+        int modes = OrinGyroSourceIO.Mode.values().length;
+        for (int i = 0; i < orinSources.size(); i++) {
+            boolean fused = orinSources.get(i).isEnabled();
+            for (int m = 0; m < modes && i * modes + m < orinGyroSources.size(); m++) {
+                fused |= orinGyroSources.get(i * modes + m).isEnabled();
             }
+            feedCameraHeading(orinSources.get(i), fused, gyroDeg, yawRate, now);
         }
         cameraHeadings.setRobotHeading(
                 poseHeadingSeeded ? fusion.getPose().getRotation().getDegrees() : Double.NaN,
                 gyroDeg);
+    }
+
+    private void feedCameraHeading(
+            PoseSource s, boolean fused, double gyroDeg, double yawRate, double now) {
+        PoseSourceInputs in = s.getInputs();
+        String camera = s.getName().replace("/MT1", "");
+        int n = Math.min(in.poses.length, in.tagCounts.length);
+        for (int i = 0; i < n; i++) {
+            cameraHeadings.addFrame(
+                    camera,
+                    fused,
+                    Math.toDegrees(in.poses[i].getRotation().getZ()),
+                    gyroDeg,
+                    in.tagCounts[i],
+                    yawRate,
+                    now);
+        }
     }
 
     /** Re-seeds the heading from LL-Back MT1 multi-tag when it holds off the fused heading. */
@@ -1027,11 +1053,18 @@ public class Vision implements Subsystem {
                 config.seedXyStdDev,
                 Units.degreesToRadians(config.seedThetaStdDevDeg));
         poseHeadingSeeded = true;
+        multiTagSeedCount++;
         trackSeedConfirmation(o);
     }
 
     /** Times the pose was seeded while enabled; logged so a match log shows it happened. */
     private int enabledSeedCount = 0;
+
+    /**
+     * Times any track was seeded from a multi-tag MegaTag1 solve since boot. The pre-match start
+     * check compares it across a placement to know the pose came from a camera, not the code.
+     */
+    @Getter private long multiTagSeedCount = 0;
 
     /**
      * Seeds the pose during the match when nothing seeded it before enable, then confirms that seed
@@ -1072,6 +1105,7 @@ public class Vision implements Subsystem {
                     Units.degreesToRadians(config.seedThetaStdDevDeg));
             poseHeadingSeeded = true;
             enabledSeedCount++;
+            multiTagSeedCount++;
             resetQuestToRobotPose();
             Telemetry.print(
                     String.format(
@@ -1295,6 +1329,7 @@ public class Vision implements Subsystem {
         Telemetry.logDash("Vision/ChassisSource", useMt2 ? "MT2" : "MT1");
         Telemetry.logDash("Vision/GrossHeadingCorrections", (long) grossHeadingCorrections);
         Telemetry.log("Vision/EnabledSeedCount", (long) enabledSeedCount);
+        Telemetry.log("Vision/MultiTagSeedCount", multiTagSeedCount);
         Telemetry.logDash(
                 "Vision/SecondsSinceFusedEstimate", Math.min(secondsSinceFusedEstimate(), 999.0));
         if (Telemetry.slowLogThisLoop()) {

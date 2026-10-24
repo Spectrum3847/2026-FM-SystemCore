@@ -235,6 +235,16 @@ class OdometryGuardTest {
     }
 
     @Test
+    void aCreepTooSmallForRotation2dKeepsTheOutModulesAngle() {
+        drive(0.2, 0, 1, 0); // every module at +90 deg
+        // Module 2 out while the robot creeps the other way at 0.1 mm/s: 0.4 um a sample, too
+        // short for Rotation2d, which would report an error and point the module at 0 rad.
+        run(0.1, 0, -1e-4, 0, s -> module(s, 2, 0, false));
+        assertEquals(0b1011, last.modulesUsed());
+        assertEquals(Math.PI / 2, last.positions()[2].angle.getRadians(), 1e-9);
+    }
+
+    @Test
     void oneModuleHoldsTheTranslation() {
         drive(0.2, 1, 0, 0);
         Pose2d before = guarded.getPose();

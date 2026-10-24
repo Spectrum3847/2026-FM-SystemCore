@@ -1272,12 +1272,14 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
 
     private void startSimThread() {
         sim = new SimState();
-        final double[] lastTime = {Timer.getTimestamp()};
+        // Wall time: the robot clock is pinned per cycle, so it would hand the sim a jump at
+        // enable.
+        final double[] lastTime = {System.nanoTime() * 1e-9};
         /* Run simulation at a faster rate so PID gains behave more reasonably */
         simNotifier =
                 new Notifier(
                         () -> {
-                            double now = Timer.getTimestamp();
+                            double now = System.nanoTime() * 1e-9;
                             double dt = now - lastTime[0];
                             lastTime[0] = now;
                             updateSimState(dt, RobotController.getBatteryVoltage());

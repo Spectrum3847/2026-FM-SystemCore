@@ -3,6 +3,7 @@ package frc.robot;
 import frc.robot.subsystems.hood.Hood;
 import frc.robot.subsystems.swerve.Swerve;
 import frc.robot.subsystems.swerve.SwerveAlignment;
+import frc.robot.subsystems.swerve.SwerveOffsetParams;
 import frc.robot.subsystems.vision.Jetson;
 import frc.robot.subsystems.vision.Vision;
 import frc.spectrumLib.checks.AutoStartCheck;
@@ -17,8 +18,15 @@ import frc.spectrumLib.checks.SettingsCheck;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.localization.PoseSource;
 import frc.spectrumLib.mechanism.Mechanism;
+import frc.spectrumLib.params.Param;
+import frc.spectrumLib.params.ParamSource;
+import frc.spectrumLib.params.Params;
+import frc.spectrumLib.params.TuningMode;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Supplier;
@@ -30,23 +38,28 @@ final class PreMatch {
     private PreMatch() {}
 
     static PreMatchChecks create(
-            Swerve swerve, Vision vision, Hood hood, AutoStartCheck autoStart) {
+            Swerve swerve,
+            Vision vision,
+            Hood hood,
+            AutoStartCheck autoStart,
+            OptionalDouble batteryVoltsOffset) {
         return new PreMatchChecks("PreMatch")
                 .register("CAN", can(swerve))
                 .register("Homing", homing(hood))
                 .register("CameraHeading", vision.getCameraHeadings())
                 .register("GyroMount", swerve.getMountCheck())
                 .register("Auto", autoStart)
-                .register("Battery", battery())
+                .register("Battery", battery(batteryVoltsOffset))
                 .register("Coprocessors", coprocessors(vision))
                 .register("Settings", settings(swerve, vision));
     }
 
     /** The simulator's battery is a constant 12 V, which would only ever warn. */
-    private static Check battery() {
+    private static Check battery(OptionalDouble offsetVolts) {
         BatteryCheck battery =
                 new BatteryCheck(
                         RuntimeInputs::batteryVoltage,
+                        offsetVolts,
                         RobotState::isDisabled,
                         () -> BatteryCheck.Identity.NONE);
         return new Check() {
@@ -76,9 +89,9 @@ final class PreMatch {
                             drivetrain,
                             SwerveAlignment.MODULE_NAMES[i] + " module",
                             () -> in.moduleConnected.length != 4 || in.moduleConnected[m])
-                    .resets(() -> m < in.moduleResetOccurred.length && in.moduleResetOccurred[m]);
+                    .resets(() -> swerve.moduleRebootedThisLoop(m));
         }
-        can.add(drivetrain, "Pigeon", () -> in.gyroConnected).resets(() -> in.gyroResetOccurred);
+        can.add(drivetrain, "Pigeon", () -> in.gyroConnected).resets(swerve::gyroRebootedThisLoop);
         for (Mechanism m : Mechanism.all()) {
             can.addMechanism(m, CanBuses.label(m.config.getId().getBus()));
         }
@@ -267,6 +280,83 @@ final class PreMatch {
                                     : s.getName() + " fusion " + (s.isEnabled() ? "ON" : "OFF"),
                     Status.WARN);
         }
+        addParams(settings);
         return settings;
+    }
+
+    /**
+     * Params: tuning mode, and the hard stops (swerve encoder offsets, soft limits). A hard stop
+     * from the pit's local file or a live change was not reviewed in git; one changed since boot is
+     * not what the motors run on until a reboot; one a file tried to set but was refused is not
+     * what someone meant.
+     */
+    private static void addParams(SettingsCheck settings) {
+        List<Param<?>> hardStops = hardStopParams();
+        settings.add(() -> TuningMode.enabled() ? "tuning mode ON" : null, Status.WARN)
+                .add(() -> notFromGit(hardStops), Status.WARN)
+                .add(
+                        () ->
+                                SwerveOffsetParams.changedSinceBoot()
+                                        ? "swerve offsets changed since boot, reboot to apply"
+                                        : null,
+                        Status.FAIL)
+                .add(PreMatch::softLimitsChanged, Status.FAIL)
+                .add(() -> refused(hardStops), Status.FAIL);
+    }
+
+    private static String notFromGit(List<Param<?>> hardStops) {
+        List<String> out = new ArrayList<>();
+        for (Param<?> p : hardStops) {
+            if (p.source() == ParamSource.LOCAL || p.source() == ParamSource.LIVE) {
+                out.add(p.path() + " (" + p.source().name().toLowerCase(Locale.ROOT) + ")");
+            }
+        }
+        return out.isEmpty() ? null : "hard stops not from git: " + String.join(", ", out);
+    }
+
+    private static String softLimitsChanged() {
+        List<String> out = new ArrayList<>();
+        for (Mechanism m : Mechanism.all()) {
+            if (m.softLimitsNeedReboot()) {
+                out.add(m.getName());
+            }
+        }
+        return out.isEmpty()
+                ? null
+                : String.join(", ", out) + " soft limits changed since boot, reboot to apply";
+    }
+
+    private static String refused(List<Param<?>> hardStops) {
+        List<String> out = new ArrayList<>();
+        for (Param<?> p : hardStops) {
+            if (Params.refusedInFile(p)) {
+                out.add(p.path());
+            }
+        }
+        return out.isEmpty()
+                ? null
+                : "a params file's value was refused for hard stops " + String.join(", ", out);
+    }
+
+    /** The swerve encoder offsets and every mechanism's soft limits, as declared at boot. */
+    private static List<Param<?>> hardStopParams() {
+        List<Param<?>> out = new ArrayList<>();
+        for (String key : SwerveOffsetParams.KEYS) {
+            Param<?> p = Params.find(SwerveOffsetParams.GROUP + "/" + key);
+            if (p != null) {
+                out.add(p);
+            }
+        }
+        for (Mechanism m : Mechanism.all()) {
+            for (Param<?> p :
+                    Arrays.asList(
+                            m.config.getForwardSoftLimitParam(),
+                            m.config.getReverseSoftLimitParam())) {
+                if (p != null) {
+                    out.add(p);
+                }
+            }
+        }
+        return out;
     }
 }

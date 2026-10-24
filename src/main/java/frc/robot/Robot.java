@@ -3,6 +3,8 @@ package frc.robot;
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.CANBus.CANBusStatus;
 import com.ctre.phoenix6.SignalLogger;
+import com.ctre.phoenix6.configs.MagnetSensorConfigs;
+import com.ctre.phoenix6.hardware.CANcoder;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.commands.FollowPathCommand;
 import com.pathplanner.lib.commands.PathPlannerAuto;
@@ -49,6 +51,8 @@ import frc.spectrumLib.hardware.CanConfigBudget;
 import frc.spectrumLib.hardware.Rio;
 import frc.spectrumLib.localization.PoseSource;
 import frc.spectrumLib.mechanism.Mechanism;
+import frc.spectrumLib.params.DoubleParam;
+import frc.spectrumLib.params.HardwareStamp;
 import frc.spectrumLib.params.NetworkTablesTransport;
 import frc.spectrumLib.params.Params;
 import frc.spectrumLib.params.TuningMode;
@@ -68,6 +72,7 @@ import frc.spectrumLib.util.Util;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.Getter;
@@ -133,6 +138,13 @@ public class Robot extends SpectrumRobot {
         public final LauncherConfig launcher = new LauncherConfig();
         public final HoodConfig hood = new HoodConfig();
         public final VisionConfig vision = new VisionConfig();
+
+        /**
+         * Added to the controller's battery reading to give the voltage at the battery terminals,
+         * measured with a meter on this robot. Empty until measured: the pre-match battery check
+         * then warns at most on voltage.
+         */
+        public java.util.OptionalDouble batteryVoltsOffset = java.util.OptionalDouble.empty();
     }
 
     @Getter private static Swerve swerve;
@@ -257,7 +269,7 @@ public class Robot extends SpectrumRobot {
             systemLoad = new SystemLoadMonitor();
             SystemLoadMonitor.threadCensus("systemLoad");
             autoStart = new AutoStartCheck(this::autoStartState);
-            preMatch = PreMatch.create(swerve, vision, hood, autoStart);
+            preMatch = PreMatch.create(swerve, vision, hood, autoStart, config.batteryVoltsOffset);
             addSummarySources();
 
             if (Constants.currentMode == Constants.Mode.SIM) {
@@ -313,6 +325,7 @@ public class Robot extends SpectrumRobot {
                     PrintPriority.HIGH);
         }
         RuntimeInputs.setBrownoutApiAvailable(powerApiAvailable);
+        matchSummary.setBrownedOutAvailable(powerApiAvailable);
     }
 
     /** Where the summary file goes: beside the log on the robot and in the sim; none in replay. */
@@ -358,6 +371,7 @@ public class Robot extends SpectrumRobot {
         for (PoseSource s : vision.getAllSources()) {
             matchSummary.addVisionSource(s.getName(), s::getAcceptedCount, s::getRejectedCount);
         }
+        auton.onAutoEnded(e -> matchSummary.autoEnded(e.reason().name(), e.seconds()));
     }
 
     /**
@@ -367,6 +381,15 @@ public class Robot extends SpectrumRobot {
     private static final java.nio.file.Path ROBOT_PARAMS_FOLDER =
             java.nio.file.Path.of("/home/systemcore/params");
 
+    /** The params group {@link Hood} and {@link IntakeExtension} declare their soft limits in. */
+    private static final String SOFT_LIMITS_GROUP = "soft-limits";
+
+    /**
+     * How far a CANcoder's magnet offset may read from the one written and still match: CTRE keeps
+     * it in steps of 1/4096 rotation, and another robot's differ by far more.
+     */
+    private static final double MAGNET_OFFSET_MATCH_ROTATIONS = 0.001;
+
     /**
      * Resolves the params ({@link Params}) for the robot config chosen above, then declares every
      * param so all of them are resolved, logged and on NT before the first enable. The simulator
@@ -374,6 +397,9 @@ public class Robot extends SpectrumRobot {
      * on the logged values. Live tuning only in {@link Constants#TUNING_MODE}. The swerve offsets
      * are declared here rather than in {@link RobotParams}, since their defaults are this robot's,
      * and must reach the config before the drivetrain is built.
+     *
+     * <p>The swerve offsets and soft limits saved in the pit are used only on the robot they were
+     * saved on (see {@link #chassisStamp}).
      */
     private void startParams() {
         java.nio.file.Path local =
@@ -385,13 +411,73 @@ public class Robot extends SpectrumRobot {
                                     : java.nio.file.Path.of(System.getenv("FM_PARAMS_LOCAL"));
                     case REPLAY -> null;
                 };
+        HardwareStamp chassis = chassisStamp(config.swerve);
         Params.start(
                 Filesystem.getDeployDirectory().toPath().resolve("params"),
                 config.getClass().getSimpleName(),
                 local,
-                new NetworkTablesTransport(Params.NT_PREFIX));
+                new NetworkTablesTransport(Params.NT_PREFIX),
+                Map.of(SwerveOffsetParams.GROUP, chassis, SOFT_LIMITS_GROUP, chassis));
         RobotParams.load();
         SwerveOffsetParams.apply(config.swerve);
+    }
+
+    /**
+     * Identifies the chassis by the magnet offsets its four swerve CANcoders hold. Phoenix gives no
+     * device serial numbers, but each chassis's CANcoders keep, in their own flash, the offsets
+     * that chassis last booted with: the drivetrain writes them at every boot. Another robot's
+     * CANcoders hold that robot's offsets. They are read here, before the drivetrain writes this
+     * boot's.
+     *
+     * <p>A file saved now is stamped with the offsets the drivetrain booted with and the offsets
+     * being saved, which the next boot writes; a later boot of this robot reads one of the two. A
+     * CANcoder that does not answer, or one replaced since, makes the files refused until saved
+     * again, so the offsets and soft limits fall back to git.
+     */
+    private static HardwareStamp chassisStamp(SwerveConfig swerve) {
+        return new HardwareStamp(
+                "SwerveMagnetOffsets",
+                "swerve CANcoder magnet offsets",
+                readMagnetOffsets(swerve),
+                MAGNET_OFFSET_MATCH_ROTATIONS,
+                () -> {
+                    double[] saving = new double[SwerveOffsetParams.KEYS.size()];
+                    List<DoubleParam> offsets = SwerveOffsetParams.declare(swerve);
+                    for (int i = 0; i < saving.length; i++) {
+                        saving[i] = offsets.get(i).get();
+                    }
+                    return List.of(swerve.getEncoderOffsetRotations(), saving);
+                });
+    }
+
+    /**
+     * The magnet offsets the swerve CANcoders hold, in {@link SwerveOffsetParams#KEYS} order. Null
+     * if one does not answer, and in replay, where the log has them. Init only: each read blocks
+     * until the CANcoder answers, within the CAN config budget.
+     */
+    private static double[] readMagnetOffsets(SwerveConfig swerve) {
+        if (Constants.currentMode == Constants.Mode.REPLAY || CanConfigBudget.exhausted()) {
+            return null;
+        }
+        int[] ids = {
+            swerve.getFrontLeftEncoderId(),
+            swerve.getFrontRightEncoderId(),
+            swerve.getBackLeftEncoderId(),
+            swerve.getBackRightEncoderId()
+        };
+        double[] out = new double[ids.length];
+        for (int i = 0; i < ids.length; i++) {
+            CANcoder cancoder = new CANcoder(ids[i], swerve.getCanBus());
+            MagnetSensorConfigs magnet = new MagnetSensorConfigs();
+            if (!CanConfigBudget.run(
+                            "CANcoder " + ids[i] + " magnet offset",
+                            timeout -> cancoder.getConfigurator().refresh(magnet, timeout))
+                    .isOK()) {
+                return null;
+            }
+            out[i] = magnet.MagnetOffset;
+        }
+        return out;
     }
 
     private final Alert mainThreadPriorityAlert = new Alert("", Level.MEDIUM);
@@ -455,9 +541,8 @@ public class Robot extends SpectrumRobot {
                     default -> "Unknown";
                 });
 
-        // First, so no log file or dashboard ever gets the radio's Wi-Fi key hashes (replay too:
-        // older logs still carry them).
-        Logger.addDataReceiver(new RadioStatusRedactor());
+        // Every receiver goes through RadioStatusRedactor.addFirst, so no log file or dashboard
+        // ever gets the radio's Wi-Fi key hashes (replay too: older logs still carry them).
         switch (Constants.currentMode) {
             case REAL:
                 // A USB stick if one is inserted (AdvantageKit's default /U/logs), otherwise the
@@ -466,21 +551,23 @@ public class Robot extends SpectrumRobot {
                 String logFolder = LogStorage.chooseFolder();
                 // Before Logger.start(), so the cleanup cannot delete this boot's log.
                 LogStorage.cleanUpAtBoot();
-                Logger.addDataReceiver(new WPILOGWriter(logFolder));
                 Logger.recordMetadata("LogFolder", LogStorage.folder());
                 // Dashboard keys to NT at ~50 Hz; the log file keeps everything, every cycle.
-                Logger.addDataReceiver(new DashboardReceiver(new NT4Publisher(), ntEveryN()));
+                RadioStatusRedactor.addFirst(
+                        new WPILOGWriter(logFolder),
+                        new DashboardReceiver(new NT4Publisher(), ntEveryN()));
                 break;
             case SIM:
                 // Log to NT for AdvantageScope and to ./logs for replay practice.
-                Logger.addDataReceiver(new WPILOGWriter("logs"));
-                Logger.addDataReceiver(new DashboardReceiver(new NT4Publisher(), ntEveryN()));
+                RadioStatusRedactor.addFirst(
+                        new WPILOGWriter("logs"),
+                        new DashboardReceiver(new NT4Publisher(), ntEveryN()));
                 break;
             case REPLAY:
                 setUseTiming(false); // Run as fast as possible
                 String logPath = LogFileUtil.findReplayLog();
                 Logger.setReplaySource(new WPILOGReader(logPath));
-                Logger.addDataReceiver(
+                RadioStatusRedactor.addFirst(
                         new WPILOGWriter(LogFileUtil.addPathSuffix(logPath, "_sim")));
                 break;
         }
@@ -679,7 +766,8 @@ public class Robot extends SpectrumRobot {
             matchSummary.periodic(RuntimeInputs.batteryVoltage(), RuntimeInputs.brownedOut());
 
             Telemetry.time("Scheduler/PreMatch");
-            preMatch.periodic(RobotState.isDisabled(), Timer.getTimestamp());
+            preMatch.periodic(
+                    RobotState.isDisabled(), RobotState.isFMSAttached(), Timer.getTimestamp());
             Telemetry.timeEnd("Scheduler/PreMatch");
 
             // For dashboards (AdvantageKit logs the pose itself every loop); 10 Hz is plenty.
@@ -921,6 +1009,7 @@ public class Robot extends SpectrumRobot {
                 Pose2d start =
                         selectedAutoPaths.get(0).getStartingHolonomicPose().orElse(new Pose2d());
                 swerve.resetPose(start);
+                startPlacements++;
             }
             placeAtAutoStart = false;
         }
@@ -941,6 +1030,9 @@ public class Robot extends SpectrumRobot {
     private String selectedAutoName = "";
 
     private boolean autoFileFound = false;
+
+    /** Times the pose was put on the selected auto's start; the start check needs a seed after. */
+    private long startPlacements = 0;
 
     private void logAutoSelection(String fullAutoName, boolean autoFileFound, String baseAutoName) {
         selectedAutoName = fullAutoName;
@@ -969,9 +1061,12 @@ public class Robot extends SpectrumRobot {
                         ? Optional.empty()
                         : selectedAutoPaths.get(0).getStartingHolonomicPose(),
                 swerve.getRobotPose(),
-                vision.isPoseHeadingSeeded(),
+                startPlacements,
+                vision.getMultiTagSeedCount(),
                 MatchState.getAlliance().isPresent(),
-                hasBeenEnabled);
+                RobotState.isEnabled(),
+                RobotState.isFMSAttached(),
+                MatchState.getMatchNumber());
     }
 
     /** The robot's distance from the selected auto's start, as the pre-match check measured it. */
@@ -997,8 +1092,7 @@ public class Robot extends SpectrumRobot {
         }
         try {
             auton.init();
-            Command autoCommand = auton.getAutonomousCommand();
-            matchSummary.autoStarted(runningAuto, autoCommand::isScheduled);
+            matchSummary.autoStarted(runningAuto);
         } catch (Throwable t) {
             CrashTracker.logThrowableCrash(t);
             throw t;

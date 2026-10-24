@@ -42,11 +42,17 @@ public class SwerveInputs implements LoggableInputs {
     /** Per module: drive and steer motors both answering this loop. */
     public boolean[] moduleConnected = new boolean[0];
 
-    /** Per module: the drive motor reset since last loop, so its distance restarted. */
+    /**
+     * Per module: Phoenix's raw reset flag for the drive motor, which is also true on the first
+     * contact after boot. Logic reads {@code Swerve.moduleRebootedThisLoop} instead.
+     */
     public boolean[] moduleResetOccurred = new boolean[0];
 
     public boolean gyroConnected = false;
+
+    /** Phoenix's raw Pigeon reset flag; logic reads {@code Swerve.gyroRebootedThisLoop}. */
     public boolean gyroResetOccurred = false;
+
     public double gyroYawRateRadPerSec = 0;
     public double gyroPitchDegrees = 0;
     public double gyroRollDegrees = 0;

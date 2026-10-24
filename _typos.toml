@@ -6,8 +6,9 @@ origining = "origining"
 Pn = "Pn"
 
 [default]
-# grep patterns in build.gradle match partial words on purpose.
-extend-ignore-re = ['grep -E \\".*\\"']
+# grep patterns in build.gradle match partial words on purpose. Hex hashes (field-map hashes,
+# SHA-256 test vectors) are not words.
+extend-ignore-re = ['grep -E \\".*\\"', '\b[0-9a-f]{16,64}\b']
 
 [default.extend-identifiers]
 # The team's log site repo is named this way.

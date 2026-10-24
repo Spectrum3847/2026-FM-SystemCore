@@ -1,14 +1,20 @@
 package frc.spectrumLib.params;
 
+import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -27,7 +33,14 @@ import java.util.TreeMap;
  * {@link Params} wires it to the logger, alerts and the transport.
  */
 final class ParamStore {
-    static final ObjectMapper JSON = new ObjectMapper();
+    /**
+     * Strict about duplicate keys: with two entries for one key, which one wins is invisible in the
+     * file, so the file is unreadable instead.
+     */
+    static final ObjectMapper JSON =
+            JsonMapper.builder().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build();
+
+    private static final String TEMP_SUFFIX = ".tmp";
 
     enum Level {
         ERROR,
@@ -41,28 +54,60 @@ final class ParamStore {
      * Where the files are. A null folder or robot skips that layer.
      *
      * @param deployDir the deploy folder's {@code params} directory
-     * @param robot this robot's name, for {@code robots/<robot>/}
-     * @param localDir the robot-local folder that survives deploys
+     * @param robot this robot's name, for {@code robots/<robot>/} and the local folder
+     * @param localRoot the robot-local folder that survives deploys; this robot's files are in
+     *     {@code <localRoot>/<robot>/}
+     * @param stamps the groups whose local file must have been saved on this robot, by group
      */
-    record Settings(Path deployDir, String robot, Path localDir) {
+    record Settings(
+            Path deployDir, String robot, Path localRoot, Map<String, HardwareStamp> stamps) {
         static final Settings NONE = new Settings(null, null, null);
-    }
 
-    /** One file as read at boot. {@code values} is null when it is missing or unreadable. */
-    record Layer(ParamSource source, Path path, String label, ObjectNode values, String status) {
-        boolean unreadable() {
-            return status.startsWith("unreadable");
+        Settings(Path deployDir, String robot, Path localRoot) {
+            this(deployDir, robot, localRoot, Map.of());
+        }
+
+        /** This robot's local folder, or null for none. */
+        Path localDir() {
+            if (localRoot == null) {
+                return null;
+            }
+            return robot == null || robot.isEmpty() ? localRoot : localRoot.resolve(robot);
+        }
+
+        /**
+         * Where files were saved before they were per robot: {@code <localRoot>/<group>.json}. Null
+         * when that is this robot's folder anyway.
+         */
+        Path legacyDir() {
+            Path dir = localDir();
+            return dir == null || dir.equals(localRoot) ? null : localRoot;
         }
     }
 
     /**
-     * What a save writes: file name to contents, the files to move aside first, and each saved
-     * value by path.
+     * One file as read at boot. {@code values} is null when it is missing, unreadable or refused (a
+     * hard-stop group's file not saved on this robot).
+     */
+    record Layer(ParamSource source, Path path, String label, ObjectNode values, String status) {
+        boolean unreadable() {
+            return status.startsWith("unreadable");
+        }
+
+        boolean refused() {
+            return status.startsWith("refused");
+        }
+    }
+
+    /**
+     * What a save writes: file name to contents, the files to move aside first, the old-folder
+     * files to rename once the new ones are written, and each saved value by path.
      */
     record SaveJob(
             Path dir,
             Map<String, ObjectNode> files,
-            Set<String> moveAside,
+            Map<Path, Path> moveAside,
+            Map<Path, Path> retire,
             Map<String, Object> values) {}
 
     private Settings settings = Settings.NONE;
@@ -82,6 +127,12 @@ final class ParamStore {
     /** Points the store at its files and re-resolves every param already declared. */
     void configure(Settings s) {
         settings = s;
+        if (s.localDir() != null) {
+            deleteStaleTemps(s.localDir());
+        }
+        if (s.legacyDir() != null) {
+            deleteStaleTemps(s.legacyDir());
+        }
         layers.clear();
         problems.keySet()
                 .removeIf(
@@ -169,7 +220,7 @@ final class ParamStore {
         if (cached != null) {
             return cached;
         }
-        List<Layer> out = new ArrayList<>(3);
+        List<Layer> out = new ArrayList<>(4);
         String file = group + ".json";
         if (settings.deployDir() != null) {
             out.add(read(ParamSource.DEPLOY, settings.deployDir().resolve(file), "params/" + file));
@@ -185,11 +236,64 @@ final class ParamStore {
             }
         }
         if (settings.localDir() != null) {
-            Path path = settings.localDir().resolve(file);
-            out.add(read(ParamSource.LOCAL, path, path.toString()));
+            out.add(readLocal(group, file));
         }
         layers.put(group, out);
         return out;
+    }
+
+    /**
+     * This robot's local file for a group. Until the first save after an update, the file may still
+     * be in the folder files were saved to before they were per robot; it is read from there, and
+     * the save moves it.
+     */
+    private Layer readLocal(String group, String file) {
+        Path path = settings.localDir().resolve(file);
+        Path legacyDir = settings.legacyDir();
+        Path legacy = legacyDir == null ? null : legacyDir.resolve(file);
+        if (Files.exists(path) || legacy == null || !Files.exists(legacy)) {
+            return checkStamp(group, read(ParamSource.LOCAL, path, path.toString()));
+        }
+        Layer layer =
+                checkStamp(
+                        group,
+                        read(
+                                ParamSource.LOCAL,
+                                legacy,
+                                legacy + " (saved before files were per robot)"));
+        if (layer.values() != null) {
+            problem(
+                    "file:legacy:" + legacy,
+                    Level.INFO,
+                    "Params: "
+                            + group
+                            + " comes from "
+                            + legacy
+                            + "; the next save moves it to "
+                            + settings.localDir());
+        }
+        return layer;
+    }
+
+    /**
+     * Takes the stamp out of a local file's values and, for a hard-stop group, refuses a file not
+     * saved on this robot.
+     */
+    private Layer checkStamp(String group, Layer layer) {
+        if (layer.values() == null) {
+            return layer;
+        }
+        JsonNode stamp = layer.values().remove(HardwareStamp.KEY);
+        HardwareStamp hardware = settings.stamps().get(group);
+        String why = hardware == null ? null : hardware.mismatch(stamp);
+        if (why == null) {
+            return layer;
+        }
+        problem(
+                "file:" + layer.path(),
+                Level.ERROR,
+                "Params: " + layer.label() + " " + why + "; its " + group + " values are not used");
+        return new Layer(layer.source(), layer.path(), layer.label(), null, "refused: " + why);
     }
 
     private Layer read(ParamSource source, Path path, String label) {
@@ -231,6 +335,33 @@ final class ParamStore {
         List<Layer> out = new ArrayList<>();
         layers.values().forEach(out::addAll);
         return out;
+    }
+
+    /**
+     * Whether a file layer already read gave this param a value it refused (wrong type or out of
+     * bounds), could not be read at all where it exists, or was refused whole (a hard-stop file
+     * saved on another robot). Reads nothing from disk and changes nothing.
+     */
+    boolean refusedInFile(Param<?> p) {
+        List<Layer> group = layers.get(p.group());
+        if (group == null) {
+            return false;
+        }
+        for (Layer layer : group) {
+            if (layer.unreadable() || layer.refused()) {
+                return true;
+            }
+            JsonNode node = layer.values() == null ? null : layer.values().get(p.key());
+            if (node == null) {
+                continue;
+            }
+            try {
+                p.fromJson(unwrap(node));
+            } catch (IllegalArgumentException e) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ── Checking a file without applying it ─────────────────────────────────
@@ -280,23 +411,24 @@ final class ParamStore {
     }
 
     /**
-     * Applies the transport's requested values. Only while disabled; a request made while enabled
-     * waits, and applies at the next disable unless it is changed back first.
+     * Applies the transport's requested values, only when {@code allowed} ({@link
+     * Params#liveChangesAllowed}). A request made while not allowed waits, and applies once allowed
+     * unless it is changed back first.
      */
-    void applyLive(boolean disabled) {
+    void applyLive(boolean allowed) {
         if (transport == null) {
             return;
         }
         boolean changed = false;
         for (var e : live.entrySet()) {
-            changed |= applyLive(e.getKey(), e.getValue(), disabled);
+            changed |= applyLive(e.getKey(), e.getValue(), allowed);
         }
         if (changed) {
             refreshSummaries();
         }
     }
 
-    private <T> boolean applyLive(Param<T> p, ParamTransport.LiveValue h, boolean disabled) {
+    private <T> boolean applyLive(Param<T> p, ParamTransport.LiveValue h, boolean allowed) {
         Object requested = h.get();
         if (requested == null) {
             return false;
@@ -318,7 +450,7 @@ final class ParamStore {
             pendingLive.remove(p.path());
             return false;
         }
-        if (!disabled) {
+        if (!allowed) {
             pendingLive.add(p.path());
             return false;
         }
@@ -329,7 +461,7 @@ final class ParamStore {
         return true;
     }
 
-    /** Params whose dashboard value differs from the applied one, waiting for a disable. */
+    /** Params whose dashboard value differs from the applied one, waiting until allowed. */
     Set<String> pendingLive() {
         return Collections.unmodifiableSet(pendingLive);
     }
@@ -359,7 +491,8 @@ final class ParamStore {
             byGroup.computeIfAbsent(p.group(), g -> new ArrayList<>()).add(p);
         }
         Map<String, ObjectNode> files = new TreeMap<>();
-        Set<String> moveAside = new LinkedHashSet<>();
+        Map<Path, Path> moveAside = new LinkedHashMap<>();
+        Map<Path, Path> retire = new LinkedHashMap<>();
         Map<String, Object> saved = new LinkedHashMap<>();
         for (var e : byGroup.entrySet()) {
             String file = e.getKey() + ".json";
@@ -390,13 +523,36 @@ final class ParamStore {
             }
             boolean hadFile = local != null && !"missing".equals(local.status());
             if (!out.isEmpty() || hadFile) {
-                files.put(file, out);
+                files.put(file, stamped(e.getKey(), out));
             }
-            if (local != null && local.unreadable()) {
-                moveAside.add(file);
+            if (!hadFile) {
+                continue;
+            }
+            String suffix = local.unreadable() ? ".bad" : local.refused() ? ".refused" : null;
+            Path target = settings.localDir().resolve(file);
+            if (!local.path().equals(target)) {
+                retire.put(local.path(), sibling(local.path(), suffix == null ? ".moved" : suffix));
+            } else if (suffix != null) {
+                moveAside.put(target, sibling(target, suffix));
             }
         }
-        return new SaveJob(settings.localDir(), files, moveAside, saved);
+        return new SaveJob(settings.localDir(), files, moveAside, retire, saved);
+    }
+
+    /** A hard-stop group's file gets this robot's stamp first, then its values. */
+    private ObjectNode stamped(String group, ObjectNode values) {
+        HardwareStamp hardware = settings.stamps().get(group);
+        if (hardware == null) {
+            return values;
+        }
+        ObjectNode out = JSON.createObjectNode();
+        out.set(HardwareStamp.KEY, hardware.stamp());
+        out.setAll(values);
+        return out;
+    }
+
+    private static Path sibling(Path path, String suffix) {
+        return path.resolveSibling(path.getFileName() + suffix);
     }
 
     /** Records a save that was written, so its live values no longer count as unsaved. */
@@ -417,24 +573,26 @@ final class ParamStore {
 
     /**
      * Writes a save. Blocking file I/O: never on the main thread. Each file is written to a
-     * temporary file and moved over the old one, so a power cut leaves the old file or the new one,
-     * never half of one. An unreadable file is kept as {@code <name>.bad} rather than overwritten.
+     * temporary file, flushed to the disk and moved over the old one, then the folder is flushed,
+     * so a power cut leaves the old file or the new one, never half of one or an empty one. An
+     * unreadable file is kept as {@code <name>.bad}, and a hard-stop file saved on another robot as
+     * {@code <name>.refused}, rather than overwritten. A file still in the folder files were saved
+     * to before they were per robot is renamed once its replacement is written ({@code .moved}, or
+     * {@code .bad} / {@code .refused}), so it is read only until then.
      */
     static void write(SaveJob job) throws IOException {
         Files.createDirectories(job.dir());
+        for (var e : job.moveAside().entrySet()) {
+            if (Files.exists(e.getKey())) {
+                Files.move(e.getKey(), e.getValue(), StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
         for (var e : job.files().entrySet()) {
             Path target = job.dir().resolve(e.getKey());
-            if (job.moveAside().contains(e.getKey()) && Files.exists(target)) {
-                Files.move(
-                        target,
-                        job.dir().resolve(e.getKey() + ".bad"),
-                        StandardCopyOption.REPLACE_EXISTING);
-            }
-            Path tmp = job.dir().resolve(e.getKey() + ".tmp");
-            Files.writeString(
+            Path tmp = job.dir().resolve(e.getKey() + TEMP_SUFFIX);
+            writeAndForce(
                     tmp,
-                    JSON.writerWithDefaultPrettyPrinter().writeValueAsString(e.getValue()) + "\n",
-                    StandardCharsets.UTF_8);
+                    JSON.writerWithDefaultPrettyPrinter().writeValueAsString(e.getValue()) + "\n");
             try {
                 Files.move(
                         tmp,
@@ -444,6 +602,66 @@ final class ParamStore {
             } catch (AtomicMoveNotSupportedException ex) {
                 Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
             }
+        }
+        for (var e : job.retire().entrySet()) {
+            if (Files.exists(e.getKey())) {
+                Files.move(e.getKey(), e.getValue(), StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
+        forceDirectory(job.dir());
+        for (Path retired : job.retire().values()) {
+            if (!retired.getParent().equals(job.dir())) {
+                forceDirectory(retired.getParent());
+            }
+        }
+    }
+
+    /**
+     * Writes the file and waits until it is on the disk. Without this the rename can reach the disk
+     * before the data, and a power cut leaves an empty file under the real name.
+     */
+    private static void writeAndForce(Path path, String text) throws IOException {
+        try (FileChannel ch =
+                FileChannel.open(
+                        path,
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.TRUNCATE_EXISTING,
+                        StandardOpenOption.WRITE)) {
+            ByteBuffer buf = ByteBuffer.wrap(text.getBytes(StandardCharsets.UTF_8));
+            while (buf.hasRemaining()) {
+                ch.write(buf);
+            }
+            ch.force(true);
+        }
+    }
+
+    /**
+     * Flushes the folder itself, so the renames survive a power cut. Best effort: Windows cannot
+     * open a folder this way, and the simulator is the only thing that saves there.
+     */
+    static boolean forceDirectory(Path dir) {
+        try (FileChannel ch = FileChannel.open(dir, StandardOpenOption.READ)) {
+            ch.force(true);
+            return true;
+        } catch (IOException | UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Deletes the temporary files of a save that a power cut or crash interrupted. The real files
+     * are whole, old or new; a temporary file is never read.
+     */
+    static void deleteStaleTemps(Path dir) {
+        if (!Files.isDirectory(dir)) {
+            return;
+        }
+        try (DirectoryStream<Path> temps = Files.newDirectoryStream(dir, "*.json" + TEMP_SUFFIX)) {
+            for (Path tmp : temps) {
+                Files.deleteIfExists(tmp);
+            }
+        } catch (IOException e) {
+            // Left for the next boot; the save overwrites it anyway.
         }
     }
 

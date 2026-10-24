@@ -2,10 +2,14 @@ package frc.robot;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import frc.robot.subsystems.SuperStructure.WantedSuperState;
 import frc.spectrumLib.gamepads.Gamepad;
 import frc.spectrumLib.gamepads.GamepadLayout;
+import frc.spectrumLib.params.Params;
+import frc.spectrumLib.params.TuningMode;
+import frc.spectrumLib.telemetry.RadioStatusRedactor;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -419,6 +423,25 @@ class BindingsSmokeTest {
         }
     }
 
+    /**
+     * Not a binding, but this is the test that boots the whole robot: the radio status redactor
+     * must be AdvantageKit's first data receiver, or a log file or dashboard gets the radio's Wi-Fi
+     * key hashes before it runs.
+     */
+    @Test
+    void theRadioStatusRedactorIsTheFirstDataReceiver() throws Exception {
+        var threadField = Logger.class.getDeclaredField("receiverThread");
+        threadField.setAccessible(true);
+        Object thread = threadField.get(null);
+        var receiversField = thread.getClass().getDeclaredField("dataReceivers");
+        receiversField.setAccessible(true);
+        List<?> receivers = (List<?>) receiversField.get(thread);
+        assertTrue(receivers.size() > 1, "receivers: " + receivers);
+        assertTrue(
+                receivers.get(0) instanceof RadioStatusRedactor,
+                "first receiver is " + receivers.get(0));
+    }
+
     @Test
     void feedOverrideIsHeldOnlyWithoutLb() throws Exception {
         setMode(Mode.TELEOP);
@@ -433,5 +456,21 @@ class BindingsSmokeTest {
         assertFalse(override.getAsBoolean(), "LB+Y is the intake reset, not the feed override");
         operator.releaseAll();
         step(RELEASE_LOOPS);
+    }
+
+    /**
+     * Main never runs with tuning mode on: dashboards could change params. Checked on the booted
+     * robot, so it catches tuning mode turned on anywhere in the boot path, not only by {@link
+     * Constants#TUNING_MODE}. Skipped on other branches, where tuning mode may be on on purpose.
+     */
+    @Test
+    void tuningModeIsOffOnMain() {
+        assumeTrue(
+                "main".equals(System.getenv("GITHUB_BASE_REF"))
+                        || "refs/heads/main".equals(System.getenv("GITHUB_REF"))
+                        || "main".equals(BuildConstants.GIT_BRANCH),
+                "not main");
+        assertFalse(TuningMode.enabled(), "tuning mode is on after boot");
+        assertFalse(Params.liveTuning(), "params are live-tunable after boot");
     }
 }

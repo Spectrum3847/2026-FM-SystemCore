@@ -14,8 +14,10 @@ import java.util.function.Supplier;
  *
  * <p>A device is missing once its {@code connected} input has been false for {@link
  * #MISSING_HOLD_SECONDS}, or if it has never answered. A reset counts only while the device is
- * connected and after it has been for {@link #ARM_SECONDS}: Phoenix reports its first contact with
- * a device as a reset, and a disconnected device's flags mean nothing.
+ * connected, and only once it has been connected for {@link #ARM_SECONDS} at a stretch: Phoenix
+ * reports its first contact with a device as a reset, and a disconnected device's flags mean
+ * nothing. A device arms once per boot and stays armed through a dropout, since a brownout reboot
+ * reports its reset on the first loop back.
  *
  * <p>A missing device fails the check unless its {@link Device#missingIs} says otherwise (a camera
  * that is only logged, not used, warns or is left out). A reboot in the last {@link
@@ -46,6 +48,7 @@ public final class DeviceHealthCheck implements Check {
         Supplier<Status> missing = () -> Status.FAIL;
 
         boolean everConnected = false;
+        boolean armed = false;
         double connectedSince = Double.NaN;
         double missingSince = Double.NaN;
         double lastReset = Double.NaN;
@@ -144,7 +147,8 @@ public final class DeviceHealthCheck implements Check {
                 }
                 d.everConnected = true;
                 d.missingSince = Double.NaN;
-                if (now - d.connectedSince >= ARM_SECONDS && d.reset.getAsBoolean()) {
+                d.armed |= now - d.connectedSince >= ARM_SECONDS;
+                if (d.armed && d.reset.getAsBoolean()) {
                     d.lastReset = now;
                     d.resets++;
                 }

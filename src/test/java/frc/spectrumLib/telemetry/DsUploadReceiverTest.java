@@ -3,6 +3,7 @@ package frc.spectrumLib.telemetry;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import frc.spectrumLib.telemetry.DsUploadReceiver.Reply;
@@ -10,12 +11,20 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -273,5 +282,204 @@ class DsUploadReceiverTest {
         assertTrue(reply.startsWith("HTTP/1.1 200 OK"), reply);
         assertTrue(reply.contains("X-Received: 64"), reply);
         assertArrayEquals(body, Files.readAllBytes(dir.resolve("FRC_DS_Q34.dswpilog")));
+    }
+
+    /** A body that runs {@code after} as the read that reaches byte {@code first} returns. */
+    private static InputStream bodyThen(byte[] body, int first, Runnable after) {
+        return new InputStream() {
+            private int pos;
+            private boolean ran;
+
+            @Override
+            public int read() {
+                byte[] one = new byte[1];
+                return read(one, 0, 1) < 0 ? -1 : one[0] & 0xff;
+            }
+
+            @Override
+            public int read(byte[] b, int off, int len) {
+                if (pos >= body.length) {
+                    return -1;
+                }
+                int n = Math.min(len, (pos < first ? first : body.length) - pos);
+                System.arraycopy(body, pos, b, off, n);
+                pos += n;
+                if (pos >= first && !ran) {
+                    ran = true;
+                    after.run();
+                }
+                return n;
+            }
+        };
+    }
+
+    @Test
+    void enablingMidUploadStopsAndKeepsWhatArrived() throws IOException {
+        byte[] body = bytes(300_000, 4);
+        Map<String, String> h = new HashMap<>();
+        h.put(DsUploadReceiver.TOKEN_HEADER, TOKEN);
+        h.put("content-length", "300000");
+        InputStream in = bodyThen(body, 65536, () -> rx.setRobotEnabled(true));
+        assertThrows(
+                DsUploadReceiver.EnabledMidUpload.class,
+                () -> rx.handle("PUT", "/upload/video/a.mp4?offset=0&total=300000", h, in));
+        assertEquals(65536, Files.size(dir.resolve("a.mp4.part")), "stopped at the next chunk");
+        assertFalse(Files.exists(dir.resolve("a.mp4")));
+        rx.setRobotEnabled(false);
+        assertEquals("65536", head("/upload/video/a.mp4").headers().get("X-Received"));
+        Reply rest =
+                put(
+                        "/upload/video/a.mp4?offset=65536&total=300000",
+                        Arrays.copyOfRange(body, 65536, 300_000));
+        assertEquals("true", rest.headers().get("X-Complete"));
+        assertArrayEquals(body, Files.readAllBytes(dir.resolve("a.mp4")));
+    }
+
+    @Test
+    void enablingMidUploadClosesWithoutAReplyOrDrain() throws IOException {
+        byte[] body = bytes(300_000, 4);
+        String req =
+                "PUT /upload/video/a.mp4?offset=0&total=300000 HTTP/1.1\r\n"
+                        + "X-MatchReview-Token: "
+                        + TOKEN
+                        + "\r\nContent-Length: 300000\r\n\r\n";
+        byte[] headBytes = req.getBytes(StandardCharsets.ISO_8859_1);
+        byte[] all = new byte[headBytes.length + body.length];
+        System.arraycopy(headBytes, 0, all, 0, headBytes.length);
+        System.arraycopy(body, 0, all, headBytes.length, body.length);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        rx.handleConnection(
+                bodyThen(all, headBytes.length + 100_000, () -> rx.setRobotEnabled(true)), out);
+        assertEquals(0, out.size(), "closed without a reply");
+        assertTrue(Files.size(dir.resolve("a.mp4.part")) < 300_000);
+    }
+
+    @Test
+    void writesToOneFileAreSerialized() throws Exception {
+        String base = "/upload/dslog/" + DSLOG.replace(" ", "%20");
+        CountDownLatch halfway = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        Map<String, String> h = new HashMap<>();
+        h.put(DsUploadReceiver.TOKEN_HEADER, TOKEN);
+        h.put("content-length", "10");
+        InputStream slow =
+                bodyThen(
+                        bytes(10, 1),
+                        5,
+                        () -> {
+                            halfway.countDown();
+                            try {
+                                release.await();
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                            }
+                        });
+        AtomicReference<Reply> first = new AtomicReference<>();
+        AtomicReference<Reply> second = new AtomicReference<>();
+        Thread a =
+                new Thread(
+                        () -> {
+                            try {
+                                first.set(rx.handle("PUT", base + "?offset=0&total=20", h, slow));
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        a.start();
+        assertTrue(halfway.await(5, TimeUnit.SECONDS));
+        // Unserialized, this would see 5 bytes on disk and refuse offset 10.
+        Thread b =
+                new Thread(
+                        () -> {
+                            try {
+                                second.set(
+                                        rx.handle(
+                                                "PUT",
+                                                base + "?offset=10&total=20",
+                                                h,
+                                                new ByteArrayInputStream(bytes(10, 2))));
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        b.start();
+        b.join(300);
+        assertTrue(b.isAlive(), "the second write waits for the first");
+        release.countDown();
+        a.join(5000);
+        b.join(5000);
+        assertEquals("10", first.get().headers().get("X-Received"));
+        assertEquals("true", second.get().headers().get("X-Complete"));
+        byte[] want = new byte[20];
+        System.arraycopy(bytes(10, 1), 0, want, 0, 10);
+        System.arraycopy(bytes(10, 2), 0, want, 10, 10);
+        assertArrayEquals(want, Files.readAllBytes(dir.resolve(DSLOG)));
+    }
+
+    private static String send(int port, byte[] request) throws IOException {
+        try (Socket s = new Socket()) {
+            s.connect(new InetSocketAddress("127.0.0.1", port), 2000);
+            s.setSoTimeout(10_000);
+            OutputStream o = s.getOutputStream();
+            o.write(request);
+            o.flush();
+            return new String(s.getInputStream().readAllBytes(), StandardCharsets.ISO_8859_1);
+        }
+    }
+
+    @Test
+    void anIdleConnectionDoesNotBlockAnUploadAndIsDroppedSoon() throws Exception {
+        try (ServerSocket server = new ServerSocket()) {
+            server.bind(new InetSocketAddress("127.0.0.1", 0));
+            rx.startServing(server);
+            int port = server.getLocalPort();
+            try (Socket idle = new Socket()) {
+                idle.connect(new InetSocketAddress("127.0.0.1", port), 2000);
+                idle.setSoTimeout(DsUploadReceiver.HEAD_TIMEOUT_MS + 5000);
+                long t0 = System.nanoTime();
+                String req =
+                        "PUT /upload/audio/a.m4a?offset=0&total=4 HTTP/1.1\r\n"
+                                + "X-MatchReview-Token: "
+                                + TOKEN
+                                + "\r\nContent-Length: 4\r\n\r\nabcd";
+                String reply = send(port, req.getBytes(StandardCharsets.ISO_8859_1));
+                assertTrue(reply.startsWith("HTTP/1.1 200"), reply);
+                assertTrue(
+                        System.nanoTime() - t0 < 2_000_000_000L,
+                        "served while the idle one is open");
+                assertEquals(-1, idle.getInputStream().read(), "idle one closed, no reply");
+                long held = (System.nanoTime() - t0) / 1_000_000;
+                assertTrue(held < DsUploadReceiver.HEAD_TIMEOUT_MS + 2000, "held " + held + " ms");
+            }
+        }
+    }
+
+    @Test
+    void aTricklingHeadIsDroppedAtTheHeadDeadline() throws IOException {
+        // Bytes keep arriving, so only the head deadline (not the socket timeout) ends it.
+        InputStream trickle =
+                new InputStream() {
+                    @Override
+                    public int read() {
+                        try {
+                            Thread.sleep(50);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                        return 'x';
+                    }
+
+                    @Override
+                    public int read(byte[] b, int off, int len) {
+                        b[off] = (byte) read();
+                        return 1; // a socket returns what has arrived
+                    }
+                };
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        long t0 = System.nanoTime();
+        rx.handleConnection(trickle, out);
+        long ms = (System.nanoTime() - t0) / 1_000_000;
+        assertEquals(0, out.size());
+        assertTrue(ms < DsUploadReceiver.HEAD_TIMEOUT_MS + 1000, "took " + ms + " ms");
     }
 }

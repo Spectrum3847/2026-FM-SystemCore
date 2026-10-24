@@ -28,7 +28,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Pattern;
 import org.wpilib.driverstation.Alert.Level;
 
@@ -49,9 +56,11 @@ import org.wpilib.driverstation.Alert.Level;
  * </ul>
  *
  * <p>The field gives each team about 7 Mbps, so a push only happens after the match, while the
- * robot is disabled; uploads are refused while it is enabled. The thread only writes files and
- * never touches robot state, so replay is unaffected. Counters reach the log through {@link
- * #periodic(boolean)} on the main thread.
+ * robot is disabled. Uploads are refused while it is enabled, and one under way when it enables
+ * stops at the next 64 KiB, keeps what arrived and closes, so the client resumes later. A small
+ * pool of threads serves connections, so one idle or slow client cannot hold up the rest. The
+ * threads only write files and never touch robot state, so replay is unaffected. Counters reach the
+ * log through {@link #periodic(boolean)} on the main thread.
  *
  * <p>A 2027 DS log is stored as {@code <name>.dswpilog}: pit helpers from before this protocol take
  * any {@code .wpilog} they find for a robot log and upload it to the public log site.
@@ -66,12 +75,19 @@ public final class DsUploadReceiver {
 
     private static final int MAX_HEADER_BYTES = 8192;
     private static final int SOCKET_TIMEOUT_MS = 15_000;
-    // Each read restarts the socket timeout, so a client trickling bytes would hold the only
-    // connection slot forever without a total limit. A 20 MB whole NI log at 7 Mbps takes ~25 s.
+    // The client sends its request head in one write. Anything slower is not the client, and must
+    // not hold a pool thread for the full socket timeout.
+    static final int HEAD_TIMEOUT_MS = 3_000;
+    // Each read restarts the socket timeout, so a client trickling bytes would hold its thread
+    // forever without a total limit. A 20 MB whole NI log at 7 Mbps takes ~25 s.
     static final long CONNECTION_LIMIT_MS = 120_000;
-    // A refused PUT's body is read and dropped up to this, so the client sees the 409 or 401
-    // instead of a reset connection. The helper sends 1 MiB chunks.
+    // A refused PUT's body is read and dropped up to this, so the client sees the 409 instead of
+    // a reset connection. The helper sends 1 MiB chunks. Without the token, only a little is.
     private static final long DRAIN_LIMIT_BYTES = 32L << 20;
+    private static final long UNAUTHORIZED_DRAIN_LIMIT_BYTES = 64L << 10;
+    static final int POOL_THREADS = 3;
+    // Connections waiting for a thread; past this they are closed at once.
+    private static final int POOL_QUEUE = 8;
     private static final String NAME_CHARS = "[A-Za-z0-9 _.()-]{1,120}";
 
     /** What may be pushed, by name and size. */
@@ -125,8 +141,12 @@ public final class DsUploadReceiver {
     private volatile String lastFile = "";
     private volatile String lastError = "";
     // In write order. The SystemCore can boot with its clock behind, so lastModified cannot tell
-    // this boot's files (not pulled yet) from older ones.
+    // this boot's files (not pulled yet) from older ones. Guarded by this, as is active: the files
+    // being written, which trim never deletes.
     private final Set<String> writtenThisBoot = new LinkedHashSet<>();
+    private final Set<String> active = new LinkedHashSet<>();
+    // One per stored name, so two connections never write the same file at once.
+    private final Map<String, ReentrantLock> fileLocks = new ConcurrentHashMap<>();
 
     private static DsUploadReceiver instance;
 
@@ -166,9 +186,7 @@ public final class DsUploadReceiver {
         server.bind(new InetSocketAddress(Integer.parseInt(args[2])));
         System.out.println("listening " + server.getLocalPort());
         System.out.flush();
-        Thread t = new Thread(() -> r.serve(server), "DsUploadReceiver");
-        t.setDaemon(true);
-        t.start();
+        r.startServing(server);
         BufferedReader stdin =
                 new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
         for (String line; (line = stdin.readLine()) != null; ) {
@@ -181,7 +199,8 @@ public final class DsUploadReceiver {
     /**
      * Starts the receiver on a daemon thread, writing to {@code <logFolder>/ds}. Does nothing (and
      * raises an info alert) when the token file is missing. Call during robot init, before the main
-     * thread goes real-time, so the thread stays at normal priority.
+     * thread goes real-time: the accept thread and the connection pool are created here, at minimum
+     * priority, and never later.
      *
      * @param logFolder the folder the robot logs to
      */
@@ -218,10 +237,7 @@ public final class DsUploadReceiver {
             return;
         }
         instance = r;
-        Thread t = new Thread(() -> r.serve(server), "DsUploadReceiver");
-        t.setDaemon(true);
-        t.setPriority(Thread.MIN_PRIORITY);
-        t.start();
+        r.startServing(server);
     }
 
     /**
@@ -253,19 +269,80 @@ public final class DsUploadReceiver {
 
     // ── socket ──────────────────────────────────────────────────────────────────────────────────
 
-    private void serve(ServerSocket server) {
+    /** Starts the accept thread and the connection pool, all daemon threads at minimum priority. */
+    void startServing(ServerSocket server) {
+        ThreadPoolExecutor pool = newPool();
+        Thread t = new Thread(() -> serve(server, pool), "DsUploadReceiver");
+        t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
+        t.start();
+    }
+
+    private static ThreadPoolExecutor newPool() {
+        AtomicInteger n = new AtomicInteger();
+        ThreadPoolExecutor pool =
+                new ThreadPoolExecutor(
+                        POOL_THREADS,
+                        POOL_THREADS,
+                        0,
+                        TimeUnit.MILLISECONDS,
+                        new ArrayBlockingQueue<>(POOL_QUEUE),
+                        r -> {
+                            Thread t = new Thread(r, "DsUploadReceiver-" + n.incrementAndGet());
+                            t.setDaemon(true);
+                            t.setPriority(Thread.MIN_PRIORITY);
+                            return t;
+                        });
+        pool.prestartAllCoreThreads();
+        return pool;
+    }
+
+    private void serve(ServerSocket server, ThreadPoolExecutor pool) {
         try (server) {
-            while (!Thread.currentThread().isInterrupted()) {
-                try (Socket s = server.accept()) {
-                    s.setSoTimeout(SOCKET_TIMEOUT_MS);
-                    handleConnection(s.getInputStream(), s.getOutputStream());
+            while (!Thread.currentThread().isInterrupted() && !server.isClosed()) {
+                Socket s;
+                try {
+                    s = server.accept();
                 } catch (IOException e) {
-                    lastError = e.getClass().getSimpleName() + ": " + e.getMessage();
+                    lastError = "accept: " + e.getMessage();
+                    continue;
+                }
+                try {
+                    pool.execute(() -> serveOne(s));
+                } catch (RejectedExecutionException e) {
+                    lastError = "too many connections";
+                    closeQuietly(s);
                 }
             }
         } catch (IOException e) {
             lastError = "listen failed: " + e.getMessage();
         }
+    }
+
+    private void serveOne(Socket socket) {
+        try (Socket s = socket) {
+            s.setSoTimeout(HEAD_TIMEOUT_MS);
+            handleConnection(
+                    s.getInputStream(),
+                    s.getOutputStream(),
+                    CONNECTION_LIMIT_MS,
+                    () -> s.setSoTimeout(SOCKET_TIMEOUT_MS));
+        } catch (IOException e) {
+            lastError = e.getClass().getSimpleName() + ": " + e.getMessage();
+        }
+    }
+
+    private static void closeQuietly(Socket s) {
+        try {
+            s.close();
+        } catch (IOException e) {
+            // already gone
+        }
+    }
+
+    /** Runs once the request head has arrived, to lift the socket timeout for the body. */
+    interface HeadRead {
+        void run() throws IOException;
     }
 
     /** One request per connection: read the head, hand the body stream to {@link #handle}. */
@@ -274,13 +351,24 @@ public final class DsUploadReceiver {
     }
 
     void handleConnection(InputStream rawIn, OutputStream out, long limitMs) throws IOException {
+        handleConnection(rawIn, out, limitMs, () -> {});
+    }
+
+    void handleConnection(InputStream rawIn, OutputStream out, long limitMs, HeadRead headRead)
+            throws IOException {
+        long now = System.nanoTime();
         LimitedInput in =
                 new LimitedInput(
-                        new BufferedInputStream(rawIn), System.nanoTime() + limitMs * 1_000_000L);
+                        new BufferedInputStream(rawIn),
+                        now + limitMs * 1_000_000L,
+                        now + HEAD_TIMEOUT_MS * 1_000_000L);
         Reply reply;
         boolean isHead = false;
+        boolean headDone = false;
         try {
             String head = readHead(in);
+            headDone = true;
+            headRead.run();
             if (head == null) {
                 reply = Reply.of(400, "{\"error\":\"bad request\"}");
             } else {
@@ -302,14 +390,21 @@ public final class DsUploadReceiver {
                     in.bodyStarts();
                     reply = handle(start[0], start[1], headers, in);
                     long unread = parseLong(headers.get("content-length")) - in.bodyRead();
-                    if (unread > 0 && unread <= DRAIN_LIMIT_BYTES) {
+                    long limit =
+                            reply.status() == 401
+                                    ? UNAUTHORIZED_DRAIN_LIMIT_BYTES
+                                    : DRAIN_LIMIT_BYTES;
+                    if (unread > 0 && unread <= limit) {
                         drain(in, unread);
                     }
                 }
             }
         } catch (SocketTimeoutException e) {
-            lastError = "timed out mid-upload";
+            lastError = headDone ? "timed out mid-upload" : "no request in time";
             return; // the client resumes from X-Received
+        } catch (EnabledMidUpload e) {
+            lastError = "robot enabled mid-upload";
+            return; // no reply and no drain frees the field link; it resumes from X-Received
         }
         StringBuilder sb = new StringBuilder();
         sb.append("HTTP/1.1 ").append(reply.status()).append(' ').append(reason(reply.status()));
@@ -402,6 +497,9 @@ public final class DsUploadReceiver {
         String stored = kind.diskName(name);
         File done = new File(dir, stored);
         File part = new File(dir, stored + ".part");
+        if (method.equals("PUT")) {
+            return lockedPut(kind, done, part, stored, whole, headers, query, body);
+        }
         if (method.equals("HEAD")) {
             // A partial copy wins: it is a newer, larger version being sent after a finished one.
             if (part.isFile()) {
@@ -409,9 +507,64 @@ public final class DsUploadReceiver {
             }
             return received(200, done.isFile() ? done.length() : 0, done.isFile());
         }
-        if (!method.equals("PUT")) {
-            return Reply.of(400, "{\"error\":\"PUT or HEAD only\"}");
+        return Reply.of(400, "{\"error\":\"PUT or HEAD only\"}");
+    }
+
+    /**
+     * Runs {@link #put} holding the lock for {@code stored}, waiting for another connection's write
+     * of the same file to finish, up to this connection's time limit.
+     */
+    private Reply lockedPut(
+            Kind kind,
+            File done,
+            File part,
+            String stored,
+            boolean whole,
+            Map<String, String> headers,
+            Map<String, String> query,
+            InputStream body)
+            throws IOException {
+        ReentrantLock lock = fileLocks.computeIfAbsent(stored, k -> new ReentrantLock());
+        long waitNanos =
+                body instanceof LimitedInput li
+                        ? li.remainingNanos()
+                        : CONNECTION_LIMIT_MS * 1_000_000L;
+        boolean locked;
+        try {
+            locked = lock.tryLock(Math.max(0, waitNanos), TimeUnit.NANOSECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new SocketTimeoutException("interrupted waiting for " + stored);
         }
+        if (!locked) {
+            throw new SocketTimeoutException("another upload of " + stored + " held it");
+        }
+        synchronized (this) {
+            active.add(done.getName());
+            active.add(part.getName());
+        }
+        try {
+            return put(kind, done, part, stored, whole, headers, query, body);
+        } finally {
+            synchronized (this) {
+                active.remove(done.getName());
+                active.remove(part.getName());
+            }
+            lock.unlock();
+        }
+    }
+
+    /** Writes one PUT's chunk. The caller holds the lock for {@code stored}. */
+    private Reply put(
+            Kind kind,
+            File done,
+            File part,
+            String stored,
+            boolean whole,
+            Map<String, String> headers,
+            Map<String, String> query,
+            InputStream body)
+            throws IOException {
         long length = parseLong(headers.get("content-length"));
         if (length < 0) {
             return Reply.of(400, "{\"error\":\"Content-Length required\"}");
@@ -438,14 +591,16 @@ public final class DsUploadReceiver {
             drain(body, length);
             return Reply.of(507, "{\"error\":\"robot disk nearly full\"}");
         }
-        writtenThisBoot.remove(part.getName());
-        writtenThisBoot.add(part.getName());
+        noteWritten(part.getName(), part.getName());
         try (RandomAccessFile f = new RandomAccessFile(part, "rw")) {
             f.setLength(offset); // offset 0 restarts a push
             f.seek(offset);
             byte[] buf = new byte[64 * 1024];
             long left = length;
             while (left > 0) {
+                if (robotEnabled) {
+                    throw new EnabledMidUpload(); // keep what arrived
+                }
                 int n = body.read(buf, 0, (int) Math.min(buf.length, left));
                 if (n < 0) {
                     break; // client gone: keep what arrived, it resumes from X-Received
@@ -466,8 +621,7 @@ public final class DsUploadReceiver {
             } catch (AtomicMoveNotSupportedException e) {
                 Files.move(part.toPath(), done.toPath(), StandardCopyOption.REPLACE_EXISTING);
             }
-            writtenThisBoot.remove(part.getName());
-            writtenThisBoot.add(done.getName());
+            noteWritten(part.getName(), done.getName());
             filesCompleted.incrementAndGet();
             lastFile = stored;
             return received(200, total, true);
@@ -486,12 +640,17 @@ public final class DsUploadReceiver {
                 "{\"received\":" + bytes + ",\"complete\":" + complete + "}");
     }
 
+    private synchronized void noteWritten(String was, String now) {
+        writtenThisBoot.remove(was);
+        writtenThisBoot.add(now);
+    }
+
     /**
      * Deletes files until {@code incoming} more bytes fit under the cap: first those from earlier
      * boots (oldest first, partial ones included), then this boot's in the order they were written.
-     * The file being written ({@code keep}) is never deleted.
+     * Files being written ({@code keep}, and any another connection holds) are never deleted.
      */
-    void trim(long incoming, String keep) {
+    synchronized void trim(long incoming, String keep) {
         File[] files = dir.listFiles(File::isFile);
         if (files == null) {
             return;
@@ -506,7 +665,7 @@ public final class DsUploadReceiver {
             if (total + incoming <= capBytes) {
                 break;
             }
-            if (f.getName().equals(keep)) {
+            if (f.getName().equals(keep) || active.contains(f.getName())) {
                 continue;
             }
             long size = f.length();
@@ -565,28 +724,52 @@ public final class DsUploadReceiver {
         }
     }
 
-    /** Counts the body bytes read, and fails a read once the connection's time is up. */
+    /** Thrown from the copy loop when the robot enables: stop and close without a reply. */
+    static final class EnabledMidUpload extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        EnabledMidUpload() {
+            super("robot enabled mid-upload");
+        }
+    }
+
+    /**
+     * Counts the body bytes read, and fails a read once the connection's time is up, or the head's
+     * time before the body starts.
+     */
     static final class LimitedInput extends FilterInputStream {
         private final long deadlineNanos;
+        private final long headDeadlineNanos;
+        private boolean inBody;
         private long read;
         private long bodyStart;
 
-        LimitedInput(InputStream in, long deadlineNanos) {
+        LimitedInput(InputStream in, long deadlineNanos, long headDeadlineNanos) {
             super(in);
             this.deadlineNanos = deadlineNanos;
+            this.headDeadlineNanos = headDeadlineNanos;
         }
 
         void bodyStarts() {
             bodyStart = read;
+            inBody = true;
         }
 
         long bodyRead() {
             return read - bodyStart;
         }
 
+        long remainingNanos() {
+            return deadlineNanos - System.nanoTime();
+        }
+
         private void check() throws SocketTimeoutException {
-            if (System.nanoTime() > deadlineNanos) {
+            long now = System.nanoTime();
+            if (now > deadlineNanos) {
                 throw new SocketTimeoutException("connection over its time limit");
+            }
+            if (!inBody && now > headDeadlineNanos) {
+                throw new SocketTimeoutException("request head too slow");
             }
         }
 

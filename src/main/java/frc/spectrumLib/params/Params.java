@@ -48,9 +48,10 @@ import org.wpilib.driverstation.RobotState;
  *
  * <h2>Never stops the robot booting</h2>
  *
- * A missing file is skipped. An unreadable file, or a value of the wrong type or out of bounds, is
- * skipped too, and raises an alert; the value comes from the layer below. A key no code declares
- * raises an info alert, since it is usually a typo. A bad default in code is a bug and throws.
+ * A missing file is skipped. An unreadable file (bad JSON, or a key given twice), or a value of the
+ * wrong type or out of bounds, is skipped too, and raises an alert; the value comes from the layer
+ * below. A key no code declares raises an info alert, since it is usually a typo. A bad default in
+ * code is a bug and throws.
  *
  * <h2>Replay</h2>
  *
@@ -62,7 +63,7 @@ import org.wpilib.driverstation.RobotState;
  *
  * The transport's {@code SaveParams} button, or {@link #requestSave()}, writes every value that
  * differs from the git layers to the robot-local folder. Disabled only; the file write runs on a
- * background thread.
+ * background thread and reaches the disk before it replaces the old file.
  *
  * <p>Main thread only.
  */

@@ -23,6 +23,7 @@ import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import frc.spectrumLib.telemetry.Telemetry.PrintPriority;
 import frc.spectrumLib.util.Util;
+import frc.spectrumLib.vision.FieldMapJson;
 import frc.spectrumLib.vision.Limelight;
 import frc.spectrumLib.vision.Limelight.LimelightConfig;
 import frc.spectrumLib.vision.LimelightHelpers;
@@ -446,6 +447,10 @@ public class Vision implements Subsystem {
                         // The logged mode, not Constants: a replay of a real match expects the
                         // Jetson exactly as the robot did.
                         () -> config.jetsonInstalled && !RuntimeInputs.isSimulation());
+        if (!replay) {
+            // The robot's layout is the one source of truth: the Jetson loads it from here.
+            jetson.publishFieldMap(tagField.name(), tagLayoutHash, FieldMapJson.of(tagLayout));
+        }
 
         // QuestNav.
         PoseSourceIO questIo;

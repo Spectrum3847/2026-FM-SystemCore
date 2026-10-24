@@ -43,4 +43,14 @@ public interface JetsonIO {
      * @param tagIds tag ids to exclude
      */
     default void setExcludedTags(long[] tagIds) {}
+
+    /**
+     * Publishes the robot's AprilTag field map under {@code /SpectrumVision/FieldMap/}, for the
+     * Jetson to load and to report back the hash of what it loaded.
+     *
+     * @param name the WPILib field's name, or {@code "custom"}
+     * @param hash the canonical hash ({@code FieldMapHash})
+     * @param json the layout as WPILib AprilTagFieldLayout JSON
+     */
+    default void publishFieldMap(String name, String hash, String json) {}
 }

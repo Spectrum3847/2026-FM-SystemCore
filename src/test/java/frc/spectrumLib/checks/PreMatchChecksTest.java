@@ -132,6 +132,45 @@ class PreMatchChecksTest {
     }
 
     @Test
+    void theGapBetweenAutoAndTeleopRaisesNothingUntilTheFmsDetaches() {
+        Fixed a = new Fixed(CheckResult.pass("a"));
+        checks.register("A", a);
+        double t = 0;
+        checks.periodic(true, true, t += 0.02); // queued, FMS attached: judged
+        assertEquals(1, a.evaluations);
+        assertTrue(sink.active);
+
+        checks.periodic(false, true, t += 0.02); // auto
+        a.result = CheckResult.fail("the auto moved the robot off its start");
+        for (int i = 0; i < 50; i++) {
+            checks.periodic(true, true, t += 0.02); // the gap before teleop
+        }
+        assertEquals(1, a.evaluations, "not judged between the periods");
+        assertEquals(List.of("A"), sink.judged, "no new result, so no alert");
+        assertFalse(sink.active);
+        assertTrue(checks.isMatchStarted());
+
+        checks.periodic(false, true, t += 0.02); // teleop
+        checks.periodic(true, true, t += 0.02); // match over, FMS still attached
+        assertEquals(1, a.evaluations);
+
+        checks.periodic(true, false, t += 0.02); // FMS detached: back to the pits
+        assertFalse(checks.isMatchStarted());
+        assertEquals(2, a.evaluations);
+        assertTrue(sink.active);
+    }
+
+    @Test
+    void anEnableWithoutTheFmsDoesNotStartAMatch() {
+        Fixed a = new Fixed(CheckResult.pass("a"));
+        checks.register("A", a);
+        checks.periodic(false, false, 0.02); // practice on the cart
+        checks.periodic(true, true, 0.04); // then onto the field
+        assertFalse(checks.isMatchStarted());
+        assertEquals(1, a.evaluations);
+    }
+
+    @Test
     void resultsFromBeforeTheEnableDoNotCountAfterIt() {
         checks.register("A", new Fixed(CheckResult.pass("a")))
                 .register("B", new Fixed(CheckResult.pass("b")));

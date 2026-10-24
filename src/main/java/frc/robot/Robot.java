@@ -766,7 +766,8 @@ public class Robot extends SpectrumRobot {
             matchSummary.periodic(RuntimeInputs.batteryVoltage(), RuntimeInputs.brownedOut());
 
             Telemetry.time("Scheduler/PreMatch");
-            preMatch.periodic(RobotState.isDisabled(), Timer.getTimestamp());
+            preMatch.periodic(
+                    RobotState.isDisabled(), RobotState.isFMSAttached(), Timer.getTimestamp());
             Telemetry.timeEnd("Scheduler/PreMatch");
 
             // For dashboards (AdvantageKit logs the pose itself every loop); 10 Hz is plenty.

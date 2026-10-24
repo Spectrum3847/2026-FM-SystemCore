@@ -1076,6 +1076,25 @@ public abstract class Mechanism implements Subsystem {
     }
 
     /**
+     * The nearest position the motor can reach under the soft limits it booted with (each one only
+     * while enabled). Soft-limit params apply at boot only, so these are the motor's limits even
+     * after a params edit.
+     *
+     * @param rotations a position goal, rotations
+     * @return the goal clamped to the enabled soft limits
+     */
+    public double clampToSoftLimits(double rotations) {
+        var limits = config.talonConfig.SoftwareLimitSwitch;
+        if (limits.ForwardSoftLimitEnable) {
+            rotations = Math.min(rotations, limits.ForwardSoftLimitThreshold);
+        }
+        if (limits.ReverseSoftLimitEnable) {
+            rotations = Math.max(rotations, limits.ReverseSoftLimitThreshold);
+        }
+        return rotations;
+    }
+
+    /**
      * The leader's position bounds its travel, so a reboot that restarts it matters.
      *
      * @return {@code true} if either soft limit is enabled
@@ -1165,10 +1184,11 @@ public abstract class Mechanism implements Subsystem {
                         && closedLoopSentLoop == RobotLoop.count() - 1
                         && !resetMonitor.isPositionLost()
                         && !positionWrite.isPending();
+        // A goal past a soft limit stops the motor at the limit, which is not a jam.
         double error =
                 watched == ClosedLoop.VELOCITY
                         ? inputs.velocityRps - velocityTarget
-                        : inputs.positionRotations - target;
+                        : inputs.positionRotations - clampToSoftLimits(target);
         if (trackingStop.update(
                 Timer.getTimestamp(),
                 RobotState.isEnabled(),

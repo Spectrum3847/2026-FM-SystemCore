@@ -109,7 +109,8 @@ public final class DsUploadReceiver {
         DSLOG(
                 "^\\d{4}_\\d{2}_\\d{2} \\d{2}_\\d{2}_\\d{2} [A-Za-z]{3}\\.(dslog|dsevents)$",
                 20_000_000L),
-        DSWPILOG("^" + NAME_CHARS + "\\.wpilog$", 50_000_000L),
+        // One file per DS session, extended after every match: a full event day runs past 50 MB.
+        DSWPILOG("^" + NAME_CHARS + "\\.wpilog$", 400_000_000L),
         AUDIO("^" + NAME_CHARS + "\\.(m4a|opus)$", 20_000_000L),
         VIDEO("^" + NAME_CHARS + "\\.mp4$", 200_000_000L);
 

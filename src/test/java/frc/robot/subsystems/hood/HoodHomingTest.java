@@ -9,6 +9,7 @@ import frc.robot.subsystems.hood.HoodHoming.Output;
 import frc.robot.subsystems.hood.HoodHoming.State;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.littletonrobotics.junction.LogTable;
 
 class HoodHomingTest {
     private static final double LOOP = 0.01;
@@ -227,6 +228,34 @@ class HoodHomingTest {
         wantsHome = true;
         position = STOP;
         assertEquals(Action.DRIVE_TO_STOP, step().action(), "the next visit re-homes");
+    }
+
+    @Test
+    void aLogWithTheHomingMarkerHomesNormally() {
+        HoodHoming.LogMarker marker = new HoodHoming.LogMarker();
+        LogTable table = new LogTable(0);
+        marker.toLog(table);
+        HoodHoming.LogMarker replayed = new HoodHoming.LogMarker();
+        replayed.fromLog(table);
+        assertTrue(replayed.recordedWithHoming);
+        assertFalse(HoodHoming.assumeZeroedForReplay(true, replayed.recordedWithHoming));
+    }
+
+    @Test
+    void aLogFromBeforeHomingIsAssumedZeroedInReplayOnly() {
+        HoodHoming.LogMarker replayed = new HoodHoming.LogMarker();
+        replayed.fromLog(new LogTable(0)); // no Hood/Homing keys in the log
+        assertFalse(replayed.recordedWithHoming);
+        assertTrue(HoodHoming.assumeZeroedForReplay(true, replayed.recordedWithHoming));
+        // On the robot and in sim the marker is never read from a log, and homing still runs.
+        assertFalse(HoodHoming.assumeZeroedForReplay(false, false));
+        assertFalse(
+                HoodHoming.assumeZeroedForReplay(
+                        false, new HoodHoming.LogMarker().recordedWithHoming));
+        Output out = HoodHoming.assumedZeroed();
+        assertTrue(out.zeroed());
+        assertFalse(out.resetPosition());
+        assertEquals(Action.CLOSED_LOOP, out.action());
     }
 
     @Test

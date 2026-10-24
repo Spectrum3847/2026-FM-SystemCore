@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import lombok.Getter;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
@@ -69,7 +70,7 @@ public class Jetson {
     private final JetsonIO io;
     @Getter private final JetsonInputs inputs = new JetsonInputs();
     private final List<Camera> cameras;
-    private final boolean expectJetson;
+    private final BooleanSupplier expectJetson;
 
     private final LoggedNetworkString excludedTagsDashboard;
     private final LoggedNetworkBoolean practiceProfile =
@@ -167,11 +168,14 @@ public class Jetson {
      * @param io the Jetson ({@link JetsonIO#NONE} in replay)
      * @param cameras the Orin cameras
      * @param defaultExcludedTags the event's bad tags, until changed on the dashboard
-     * @param expectJetson whether the Jetson should be there (real robot); off in sim, so its
-     *     alerts stay quiet
+     * @param expectJetson whether the Jetson should be there (installed, and a real robot or a
+     *     replay of one)
      */
     public Jetson(
-            JetsonIO io, List<Camera> cameras, int[] defaultExcludedTags, boolean expectJetson) {
+            JetsonIO io,
+            List<Camera> cameras,
+            int[] defaultExcludedTags,
+            BooleanSupplier expectJetson) {
         this.io = io;
         this.cameras = List.copyOf(cameras);
         this.expectJetson = expectJetson;
@@ -186,9 +190,9 @@ public class Jetson {
         }
     }
 
-    /** Whether the Jetson should be on this robot (real robot, installed). */
+    /** Whether the Jetson should answer: installed, on a real robot or a replay of one. */
     public boolean isExpected() {
-        return expectJetson;
+        return expectJetson.getAsBoolean();
     }
 
     /** Whether the dashboard has the Orin cameras on the practice-field pipeline. */
@@ -354,10 +358,10 @@ public class Jetson {
                 inputs.heartbeat < 0
                         || now - lastHeartbeatChangeSeconds > HEARTBEAT_TIMEOUT_SECONDS;
         Logger.recordOutput(PREFIX + "HeartbeatAgeSeconds", now - lastHeartbeatChangeSeconds);
-        jetsonDown.set(expectJetson && down);
+        jetsonDown.set(isExpected() && down);
         responding = !down;
         frc.spectrumLib.telemetry.Telemetry.logDash("Vision/Jetson/Connected", !down);
-        boolean up = expectJetson && !down;
+        boolean up = isExpected() && !down;
 
         // Uptime dropping means the Jetson rebooted (power or watchdog); its own log survives power
         // cuts, so look up why after the match. Stays up until the next enable.
@@ -365,7 +369,7 @@ public class Jetson {
             rebooted.setText(
                     String.format(
                             "Jetson rebooted at robot time %.0f s: check its log and power", now));
-            rebooted.set(expectJetson);
+            rebooted.set(isExpected());
         }
         if (!Double.isNaN(inputs.uptimeSeconds)) {
             lastUptime = inputs.uptimeSeconds;
@@ -421,7 +425,7 @@ public class Jetson {
     private void updateCameraAlerts(CameraCheck c, double now, boolean mountCheckAllowed) {
         OrinCameraInputs in = c.camera.source().getCameraInputs();
         // A camera turned off on purpose reads as disconnected after 0.5 s: no alerts for it (8f).
-        boolean watch = expectJetson && c.camera.installed() && in.enabled;
+        boolean watch = isExpected() && c.camera.installed() && in.enabled;
         c.notOnNt.set(c.notOnNtDebounce.calculate(watch && !in.connected));
         double lastResult = c.camera.source().getLastResultSeconds();
         boolean noFrames =

@@ -1,7 +1,9 @@
 package frc.robot.subsystems.vision;
 
 import frc.robot.Constants;
+import frc.robot.Event;
 import frc.robot.Robot;
+import frc.robot.RuntimeInputs;
 import frc.robot.auton.Auton;
 import frc.robot.subsystems.swerve.Swerve;
 import frc.spectrumLib.checks.CameraHeadingCheck;
@@ -260,10 +262,10 @@ public class Vision implements Subsystem {
     // =========================================================================
 
     /**
-     * The layout the robot solves with; the Jetson's and Limelights' must match it. {@code
-     * Event.APRILTAG_FIELD} says which field this event has, and the pre-match check compares.
+     * The layout the robot solves with: this event's field. The Jetson's and Limelights' must
+     * match.
      */
-    public static final AprilTagFields TAG_FIELD = AprilTagFields.k2026RebuiltAndymark;
+    public static final AprilTagFields TAG_FIELD = Event.APRILTAG_FIELD;
 
     @Getter private static AprilTagFieldLayout tagLayout;
 
@@ -435,7 +437,9 @@ public class Vision implements Subsystem {
                         replay ? JetsonIO.NONE : new JetsonNTIO(),
                         jetsonCameras,
                         config.orinExcludedTags,
-                        config.jetsonInstalled && Constants.hasHardware() && !sim);
+                        // The logged mode, not Constants: a replay of a real match expects the
+                        // Jetson exactly as the robot did.
+                        () -> config.jetsonInstalled && !RuntimeInputs.isSimulation());
 
         // QuestNav.
         PoseSourceIO questIo;

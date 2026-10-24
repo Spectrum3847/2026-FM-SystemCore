@@ -7,9 +7,9 @@ public final class Event {
     private Event() {}
 
     /**
-     * This event's field: AndyMark or Welded, from the event's field announcement. The vision code
-     * loads its own layout ({@code Vision.TAG_FIELD}, which the Limelights and the Jetson must
-     * match); the pre-match Settings check warns when that layout is not this one.
+     * This event's field: AndyMark or Welded, from the event's field announcement. Vision solves
+     * with this layout. The Limelights' and the Jetson's field maps are uploaded to them separately
+     * and must match it; the robot cannot read them, so no check covers them.
      */
     public static final AprilTagFields APRILTAG_FIELD = AprilTagFields.k2026RebuiltAndymark;
 }

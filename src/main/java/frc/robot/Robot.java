@@ -74,6 +74,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import org.json.simple.parser.ParseException;
@@ -520,6 +521,10 @@ public class Robot extends SpectrumRobot {
      */
     private void startLogging() {
         Logger.recordMetadata("ProjectName", BuildConstants.MAVEN_NAME);
+        // SystemCore has no battery-backed clock, so a log has no real date until the Driver
+        // Station connects, and one that never sees a DS has none at all. A random id per boot
+        // still tells every log apart and ties together the files one boot wrote.
+        Logger.recordMetadata("BootId", UUID.randomUUID().toString());
         Logger.recordMetadata("Robot", "FM-2026-SystemCore");
         Logger.recordMetadata("TeamNumber", "8515");
         Logger.recordMetadata("LoopPeriodSeconds", Double.toString(Constants.LOOP_PERIOD_SECONDS));

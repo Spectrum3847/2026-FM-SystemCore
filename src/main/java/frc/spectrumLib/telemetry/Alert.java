@@ -138,8 +138,13 @@ public class Alert extends org.wpilib.driverstation.Alert {
         dirty = false;
         var listener = raisedListener;
         for (Alert a : ALL) {
-            if (a.active && !a.reported && listener != null) {
-                listener.accept(a.level, a.text);
+            if (a.active && !a.reported) {
+                Telemetry.logEvent("Events", "alert " + a.level + ": " + a.text);
+                if (listener != null) {
+                    listener.accept(a.level, a.text);
+                }
+            } else if (!a.active && a.reported) {
+                Telemetry.logEvent("Events", "alert cleared: " + a.text);
             }
             a.reported = a.active;
         }

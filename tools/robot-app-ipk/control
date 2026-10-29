@@ -1,0 +1,12 @@
+Package: robot-app
+Version: 0.0.1
+Description: Robot App launcher. Serves the files the robot deploy puts in /home/systemcore/deploy.
+Section: utilities
+Priority: optional
+Maintainer: Spectrum 3847
+Architecture: all
+X-Port: 5808
+X-Display-Name: Robot App
+X-Has-UI: true
+X-Auto-Start: true
+X-Icon-Path: /opt/robot-app/icon.svg

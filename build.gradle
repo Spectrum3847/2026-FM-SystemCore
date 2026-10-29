@@ -304,3 +304,66 @@ if (project.hasProperty('robotLog')) {
         }
     }
 }
+
+// Robot App launcher package (tools/robot-app-ipk). Builds build/robot-app.ipk; with -ProbotApp,
+//   ./gradlew deployrobotAppsystemcore -ProbotApp
+// copies it to the robot and installs it with opkg.
+def robotAppIpk = layout.buildDirectory.file('robot-app.ipk')
+def robotAppControlTar = tasks.register('robotAppControlTar', Tar) {
+    archiveFileName = 'control.tar.gz'
+    destinationDirectory = layout.buildDirectory.dir('robot-app-ipk')
+    compression = Compression.GZIP
+    from('tools/robot-app-ipk') {
+        include 'control'
+        filePermissions { unix(0644) }
+    }
+    from('tools/robot-app-ipk') {
+        include 'postinst', 'prerm'
+        filePermissions { unix(0755) }
+    }
+}
+def robotAppDataTar = tasks.register('robotAppDataTar', Tar) {
+    archiveFileName = 'data.tar.gz'
+    destinationDirectory = layout.buildDirectory.dir('robot-app-ipk')
+    compression = Compression.GZIP
+    from('tools/robot-app-ipk/robot-app.service') { into 'etc/systemd/system' }
+    from('tools/robot-app-ipk/icon.svg') { into 'opt/robot-app' }
+    filePermissions { unix(0644) }
+    dirPermissions { unix(0755) }
+}
+tasks.register('robotAppIpk') {
+    dependsOn robotAppControlTar, robotAppDataTar
+    def controlTar = robotAppControlTar.flatMap { it.archiveFile }
+    def dataTar = robotAppDataTar.flatMap { it.archiveFile }
+    inputs.files(controlTar, dataTar)
+    outputs.file(robotAppIpk)
+    doLast {
+        // An .ipk is an ar archive, like a .deb.
+        def out = new ByteArrayOutputStream()
+        out.write('!<arch>\n'.bytes)
+        def add = { String name, byte[] data ->
+            def mtime = (System.currentTimeMillis() / 1000) as long
+            out.write(String.format('%-16s%-12d%-6d%-6d%-8s%-10d`\n',
+                    name, mtime, 0, 0, '100644', data.length).bytes)
+            out.write(data)
+            if (data.length % 2 == 1) out.write('\n'.bytes)
+        }
+        add('debian-binary', '2.0\n'.bytes)
+        add('control.tar.gz', controlTar.get().asFile.bytes)
+        add('data.tar.gz', dataTar.get().asFile.bytes)
+        robotAppIpk.get().asFile.bytes = out.toByteArray()
+    }
+}
+if (project.hasProperty('robotApp')) {
+    deploy.targets.systemcore.artifacts {
+        robotApp(deploy.targets.systemcore.getArtifactTypeClass('FileArtifact')) {
+            file = robotAppIpk.get().asFile
+            filename = 'robot-app.ipk'
+            dependsOnForDeployTask 'robotAppIpk'
+            postdeploy << { ctx ->
+                ctx.execute('sudo opkg install --force-reinstall robot-app.ipk 2>&1; '
+                        + 'systemctl is-active robot-app; sudo systemctl start robot')
+            }
+        }
+    }
+}

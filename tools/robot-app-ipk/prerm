@@ -1,0 +1,3 @@
+#!/bin/sh
+systemctl disable --now robot-app.service
+exit 0

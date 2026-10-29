@@ -1,0 +1,13 @@
+[Unit]
+Description=Robot App
+After=network.target
+
+[Service]
+Type=simple
+User=systemcore
+ExecStart=/usr/bin/env python3 -m http.server 5808 --directory /home/systemcore/deploy
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

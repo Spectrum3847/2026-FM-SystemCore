@@ -1,0 +1,4 @@
+#!/bin/sh
+systemctl daemon-reload
+systemctl enable --now robot-app.service
+exit 0

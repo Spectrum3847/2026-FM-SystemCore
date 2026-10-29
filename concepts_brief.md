@@ -644,6 +644,166 @@ They also disagree on whether copies build up:
 - Where the new tasks sit relative to `createVersionFile` and `eventDeploy`.
 - The rename suffix for a disabled file and the name of the log the robot reads at boot.
 
+### Round 6: robot-specific pages and guided procedures
+
+Six new reviews with the robot-specific framing. Options are not chosen; the team decides.
+
+Reviewers: Design Critic (DC), Codebase Details (CD), Zoom Out (ZO), Comprehension/UX (CX), Implementation Readiness (IR), Structural (ST). All six completed. The brief was concept6.md. Its givens:
+- The app lives in the same repo and build as the robot code.
+- Pages are hand-made for one robot.
+- Guided procedures run motion steps in utility mode, started by the driver with buttons. The website never commands motion.
+- Tuning goes through the params system.
+
+This document lays out the options and does not choose answers. The team decides.
+
+### Agreement and disagreement at a glance
+
+**All six agree:**
+- Nothing today stops a page from reading a key the code no longer has. CI should check each page's declared keys against generated lists.
+- A key check can't catch a changed meaning (units, sign, inversion). A scripted sim per procedure is the proposed answer.
+- The robot publishes the procedure state (`Procedure/Active`, step, state, results). The page reads it and never starts motion.
+- Each test has a timeout and an abort, and the driver gets a dashboard and rumble cue.
+- Values read only at boot show "saved, reboot to apply" until the logged source confirms them.
+
+**Where they disagree:**
+- **Where the shared part lives (Q2):** this repo until a second robot exists; spectrumLib; or a separate repo.
+- **Where the capture gate runs (Q3):** on the robot, as a logged input; or in a shared page-side framework that reads logged timestamps.
+- **Whether the page may arm or select a test while disabled (Q4),** or the driver chooses with buttons only.
+
+---
+
+### Q1. Keeping robot-specific pages correct
+
+**What exists today** (reported by DC, CD, ZO, CX, IR, ST):
+- CI runs `make_log_key_guide.py --check` (log keys only), the Python tool tests, `node --test tools/app-test/*.test.mjs` and scripted sims checked by `ci_assert.py`.
+- The `app-test` suite has three tests (analysis, camera-cal, links). None compares a page's keys with `log-keys.json`.
+- Nothing generates a list of params, `/Tuning/` keys or the NT topics pages read.
+- CD's example: `swerve-align/main.js` hard-codes `/AdvantageKit/RealOutputs/Swerve/Align/`, so renaming `SwerveAlignment.KEY_PREFIX` passes CI today. The AGENTS.md "update the page in the same PR" rule is honour-system only.
+- `SimScript` has `drive`, `shoot` and `auto:` scripts, but no utility-mode script (CX).
+
+**Key-existence check: all six back the same core design.**
+- Each page declares the keys it reads in one place: a `KEYS` export, a `reads` list or `pages/<page>/keys.js`.
+- A node test checks those keys against `log-keys.json` plus a new generated `params-keys.json` built from the `Params.group(...)` declarations.
+- **NT topics a page reads:** they need a source too. ZO and DC put them in the generated output. ST wants a `procedures.json` from a robot-side `Procedure` registry. IR says they should come from a generator or LogKeyGuide.
+- **Strongest argument:** this turns the honour-system rule into a CI failure. It reuses the existing generator pattern and AGENTS.md's "NT prefixes at the top of each page" rule (ZO).
+- **Strongest counter (DC, CD, CX, IR, ST):** the generator is a regex over Java that silently skips calls it can't parse (its own "ponytail" note). Keys built at runtime (`Mechanisms/<name>/...`) can escape the check, so it may give false confidence.
+
+**Mitigations raised for the generator gaps:**
+- Match `<name>` templates by pattern, and treat a key missing from every list as missing, so gaps fail closed (DC, IR).
+- Make the generator fail on calls it can't parse, at least in mechanisms that have pages (CD, ST).
+- Pages never type a key outside their manifest (ST).
+- Roll the test out warn-only for one PR, then make it fail (IR).
+- CX wants an actionable error, for example "page `hood-limits` reads `/Tuning/hood/max`, which no code declares; did you rename it to ...?". The check runs in `./gradlew build`.
+- DC offers a cheaper alternative and calls it weaker: the robot publishes `/App/Schema` at runtime and the page refuses missing keys. That catches the problem only on the robot, not in the PR.
+
+**Behaviour drift (a changed unit, sign, inversion or limit):**
+
+| Option | Backed by | Argument | Counter |
+|---|---|---|---|
+| One scripted sim per procedure (`FM_SIM_SCRIPT=procedure:<name>`). Its wpilog is replayed through the page's capture logic in a node test. | DC, CD, CX, IR | Tests the page's own logic against the robot's behaviour. | Sim models of hand-moved mechanisms are weak and "prove wiring, not physics" (IR). Slower CI. Upkeep for pages used a few times a season (CX). |
+| One sim script per procedure that presses the utility buttons, with `ci_assert.py` checking the logged result keys | ZO, ST | Uses tooling the team already runs. | Doesn't exercise the page's JavaScript. Sim models may not exist (ST). |
+| Fixture logs per page, taken from the real robot and regenerated on purpose | CD (as its counter) | Real data, cheaper than sim models. | Has to be refreshed by hand. |
+
+**Units:** store the unit with each declared key and compare it with LogKeyGuide's metadata (CD, ZO, CX). ZO notes this covers unit changes. Sign and direction changes still need the sim.
+
+**CI cost (DC):** run the procedure sims only when `subsystems/**` or `app/pages/**` change.
+
+**Facts to check:** how many logged keys the generator misses today; whether sim models exist for each mechanism that will have a procedure; CI time per sim script.
+
+### Q2. Shared versus per-robot, and where the shared part lives
+
+**What is shared, what is per robot.** All six broadly agree on the split.
+- **Shared:** service, log download, version banner, tuning-mode button, params diff, widgets, and a procedure framework (step engine, capture guard, hard-stop confirm).
+- **Per robot:** pages, CAD assets, step text, sim scripts and manifests.
+
+**Where the shared part lives** (reviewers disagree):
+
+| Option | Backed by | Strongest argument | Strongest counter |
+|---|---|---|---|
+| Keep it all in this repo, in a separate folder (`app/core`, `app/lib`); copy it forward to the next robot; extract it only once a second robot exists | ZO, CX, IR | One consumer gives no evidence about the right abstraction (YAGNI). No toolchain or vendoring step. | Copies drift, and fixes for one robot never reach the other (ZO, CX, IR state this themselves). |
+| JS shell in its own repo, vendored into `app/vendor/` as one file per release; Java half in spectrumLib | DC, ST | A versioned, single source. Fits the one-file vendor rule. | A second repo adds version skew and a vendoring chore. AGENTS.md bans spectrumLib edits on `event*` branches, so a framework bug can't be fixed at an event (DC). Heavy for a student team (ST). |
+| JS framework copied into spectrumLib's app side, with a version string | CD | Lives with the code already shared between robots. | spectrumLib is itself copied per repo, so it drifts the same way. |
+
+**The Java half (the procedure state publisher):** DC, ZO, CD and ST place it in spectrumLib. ZO puts it next to `checks/` (the existing `Check`/`PreMatchChecks` framework, which already runs on the main thread, reads only logged inputs, and reports without acting). ST puts it next to params. CX and IR would keep the shared part in this repo now and move it to spectrumLib once a second robot uses it.
+
+**Requirements raised:**
+- The shared layer names no mechanism, key literal or CAN fact (CX, ST).
+- A `lib/VERSION` plus a contract document of the NT and JSON shapes the shared layer expects. The contract schema is versioned, so an old shell refuses a newer contract (IR, ST).
+- The banner shows the framework version, the robot git SHA and a hash of `log-keys.json` (CD).
+- Land the shared framework and the key-manifest CI on `main` before the season, not during an event (IR).
+
+### Q3. Procedure safety and data
+
+**Where the capture gate runs.** Reviewers disagree:
+
+| Option | Backed by | Strongest argument | Strongest counter |
+|---|---|---|---|
+| **On the robot.** A capture request goes over NT and is handled on the main thread. The robot checks `connected`, sample freshness and steadiness, logs a verdict and reason as an input or output, and the page only displays it. | DC, ZO, ST | The TXMAN1 rule is about code acting on readings, and writing a param is an action, so replay must see the gate (ZO). One `CaptureGate`, no copies per page (ST). Can build on the `Check` pattern (ZO). | Every procedure change needs a Java change and a deploy, which slows pit iteration. Page-side checks are faster to change, and nothing is written until a person saves anyway (DC, ST). |
+| **In a shared page-side procedure framework** (not each page). It refuses capture while any listed `connected` input is false or a timestamp is older than N cycles, and shows the reason. | CD, CX, IR | Faster to iterate. The plain-words reason belongs where the student looks. CX: staleness measured from logged input timestamps, not the browser clock. | Replay can't see a page-side gate. CD notes the NT4 client doesn't track how old each topic is today. |
+
+**Agreed details under either option:**
+- Each capture step lists the devices it depends on. It refuses when any is disconnected or stale and shows the reason in plain words, for example "Front-left encoder disconnected (CANivore). Capture disabled." (all six).
+- `connected` must be true for the whole capture window, not only at the instant of capture. Debounce a flapping `connected` (DC).
+- Samples must be steady: spread under a set tolerance over N samples (DC, ZO).
+- Freshness limit: DC suggests 2 cycles, IR 3 cycles.
+- A captured value carries its source key, sample count, spread and robot timestamp, so a real capture can be told apart from zeros (CD).
+
+**Hard stops** (all six): show old value, new value and failure mode; a person clicks to confirm; apply through `/Tuning/` and `SaveParams` while disabled; log the confirmation as an input. DC says this click is distinct from the tuning-mode toggle. CD and IR note the source of the failure-mode text is still undecided, and IR says this blocks the swerve page.
+
+**Values read only at boot (swerve offsets)** (all six): show "saved, reboot to apply" until a logged input confirms the change after the reboot. Reviewers name different inputs for that check: `Params/Sources/swerve/*` reporting the robot-local layer (CD, ZO, ST), or `Params/Values` compared with the saved file (IR). ST wants a `requiresReboot` flag in `params-keys.json`. IR: don't let a second capture build on a value not yet applied, and document disabling the local file as the rollback.
+
+**Other risks:**
+- An NT disconnect mid-step counts as a fault, not as "the last value" (DC).
+- Two browsers running one procedure: the robot needs a single owner token (DC).
+- Refuse capture when the `$hardware` stamp or the manifest SHA doesn't match (IR).
+- A fixed staleness limit falsely rejects readings on a loaded bus, but per-device limits add tuning students must understand (CX, IR).
+
+### Q4. Coordinating a page with a utility-mode test
+
+**What exists today:**
+- `utilityInit` only logs a "utility" event, and `utilityPeriodic` and `utilityExit` are empty.
+- `Util.testMode` is a bare trigger, so there is no test identity to read (CD, DC, ZO, ST).
+- `Gamepad` already maps buttons (ZO).
+
+**Agreed by all six:** the robot publishes the procedure state, set on the main thread. The page reads it and never starts motion.
+- Proposed keys: `Procedure/Active` (test id), `Step`, `State` (idle / armed / running / done / aborted / timeout), start and end times or a sequence counter, `Result/*`, and `AbortReason`.
+- IR names them `UtilityTest/*` instead.
+- Each test has a timeout and stops when the button is released or the robot is disabled.
+- Leaving utility mode mid-test sets "aborted", and an FMS attaching clears the selection (DC, ZO).
+- The driver sees the step on the dashboard and gets controller rumble at start and end. The page shows "Waiting for the driver: enable utility mode, press A".
+
+**Accepting only fresh results:** the page accepts results only from a run it saw start, using `StartTs` (DC) or a `Seq` counter that advanced after the page armed (IR, ZO). This keeps a stale result off the page.
+
+**Which button to press:** the expected button comes from the same binding table the robot uses, generated into a deploy JSON (CD) or shared with the controls guide (ZO). ST wants one robot-side registry as the only source for steps, bindings and results, so a page can't name a test that has no binding.
+
+**Who selects the test** (reviewers disagree):
+
+| Option | Backed by | Strongest argument | Strongest counter |
+|---|---|---|---|
+| The page arms or selects the procedure while disabled, as an NT command logged as an input. In utility mode the driver's button runs only the armed test. | DC, ST | Fewer driver mistakes. The page and the robot agree on what runs. ST: the page shows a fault for "utility mode but nothing armed". | Arming from the website is an indirect way of picking the motion, close to the "website never commands motion" decision (ST's own counter; CX). |
+| Arming happens only on the page; nothing is sent to the robot. The robot's choice of test reads only button inputs. | IR | Keeps the robot's logic free of page state. | The driver can still press the wrong button. The page only notices afterwards, by the test id. |
+| The driver chooses with buttons only; the page only subscribes | ZO, CD, CX | Purest reading of the decision, and the smallest protocol. | Depends on the driver pressing the right button. ZO would accept a logged "requested test" NT field that the robot reads only while disabled, only if it selects and never starts. CX calls a page request "clearer for the student". |
+
+**Inputs or outputs:** whether the state is logged as outputs or inputs.
+- **Outputs (CX, IR, CD):** the page only reads them. Robot logic must not read them back, and the test choice must come from button inputs (IR).
+- **Logged inputs or outputs computed from logged inputs (DC, ST):** so replay is deterministic.
+
+**Inferring the test from mechanism logs:** DC and ST reject having the page infer which test runs from currents or velocities. It's fragile and breaks replay. CD gives the cheaper generic option ("last utility command name plus start and end time") as its counter, but notes it can't carry results.
+
+**Facts to check:** whether the driver dashboard can show the procedure step; the rumble API on the 2027 alpha; how `Gamepad` bindings could be enumerated for a generated binding table.
+
+---
+
+### Other issues raised
+
+- **One shared "propose a value, then a person confirms" path (ZO):** the procedure pages and the AI API both need it. Build it once.
+- **Tuning mode on main (IR):** the `TUNING_MODE` test that fails PRs to `main` must be changed (a boot default of false plus a runtime request) before any procedure page ships.
+- **Rebuilding existing pages (IR):** keep the old `swerve-align`, `can`, `power` and `cameras` pages served until each new page passes its sim test, then delete the old one in the same PR.
+- **NT staleness in the client (CD):** `lib/nt4.js` needs to track when each topic last updated.
+- **NT load (DC):** about 10 keys per active procedure, which is small. CI time is the main cost.
+- **Glossary on pages (CX):** define "utility mode", "hard-stop group", "`$hardware` stamp" and "capture" on first use.
+- **Brief scope (ZO):** the "implementation details still undecided" list (file and flag names) is too detailed for this stage of the concept.
+
 ## Goals vs. Non-Goals
 
 * **In-Scope Goals:**

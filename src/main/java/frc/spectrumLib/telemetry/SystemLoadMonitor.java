@@ -240,10 +240,10 @@ public class SystemLoadMonitor {
     /** Logs this program's CPU share and busiest threads from a background reading. */
     private void logProcessShare(ProcSnapshot snap) {
         if (!Double.isNaN(snap.processPercent())) {
-            Telemetry.logDash("System/ProcessPercent", snap.processPercent(), "%");
+            Telemetry.logDash("System/ProcessPercent", snap.processPercent(), "percent");
         }
         if (!Double.isNaN(snap.mainThreadPercent())) {
-            Telemetry.logDash("System/MainThreadPercent", snap.mainThreadPercent(), "%");
+            Telemetry.logDash("System/MainThreadPercent", snap.mainThreadPercent(), "percent");
         }
         Telemetry.logDash("System/ThreadCount", snap.threadCount());
         if (snap.topThreads() != null) {
@@ -359,9 +359,9 @@ public class SystemLoadMonitor {
         // ── Loop ──────────────────────────────────────────────────────────────
         double overrunPercent = bucketLoops > 0 ? 100.0 * bucketOverruns / bucketLoops : 0;
         double meanMs = bucketLoops > 0 ? bucketSumMs / bucketLoops : 0;
-        Telemetry.logDashAlways("System/Loop/MeanPeriodMs", meanMs, "ms");
-        Telemetry.logDashAlways("System/Loop/MaxPeriodMs", bucketMaxMs, "ms");
-        Telemetry.logDashAlways("System/Loop/OverrunPercent", overrunPercent, "%");
+        Telemetry.logDashAlways("System/Loop/MeanPeriodMs", meanMs, "milliseconds");
+        Telemetry.logDashAlways("System/Loop/MaxPeriodMs", bucketMaxMs, "milliseconds");
+        Telemetry.logDashAlways("System/Loop/OverrunPercent", overrunPercent, "percent");
 
         if (overrunPercent >= LOOP_OVERRUN_ALERT_PERCENT) {
             if (Double.isNaN(loopHighSinceSeconds)) {
@@ -399,7 +399,7 @@ public class SystemLoadMonitor {
 
         // ── CPU ───────────────────────────────────────────────────────────────
         if (!Double.isNaN(cpuPercent)) {
-            Telemetry.logDashAlways("System/CpuPercent", cpuPercent, "%");
+            Telemetry.logDashAlways("System/CpuPercent", cpuPercent, "percent");
             if (cpuPercent >= CPU_ALERT_PERCENT) {
                 if (Double.isNaN(cpuHighSinceSeconds)) {
                     cpuHighSinceSeconds = now;
@@ -455,7 +455,8 @@ public class SystemLoadMonitor {
         if (lastGcTimeMs >= 0) {
             long gcMsThisSecond = gcTimeMs - lastGcTimeMs;
             long collectionsThisSecond = gcCount - lastGcCount;
-            Telemetry.logDashAlways("System/Gc/MsPerSecond", (double) gcMsThisSecond, "ms");
+            Telemetry.logDashAlways(
+                    "System/Gc/MsPerSecond", (double) gcMsThisSecond, "milliseconds");
             Telemetry.logDashAlways("System/Gc/CollectionsPerSecond", collectionsThisSecond);
             if (gcMsThisSecond >= GC_ALERT_MS_PER_SECOND && enabled) {
                 gcAlert.setText(

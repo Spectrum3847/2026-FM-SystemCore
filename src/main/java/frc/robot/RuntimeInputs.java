@@ -63,7 +63,7 @@ public final class RuntimeInputs implements LoggableInputs {
     @Override
     public void toLog(LogTable table) {
         table.put("Simulation", simulation);
-        table.put("BatteryVoltage", batteryVoltage);
+        table.put("BatteryVoltage", batteryVoltage, "volts");
         table.put("BrownedOut", brownedOut);
     }
 

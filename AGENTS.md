@@ -72,16 +72,19 @@ docs/pose-sources.md for the localization testbed.
 
 ## Robot app
 
-`src/main/deploy/app/` is a pit web app the robot serves at `http://robot.local:5800/app/`. Plain
-HTML and JavaScript, shipped by every deploy. Plan: docs/robot-app-plan.md.
+`src/main/deploy/app/` is the pit web app, built for this robot. It lives in this repo, is built by
+the same Gradle build and ships with every deploy. Today the robot program serves it at
+`http://robot.local:5800/app/`; it is moving to its own service. Design: concepts_brief.md.
 
-- No npm, no build step. A library goes in `app/vendor/` as one file.
-- No Java file paths or CAN IDs in `app/`. Log key names live in `lib/log-model.js`, NT prefixes
-  at the top of each page. Find mechanisms, buses and cameras from the log or NT, never a list.
-- The app does not change the robot. Changes will go through NT commands handled on the main
-  thread, logged as inputs, only while disabled (plan step 3).
-- Test with `node --test tools/app-test/*.test.mjs`. A PR that renames a log key or NT key a page
-  reads updates that page in the same PR.
+- No npm, no build step on laptops. A library goes in `app/vendor/` as one file.
+- Pages are hand-made for this robot's mechanisms. Keys, params and button bindings come from lists
+  generated from the Java (`log-keys.json` today), never typed by hand in a page. No Java file
+  paths or CAN IDs in `app/`.
+- The website never moves the robot. Steps that need motion run in utility mode, and the driver
+  presses the buttons. Tuning goes through the params system (`/Tuning/`, `SaveParams`), applied
+  only while disabled and logged as inputs.
+- Test with `node --test tools/app-test/*.test.mjs`. A PR that renames a log key, NT key, param or
+  binding a page reads updates that page in the same PR.
 
 ## Comments and commit messages
 

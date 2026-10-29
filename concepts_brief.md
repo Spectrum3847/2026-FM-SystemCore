@@ -1,15 +1,114 @@
-# FM Pit App on SystemCore
+# Pit App for Robots on SystemCore
 
-* **Author:** (pit app brainstorm, EGM)
+* **Author:** Allen Gregory (EGM brainstorm)
 * **Date:** 2026-10-29
+* **Status:** brainstorm complete; next step is the full design (`egm-draft`).
 
 ## Overview
 
-A web app that pit students and programmers open from a laptop or phone to run and fix FM. It shows how to drive the robot (controller layouts), guides tuning (swerve module offsets, gyro scale), lists the devices on the robot network with links to their own config pages, and downloads logs in one click. It keeps working when the robot program has crashed, because that is when people need logs and diagnostics most. An AI session, directed by a student or coach, uses the same app through a JSON API. A person must confirm any change to a hard-stop value (AGENTS.md).
+A pit and diagnostics web app built for one specific robot, in the same repo as that robot's code. It is built in the same Gradle build and updated by every robot deploy, so it changes whenever the code changes. The first one is for the team's 2027 robot, built once that robot exists.
 
-The app is a separate small service on the SystemCore, installed by the normal `./gradlew deploy`. Its pages stay plain HTML and JavaScript. Live robot data goes from the browser straight to the robot's NetworkTables server; the service handles files, status and the API.
+Pit students and programmers open it from a laptop or phone. It is the one place they start: for each pit job it does the job itself, or says which tool to use and links to it. Its pages are hand-made for that robot's mechanisms, with steps and graphics from the robot's CAD:
 
-It is the one place a student starts. For every pit job it either does the job itself or says which tool to use and links to it, so nobody has to learn where each tool lives.
+* guided tuning procedures with live readings: swerve offsets (spin each wheel, point it forward, capture), soft limits (move each mechanism to its ends, capture), direction checks and others;
+* controls and button layouts, and how to use the robot;
+* robot-specific Power, CAN and Cameras pages, rebuilt;
+* one-click log download;
+* the robot network: this robot's devices, whether they are reachable, links to their config pages;
+* tuning values: edited through the existing params system, with a robot-versus-git diff.
+
+It runs as its own Java service on the SystemCore, so it keeps working when the robot program crashes; then it shows the errors, the program log and the params diff. The website never moves the robot: steps that need motion run in utility mode, and the driver presses controller buttons. An AI session directed by a person can use the same API the pages use.
+
+## Glossary
+
+* **SystemCore**: the 2027 FRC robot controller, made by Limelight. Runs Limelight's Linux OS, with its own web UI on port 4800.
+* **`.ipk`**: SystemCore's add-on package format. A package can show a tile with an icon in SystemCore's web UI.
+* **Hard-stop value**: a value AGENTS.md says needs a person's confirmation to change: CAN IDs, inversions, swerve offsets, current limits, soft limits, gear ratios, zero positions and others.
+* **Params**: tuned values declared in code, layered from code defaults, git JSON files and the robot's own saved files (`spectrumLib/params`).
+* **`$hardware` stamp**: a record in a saved swerve or soft-limit file of the hardware it was saved on, so a file from another chassis is refused.
+* **Tuning mode**: whether live tuning changes are accepted. Today a compile-time constant (`TUNING_MODE`); decided: a website button.
+* **Utility mode**: the 2027 name for test mode.
+* **FMS**: the Field Management System that runs official matches.
+* **`eventDeploy`**: the Gradle step that auto-commits everything on `event*` branches when deploying.
+* **Logged input**: a value AdvantageKit records each loop so replay reproduces it. Robot logic may read only these.
+* **TXMAN1 rule**: never act on a device's readings while its `connected` input is false (AGENTS.md).
+* **Replay**: re-running robot code on a recorded log to check behaviour.
+* **Goldfish reviewer**: an EGM reviewer that sees only the brief and the repo, not the conversation.
+
+## Decisions
+
+1. The app runs as its own service on the SystemCore, keeps working when the robot program crashes, and is updated by every robot deploy, adding no more than 10–15 s.
+2. The app is the single starting point: it explains which tool to use for every pit job and replaces other tools where it can.
+3. The existing Power, CAN and Cameras pages are rebuilt, with the current code as a reference, not a base.
+4. AI sessions are directed by a person; a person confirms any hard-stop change.
+5. Tuning mode is turned on by a NetworkTables request from a button on the website. It has no timer: the robot network is secured at events and the robot is only powered while people work on it. It starts off at every boot, since the request is not saved. It turns off when an FMS attaches.
+6. Install with a launcher-only package: an `.ipk` installed once holds only the systemd service file, the icon and a small launcher that never changes; the launcher runs the app from a folder only Gradle writes to. Each Gradle deploy updates that folder and restarts the service only when a hash of its files changed. The package manager and Gradle never own the same files. Still to check on a SystemCore: whether the deploy user can restart the service and run `opkg install`, and whether the tile links to the app.
+7. Pulling tuned values back: every deploy copies the robot's saved values that differ from git into a folder git ignores, prints a summary and carries on. It only warns, including for hard-stop values (four reviewers wanted a stop for those; the team chose a warning). No terminal prompt. Only an explicit command writes the params files in git.
+8. Conflicts (git changed after a value was saved): show both values and let a person choose; no automatic merge.
+9. The website shows a read-only robot-versus-git diff with "copy patch" and "copy AI prompt", and never writes to git.
+10. While the robot program has crashed: show the read-only diff, the errors and the program log, and allow disabling a bad saved file by renaming it (confirmed by a person, logged by the robot at next boot). Usually the fix is a redeploy; the app's job is to show what went wrong.
+11. Guided tuning procedures, each with its own page, using live readings: swerve offsets (the page reads each wheel's angle, has the user spin each wheel and point it forward, then captures); soft limits (the user moves a mechanism to each end and the page records the positions); direction checks; others later. Pages can use graphics from the robot CAD. Most steps are hand-move with the robot disabled. Some steps ask for the robot to be enabled so the page can read what happens; those run in utility mode (the 2027 name for test mode), and the driver presses controller buttons to run each test. The website never commands motion itself.
+12. The app is built for one specific robot, once that robot exists, in the same repo as its code. Pages are hand-made for that robot's mechanisms (for example a page for the hood's limits, with its own steps and CAD graphics), not generic pages that discover mechanisms. This is why the app does the work itself instead of linking to general tools. Open: how robot-specific pages stay in step with the code (the reviewers' copy-of-robot-facts concern), and what carries over to the next robot.
+13. Hard-stop confirmation stays a click on a page (decision 4); no driver-controller confirm. The team tunes and runs without a controller routinely. Five final-round reviewers flagged that a page click cannot prove a person, not an AI session, confirmed; the team accepted that.
+14. Stale saved hard-stop values: the robot reports at boot when a saved hard-stop value differs from git, and a banner stays on the app and the driver dashboard until it is resolved.
+15. Fix `lib/nt4.js` to keep each topic's last-update time, so pages can show data age and refuse stale readings.
+16. The service is written in Java, in its own source set, with no dependency on robot classes, the HAL or Phoenix.
+17. Gradle generates a module of keys, params and button bindings from the Java during the build. The drift check runs in CI on push and can be run locally; a local build does not stop a push.
+18. Utility-mode tests: the website starts its own guided session (which steps, which parts of the robot to show, which buttons to ask for); it never commands the robot. The driver presses controller buttons to make anything move. Common tests have driver-controller bindings; niche tests are guided from the website the same way. Consistent with decision 11.
+19. The shared Java part (procedure state, capture check) can live in spectrumLib. AGENTS.md's event-branch rule already allows a spectrumLib bug fix when that is the smallest change that fixes the problem; it forbids spectrumLib updates (tweaks, features). Reviewers read it as a total ban.
+
+## Reviewer recommendations, not yet approved by the team
+
+1. Pages stay plain JavaScript with no npm or build step on laptops, using `// @ts-check` and the Gradle-generated module (all six, final round).
+2. The browser reads live data from NetworkTables directly; no relay in the service (all six).
+3. Robot-specific jobs are replaced; Limelight's generic OS features (support bundle, ports and firewall, storage, OS update) are linked (all six, final round).
+4. Capture validity is checked on the robot and logged, so replay sees it; the page shows the verdict and reason (all six, final round).
+5. The controls guide is generated from the robot's button bindings (decision 17's module).
+6. The shared part stays in this repo (and spectrumLib, decision 19), copied to the next robot and extracted once a second robot exists.
+7. Remove `WebServer.start` from `Robot.java` when the service replaces it; run old and new pages side by side until each new page passes its sim test.
+8. Build log download and the status page first.
+9. Hard-stop changes made through the website carry the old value, new value and failure mode; the failure-mode text comes from the param's declaration.
+
+## Open
+
+1. File transfer: which directions, which folders, read-only or not.
+2. Login on the API: none (decision 13 accepts this for confirmation), or any.
+3. Network page: how this robot's devices are listed (from the code, generated) and checked.
+4. What carries over to the next robot, who owns it, and when it is extracted.
+5. The JVM's CPU and memory with the robot loop running, and the limits to set.
+
+## Out of scope
+
+Following from the decisions above:
+
+* The website commanding motion (decisions 11, 18).
+* The website writing to git (decision 9).
+* Editing values while the robot program is down; only disabling a bad saved file (decision 10).
+* A generic app that discovers mechanisms for any robot (decision 12).
+
+Reviewers also proposed, not decided by the team: detailed log analysis (left to AdvantageScope), full device configuration (left to Tuner X and the device pages; any replacement read-only for device config), and changes while the robot is enabled (already refused by the params system).
+
+## Alternatives weighed
+
+* **Serve the app from the robot program (`WebServer` in `Robot.java`, the current first version).** Rejected: it goes down when the robot program crashes.
+* **Python service.** Rejected in the final round (decision 16): Limelight's OS updates control its version, it would be a third language for AI maintainers, and a Java service shares code with the robot in the same build.
+* **Go service.** Rejected: a cross-compile toolchain and no shared code.
+* **Install the `.ipk` on every deploy, or let Gradle overwrite package-owned files.** Rejected (decision 6): installing stops the robot program, and two owners of one folder go stale.
+* **Stop the deploy when the robot holds unpulled values.** Rejected (decision 7): costs time at events; the robot keeps the values anyway. A terminal prompt was rejected too: VS Code tasks and AI sessions can't answer it.
+* **Three-way merge of tuned values.** Rejected (decision 8): show both and let a person choose.
+* **A driver-controller button to confirm hard-stop changes.** Rejected (decision 13): the team tunes without a controller.
+* **A generic app that discovers mechanisms, and linking to other tools instead of replacing them.** Rejected (decisions 2, 12): too many places to learn, and a robot-specific app can do the job itself.
+* **Node, npm or Vite on laptops.** Advised against by reviewers: the old app's stale builds came from that toolchain.
+* **The service writing param files directly.** Rejected by all reviewers: the robot program is the only writer, so changes are logged inputs.
+
+## Bench checks (need a SystemCore)
+
+1. Can the deploy user restart the service and run `opkg install`?
+2. Does the package tile link to the app's page?
+3. A free port on the latest OS (5800 is SystemCore's CAN sniffer and Limelight forwarding).
+4. Loop time and CPU with the Java service idle and during a large log download.
+5. Is the JDK path stable across OS and WPILib updates, for the launcher?
+6. Where logs land, with and without a USB stick.
 
 ## Verified facts (2026-10-29)
 
@@ -34,7 +133,11 @@ From `src/main/java/frc/spectrumLib/params/`, `spectrumLib/README.md` and `READM
 - **Groups today:** `cameras`, `swerve` (per robot), `soft-limits`.
 - **Not built:** nothing pulls saved values from the robot back into git. `pullTuning` and the deploy check exist only in `docs/robot-app-plan.md`. Saved values stay on the robot until someone copies them by hand.
 
-## Current position (final check round, with the full picture)
+## Review history
+
+The brainstorm ran seven review rounds of six independent reviewers each. The final round below re-checked everything against the full picture; earlier rounds follow it and are kept for reference. Where they conflict, the team's decisions above and then the final round are current.
+
+### Final round: current position
 
 Six reviews that re-examined every earlier conclusion against all team decisions and the robot-specific framing. Where this conflicts with the rounds below, this section is current. Options are not chosen; the team decides.
 
@@ -300,7 +403,7 @@ All earlier reviewers said "link". The team decided the app replaces tools where
 - **Recommendation 2, removing `WebServer.start`** (CD, IR). Add the side-by-side migration step.
 - **Next-robot carry-over** (CX, ZO). Name an owner and a trigger.
 
-## Analysis
+### Earlier rounds
 
 Six independent reviews (second round, run without steering), merged by question. Options are not chosen; the team decides.
 
@@ -1069,72 +1172,3 @@ This document lays out the options and does not choose answers. The team decides
 - **NT load (DC):** about 10 keys per active procedure, which is small. CI time is the main cost.
 - **Glossary on pages (CX):** define "utility mode", "hard-stop group", "`$hardware` stamp" and "capture" on first use.
 - **Brief scope (ZO):** the "implementation details still undecided" list (file and flag names) is too detailed for this stage of the concept.
-
-## Goals vs. Non-Goals
-
-* **In-Scope Goals:**
-  * A separate service on the SystemCore that survives robot program crashes, installed and restarted by `./gradlew deploy`, adding no more than 10–15 s.
-  * One-click log download from laptop and phone.
-  * Status page: robot program up or down since when, versions, last log.
-  * Network page: devices found from NetworkTables and the neighbour table, reachable or not, links to their config pages.
-  * Controls and button layouts, and how to use the robot.
-  * Guided tuning procedures (swerve offsets, gyro scale), applied through logged NetworkTables commands while disabled.
-  * An API that AI sessions directed by a person can use; a person confirms any hard-stop change.
-  * A shortcut from SystemCore's built-in web page, if possible.
-  * Viewing system files and transferring files.
-  * A "How do I…" page that names the tool for every common pit job and links to it.
-  * Replacements for the common case of other tools: log download and file view (WinSCP), device status (Limelight, radio, Jetson pages), motor health (Tuner X), a quick last-match power and CAN summary (AdvantageScope).
-* **Out-of-Scope Non-Goals:** none set yet; see Open.
-
-## Alternatives Weighed
-
-* **Keep serving from the robot program's `WebServer` (the current first version).** Rejected: goes down when the robot program crashes, which breaks a hard requirement.
-* **Node, npm or Vite front end.** Reviewers advised against it: laptop toolchain and cached old builds were the old app's documented failures. Not yet decided by the team (see item 4).
-* **Off-the-shelf servers (Cockpit, filebrowser).** Rejected: need ARM builds on the device, Cockpit uses noticeable CPU, and neither offers hard-stop confirmation.
-* **Link to existing tools instead of replacing any (all six reviewers).** Rejected by the team: too many places to learn. Kept in part: the app links out for the deep cases.
-
-## Key Decisions & Staging for Next Steps
-
-**Decided by the team:**
-1. The app runs as its own service on the SystemCore, keeps working when the robot program crashes, and is installed by every robot deploy, adding no more than 10–15 s.
-2. The app is the single starting point: it explains which tool to use for every pit job and replaces other tools where it can.
-3. The existing Power, CAN and Cameras pages are rebuilt, with the current code as a reference, not a base.
-4. AI sessions are directed by a person; a person confirms any hard-stop change.
-5. Tuning mode is turned on by a NetworkTables request from a button on the website. It has no timer: the robot network is secured at events and the robot is only powered while people work on it. It starts off at every boot, since the request is not saved. It turns off when an FMS attaches.
-6. Install with a launcher-only package: an `.ipk` installed once holds only the systemd service file, the icon and a small launcher that never changes; the launcher runs the app from a folder only Gradle writes to. Each Gradle deploy updates that folder and restarts the service only when a hash of its files changed. The package manager and Gradle never own the same files. Still to check on a SystemCore: whether the deploy user can restart the service and run `opkg install`, and whether the tile links to the app.
-7. Pulling tuned values back: every deploy copies the robot's saved values that differ from git into a folder git ignores, prints a summary and carries on. It only warns, including for hard-stop values (four reviewers wanted a stop for those; the team chose a warning). No terminal prompt. Only an explicit command writes the params files in git.
-8. Conflicts (git changed after a value was saved): show both values and let a person choose; no automatic merge.
-9. The website shows a read-only robot-versus-git diff with "copy patch" and "copy AI prompt", and never writes to git.
-10. While the robot program has crashed: show the read-only diff, the errors and the program log, and allow disabling a bad saved file by renaming it (confirmed by a person, logged by the robot at next boot). Usually the fix is a redeploy; the app's job is to show what went wrong.
-11. Guided tuning procedures, each with its own page, using live readings: swerve offsets (the page reads each wheel's angle, has the user spin each wheel and point it forward, then captures); soft limits (the user moves a mechanism to each end and the page records the positions); direction checks; others later. Pages can use graphics from the robot CAD. Most steps are hand-move with the robot disabled. Some steps ask for the robot to be enabled so the page can read what happens; those run in utility mode (the 2027 name for test mode), and the driver presses controller buttons to run each test. The website never commands motion itself.
-12. The app is built for one specific robot, once that robot exists, in the same repo as its code. Pages are hand-made for that robot's mechanisms (for example a page for the hood's limits, with its own steps and CAD graphics), not generic pages that discover mechanisms. This is why the app does the work itself instead of linking to general tools. Open: how robot-specific pages stay in step with the code (the reviewers' copy-of-robot-facts concern), and what carries over to the next robot.
-13. Hard-stop confirmation stays a click on a page (decision 4); no driver-controller confirm. The team tunes and runs without a controller routinely. Five final-round reviewers flagged that a page click cannot prove a person, not an AI session, confirmed; the team accepted that.
-14. Stale saved hard-stop values: the robot reports at boot when a saved hard-stop value differs from git, and a banner stays on the app and the driver dashboard until it is resolved.
-15. Fix `lib/nt4.js` to keep each topic's last-update time, so pages can show data age and refuse stale readings.
-16. The service is written in Java, in its own source set, with no dependency on robot classes, the HAL or Phoenix.
-17. Gradle generates a module of keys, params and button bindings from the Java during the build. The drift check runs in CI on push and can be run locally; a local build does not stop a push.
-18. Utility-mode tests: the website starts its own guided session (which steps, which parts of the robot to show, which buttons to ask for); it never commands the robot. The driver presses controller buttons to make anything move. Common tests have driver-controller bindings; niche tests are guided from the website the same way. Consistent with decision 11.
-19. The shared Java part (procedure state, capture check) can live in spectrumLib. AGENTS.md's event-branch rule already allows a spectrumLib bug fix when that is the smallest change that fixes the problem; it forbids spectrumLib updates (tweaks, features). Reviewers read it as a total ban.
-
-**Reviewer recommendations, not yet approved by the team:**
-1. The service runs under systemd, installed through a GradleRIO `CommandArtifact` that restarts it only when its files changed.
-2. Remove `WebServer.start` from `Robot.java` when the service replaces it.
-3. The browser reads live data from NetworkTables directly; the service does files, status, network and the API.
-4. Writes only through logged NetworkTables commands while disabled; hard-stop changes are proposed through the API and confirmed by a person's click on a page.
-5. The app keeps no copies of robot facts; a robot manifest with a git SHA, plus a mismatch banner.
-6. Build log download and the status page first.
-
-**Open (for the new review, then the team):**
-1. Service language (Python, Java or Go) and page approach (plain JS or a build step).
-2. Whether the API needs any login beyond "confirm comes from a page click".
-3. Whether a shortcut can be added to SystemCore's built-in web page, and how.
-4. File transfer: which directions, which folders, read-only or not.
-5. What is out of scope (log analysis, device configuration, changes while enabled, others).
-6. Where the agent interface lives: an API on the robot, a tool on the laptop, or both.
-7. Whether the service relays live data to browsers, or browsers connect to NetworkTables directly.
-8. How far the app replaces each other tool.
-9. Where the controls guide gets its content.
-10. Which bench checks are needed.
-11. How the app edits params: through the existing `/Tuning/` NT transport and `SaveParams` (which needs `TUNING_MODE` on, today blocked on `main`), or another path; and how the pit gets saved values back into git automatically (no pull step exists yet).
-
-**Bench checks:** see Open item 10.

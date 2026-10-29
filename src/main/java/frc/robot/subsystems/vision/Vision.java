@@ -246,12 +246,23 @@ public class Vision implements Subsystem {
 
         /**
          * TXMAN1: the Pigeon drifted about 10 deg a match, under the gross threshold, and shots
-         * went 5-9 deg right. The median keeps one bad two-tag frame from setting the heading.
+         * went 5-9 deg right. The median keeps one bad two-tag frame from setting the heading. 4
+         * deg, not 2: in Playoff 19 replay a 2 deg trigger still made 7 corrections that alternated
+         * in sign (LL-Back MT1 carries a few degrees of position-dependent bias); 4 deg made 3, and
+         * still catches drift well before the 5-9 deg that cost shots.
          */
-        @Getter final double backHeadingErrorDeg = 2.0;
+        @Getter final double backHeadingErrorDeg = 4.0;
 
-        @Getter final double backHeadingHoldSeconds = 0.25;
-        @Getter final int backHeadingMinFrames = 3;
+        /**
+         * TXMAN1 Playoff 19 and 20: LL-Back MT1's heading scatters about 1.8 deg a frame (p90 3-4
+         * deg), so a 3-frame median over 0.25 s crossed 2 deg on noise. It fired 33 and 19 times a
+         * match with alternating signs, each a 2-7 deg heading step and a Quest re-origin. A median
+         * of 8 or more frames over 1 s has about 0.8 deg of noise; drift of 10 deg a match still
+         * shows within the second.
+         */
+        @Getter final double backHeadingHoldSeconds = 1.0;
+
+        @Getter final int backHeadingMinFrames = 8;
         @Getter final double backHeadingMaxErrorDeg = 20.0;
 
         /** LL-Back MT2 multi-tag trust while aiming; its far frames otherwise get 1.5 m. */

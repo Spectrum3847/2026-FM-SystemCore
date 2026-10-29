@@ -287,7 +287,7 @@ None of these should change the plan, but each one could change a detail, so che
 - [x] **`WebServer` behavior.** From the allwpilib source (`wpinet` `WebServer.cpp` and `HttpServerConnection.cpp`): every response sends `Cache-Control: no-store, no-cache`, so the `version.js` stamp is not needed. A directory serves its `index.html`, else an HTML listing, and `?format=json` returns the listing as JSON. The log folder is outside the deploy folder, so the Logs page still needs robot code to list it.
 - [ ] **SystemCore cameras.** Do `limelightsc0/1` answer the same Limelight HTTP API on port 5807 as standalone Limelights? The Cameras page assumes they do, at the robot's own address. A Limelight streams on 5800, the same port as our `WebServer`, so the built-in cameras' stream must be somewhere else.
 - [ ] **Joystick data.** Which topics on SystemCore's system NT server carry Driver Station joystick data, for the controller page.
-- [ ] **CPU headroom.** The README measured the bench unit at 80–90% busy, with SystemCore's own vision servers using about 55%. Watch loop time with a page open and a log download running (`-ProbotTop`).
+- [ ] **CPU headroom.** Watch loop time with a page open and a log download running (`-ProbotTop`).
 - [ ] **Log folder.** Where logs land with and without a USB stick, and whether the web server can read that folder.
 
 ## Sources

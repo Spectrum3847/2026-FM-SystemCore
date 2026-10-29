@@ -279,7 +279,7 @@ class DsUploadReceiverTest {
         byte[] body = bytes(64, 5);
         String req =
                 "PUT /upload/dswpilog/FRC_DS_Q34.wpilog?offset=0&total=64 HTTP/1.1\r\n"
-                        + "Host: 10.85.15.2:5806\r\n"
+                        + "Host: 10.85.15.2:5809\r\n"
                         + "X-MatchReview-Token: "
                         + TOKEN
                         + "\r\n"

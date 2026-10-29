@@ -77,7 +77,9 @@ import org.wpilib.driverstation.Alert.Level;
  * any {@code .wpilog} they find for a robot log and upload it to the public log site.
  */
 public final class DsUploadReceiver {
-    public static final int PORT = 5806;
+    // In the field's 5800-5810 team range (R704); SystemCore's visionserver holds 5800-5803 and
+    // 5805-5807, NT 5810.
+    public static final int PORT = 5809;
     public static final String TOKEN_FILE = "/home/systemcore/ds-upload-token";
     public static final String TOKEN_HEADER = "x-matchreview-token";
 

@@ -299,25 +299,43 @@ public class SuperStructure extends SubsystemBase {
         }
         feedingLastLoop = feeding;
 
+        // Every check passes: a shot is set, the hood is zeroed and on target, aimed, in range,
+        // settled.
         Telemetry.logDash("Shooting/Gate/Ready", shotDecision.ready());
+        // The first check holding the shot: None, NoShot, HoodNotZeroed, HoodNotReady, NotAimed,
+        // InvalidShot, Settling.
         Telemetry.logDash("Shooting/Gate/BlockedReason", shotDecision.blocker().label);
+        // The indexers are feeding fuel to the launcher this loop.
         Telemetry.logDash("Shooting/Gate/Feeding", feeding);
+        // Why the gate fed or didn't: NotLaunching, Held, Ready, Override, Timeout.
         Telemetry.logDash("Shooting/Gate/FeedReason", shotDecision.reason().label);
+        // The operator is holding Y to feed regardless of the gate.
         Telemetry.logDash("Shooting/Gate/Override", override);
+        // How long this launch has been held so far; 0 while feeding.
         Telemetry.log("Shooting/Gate/SecondsHeld", shotDecision.secondsHeld(), "seconds");
+        // Flywheel speed minus the shot's target; negative is slow.
         Telemetry.log(
                 "Shooting/Gate/FlywheelErrorRPM", launcher.getVelocityRPM() - shotTargetRpm, "RPM");
+        // Hood angle minus the shot's target.
         Telemetry.log(
                 "Shooting/Gate/HoodErrorDeg",
                 hood.getPositionDegrees() - hood.getShotTargetDegrees(),
                 "degrees");
+        // Robot heading minus the heading that aims at the target.
         Telemetry.log("Shooting/Gate/HeadingErrorDeg", Math.toDegrees(headingError), "degrees");
+        // Largest heading error the gate accepts at this distance; NaN for a set shot.
         Telemetry.log("Shooting/Gate/AimToleranceDeg", Math.toDegrees(aimTolerance), "degrees");
+        // The drivetrain is aiming, so the heading check applies.
         Telemetry.log("Shooting/Gate/CheckAim", checkAim);
+        // Vision updated the pose within the last 3 s, so the aim is trusted.
         Telemetry.log("Shooting/Gate/PoseTrusted", poseTrusted);
+        // The shot model has a valid solution from here.
         Telemetry.log("Shooting/Gate/InRange", params != null && params.isValid());
+        // Loops spent in a launch state since boot.
         Telemetry.log("Shooting/Gate/LaunchingLoops", launchingLoops);
+        // Loops in a launch state where the gate held the feed, since boot.
         Telemetry.log("Shooting/Gate/HeldLoops", heldLoops);
+        // Volleys fed since boot (rows in Shooting/Log).
         Telemetry.log("Shooting/Gate/Volleys", shotLog.count());
         if (setShot) {
             // Informational only: how far the fused heading is from the spot's heading. The set

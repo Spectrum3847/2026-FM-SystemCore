@@ -24,14 +24,14 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 
 | Key | | Unit | Meaning | Source |
 |---|---|---|---|---|
-| `/CAN/<label>/BusOffCount` | I |  |  | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
-| `/CAN/<label>/BusUtilization` | I |  |  | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
-| `/CAN/<label>/ReceiveErrorCounter` | I |  |  | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
-| `/CAN/<label>/Status` | I |  |  | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
-| `/CAN/<label>/StatusOK` | I |  |  | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
-| `/CAN/<label>/TransmitErrorCounter` | I |  |  | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
-| `/CAN/<label>/TxFullCount` | I |  |  | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
-| `/CAN/Labels` | I |  |  | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
+| `/CAN/<label>/BusOffCount` | I |  | Times the bus went bus-off (too many errors) since the controller booted. | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
+| `/CAN/<label>/BusUtilization` | I |  | Share of the bus's bandwidth in use. | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
+| `/CAN/<label>/ReceiveErrorCounter` | I |  | CAN receive error counter: rises with noise or a bad wire, falls as frames arrive clean. | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
+| `/CAN/<label>/Status` | I |  | Phoenix's status for the read; anything but OK means the counters are 0. | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
+| `/CAN/<label>/StatusOK` | I |  | The status read worked: only then are the other values real. | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
+| `/CAN/<label>/TransmitErrorCounter` | I |  | CAN transmit error counter (0-255): over 255 the bus goes bus-off. | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
+| `/CAN/<label>/TxFullCount` | I |  | Frames dropped because the transmit buffer was full since boot. | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
+| `/CAN/Labels` | I |  | The buses found, by the label each one is logged under. | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
 | `/Hood/Homing/RecordedWithHoming` | I |  |  | src/main/java/frc/robot/subsystems/hood/HoodHoming.java |
 | `/Localization/Sources/<name>/AvgTagDistances` | I |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/Connected` | I |  | Whether the device is talking at all (NT heartbeat, frames arriving). | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
@@ -46,22 +46,22 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/Localization/Sources/<name>/TargetSizes` | I |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/Timestamps` | I |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/Tracking` | I |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/Mechanisms/<name>/Connected` | I |  |  | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
+| `/Mechanisms/<name>/Connected` | I |  | The leader answered this loop's signal refresh. Readings are stale or zero while false. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
 | `/Mechanisms/<name>/FaultField` | I |  | Phoenix's fault bitfields (getFaultField, getStickyFaultField): active now, and latched since boot (sticky faults are cleared when the motor is created). The bit order is undocumented: Tuner X decodes it. troubleFaults names the ones that matter. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
-| `/Mechanisms/<name>/FollowerConnected` | I |  |  | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
-| `/Mechanisms/<name>/FollowerResetOccurred` | I |  |  | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
-| `/Mechanisms/<name>/FollowerStickyFaultField` | I |  |  | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
-| `/Mechanisms/<name>/FollowerSupplyCurrentAmps` | I |  |  | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
+| `/Mechanisms/<name>/FollowerConnected` | I |  | Whether each follower answered this loop, in config order. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
+| `/Mechanisms/<name>/FollowerResetOccurred` | I |  | Whether each follower rebooted since last loop, in config order. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
+| `/Mechanisms/<name>/FollowerStickyFaultField` | I |  | Each follower's latched-fault bitfield, in config order. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
+| `/Mechanisms/<name>/FollowerSupplyCurrentAmps` | I |  | Each follower's battery current, in config order. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
 | `/Mechanisms/<name>/LatencyCompensatedPositionRotations` | I |  | Position projected from the frame's own timestamp to the refresh, along the velocity. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
-| `/Mechanisms/<name>/PositionRotations` | I |  |  | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
+| `/Mechanisms/<name>/PositionRotations` | I |  | Leader position in mechanism rotations (after the gear ratio), as of its last frame. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
 | `/Mechanisms/<name>/ResetOccurred` | I |  | The motor rebooted since last loop, so its position restarted and its signal rates went back to defaults. Not set for a device's first report after the program starts. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
-| `/Mechanisms/<name>/StatorCurrentAmps` | I |  |  | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
-| `/Mechanisms/<name>/StickyFaultField` | I |  |  | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
-| `/Mechanisms/<name>/SupplyCurrentAmps` | I |  |  | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
-| `/Mechanisms/<name>/TempCelsius` | I |  |  | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
+| `/Mechanisms/<name>/StatorCurrentAmps` | I |  | Current through the leader's motor windings: what makes torque and heat. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
+| `/Mechanisms/<name>/StickyFaultField` | I |  | Faults latched since boot, as a bitfield (see faultField). | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
+| `/Mechanisms/<name>/SupplyCurrentAmps` | I |  | Current the leader draws from the battery. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
+| `/Mechanisms/<name>/TempCelsius` | I |  | Leader's internal temperature. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
 | `/Mechanisms/<name>/TroubleFaults` | I |  | The leader's sticky faults that mean something went wrong (hardware, temperature, voltage, boot during enable), by name, e.g. Undervoltage. Never current or position limits. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
-| `/Mechanisms/<name>/VelocityRPS` | I |  |  | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
-| `/Mechanisms/<name>/Voltage` | I |  |  | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
+| `/Mechanisms/<name>/VelocityRPS` | I |  | Leader velocity in mechanism rotations per second. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
+| `/Mechanisms/<name>/Voltage` | I |  | Voltage the leader applies to its motor (its output, not the battery). | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
 | `/Params/Sources/<path>` | I |  |  | src/main/java/frc/spectrumLib/params/ParamsInputs.java |
 | `/RealOutputs/<absoluteRotationsKey>` |  |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
 | `/RealOutputs/<acceptedCountKey>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSource.java |
@@ -298,23 +298,23 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Shooting/Calc/Target` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
 | `/RealOutputs/Shooting/Calc/TimeOfFlight` |  | seconds |  | src/main/java/frc/rebuilt/ShotCalculator.java |
 | `/RealOutputs/Shooting/Calc/YawOffsetDeg` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Gate/AimToleranceDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/BlockedReason` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/CheckAim` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/Feeding` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/FeedReason` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/FlywheelErrorRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/HeadingErrorDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/HeldLoops` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/HoodErrorDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/InRange` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/LaunchingLoops` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/Override` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/PoseTrusted` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/Ready` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/SecondsHeld` |  | seconds |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/AimToleranceDeg` |  | degrees | Largest heading error the gate accepts at this distance; NaN for a set shot. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/BlockedReason` |  |  | The first check holding the shot: None, NoShot, HoodNotZeroed, HoodNotReady, NotAimed, InvalidShot, Settling. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/CheckAim` |  |  | The drivetrain is aiming, so the heading check applies. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/Feeding` |  |  | The indexers are feeding fuel to the launcher this loop. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/FeedReason` |  |  | Why the gate fed or didn't: NotLaunching, Held, Ready, Override, Timeout. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/FlywheelErrorRPM` |  | RPM | Flywheel speed minus the shot's target; negative is slow. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/HeadingErrorDeg` |  | degrees | Robot heading minus the heading that aims at the target. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/HeldLoops` |  |  | Loops in a launch state where the gate held the feed, since boot. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/HoodErrorDeg` |  | degrees | Hood angle minus the shot's target. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/InRange` |  |  | The shot model has a valid solution from here. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/LaunchingLoops` |  |  | Loops spent in a launch state since boot. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/Override` |  |  | The operator is holding Y to feed regardless of the gate. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/PoseTrusted` |  |  | Vision updated the pose within the last 3 s, so the aim is trusted. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/Ready` |  |  | Every check passes: a shot is set, the hood is zeroed and on target, aimed, in range, settled. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/SecondsHeld` |  | seconds | How long this launch has been held so far; 0 while feeding. | src/main/java/frc/robot/subsystems/SuperStructure.java |
 | `/RealOutputs/Shooting/Gate/SetShotHeadingErrorDeg` |  | degrees | Informational only: how far the fused heading is from the spot's heading. The set shot exists for when that heading cannot be trusted, so it never gates. | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Gate/Volleys` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/Volleys` |  |  | Volleys fed since boot (rows in Shooting/Log). | src/main/java/frc/robot/subsystems/SuperStructure.java |
 | `/RealOutputs/Shooting/Log/ActualHoodDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/Shooting/Log/ActualRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/Shooting/Log/AimToleranceDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |

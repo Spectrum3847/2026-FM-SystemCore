@@ -206,9 +206,10 @@ def input_classes():
                     continue
                 field = re.findall(r"\w+", args[1])
                 field = field[-1] if field else ""
+                beside = comment_above(lines, line_of(text, body_start + pm.start()))
                 keys.append({
                     "key": subs.get(pm.group(1), "") + render(args[0]),
-                    "doc": docs.get(field, ""),
+                    "doc": docs.get(field, "") or beside,
                     "source": os.path.relpath(path, ROOT).replace(os.sep, "/"),
                 })
             classes[name] = keys

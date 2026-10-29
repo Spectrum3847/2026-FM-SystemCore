@@ -45,16 +45,25 @@ public class CanBusInputs implements LoggableInputs {
 
     @Override
     public void toLog(LogTable table) {
+        // The buses found, by the label each one is logged under.
         table.put("Labels", buses.keySet().toArray(new String[0]));
         buses.forEach(
                 (label, b) -> {
                     LogTable t = table.getSubtable(label);
+                    // Share of the bus's bandwidth in use.
                     t.put("BusUtilization", b.utilizationPct(), "percent");
+                    // Times the bus went bus-off (too many errors) since the controller booted.
                     t.put("BusOffCount", b.busOffCount());
+                    // Frames dropped because the transmit buffer was full since boot.
                     t.put("TxFullCount", b.txFullCount());
+                    // CAN receive error counter: rises with noise or a bad wire, falls as frames
+                    // arrive clean.
                     t.put("ReceiveErrorCounter", b.receiveErrorCount());
+                    // CAN transmit error counter (0-255): over 255 the bus goes bus-off.
                     t.put("TransmitErrorCounter", b.transmitErrorCount());
+                    // Phoenix's status for the read; anything but OK means the counters are 0.
                     t.put("Status", b.status());
+                    // The status read worked: only then are the other values real.
                     t.put("StatusOK", b.statusOk());
                 });
     }

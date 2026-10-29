@@ -209,7 +209,6 @@ public final class SimScript {
     public static final class Actions implements LoggableInputs {
         public boolean placeRobot = false;
         public Pose2d placePose = Pose2d.kZero;
-        public boolean resetQuest = false;
 
         @Override
         public void toLog(LogTable table) {
@@ -217,20 +216,16 @@ public final class SimScript {
             table.put("PlaceRobot", placeRobot);
             // Sim script: where it was placed.
             table.put("PlacePose", placePose);
-            // Sim script: the Quest was re-origined this loop.
-            table.put("ResetQuest", resetQuest);
         }
 
         @Override
         public void fromLog(LogTable table) {
             placeRobot = table.get("PlaceRobot", placeRobot);
             placePose = table.get("PlacePose", placePose);
-            resetQuest = table.get("ResetQuest", resetQuest);
         }
     }
 
     private static final Actions actions = new Actions();
-    private static boolean questResetDone = false;
 
     /**
      * Advances the script. Call from {@code simulationPeriodic}, in simulation (script requested)
@@ -238,16 +233,12 @@ public final class SimScript {
      */
     public static void periodic() {
         actions.placeRobot = false;
-        actions.resetQuest = false;
         if (Constants.currentMode == Constants.Mode.SIM) {
             drive();
         }
         Logger.processInputs("SimScript", actions);
         if (actions.placeRobot) {
             Robot.getSwerve().resetPose(actions.placePose);
-        }
-        if (actions.resetQuest) {
-            Robot.getVision().resetQuestToRobotPose();
         }
     }
 
@@ -278,11 +269,6 @@ public final class SimScript {
         }
         double t = holdForFreshSignals(now, steps[0][UNTIL]);
         rebootMotors(t);
-        if (!questResetDone && t > 4.0) {
-            // What the operator's LB+X does: put the QuestNav's frame on the robot's pose.
-            questResetDone = true;
-            actions.resetQuest = true;
-        }
         int index = steps.length - 1;
         for (int i = 0; i < steps.length; i++) {
             if (t < steps[i][UNTIL]) {

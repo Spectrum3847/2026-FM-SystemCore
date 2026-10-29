@@ -22,7 +22,6 @@ DEFAULT_KEYS = [
     "Localization/Shadow/Orin-Left/Pose",
     "Localization/Sources/Orin-Left/Observations/Poses",
     "Localization/Sources/Orin-Left/Verdicts",
-    "Localization/Shadow/Quest/Pose",
     "Vision/ChassisSource",
     "Swerve/SystemState",
 ]

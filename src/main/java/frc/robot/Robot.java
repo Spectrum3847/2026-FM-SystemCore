@@ -686,9 +686,6 @@ public class Robot extends SpectrumRobot {
         Util.disabled.and(operator.AButton).onTrue(superStructure.coastMechanisms());
         Util.disabled.and(operator.BButton).onTrue(superStructure.brakeMechanisms());
 
-        // Re-origin the QuestNav onto the current robot pose (disabled or not).
-        operator.LB.and(operator.XButton).onTrue(vision.resetQuestCommand());
-
         operator.LB
                 .and(operator.YButton)
                 .onTrue(

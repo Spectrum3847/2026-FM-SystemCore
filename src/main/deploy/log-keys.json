@@ -145,7 +145,7 @@
   {
    "key": "/Localization/Sources/<name>/Health",
    "unit": "",
-   "doc": "Source-specific health numbers, e.g. QuestNav battery, Limelight fps. Keys fixed per IO.",
+   "doc": "Source-specific health numbers, e.g. a Limelight's latency. Keys fixed per IO.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": true
   },
@@ -180,7 +180,7 @@
   {
    "key": "/Localization/Sources/<name>/TagCounts",
    "unit": "",
-   "doc": "Tags in each observation's solve; -1 for a source with no tags (the Quest).",
+   "doc": "Tags in each observation's solve; -1 for a source with no tags (a VIO tracker).",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": true
   },
@@ -2707,7 +2707,7 @@
   {
    "key": "/RealOutputs/Vision/BackHeadingCorrections",
    "unit": "",
-   "doc": "Times LL-Back held off the fused heading long enough to re-seed it (and re-origin the Quest), since boot.",
+   "doc": "Times LL-Back held off the fused heading long enough to re-seed it, since boot.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
@@ -2880,13 +2880,6 @@
    "input": false
   },
   {
-   "key": "/RealOutputs/Vision/Quest/Connected",
-   "unit": "",
-   "doc": "The QuestNav is talking. Each camera has its own Vision/<camera>/Connected.",
-   "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
-   "input": false
-  },
-  {
    "key": "/RealOutputs/Vision/SecondsSinceFusedEstimate",
    "unit": "",
    "doc": "Time since vision last updated the fused pose; capped at 999.",
@@ -2939,13 +2932,6 @@
    "key": "/SimScript/PlaceRobot",
    "unit": "",
    "doc": "Sim script: the robot was placed at PlacePose this loop.",
-   "source": "src/main/java/frc/robot/SimScript.java",
-   "input": true
-  },
-  {
-   "key": "/SimScript/ResetQuest",
-   "unit": "",
-   "doc": "Sim script: the Quest was re-origined this loop.",
    "source": "src/main/java/frc/robot/SimScript.java",
    "input": true
   },

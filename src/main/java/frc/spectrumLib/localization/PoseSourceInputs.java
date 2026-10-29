@@ -45,7 +45,7 @@ public class PoseSourceInputs implements LoggableInputs {
     /** Per-observation kinds, only from logs written before {@link #kind}; else empty. */
     private int[] legacyKinds = EMPTY_INT;
 
-    /** Tags in each observation's solve; -1 for a source with no tags (the Quest). */
+    /** Tags in each observation's solve; -1 for a source with no tags (a VIO tracker). */
     public int[] tagCounts = EMPTY_INT;
 
     /** Mean camera-to-tag distance per observation. */
@@ -75,7 +75,7 @@ public class PoseSourceInputs implements LoggableInputs {
 
     public static final int FIDUCIAL_STRIDE = 5;
 
-    /** Source-specific health numbers, e.g. QuestNav battery, Limelight fps. Keys fixed per IO. */
+    /** Source-specific health numbers, e.g. a Limelight's latency. Keys fixed per IO. */
     public double[] health = new double[0];
 
     /** Sets the observation arrays to hold {@code n} entries. */

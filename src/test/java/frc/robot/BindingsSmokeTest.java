@@ -117,7 +117,6 @@ class BindingsSmokeTest {
         bind("DISABLED pilot A", Expect.anyCommand());
         bind("DISABLED pilot B", Expect.anyCommand());
         // Operator, teleop. Y (feed override) is polled, not scheduled: see feedOverrideIsHeld.
-        bind("TELEOP operator LB+X", Expect.command("Vision.resetQuest"));
         bind("TELEOP operator LB+Y", Expect.anyCommand());
         bind("TELEOP operator BACK", Expect.state(WantedSuperState.FORCE_HOME));
         // Releases mechanisms held by their tracking stop (SuperStructure.clearTrackingStops).
@@ -129,7 +128,6 @@ class BindingsSmokeTest {
         // Operator, disabled: coast, brake, and the two that ignore disable.
         bind("DISABLED operator A", Expect.anyCommand());
         bind("DISABLED operator B", Expect.anyCommand());
-        bind("DISABLED operator LB+X", Expect.command("Vision.resetQuest"));
         bind("DISABLED operator LB+Y", Expect.anyCommand());
     }
 

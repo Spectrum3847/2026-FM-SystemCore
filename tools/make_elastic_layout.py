@@ -108,7 +108,7 @@ MECHANISMS = ["Hood", "Launcher", "FuelIntake", "IndexerBed", "IndexerTower",
 
 SOURCES = ["LL-Back/MT1", "LL-Back/MT2", "LL-Left/MT1", "LL-Left/MT2", "LL-Right/MT1",
            "LL-Right/MT2", "SC0/MT1", "SC0/MT2", "SC1/MT1", "SC1/MT2", "Orin-Left",
-           "Orin-Right", "Quest"]
+           "Orin-Right"]
 
 # The main CAN bus follows CanBuses.USE_CANIVORE: the CANivore, or else the drivetrain's SystemCore
 # port (the busiest one). Rerun this script after flipping it.
@@ -208,7 +208,6 @@ for i, s in enumerate(SOURCES):
         text("last verdict", out(base + "/LastVerdict"), c + 2, r, 2, data_type="string"),
     ]
 localization += [
-    light("Quest", out("Vision/Quest/Connected"), 8, 2),
     light("Orin left", out("Vision/Orin-Left/Connected"), 10, 2),
     light("Orin right", out("Vision/Orin-Right/Connected"), 8, 3),
     light("Jetson", out("Vision/Jetson/Connected"), 10, 3),

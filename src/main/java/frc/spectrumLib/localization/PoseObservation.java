@@ -70,7 +70,10 @@ public record PoseObservation(
         LIMELIGHT_MT2,
         /** PhotonVision multi-tag (or lowest-ambiguity single-tag) solve. */
         PHOTON,
-        /** Meta Quest inside-out tracking via QuestNav. */
+        /**
+         * Meta Quest tracking via QuestNav. FM no longer has a Quest source; kept so the kind
+         * numbers in logged inputs (an ordinal) keep their meaning.
+         */
         QUESTNAV,
         /** PhotonVision tags solved on the robot with the heading held to the gyro. */
         PHOTON_GYRO,

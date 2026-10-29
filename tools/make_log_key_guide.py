@@ -143,10 +143,9 @@ def unit_of(args):
 
 
 def java_files():
-    for d, _, fs in os.walk(SRC):
-        for f in sorted(fs):
-            if f.endswith(".java"):
-                yield os.path.join(d, f)
+    """Sorted by path, so the output is the same on every OS."""
+    paths = [os.path.join(d, f) for d, _, fs in os.walk(SRC) for f in fs if f.endswith(".java")]
+    return sorted(paths, key=lambda p: os.path.relpath(p, SRC).replace(os.sep, "/"))
 
 
 def outputs(path, text, lines):

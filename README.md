@@ -316,8 +316,9 @@ the FMS, the robot leaves `record` alone unless the manual switch changes. FM's 
 save their own 165 s buffers at auto and teleop end.
 
 **Clock.** The robot publishes its wall clock (`/photonvision/clock/unixMs`) every loop once the DS
-has set it. The Jetson has no clock battery, and this gives it the right date offline. Still to check
-on the robot: does SystemCore get its clock from the DS the way the roboRIO does?
+has set it. The Jetson has no clock battery, and this gives it the right date offline. SystemCore
+gets its clock from the DS like the roboRIO (`MrcCommDaemon` sets it when the DS connects), and the
+Jetson's clock follows (checked on FM, 2026-10-29). Until a DS connects, both can be days off.
 
 **Logged** under `Vision/Jetson/*` and `Vision/Orin/<camera>/*`:
 - Jetson health: temperatures, fan, power, GPU load, throttle reason, over-current events, JPEG
@@ -818,8 +819,9 @@ Deployed to the bench SystemCore (no CAN devices, two cameras):
   - **With `USE_CANIVORE = true` and no CANivore plugged in, one Phoenix native thread spins a
     full core.** It starts as the first device on the `*` bus is constructed. With the native
     layout nothing spins: the program uses ~18% of the machine instead of ~35%, and the
-    busiest thread is the main loop at ~25% of one core. Not yet checked: whether the spin also
-    happens with a real CANivore attached. **Check `System/TopThreads` on the real robot.**
+    busiest thread is the main loop at ~25% of one core. With a real CANivore attached nothing
+    spins either: on FM (2026-10-29, disabled) `System/TopThreads` tops out at the main loop,
+    ~25%.
   - Native layout, bench unit: mean period 10.1–10.3 ms, 1–5% of loops over 12.5 ms, worst
     14–30 ms, versus 20–45 ms with the CANivore layout.
   - Unplug or disable the SystemCore cameras when they aren't being tested.

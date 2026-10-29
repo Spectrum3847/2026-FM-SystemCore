@@ -175,9 +175,12 @@ public final class Params {
             writer.prestartAllCoreThreads();
         }
         started = true;
+        // Which robot the params loaded for (from the controller's serial).
         Telemetry.log("Params/Robot", robot == null ? "" : robot);
         Path localDir = settings.localDir();
+        // The robot-local folder pit saves go to, which a deploy doesn't wipe.
         Telemetry.log("Params/LocalFolder", localDir == null ? "" : localDir.toString());
+        // Dashboard changes to params can apply (tuning mode, disabled, no field).
         Telemetry.log("Params/LiveTuning", live);
         Logger.processInputs("Params", INPUTS);
         loggedValuesVersion = STORE.valuesVersion();
@@ -334,6 +337,7 @@ public final class Params {
             STORE.problem("save", ParamStore.Level.ERROR, "Params: " + result);
         }
         Telemetry.print("Params: " + result, PrintPriority.HIGH);
+        // Result of the last pit save.
         Telemetry.log("Params/LastSave", result);
         pendingSave = null;
         pendingJob = null;
@@ -362,19 +366,23 @@ public final class Params {
                 alert.set(true);
             }
             ALERTS.forEach((id, alert) -> alert.set(active.contains(id)));
+            // Param files or values that were skipped, and why.
             Telemetry.log("Params/Problems", texts.toArray(new String[0]));
             List<String> files = new ArrayList<>();
             for (ParamStore.Layer l : STORE.loadedLayers()) {
                 files.add(l.label() + ": " + l.status());
             }
+            // Each param layer and whether it loaded.
             Telemetry.log("Params/Files", files.toArray(new String[0]));
         }
         if (!STORE.pendingLive().equals(loggedPending)) {
             loggedPending = new HashSet<>(STORE.pendingLive());
+            // Dashboard changes waiting until the robot is disabled with no field attached.
             Telemetry.log("Params/PendingLive", loggedPending.toArray(new String[0]));
         }
         if (STORE.params().size() != manifestSize) {
             manifestSize = STORE.params().size();
+            // Every param with its group, type, bounds and value, as JSON, for the robot app.
             Telemetry.logDash("Params/Manifest", manifest());
         }
     }

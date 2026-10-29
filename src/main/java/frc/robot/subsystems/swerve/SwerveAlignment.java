@@ -179,15 +179,25 @@ public class SwerveAlignment {
                     wrapRotations(module.absolutePosition.getValue().in(Rotations));
             double rawRotations = wrapRotations(absoluteRotations - module.appliedOffsetRotations);
 
+            // Pit alignment, disabled only: the CANcoder's reading with its offset applied,
+            // rotations.
             Telemetry.logDashAlways(module.absoluteRotationsKey, absoluteRotations);
+            // The CANcoder's reading without its offset: what to save as the new offset with the
+            // wheel straight.
             Telemetry.logDashAlways(module.rawRotationsKey, rawRotations);
+            // The offset the CANcoder is running with now.
             Telemetry.logDashAlways(module.appliedOffsetKey, module.appliedOffsetRotations);
+            // The applied offset was read back from the device (false: assumed from config).
             Telemetry.logDashAlways(module.appliedOffsetValidKey, module.appliedOffsetValid);
+            // The offset in the code's config.
             Telemetry.logDashAlways(module.configOffsetKey, module.configOffsetRotations);
+            // Steer encoder velocity; non-zero means the wheel is moving, so don't save.
             Telemetry.logDashAlways(
                     module.steerVelocityKey, module.velocity.getValue().in(RotationsPerSecond));
+            // The CANcoder answered.
             Telemetry.logDashAlways(
                     module.connectedKey, module.absolutePosition.getStatus().isOK());
+            // The CANcoder's CAN id.
             Telemetry.logDashAlways(module.encoderIdKey, (long) module.encoderId);
         }
 

@@ -55,8 +55,11 @@ public class Leds extends SpectrumLEDs {
     @Override
     public void periodic() {
         Telemetry.time("Scheduler/Periodic/Leds");
+        // The LED pattern command running.
         Telemetry.log("Leds/CurrentCommand", getCurrentCommandName());
+        // Its priority: a higher one can take over the LEDs.
         Telemetry.log("Leds/CommandPriority", getCommandPriority());
+        // The LEDs are running an animation, not a solid color.
         Telemetry.log("Leds/IsAnimating", isAnimating());
         Telemetry.timeEnd("Scheduler/Periodic/Leds");
     }

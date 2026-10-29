@@ -261,6 +261,7 @@ public class Jetson {
             lastExcludedText = text;
             excludedTags = parseTags(text);
             io.setExcludedTags(excludedTags.stream().mapToLong(Integer::longValue).toArray());
+            // Tags every Orin multi-tag solve ignores, as sent to the Jetson.
             Logger.recordOutput(
                     PREFIX + "ExcludedTags",
                     excludedTags.stream().mapToLong(Integer::longValue).toArray());
@@ -306,6 +307,7 @@ public class Jetson {
                 c.source().setPipelineIndex(wanted);
             }
         }
+        // PhotonVision pipeline the robot asked for: 0 match, 1 practice.
         Logger.recordOutput(PREFIX + "RequestedPipeline", requestedPipeline);
     }
 
@@ -318,6 +320,7 @@ public class Jetson {
             String label = rewindLabel();
             recordRequested = now - lastEnabledSeconds < REWIND_TAIL_SECONDS;
             io.setRewind(recordRequested, label);
+            // Name the robot gave the Rewind recording.
             Logger.recordOutput(PREFIX + "Rewind/Label", label);
         } else {
             boolean manual = manualRecord.get();
@@ -329,6 +332,7 @@ public class Jetson {
             recordRequested = manual;
         }
         lastFmsAttached = fmsAttached;
+        // The robot asked Rewind to record.
         Logger.recordOutput(PREFIX + "Rewind/RecordRequested", recordRequested);
     }
 
@@ -373,9 +377,12 @@ public class Jetson {
         boolean down =
                 inputs.heartbeat < 0
                         || now - lastHeartbeatChangeSeconds > HEARTBEAT_TIMEOUT_SECONDS;
+        // Time since the Jetson's heartbeat last changed; over the timeout means the Jetson is
+        // down.
         Logger.recordOutput(PREFIX + "HeartbeatAgeSeconds", now - lastHeartbeatChangeSeconds);
         jetsonDown.set(isExpected() && down);
         responding = !down;
+        // The Jetson's heartbeat is fresh.
         frc.spectrumLib.telemetry.Telemetry.logDash("Vision/Jetson/Connected", !down);
         boolean up = isExpected() && !down;
 

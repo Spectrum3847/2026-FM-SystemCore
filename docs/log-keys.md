@@ -32,7 +32,7 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/CAN/<label>/TransmitErrorCounter` | I |  | CAN transmit error counter (0-255): over 255 the bus goes bus-off. | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
 | `/CAN/<label>/TxFullCount` | I |  | Frames dropped because the transmit buffer was full since boot. | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
 | `/CAN/Labels` | I |  | The buses found, by the label each one is logged under. | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
-| `/Hood/Homing/RecordedWithHoming` | I |  |  | src/main/java/frc/robot/subsystems/hood/HoodHoming.java |
+| `/Hood/Homing/RecordedWithHoming` | I |  | The log was written by code with hood homing; old logs read false, so replay assumes the hood was zeroed. | src/main/java/frc/robot/subsystems/hood/HoodHoming.java |
 | `/Localization/Sources/<name>/AvgTagDistances` | I |  | Mean camera-to-tag distance per observation. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/Connected` | I |  | Whether the device is talking at all (NT heartbeat, frames arriving). | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/Fiducials` | I |  | Per-tag data of this loop's frame, FIDUCIAL_STRIDE values per tag: id, horizontal and vertical angle from the principal point (deg, positive right and up), camera-to-tag distance (m), ambiguity. Limelight MegaTag1 only; empty otherwise. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
@@ -62,135 +62,97 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/Mechanisms/<name>/TroubleFaults` | I |  | The leader's sticky faults that mean something went wrong (hardware, temperature, voltage, boot during enable), by name, e.g. Undervoltage. Never current or position limits. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
 | `/Mechanisms/<name>/VelocityRPS` | I |  | Leader velocity in mechanism rotations per second. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
 | `/Mechanisms/<name>/Voltage` | I |  | Voltage the leader applies to its motor (its output, not the battery). | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
-| `/Params/Sources/<path>` | I |  |  | src/main/java/frc/spectrumLib/params/ParamsInputs.java |
-| `/RealOutputs/<absoluteRotationsKey>` |  |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
-| `/RealOutputs/<acceptedCountKey>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSource.java |
-| `/RealOutputs/<acceptedKey>` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/<acceptedPosesKey>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSource.java |
-| `/RealOutputs/<appliedOffsetKey>` |  |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
-| `/RealOutputs/<appliedOffsetValidKey>` |  |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
-| `/RealOutputs/<busOffsKey>` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/<c>AcceptedCount` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<c>BearingResidualsDeg` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<c>RangeResidualsMeters` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<c>RejectedCount` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<computeIfAbsent>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSource.java |
-| `/RealOutputs/<connected>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<connectedKey>` |  |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
-| `/RealOutputs/<detected>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<downSecondsKey>` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/<dropsKey>` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/<enabledSwitchKey>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSource.java |
-| `/RealOutputs/<encoderIdKey>` |  |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
-| `/RealOutputs/<errorVsFused>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<errorVsTruth>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<fusedThisLoop>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<headingErrorVsFused>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/Params/Sources/<path>` | I |  | Params/Sources/<group>/<key>: which layer each value came from: DEFAULT, DEPLOY, ROBOT, LOCAL or LIVE. | src/main/java/frc/spectrumLib/params/ParamsInputs.java |
+| `/RealOutputs/<computeIfAbsent>` |  |  | Localization/Sources/<name>/RejectionCounts/<gate>: rejections by gate, since boot. | src/main/java/frc/spectrumLib/localization/PoseSource.java |
+| `/RealOutputs/<errorVsFused>` |  |  | Localization/Sources/<name>/ErrorVsFusedMeters: how far the source's pose was from the fused pose. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<errorVsTruth>` |  |  | Localization/Sources/<name>/ErrorVsTruthMeters: sim only, the source's error against the true pose. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<fusedThisLoop>` |  |  | Localization/Sources/<name>/FusedThisLoop: this source's measurement corrected the robot pose this loop. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<headingErrorVsFused>` |  |  | Localization/Sources/<name>/HeadingErrorVsFusedDeg: source heading minus fused heading. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
 | `/RealOutputs/<i>` |  |  | A signal whose refresh failed is a motor that did not answer. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/<index>` |  | amps |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
-| `/RealOutputs/<k>` |  |  |  | src/main/java/frc/spectrumLib/checks/PreMatchChecks.java |
-| `/RealOutputs/<lastVerdictKey>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSource.java |
-| `/RealOutputs/<layout>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<leftTrigger>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<leftX>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<leftY>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<logPrefix>/DecodeFailures` |  |  |  | src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java |
-| `/RealOutputs/<logPrefix>/DivergedSolves` |  |  |  | src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java |
-| `/RealOutputs/<logPrefix>/ExcludedTargets` |  |  |  | src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java |
-| `/RealOutputs/<logPrefix>/LastError` |  |  | The constrained solve is native code; a failure drops this frame, not the loop. | src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java |
-| `/RealOutputs/<logPrefix>/LatencyMs` |  |  |  | src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java |
-| `/RealOutputs/<logPrefix>/NativeSolver` |  |  |  | src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java |
-| `/RealOutputs/<logPrefix>/ResultAgeSeconds` |  |  |  | src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java |
-| `/RealOutputs/<logPrefix>/ResultsPerSecond` |  |  |  | src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java |
-| `/RealOutputs/<logPrefix>/SolveMicros` |  |  |  | src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java |
-| `/RealOutputs/<mapping>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<motorConnectedKey>` |  |  |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
-| `/RealOutputs/<name>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<offsetKey>` |  |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
-| `/RealOutputs/<p>AcceptedCount` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<p>ErrorVsFusedMeters` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<p>ErrorVsTruthMeters` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<p>HeadingErrorVsFusedDeg` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<p>Pose` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<p>RejectedCount` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<p>RejectionCounts/<key>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<p>Relocalizations` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<p>Seeded` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<p>StdDevs` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<peakTempKey>` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/<policyKey>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSource.java |
-| `/RealOutputs/<positionLostKey>` |  |  |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
-| `/RealOutputs/<positionWritePendingKey>` |  |  |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
-| `/RealOutputs/<prefix>/Active` |  |  |  | src/main/java/frc/spectrumLib/checks/PreMatchChecks.java |
-| `/RealOutputs/<prefix>/AvgTagDistances` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/RealOutputs/<prefix>/BusOffCount` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/<prefix>/BusUtilization` |  | percent |  | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/<index>` |  | amps | <mechanism>/Followers/<follower>/SupplyCurrent: each follower motor's battery current. | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
+| `/RealOutputs/<k>` |  |  | PreMatch/Checks/<check>/Status: PASS, WARN, FAIL or SKIP. | src/main/java/frc/spectrumLib/checks/PreMatchChecks.java |
+| `/RealOutputs/<p>AcceptedCount` |  |  | Tag measurements the EKF accepted, since boot. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<p>Cameras/<key>/AcceptedCount` |  |  | Per camera: tag measurements the EKF accepted. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<p>Cameras/<key>/BearingResidualsDeg` |  |  | Per camera, this loop's accepted tags: bearing residuals; sitting off zero means a mount yaw error. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<p>Cameras/<key>/RangeResidualsMeters` |  |  | Per camera, this loop's accepted tags: range residuals. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<p>Cameras/<key>/RejectedCount` |  |  | Per camera: tag measurements the EKF rejected. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<p>Connected` |  |  | The controller is plugged in to the Driver Station. | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>DetectedLayout` |  |  | The layout the controller's data looks like, or UNKNOWN. | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>ErrorVsFusedMeters` |  |  | EKF pose distance from the fused pose. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<p>ErrorVsTruthMeters` |  |  | Sim only: EKF error against the true pose. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<p>HeadingErrorVsFusedDeg` |  |  | EKF heading minus fused heading. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<p>Layout` |  |  | The layout being read now. | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>LeftTrigger` |  |  | Left trigger, 0 to 1. | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>LeftX` |  |  | Left stick X through the layout, before any deadband. | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>LeftY` |  |  | Left stick Y through the layout. | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>Mapping` |  |  | Gamepads/<pad>/: bench readout for the robot app. Mapping: the configured button layout, or AUTO. | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>Name` |  |  | The controller's name as the Driver Station reports it. | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>Pose` |  |  | The comparison EKF's pose (tag-by-tag filter); logged only, the robot doesn't drive on it. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<p>Pressed` |  |  | Controls the code reads as pressed, through the layout, e.g. A LB DpadUp. | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>Raw/Buttons` |  |  | Raw buttons held, as a bitfield (bit n is button n). | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>Raw/ButtonsAvailable` |  |  | Raw buttons the controller has, as a bitfield. | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>Raw/POV` |  |  | Raw d-pad (POV 0) direction, or NONE. | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>RejectedCount` |  |  | Tag measurements the EKF rejected, since boot. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<p>RejectionCounts/<key>` |  |  | EKF rejections by reason, since boot. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<p>Relocalizations` |  |  | Times tags kept failing for 1 s and the EKF widened its uncertainty so the cameras could pull it back. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<p>RightTrigger` |  |  | Right trigger, 0 to 1. | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>RightX` |  |  | Right stick X through the layout. | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>RightY` |  |  | Right stick Y through the layout. | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
+| `/RealOutputs/<p>Seeded` |  |  | The EKF has been seeded with a starting pose. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<p>StdDevs` |  |  | EKF uncertainty: x and y in meters, heading in degrees. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<peakTempKey>` |  |  | Summary/PeakTempC/<device>: hottest reading while the motor was connected. | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/<prefix>/Active` |  |  | The checks are judging: disabled, and no FMS match has started. | src/main/java/frc/spectrumLib/checks/PreMatchChecks.java |
+| `/RealOutputs/<prefix>/AvgTagDistances` |  |  | Same as the input of the same name. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/RealOutputs/<prefix>/BusOffCount` |  |  | Copy of CAN/<bus>/BusOffCount for the robot app and robotlog. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/<prefix>/BusUtilization` |  | percent | Copy of CAN/<bus>/BusUtilization for the dashboard and the robot app. | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/<prefix>/Connected` |  |  | A derived source's observations, as outputs: each is the input of the same name. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/RealOutputs/<prefix>/Go` |  |  |  | src/main/java/frc/spectrumLib/checks/PreMatchChecks.java |
-| `/RealOutputs/<prefix>/MaxAmbiguities` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/RealOutputs/<prefix>/Poses` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/RealOutputs/<prefix>/Reason` |  |  |  | src/main/java/frc/spectrumLib/checks/PreMatchChecks.java |
-| `/RealOutputs/<prefix>/ReceiveErrorCounter` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/<prefix>/Status` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/<prefix>/StatusOK` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/<prefix>/StdDevScales` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/RealOutputs/<prefix>/Summary` |  |  |  | src/main/java/frc/spectrumLib/checks/PreMatchChecks.java |
-| `/RealOutputs/<prefix>/TagCounts` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/RealOutputs/<prefix>/TagIds` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/RealOutputs/<prefix>/Timestamps` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/RealOutputs/<prefix>/TransmitErrorCounter` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/<prefix>/TxFullCount` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/<pressed>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<rawButtons>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<rawButtonsAvailable>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<rawPov>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<rawRotationsKey>` |  |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
-| `/RealOutputs/<rejectedCountKey>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSource.java |
-| `/RealOutputs/<rejectedKey>` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/<rejectedPosesKey>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSource.java |
-| `/RealOutputs/<rightTrigger>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<rightX>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<rightY>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
-| `/RealOutputs/<shadowDistance>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<shadowPose>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<shadowTruthError>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<statorCurrentKey>` |  | amps |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
-| `/RealOutputs/<steerVelocityKey>` |  |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
-| `/RealOutputs/<supplyCurrentKey>` |  | amps |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
-| `/RealOutputs/<tempKey>` |  | celsius |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
-| `/RealOutputs/<tIMESTAMP_KEY>` |  |  | Lets the web app tell "the numbers are not moving" apart from "the robot went away". | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
-| `/RealOutputs/<trackingErrorKey>` |  |  |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
-| `/RealOutputs/<trackingFaultKey>` |  |  |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
-| `/RealOutputs/<trackingStoppedKey>` |  |  |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
-| `/RealOutputs/<verdictsKey>` |  |  | One entry per observation, in input order: the tier if accepted, the reason if not. | src/main/java/frc/spectrumLib/localization/PoseSource.java |
-| `/RealOutputs/<voltageKey>` |  | volts |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
-| `/RealOutputs/<xyStdKey>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSource.java |
+| `/RealOutputs/<prefix>/Go` |  |  | Every pre-match check passes or only warns: OK to queue. | src/main/java/frc/spectrumLib/checks/PreMatchChecks.java |
+| `/RealOutputs/<prefix>/MaxAmbiguities` |  |  | Same as the input of the same name. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/RealOutputs/<prefix>/MotorConnected` |  |  | Diagnostics: the motor answered this loop. | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
+| `/RealOutputs/<prefix>/Poses` |  |  | Same as the input of the same name. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/RealOutputs/<prefix>/Reason` |  |  | The overall verdict text: GO, or NO-GO and why. | src/main/java/frc/spectrumLib/checks/PreMatchChecks.java |
+| `/RealOutputs/<prefix>/ReceiveErrorCounter` |  |  | Copy of CAN/<bus>/ReceiveErrorCounter. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/<prefix>/StatorCurrent` |  | amps | Diagnostics: stator current. | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
+| `/RealOutputs/<prefix>/Status` |  |  | Copy of CAN/<bus>/Status. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/<prefix>/StatusOK` |  |  | Copy of CAN/<bus>/StatusOK, for the dashboard's bus lights. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/<prefix>/StdDevScales` |  |  | Same as the input of the same name. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/RealOutputs/<prefix>/Summary` |  |  | Each check's last result: status, name and reason. | src/main/java/frc/spectrumLib/checks/PreMatchChecks.java |
+| `/RealOutputs/<prefix>/SupplyCurrent` |  | amps | Diagnostics: supply current. | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
+| `/RealOutputs/<prefix>/TagCounts` |  |  | Same as the input of the same name. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/RealOutputs/<prefix>/TagIds` |  |  | Same as the input of the same name. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/RealOutputs/<prefix>/Temp` |  | celsius | Diagnostics: motor temperature. | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
+| `/RealOutputs/<prefix>/Timestamps` |  |  | Same as the input of the same name. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/RealOutputs/<prefix>/TransmitErrorCounter` |  |  | Copy of CAN/<bus>/TransmitErrorCounter. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/<prefix>/TxFullCount` |  |  | Copy of CAN/<bus>/TxFullCount. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/<prefix>/Voltage` |  | volts | Diagnostics under the mechanism's own prefix: applied voltage. | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
+| `/RealOutputs/<shadowDistance>` |  |  | Localization/Shadow/<name>/DistanceFromFusedMeters: how far this source's shadow is from the fused pose. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<shadowPose>` |  |  | Localization/Shadow/<name>/Pose: odometry plus only this source, whether enabled or not; at 10 Hz. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/<shadowTruthError>` |  |  | Localization/Shadow/<name>/ErrorVsTruthMeters: sim only, the shadow's error against the true pose. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
 | `/RealOutputs/Alerts/Errors` |  |  | Active error alerts, newest first. | src/main/java/frc/spectrumLib/telemetry/Alert.java |
 | `/RealOutputs/Alerts/Infos` |  |  | Active info alerts, newest first. | src/main/java/frc/spectrumLib/telemetry/Alert.java |
 | `/RealOutputs/Alerts/Warnings` |  |  | Active warning alerts, newest first. | src/main/java/frc/spectrumLib/telemetry/Alert.java |
-| `/RealOutputs/Auton Warmed Up` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/Auton/AutoFileFound` |  |  |  | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Auton Warmed Up` |  |  | The selected auto's first path has been warmed up (followed once while disabled). | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Auton/AutoFileFound` |  |  | The selected auto's PathPlanner file was found. | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/Auton/EndElapsedSeconds` |  | seconds | How long the auto ran. | src/main/java/frc/robot/auton/AutoEnd.java |
 | `/RealOutputs/Auton/EndInterruptedBy` |  |  | The command that interrupted the auto, if one did. | src/main/java/frc/robot/auton/AutoEnd.java |
 | `/RealOutputs/Auton/EndReason` |  |  | Why the auto ended: FINISHED, END_OF_PERIOD, DISABLED_BY_FMS_EARLY, DS_DISCONNECTED, E_STOP, ... | src/main/java/frc/robot/auton/AutoEnd.java |
-| `/RealOutputs/Auton/RunningAuto` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/Auton/SelectedAuto` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/Auton/StartHeadingErrorDeg` |  | degrees |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/Auton/StartPoseErrorMeters` |  | meters |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/BatteryLogger/BatteryVoltage` |  | volts |  | src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java |
-| `/RealOutputs/BatteryLogger/Current` |  | amps |  | src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java |
-| `/RealOutputs/BatteryLogger/Energy` |  | watt hours |  | src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java |
-| `/RealOutputs/BatteryLogger/Power` |  | watts |  | src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java |
-| `/RealOutputs/CANConfig/BudgetExhausted` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/CANConfig/BudgetSpentSeconds` |  | seconds |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/CANConfig/FailedCalls` |  |  |  | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Auton/RunningAuto` |  |  | The auto that started. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Auton/SelectedAuto` |  |  | The auto picked on the dashboard, with the alliance. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Auton/StartHeadingErrorDeg` |  | degrees | Robot heading minus the selected auto's start heading. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Auton/StartPoseErrorMeters` |  | meters | How far the robot sits from the selected auto's start pose. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/BatteryLogger/BatteryVoltage` |  | volts | Battery voltage used for the power numbers. | src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java |
+| `/RealOutputs/BatteryLogger/Current` |  | amps | Summed current of every tracked motor and the controller, at 10 Hz. | src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java |
+| `/RealOutputs/BatteryLogger/Energy` |  | watt hours | Energy drawn from the battery while enabled this session. | src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java |
+| `/RealOutputs/BatteryLogger/Power` |  | watts | Current times voltage: power drawn now. | src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java |
+| `/RealOutputs/CANConfig/BudgetExhausted` |  |  | Failed CAN config time ran out, so remaining config calls are skipped (a dead bus). | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/CANConfig/BudgetSpentSeconds` |  | seconds | Seconds spent on failed CAN configuration calls since boot. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/CANConfig/FailedCalls` |  |  | CAN configuration calls that failed since boot. | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/Commands/Events` |  |  | Empty on quiet loops so each event appears once, in the loop it happened. | src/main/java/frc/spectrumLib/telemetry/CommandLog.java |
 | `/RealOutputs/Commands/Running` |  |  | Names of the commands running now. | src/main/java/frc/spectrumLib/telemetry/CommandLog.java |
-| `/RealOutputs/Drive/Pose3d` |  |  |  | src/main/java/frc/rebuilt/RobotBumpSim.java |
-| `/RealOutputs/DSUpload/BytesReceived` |  |  |  | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
-| `/RealOutputs/DSUpload/FilesReceived` |  |  |  | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
-| `/RealOutputs/DSUpload/LastError` |  |  |  | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
-| `/RealOutputs/DSUpload/LastFile` |  |  |  | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
+| `/RealOutputs/DSUpload/BytesReceived` |  |  | Bytes uploaded since boot. | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
+| `/RealOutputs/DSUpload/FilesReceived` |  |  | Driver Station logs and match media uploaded to the robot since boot. | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
+| `/RealOutputs/DSUpload/LastError` |  |  | The last upload error, or empty. | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
+| `/RealOutputs/DSUpload/LastFile` |  |  | The last file uploaded. | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
 | `/RealOutputs/Events` |  |  | Events: one line per thing that happened, in order: modes, auto, state changes, alerts, brownouts, trims, param changes. | src/main/java/frc/rebuilt/ShotCalculator.java |
 | `/RealOutputs/FuelIntake/CurrentCommand` |  |  | The command requiring the fuel intake, if any. | src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java |
 | `/RealOutputs/FuelIntake/RPM` |  | RPM | The fuel intake's speed, mechanism RPM. | src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java |
@@ -214,7 +176,7 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/IndexerTower/RPM` |  | RPM | The indexer tower's speed, mechanism RPM. | src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java |
 | `/RealOutputs/IndexerTower/SystemState` |  |  | The state the indexer tower is actually in, after its own transitions. | src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java |
 | `/RealOutputs/IndexerTower/WantedState` |  |  | What SuperStructure asked of the indexer tower. | src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java |
-| `/RealOutputs/Initialized` |  |  |  | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Initialized` |  |  | PathPlanner's path-following warmup has run. | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/IntakeExtension/CurrentCommand` |  |  | The command requiring the left extension axis, if any. | src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java |
 | `/RealOutputs/IntakeExtension/ExtendPhase` |  |  | Full extend: DRIVING out, or HOLDING once both sides are still. | src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java |
 | `/RealOutputs/IntakeExtension/LeftHomed` |  |  | While homing: the left side has stalled at the out stop and been re-zeroed. | src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java |
@@ -231,12 +193,12 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Launcher/RPM` |  | RPM | The launcher's speed, mechanism RPM. | src/main/java/frc/robot/subsystems/launcher/Launcher.java |
 | `/RealOutputs/Launcher/SystemState` |  |  | The state the launcher is actually in, after its own transitions. | src/main/java/frc/robot/subsystems/launcher/Launcher.java |
 | `/RealOutputs/Launcher/WantedState` |  |  | What SuperStructure asked of the launcher. | src/main/java/frc/robot/subsystems/launcher/Launcher.java |
-| `/RealOutputs/Leds/CommandPriority` |  |  |  | src/main/java/frc/robot/subsystems/leds/Leds.java |
-| `/RealOutputs/Leds/CurrentCommand` |  |  |  | src/main/java/frc/robot/subsystems/leds/Leds.java |
-| `/RealOutputs/Leds/IsAnimating` |  |  |  | src/main/java/frc/robot/subsystems/leds/Leds.java |
+| `/RealOutputs/Leds/CommandPriority` |  |  | Its priority: a higher one can take over the LEDs. | src/main/java/frc/robot/subsystems/leds/Leds.java |
+| `/RealOutputs/Leds/CurrentCommand` |  |  | The LED pattern command running. | src/main/java/frc/robot/subsystems/leds/Leds.java |
+| `/RealOutputs/Leds/IsAnimating` |  |  | The LEDs are running an animation, not a solid color. | src/main/java/frc/robot/subsystems/leds/Leds.java |
 | `/RealOutputs/Localization/EKF/FeedMicros` |  |  | Time to feed this loop's observations to the comparison EKF. | src/main/java/frc/robot/subsystems/vision/Vision.java |
-| `/RealOutputs/Localization/FusedErrorVsTruthMeters` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/Localization/FusedPose` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/Localization/FusedErrorVsTruthMeters` |  |  | Sim only: fused pose error against the true pose; the CI pose check reads this. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/Localization/FusedPose` |  |  | The robot pose: odometry corrected by every enabled source. What the robot drives on. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
 | `/RealOutputs/Localization/MountCheck/OnboardImu/GravityZShare` |  |  | Mount check: share of gravity on the onboard IMU's Z axis at rest; about 1 lying flat. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Localization/MountCheck/OnboardImu/Orientation` |  |  | Mount check: gravity is on the axis the onboard IMU's mount setting implies. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Localization/MountCheck/OnboardImu/YawGain` |  |  | Mount check: onboard IMU turn rate over the wheels' turn rate. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
@@ -251,23 +213,37 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Localization/MountCheck/Pigeon/YawSense` |  |  | Mount check: the Pigeon's heading turns the way the wheels turn the robot. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Localization/Odometry/HeadingSource` |  |  | Where odometry's heading came from: PRIMARY (Pigeon), BACKUP (onboard IMU), WHEELS, or NONE. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Localization/Odometry/ModulesUsed` |  |  | Modules odometry trusted this loop: connected, not reading a dead 0, within 1.5x top speed. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/Localization/OdometryErrorVsTruthMeters` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/Localization/OdometryPose` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/Localization/OdometryErrorVsTruthMeters` |  |  | Sim only: odometry-only error against the true pose. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/Localization/OdometryPose` |  |  | Wheels and gyro only, never corrected: the baseline, and how far the robot drifts without vision. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
 | `/RealOutputs/Localization/OnboardImu/ErrorVsPigeonDeg` |  |  | Onboard IMU shadow heading minus the Pigeon's, while the Pigeon is in use. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Localization/OnboardImu/ShadowHeadingDeg` |  |  | The heading the onboard IMU would give, tracked alongside in case the Pigeon drops. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/Localization/OutOfOrderReapplied` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/Localization/SimTruthPose` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/MatchData/InShift` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/MatchData/MatchTime` |  | seconds |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/MatchData/TimeLeftInShift` |  | seconds |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/Params/Files` |  |  |  | src/main/java/frc/spectrumLib/params/Params.java |
-| `/RealOutputs/Params/LastSave` |  |  |  | src/main/java/frc/spectrumLib/params/Params.java |
-| `/RealOutputs/Params/LiveTuning` |  |  |  | src/main/java/frc/spectrumLib/params/Params.java |
-| `/RealOutputs/Params/LocalFolder` |  |  |  | src/main/java/frc/spectrumLib/params/Params.java |
-| `/RealOutputs/Params/Manifest` |  |  |  | src/main/java/frc/spectrumLib/params/Params.java |
-| `/RealOutputs/Params/PendingLive` |  |  |  | src/main/java/frc/spectrumLib/params/Params.java |
-| `/RealOutputs/Params/Problems` |  |  |  | src/main/java/frc/spectrumLib/params/Params.java |
-| `/RealOutputs/Params/Robot` |  |  |  | src/main/java/frc/spectrumLib/params/Params.java |
+| `/RealOutputs/Localization/OutOfOrderReapplied` |  |  | Times a late vision measurement made newer ones be re-applied in time order (WPILib would have dropped them), since boot. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/Localization/SimTruthPose` |  |  | Sim only: where the robot really is. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/Localization/Sources/<name>/AcceptedCount` |  |  | Observations accepted since boot. | src/main/java/frc/spectrumLib/localization/PoseSource.java |
+| `/RealOutputs/Localization/Sources/<name>/AcceptedPoses` |  |  | This loop's observations that passed every gate. | src/main/java/frc/spectrumLib/localization/PoseSource.java |
+| `/RealOutputs/Localization/Sources/<name>/EnabledSwitch` |  |  | The dashboard switch for this source is on (off: it still runs and has a shadow, but never moves the pose). | src/main/java/frc/spectrumLib/localization/PoseSource.java |
+| `/RealOutputs/Localization/Sources/<name>/LastVerdict` |  |  | The last observation's verdict. | src/main/java/frc/spectrumLib/localization/PoseSource.java |
+| `/RealOutputs/Localization/Sources/<name>/PolicyAllowsFusion` |  |  | The fusion policy let this source move the fused pose this loop. | src/main/java/frc/spectrumLib/localization/PoseSource.java |
+| `/RealOutputs/Localization/Sources/<name>/RejectedCount` |  |  | Observations rejected since boot; RejectionCounts/<gate> splits them by reason. | src/main/java/frc/spectrumLib/localization/PoseSource.java |
+| `/RealOutputs/Localization/Sources/<name>/RejectedPoses` |  |  | This loop's observations a gate rejected. | src/main/java/frc/spectrumLib/localization/PoseSource.java |
+| `/RealOutputs/Localization/Sources/<name>/Verdicts` |  |  | One entry per observation, in input order: the tier if accepted, the reason if not. | src/main/java/frc/spectrumLib/localization/PoseSource.java |
+| `/RealOutputs/Localization/Sources/<name>/XYStdDevs` |  |  | Each accepted observation's x/y standard deviation, meters. | src/main/java/frc/spectrumLib/localization/PoseSource.java |
+| `/RealOutputs/MatchData/InShift` |  |  | Our hub is active in this shift of the 2026 game. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/MatchData/MatchTime` |  | seconds | Match clock from the Driver Station, seconds left in the period. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/MatchData/TimeLeftInShift` |  | seconds | Time until the current hub shift ends. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Mechanisms/<name>/PositionLost` |  |  | The motor rebooted since its position was set, so its position is wrong until it re-homes. | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
+| `/RealOutputs/Mechanisms/<name>/PositionWritePending` |  |  | A new zero was sent and hasn't reached the readings yet; setpoints hold until it does. | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
+| `/RealOutputs/Mechanisms/<name>/TrackingError` |  |  | How far the mechanism is from its goal while tracking one; NaN when not. | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
+| `/RealOutputs/Mechanisms/<name>/TrackingFault` |  |  | Off its goal past tolerance right now (the tracking stop's debounce is running). | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
+| `/RealOutputs/Mechanisms/<name>/TrackingStopped` |  |  | Stopped for being off its goal too long (likely jammed); clears on disable or the operator's clear. | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
+| `/RealOutputs/Params/Files` |  |  | Each param layer and whether it loaded. | src/main/java/frc/spectrumLib/params/Params.java |
+| `/RealOutputs/Params/LastSave` |  |  | Result of the last pit save. | src/main/java/frc/spectrumLib/params/Params.java |
+| `/RealOutputs/Params/LiveTuning` |  |  | Dashboard changes to params can apply (tuning mode, disabled, no field). | src/main/java/frc/spectrumLib/params/Params.java |
+| `/RealOutputs/Params/LocalFolder` |  |  | The robot-local folder pit saves go to, which a deploy doesn't wipe. | src/main/java/frc/spectrumLib/params/Params.java |
+| `/RealOutputs/Params/Manifest` |  |  | Every param with its group, type, bounds and value, as JSON, for the robot app. | src/main/java/frc/spectrumLib/params/Params.java |
+| `/RealOutputs/Params/PendingLive` |  |  | Dashboard changes waiting until the robot is disabled with no field attached. | src/main/java/frc/spectrumLib/params/Params.java |
+| `/RealOutputs/Params/Problems` |  |  | Param files or values that were skipped, and why. | src/main/java/frc/spectrumLib/params/Params.java |
+| `/RealOutputs/Params/Robot` |  |  | Which robot the params loaded for (from the controller's serial). | src/main/java/frc/spectrumLib/params/Params.java |
 | `/RealOutputs/PathPlanner/ActivePath` |  |  | The path PathPlanner is following, as poses. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/PathPlanner/CurrentPose` |  |  | The pose PathPlanner is following from. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/PathPlanner/TargetPose` |  |  | Where PathPlanner wants the robot now on the active path. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
@@ -342,10 +318,10 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Shooting/Log/TimestampSeconds` |  | seconds | Robot clock; match clock, for lining a row up with video. | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/Shooting/Log/WantedHoodDeg` |  | degrees | Hood target (trim included) and measured. | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/Shooting/Log/WantedRPM` |  | RPM | Flywheel target and measured. | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Sim/Components` |  |  |  | src/main/java/frc/robot/RobotSim.java |
-| `/RealOutputs/Sim/Fuel` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/Sim/Launched` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/Sim/Scored` |  |  |  | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Sim/Components` |  |  | Sim only: intake and hood poses for AdvantageScope's 3D robot. | src/main/java/frc/robot/RobotSim.java |
+| `/RealOutputs/Sim/Fuel` |  |  | Sim only: fuel picked up. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Sim/Launched` |  |  | Sim only: fuel launched. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Sim/Scored` |  |  | Sim only: fuel scored in the hub. | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/Summary/Alerts/BeforeFirstEnableRaised` |  |  | errors and warnings raised before the first enable (boot, the queue), apart from pre-match checks | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/Summary/Alerts/ErrorsRaised` |  |  | times an error or warning alert turned on once the robot had been enabled (seen once per loop, so an alert cleared and set again within a loop is not raised again); pre-match check alerts are not counted here | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/Summary/Alerts/PreMatchChecksRaised` |  |  | alerts the pre-match checks raised (text starting Pre-match), counted only | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
@@ -358,6 +334,9 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Summary/Battery/SecondsUnder7V` |  | seconds | time below each, summed per loop | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/Summary/Battery/SecondsUnder8V` |  | seconds | time below each, summed per loop | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/Summary/Brownouts` |  |  | times the controller browned out in this log, or -1 where no source works (see Brownouts) | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/CAN/<label>/BusOffs` |  |  | bus-off events from the bus's own counter since the first good status read | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/CAN/<label>/DownSeconds` |  |  | the bus counts as down while more than half its devices that have ever connected are not answering | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/CAN/<label>/Drops` |  |  | the bus counts as down while more than half its devices that have ever connected are not answering | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/Summary/Devices/Drops` |  |  | totals over every tracked CAN device | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/Summary/Devices/Faulted` |  |  | mechanism motors that reported a trouble fault (MotorInputs.troubleFaults) while connected | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/Summary/Devices/Reboots` |  |  | totals over every tracked CAN device | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
@@ -369,11 +348,22 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Summary/Loop/LongestMs` |  |  | enabled loops only; an overrun is a loop over 1.25 periods | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/Summary/Loop/Overruns` |  |  | enabled loops only; an overrun is a loop over 1.25 periods | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/Summary/MatchesEnded` |  |  | FMS teleop ends seen | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/SuperStructure/CurrentSuperState` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/SuperStructure/IntakeSqueezeTimerElapsed` |  | seconds |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/SuperStructure/WantedSuperState` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Summary/Vision/<name>/Accepted` |  |  | the source's running counts since boot | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Vision/<name>/Rejected` |  |  | the source's running counts since boot | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/SuperStructure/CurrentSuperState` |  |  | The state SuperStructure is in (AUTON_IDLE when idle in auto or disabled). | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/SuperStructure/IntakeSqueezeTimerElapsed` |  | seconds | Time since a squeeze launch state began; the intake squeezes in after 1 s. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/SuperStructure/WantedSuperState` |  |  | The state the drivers or auto asked for. | src/main/java/frc/robot/subsystems/SuperStructure.java |
 | `/RealOutputs/Swerve/Aim/HeadingErrorDeg` |  | degrees | Robot heading minus the aim heading, while aiming. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/Aim/TargetRateFeedforward` |  | deg/s | Heading rate fed forward while aiming, so the robot keeps up with a moving aim point. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
+| `/RealOutputs/Swerve/Align/<name>/AbsoluteRotations` |  |  | Pit alignment, disabled only: the CANcoder's reading with its offset applied, rotations. | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
+| `/RealOutputs/Swerve/Align/<name>/AppliedOffset` |  |  | The offset the CANcoder is running with now. | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
+| `/RealOutputs/Swerve/Align/<name>/AppliedOffsetValid` |  |  | The applied offset was read back from the device (false: assumed from config). | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
+| `/RealOutputs/Swerve/Align/<name>/ConfigOffset` |  |  | The offset in the code's config. | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
+| `/RealOutputs/Swerve/Align/<name>/Connected` |  |  | The CANcoder answered. | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
+| `/RealOutputs/Swerve/Align/<name>/EncoderId` |  |  | The CANcoder's CAN id. | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
+| `/RealOutputs/Swerve/Align/<name>/RawRotations` |  |  | The CANcoder's reading without its offset: what to save as the new offset with the wheel straight. | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
+| `/RealOutputs/Swerve/Align/<name>/SteerVelocity` |  |  | Steer encoder velocity; non-zero means the wheel is moving, so don't save. | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
+| `/RealOutputs/Swerve/Align/Timestamp` |  |  | Lets the web app tell "the numbers are not moving" apart from "the robot went away". | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
 | `/RealOutputs/Swerve/CurrentCommand` |  |  | The command requiring the drivetrain, if any. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/Currents/DriveStatorCurrent` |  |  | All four drive motors' stator current, summed, at 10 Hz. Per module under Swerve/Currents/<module>/. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/Currents/DriveSupplyCurrent` |  |  | All four drive motors' battery current, summed, at 10 Hz. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
@@ -406,11 +396,11 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/System/Storage/FreeMB` |  |  | Free space where logs are written (USB stick or the controller). | src/main/java/frc/spectrumLib/telemetry/LogStorage.java |
 | `/RealOutputs/System/Storage/LogsMB` |  |  | Space the logs in the log folder take. | src/main/java/frc/spectrumLib/telemetry/LogStorage.java |
 | `/RealOutputs/System/ThreadCount` |  |  | Threads in the robot program. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/TopThreads` |  |  |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/SystemStats/BrownedOut` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/SystemStats/BrownoutVoltage` |  | volts |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/Vision/<name>/Connected` |  |  |  | src/main/java/frc/robot/subsystems/vision/Vision.java |
-| `/RealOutputs/Vision/<x>/Connected` |  |  |  | src/main/java/frc/robot/subsystems/vision/Vision.java |
+| `/RealOutputs/System/TopThreads` |  |  | The busiest threads and their CPU share. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/SystemStats/BrownedOut` |  |  | The controller is browned out now (outputs off), where the brownout API works. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/SystemStats/BrownoutVoltage` |  | volts | The voltage at which the controller browns out. | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Vision/<name>/Connected` |  |  | Per Orin camera: the camera is talking. | src/main/java/frc/robot/subsystems/vision/Vision.java |
+| `/RealOutputs/Vision/<x>/Connected` |  |  | Per Limelight: the camera is talking, for the Pre-Match tab. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/AimBackMT2Only` |  |  | While aiming, only LL-Back's MT2 multi-tag frames update the pose (the side cameras pulled it 15-35 cm off at TXMAN1). | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/BackHeadingCorrections` |  |  | Times LL-Back held off the fused heading long enough to re-seed it (and re-origin the Quest), since boot. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/BackHeadingErrorDeg` |  |  | LL-Back MT1 multi-tag heading minus the fused heading at its capture time. | src/main/java/frc/robot/subsystems/vision/Vision.java |
@@ -419,13 +409,22 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Vision/FieldMap/Solving` |  |  | An output, so a replay's log shows what the replay solved with. | src/main/java/frc/robot/subsystems/vision/TagField.java |
 | `/RealOutputs/Vision/GrossHeadingCorrections` |  |  | Times a still robot's heading was re-seeded from vision for being far off, since boot. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/GrossHeadingErrorDeg` |  |  | Best MT1 multi-tag heading minus the fused heading, judged while the robot is still. | src/main/java/frc/robot/subsystems/vision/Vision.java |
-| `/RealOutputs/Vision/Jetson/Connected` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
-| `/RealOutputs/Vision/Jetson/ExcludedTags` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
-| `/RealOutputs/Vision/Jetson/HeartbeatAgeSeconds` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
-| `/RealOutputs/Vision/Jetson/RequestedPipeline` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
-| `/RealOutputs/Vision/Jetson/Rewind/Label` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
-| `/RealOutputs/Vision/Jetson/Rewind/RecordRequested` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
+| `/RealOutputs/Vision/Jetson/Connected` |  |  | The Jetson's heartbeat is fresh. | src/main/java/frc/robot/subsystems/vision/Jetson.java |
+| `/RealOutputs/Vision/Jetson/ExcludedTags` |  |  | Tags every Orin multi-tag solve ignores, as sent to the Jetson. | src/main/java/frc/robot/subsystems/vision/Jetson.java |
+| `/RealOutputs/Vision/Jetson/HeartbeatAgeSeconds` |  |  | Time since the Jetson's heartbeat last changed; over the timeout means the Jetson is down. | src/main/java/frc/robot/subsystems/vision/Jetson.java |
+| `/RealOutputs/Vision/Jetson/RequestedPipeline` |  |  | PhotonVision pipeline the robot asked for: 0 match, 1 practice. | src/main/java/frc/robot/subsystems/vision/Jetson.java |
+| `/RealOutputs/Vision/Jetson/Rewind/Label` |  |  | Name the robot gave the Rewind recording. | src/main/java/frc/robot/subsystems/vision/Jetson.java |
+| `/RealOutputs/Vision/Jetson/Rewind/RecordRequested` |  |  | The robot asked Rewind to record. | src/main/java/frc/robot/subsystems/vision/Jetson.java |
 | `/RealOutputs/Vision/MultiTagSeedCount` |  |  | Pose seeds from a multi-tag frame, since boot. | src/main/java/frc/robot/subsystems/vision/Vision.java |
+| `/RealOutputs/Vision/Orin/<cameraName>/<mode>/DivergedSolves` |  |  | Solves thrown out for diverging, since boot. | src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java |
+| `/RealOutputs/Vision/Orin/<cameraName>/<mode>/LastError` |  |  | The constrained solve is native code; a failure drops this frame, not the loop. | src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java |
+| `/RealOutputs/Vision/Orin/<cameraName>/<mode>/NativeSolver` |  |  | The native gyro-aided solver is working (false: it failed and the Java fallback runs). | src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java |
+| `/RealOutputs/Vision/Orin/<cameraName>/<mode>/SolveMicros` |  |  | Time for this loop's solves. | src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java |
+| `/RealOutputs/Vision/Orin/<cameraName>/DecodeFailures` |  |  | Results PhotonLib or the solver couldn't read, since boot; logged once there are any. | src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java |
+| `/RealOutputs/Vision/Orin/<cameraName>/ExcludedTargets` |  |  | Targets dropped this loop for being on an excluded tag. | src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java |
+| `/RealOutputs/Vision/Orin/<cameraName>/LatencyMs` |  |  | Latest result's capture-to-publish latency. | src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java |
+| `/RealOutputs/Vision/Orin/<cameraName>/ResultAgeSeconds` |  |  | Time since the latest result's capture. | src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java |
+| `/RealOutputs/Vision/Orin/<cameraName>/ResultsPerSecond` |  |  | PhotonVision results per second from this camera. | src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java |
 | `/RealOutputs/Vision/PoseHeadingSeeded` |  |  | Vision has set the pose and heading since boot. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/PoseSeedConfirmed` |  |  | The seed held: 50 multi-tag frames in a row agreed on the heading. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/Quest/Connected` |  |  | The QuestNav is talking. Each camera has its own Vision/<camera>/Connected. | src/main/java/frc/robot/subsystems/vision/Vision.java |
@@ -435,11 +434,11 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/Runtime/BatteryVoltage` | I |  | Battery voltage, as the controller measured it. | src/main/java/frc/robot/RuntimeInputs.java |
 | `/Runtime/BrownedOut` | I |  | The controller is browned out (outputs disabled). False where the API is unavailable. | src/main/java/frc/robot/RuntimeInputs.java |
 | `/Runtime/Simulation` | I |  | Whether the recorded run was the desktop simulator (false on a robot). | src/main/java/frc/robot/RuntimeInputs.java |
-| `/SimScript/PlacePose` | I |  |  | src/main/java/frc/robot/SimScript.java |
-| `/SimScript/PlaceRobot` | I |  |  | src/main/java/frc/robot/SimScript.java |
-| `/SimScript/ResetQuest` | I |  |  | src/main/java/frc/robot/SimScript.java |
-| `/SummaryInputs/Brownout/BrownedOutValid` | I |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/SummaryInputs/Brownout/FaultCount` | I |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/SimScript/PlacePose` | I |  | Sim script: where it was placed. | src/main/java/frc/robot/SimScript.java |
+| `/SimScript/PlaceRobot` | I |  | Sim script: the robot was placed at PlacePose this loop. | src/main/java/frc/robot/SimScript.java |
+| `/SimScript/ResetQuest` | I |  | Sim script: the Quest was re-origined this loop. | src/main/java/frc/robot/SimScript.java |
+| `/SummaryInputs/Brownout/BrownedOutValid` | I |  | The brownout flag API works on this controller, so the flag counts too. | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/SummaryInputs/Brownout/FaultCount` | I |  | The controller's brownout fault count, or -1 where there is none. | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/Swerve/AccelXG` | I |  | Pigeon acceleration along its own axes, g (gravity included). All 0 when not read. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Swerve/AccelYG` | I |  | Pigeon acceleration, y axis. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Swerve/AccelZG` | I |  | Pigeon acceleration, z axis; about 1 g sitting flat. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
@@ -469,8 +468,8 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/Swerve/OnboardImu/YawRateRadPerSec` | I |  | Onboard IMU yaw rate. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Swerve/RobotVelocity` | I |  | Chassis velocity CTRE measured from the modules, robot-relative. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Swerve/SuccessfulDaqs` | I |  | CTRE odometry thread reads that got every signal, since boot. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Vision/FieldMap/Hash` | I |  |  | src/main/java/frc/robot/subsystems/vision/TagField.java |
-| `/Vision/FieldMap/Name` | I |  |  | src/main/java/frc/robot/subsystems/vision/TagField.java |
+| `/Vision/FieldMap/Hash` | I |  | Its canonical hash, to compare with the Jetson's Vision/Jetson/FieldMap/Hash. | src/main/java/frc/robot/subsystems/vision/TagField.java |
+| `/Vision/FieldMap/Name` | I |  | The AprilTag field map the robot solves with: the WPILib field's name, or custom. | src/main/java/frc/robot/subsystems/vision/TagField.java |
 | `/Vision/Jetson/BootId` | I |  | Changes on every Jetson reboot, not on a reconnect; the robot's reboot alert watches it. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Jetson/ClockLastJumpSeconds` | I |  | Size of the last clock correction. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Jetson/ClockSource` | I |  | Where the Jetson's clock came from: robot, internet (NTP), or unset (still the date restored at boot). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |

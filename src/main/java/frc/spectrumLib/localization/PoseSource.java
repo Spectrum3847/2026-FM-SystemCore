@@ -180,6 +180,8 @@ public class PoseSource {
                 rejectedCount++;
                 lastRejection = rejection;
                 long count = rejectionCounts.merge(rejection, 1L, Long::sum);
+                // Localization/Sources/<name>/RejectionCounts/<gate>: rejections by gate, since
+                // boot.
                 Logger.recordOutput(
                         rejectionCountKeys.computeIfAbsent(
                                 rejection, r -> rejectionCountPrefix + r),
@@ -196,11 +198,14 @@ public class PoseSource {
      * @param allowed the policy's answer
      */
     public void logPolicy(boolean allowed) {
+        // The fusion policy let this source move the fused pose this loop.
         Logger.recordOutput(policyKey, allowed);
     }
 
     private void log() {
         int n = results.size();
+        // The dashboard switch for this source is on (off: it still runs and has a shadow, but
+        // never moves the pose).
         Logger.recordOutput(enabledSwitchKey, isEnabled());
         if (n == 0 && lastLoggedCount == 0) {
             return; // nothing new: the empty arrays and the counts are already in the log
@@ -222,14 +227,20 @@ public class PoseSource {
                 xyStd[i] = Double.NaN;
             }
         }
+        // This loop's observations that passed every gate.
         Logger.recordOutput(acceptedPosesKey, accepted.toArray(new Pose2d[0]));
+        // This loop's observations a gate rejected.
         Logger.recordOutput(rejectedPosesKey, rejected.toArray(new Pose2d[0]));
         // One entry per observation, in input order: the tier if accepted, the reason if not.
         Logger.recordOutput(verdictsKey, verdicts);
+        // Each accepted observation's x/y standard deviation, meters.
         Logger.recordOutput(xyStdKey, xyStd);
+        // Observations accepted since boot.
         Logger.recordOutput(acceptedCountKey, acceptedCount);
+        // Observations rejected since boot; RejectionCounts/<gate> splits them by reason.
         Logger.recordOutput(rejectedCountKey, rejectedCount);
         if (n > 0) {
+            // The last observation's verdict.
             Logger.recordOutput(lastVerdictKey, verdicts[n - 1]);
         }
     }

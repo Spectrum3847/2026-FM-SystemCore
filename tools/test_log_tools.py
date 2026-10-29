@@ -153,6 +153,12 @@ class LogToolsTest(unittest.TestCase):
         consts = make_log_key_guide.string_constants(
             'private static final String PREFIX = "Vision/Jetson/";')
         self.assertEqual("Vision/Jetson/Rewind/Label", render('PREFIX + "Rewind/Label"', consts))
+        # A key field built once from strings resolves; a name built two ways stays a placeholder.
+        consts = make_log_key_guide.string_constants(
+            'lostKey = "Mechanisms/" + name + "/PositionLost";\n'
+            'String p = PREFIX + "Sources/" + n;\nString p = PREFIX + "EKF/";')
+        self.assertEqual("Mechanisms/<name>/PositionLost", render("lostKey", consts))
+        self.assertEqual("<p>Pose", render('p + "Pose"', consts))
 
     def test_key_guide_reads_unit_and_comment_beside_a_call(self):
         lines = [

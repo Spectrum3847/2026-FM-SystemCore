@@ -1379,11 +1379,13 @@ public class Vision implements Subsystem {
         if (Telemetry.slowLogThisLoop()) {
             // One connected light per camera for the Pre-Match tab.
             for (int i = 0; i < mt1Sources.size(); i++) {
+                // Per Limelight: the camera is talking, for the Pre-Match tab.
                 Telemetry.logDash(
                         "Vision/" + mt1Sources.get(i).getName().split("/")[0] + "/Connected",
                         mt1Sources.get(i).isConnected());
             }
             for (PoseSource s : orinSources) {
+                // Per Orin camera: the camera is talking.
                 Telemetry.logDash("Vision/" + s.getName() + "/Connected", s.isConnected());
             }
             // The QuestNav is talking. Each camera has its own Vision/<camera>/Connected.

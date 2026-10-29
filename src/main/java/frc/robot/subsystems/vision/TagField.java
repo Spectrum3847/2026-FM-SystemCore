@@ -40,7 +40,9 @@ public final class TagField {
 
         @Override
         public void toLog(LogTable table) {
+            // The AprilTag field map the robot solves with: the WPILib field's name, or custom.
             table.put("Name", name);
+            // Its canonical hash, to compare with the Jetson's Vision/Jetson/FieldMap/Hash.
             table.put("Hash", hash);
         }
 

@@ -187,11 +187,15 @@ public class BatteryLogger {
             // currents feed the Driver Station dashboard and the robot app, so they use logDash.
             boolean logCurrent = Telemetry.slowLogThisLoop();
             if (logCurrent) {
+                // Summed current of every tracked motor and the controller, at 10 Hz.
                 Telemetry.logDash("BatteryLogger/Current", totalCurrent, "amps");
+                // Battery voltage used for the power numbers.
                 Telemetry.logDash("BatteryLogger/BatteryVoltage", batteryVoltage, "volts");
             }
             if (logSlow) {
+                // Current times voltage: power drawn now.
                 Telemetry.log("BatteryLogger/Power", totalPower, "watts");
+                // Energy drawn from the battery while enabled this session.
                 Telemetry.logDashAlways(
                         "BatteryLogger/Energy", joulesToWattHours(totalEnergy), "watt hours");
             }

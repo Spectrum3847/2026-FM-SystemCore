@@ -622,6 +622,8 @@ public abstract class Mechanism implements Subsystem {
         }
         // On the dashboard: the only place a dead follower is visible.
         if (Telemetry.slowLogThisLoop()) {
+            // <mechanism>/Followers/<follower>/SupplyCurrent: each follower motor's battery
+            // current.
             Telemetry.logDash(followerCurrentKeys[index], followerAmps, "amps");
         }
 
@@ -1119,7 +1121,11 @@ public abstract class Mechanism implements Subsystem {
             Telemetry.print(rebooted + " rebooted");
         }
         if (hasSoftLimits()) {
+            // The motor rebooted since its position was set, so its position is wrong until it
+            // re-homes.
             Logger.recordOutput(positionLostKey, resetMonitor.isPositionLost());
+            // A new zero was sent and hasn't reached the readings yet; setpoints hold until it
+            // does.
             Logger.recordOutput(positionWritePendingKey, positionWrite.isPending());
         }
         // Each rate call blocks until the device answers, so never while enabled.
@@ -1286,8 +1292,12 @@ public abstract class Mechanism implements Subsystem {
             Telemetry.print(text);
         }
         trackingAlert.set(trackingStop.isStopped());
+        // How far the mechanism is from its goal while tracking one; NaN when not.
         Logger.recordOutput(trackingErrorKey, tracking ? error : Double.NaN);
+        // Off its goal past tolerance right now (the tracking stop's debounce is running).
         Logger.recordOutput(trackingFaultKey, trackingStop.isFault());
+        // Stopped for being off its goal too long (likely jammed); clears on disable or the
+        // operator's clear.
         Logger.recordOutput(trackingStoppedKey, trackingStop.isStopped());
     }
 
@@ -1402,10 +1412,15 @@ public abstract class Mechanism implements Subsystem {
             return;
         }
         if (dashboard) {
+            // Diagnostics under the mechanism's own prefix: applied voltage.
             Telemetry.logDash(voltageKey, getVoltage(), "volts");
+            // Diagnostics: stator current.
             Telemetry.logDash(statorCurrentKey, getStatorCurrent(), "amps");
+            // Diagnostics: supply current.
             Telemetry.logDash(supplyCurrentKey, getSupplyCurrent(), "amps");
+            // Diagnostics: motor temperature.
             Telemetry.logDash(tempKey, getTemp(), "celsius");
+            // Diagnostics: the motor answered this loop.
             Telemetry.logDash(motorConnectedKey, isMotorConnected());
         } else {
             Telemetry.log(voltageKey, getVoltage(), "volts");

@@ -203,12 +203,19 @@ public class PoseSourceInputs implements LoggableInputs {
     public void recordAsOutputs(String prefix) {
         // A derived source's observations, as outputs: each is the input of the same name.
         Logger.recordOutput(prefix + "/Connected", connected);
+        // Same as the input of the same name.
         Logger.recordOutput(prefix + "/Timestamps", timestamps);
+        // Same as the input of the same name.
         Logger.recordOutput(prefix + "/Poses", poses);
+        // Same as the input of the same name.
         Logger.recordOutput(prefix + "/TagCounts", tagCounts);
+        // Same as the input of the same name.
         Logger.recordOutput(prefix + "/AvgTagDistances", avgTagDistances);
+        // Same as the input of the same name.
         Logger.recordOutput(prefix + "/MaxAmbiguities", maxAmbiguities);
+        // Same as the input of the same name.
         Logger.recordOutput(prefix + "/StdDevScales", stdDevScales);
+        // Same as the input of the same name.
         Logger.recordOutput(prefix + "/TagIds", tagIds);
     }
 }

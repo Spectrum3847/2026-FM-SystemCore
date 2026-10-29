@@ -117,7 +117,7 @@
   {
    "key": "/Hood/Homing/RecordedWithHoming",
    "unit": "",
-   "doc": "",
+   "doc": "The log was written by code with hood homing; old logs read false, so replay assumes the hood was zeroed.",
    "source": "src/main/java/frc/robot/subsystems/hood/HoodHoming.java",
    "input": true
   },
@@ -327,168 +327,42 @@
   {
    "key": "/Params/Sources/<path>",
    "unit": "",
-   "doc": "",
+   "doc": "Params/Sources/<group>/<key>: which layer each value came from: DEFAULT, DEPLOY, ROBOT, LOCAL or LIVE.",
    "source": "src/main/java/frc/spectrumLib/params/ParamsInputs.java",
    "input": true
   },
   {
-   "key": "/RealOutputs/<absoluteRotationsKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<acceptedCountKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<acceptedKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<acceptedPosesKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<appliedOffsetKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<appliedOffsetValidKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<busOffsKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<c>AcceptedCount",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<c>BearingResidualsDeg",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<c>RangeResidualsMeters",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<c>RejectedCount",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
-   "input": false
-  },
-  {
    "key": "/RealOutputs/<computeIfAbsent>",
    "unit": "",
-   "doc": "",
+   "doc": "Localization/Sources/<name>/RejectionCounts/<gate>: rejections by gate, since boot.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<connected>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<connectedKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<detected>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<downSecondsKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<dropsKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<enabledSwitchKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<encoderIdKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<errorVsFused>",
    "unit": "",
-   "doc": "",
+   "doc": "Localization/Sources/<name>/ErrorVsFusedMeters: how far the source's pose was from the fused pose.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<errorVsTruth>",
    "unit": "",
-   "doc": "",
+   "doc": "Localization/Sources/<name>/ErrorVsTruthMeters: sim only, the source's error against the true pose.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<fusedThisLoop>",
    "unit": "",
-   "doc": "",
+   "doc": "Localization/Sources/<name>/FusedThisLoop: this source's measurement corrected the robot pose this loop.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<headingErrorVsFused>",
    "unit": "",
-   "doc": "",
+   "doc": "Localization/Sources/<name>/HeadingErrorVsFusedDeg: source heading minus fused heading.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
@@ -502,266 +376,252 @@
   {
    "key": "/RealOutputs/<index>",
    "unit": "amps",
-   "doc": "",
+   "doc": "<mechanism>/Followers/<follower>/SupplyCurrent: each follower motor's battery current.",
    "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<k>",
    "unit": "",
-   "doc": "",
+   "doc": "PreMatch/Checks/<check>/Status: PASS, WARN, FAIL or SKIP.",
    "source": "src/main/java/frc/spectrumLib/checks/PreMatchChecks.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<lastVerdictKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<layout>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<leftTrigger>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<leftX>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<leftY>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<logPrefix>/DecodeFailures",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<logPrefix>/DivergedSolves",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<logPrefix>/ExcludedTargets",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<logPrefix>/LastError",
-   "unit": "",
-   "doc": "The constrained solve is native code; a failure drops this frame, not the loop.",
-   "source": "src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<logPrefix>/LatencyMs",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<logPrefix>/NativeSolver",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<logPrefix>/ResultAgeSeconds",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<logPrefix>/ResultsPerSecond",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<logPrefix>/SolveMicros",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<mapping>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<motorConnectedKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<name>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<offsetKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<p>AcceptedCount",
    "unit": "",
-   "doc": "",
+   "doc": "Tag measurements the EKF accepted, since boot.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>Cameras/<key>/AcceptedCount",
+   "unit": "",
+   "doc": "Per camera: tag measurements the EKF accepted.",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>Cameras/<key>/BearingResidualsDeg",
+   "unit": "",
+   "doc": "Per camera, this loop's accepted tags: bearing residuals; sitting off zero means a mount yaw error.",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>Cameras/<key>/RangeResidualsMeters",
+   "unit": "",
+   "doc": "Per camera, this loop's accepted tags: range residuals.",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>Cameras/<key>/RejectedCount",
+   "unit": "",
+   "doc": "Per camera: tag measurements the EKF rejected.",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>Connected",
+   "unit": "",
+   "doc": "The controller is plugged in to the Driver Station.",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>DetectedLayout",
+   "unit": "",
+   "doc": "The layout the controller's data looks like, or UNKNOWN.",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<p>ErrorVsFusedMeters",
    "unit": "",
-   "doc": "",
+   "doc": "EKF pose distance from the fused pose.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<p>ErrorVsTruthMeters",
    "unit": "",
-   "doc": "",
+   "doc": "Sim only: EKF error against the true pose.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<p>HeadingErrorVsFusedDeg",
    "unit": "",
-   "doc": "",
+   "doc": "EKF heading minus fused heading.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>Layout",
+   "unit": "",
+   "doc": "The layout being read now.",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>LeftTrigger",
+   "unit": "",
+   "doc": "Left trigger, 0 to 1.",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>LeftX",
+   "unit": "",
+   "doc": "Left stick X through the layout, before any deadband.",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>LeftY",
+   "unit": "",
+   "doc": "Left stick Y through the layout.",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>Mapping",
+   "unit": "",
+   "doc": "Gamepads/<pad>/: bench readout for the robot app. Mapping: the configured button layout, or AUTO.",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>Name",
+   "unit": "",
+   "doc": "The controller's name as the Driver Station reports it.",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<p>Pose",
    "unit": "",
-   "doc": "",
+   "doc": "The comparison EKF's pose (tag-by-tag filter); logged only, the robot doesn't drive on it.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>Pressed",
+   "unit": "",
+   "doc": "Controls the code reads as pressed, through the layout, e.g. A LB DpadUp.",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>Raw/Buttons",
+   "unit": "",
+   "doc": "Raw buttons held, as a bitfield (bit n is button n).",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>Raw/ButtonsAvailable",
+   "unit": "",
+   "doc": "Raw buttons the controller has, as a bitfield.",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>Raw/POV",
+   "unit": "",
+   "doc": "Raw d-pad (POV 0) direction, or NONE.",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<p>RejectedCount",
    "unit": "",
-   "doc": "",
+   "doc": "Tag measurements the EKF rejected, since boot.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<p>RejectionCounts/<key>",
    "unit": "",
-   "doc": "",
+   "doc": "EKF rejections by reason, since boot.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<p>Relocalizations",
    "unit": "",
-   "doc": "",
+   "doc": "Times tags kept failing for 1 s and the EKF widened its uncertainty so the cameras could pull it back.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>RightTrigger",
+   "unit": "",
+   "doc": "Right trigger, 0 to 1.",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>RightX",
+   "unit": "",
+   "doc": "Right stick X through the layout.",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<p>RightY",
+   "unit": "",
+   "doc": "Right stick Y through the layout.",
+   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<p>Seeded",
    "unit": "",
-   "doc": "",
+   "doc": "The EKF has been seeded with a starting pose.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<p>StdDevs",
    "unit": "",
-   "doc": "",
+   "doc": "EKF uncertainty: x and y in meters, heading in degrees.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<peakTempKey>",
    "unit": "",
-   "doc": "",
+   "doc": "Summary/PeakTempC/<device>: hottest reading while the motor was connected.",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<policyKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<positionLostKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<positionWritePendingKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/Active",
    "unit": "",
-   "doc": "",
+   "doc": "The checks are judging: disabled, and no FMS match has started.",
    "source": "src/main/java/frc/spectrumLib/checks/PreMatchChecks.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/AvgTagDistances",
    "unit": "",
-   "doc": "",
+   "doc": "Same as the input of the same name.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/BusOffCount",
    "unit": "",
-   "doc": "",
+   "doc": "Copy of CAN/<bus>/BusOffCount for the robot app and robotlog.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/BusUtilization",
    "unit": "percent",
-   "doc": "",
+   "doc": "Copy of CAN/<bus>/BusUtilization for the dashboard and the robot app.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
@@ -775,274 +635,155 @@
   {
    "key": "/RealOutputs/<prefix>/Go",
    "unit": "",
-   "doc": "",
+   "doc": "Every pre-match check passes or only warns: OK to queue.",
    "source": "src/main/java/frc/spectrumLib/checks/PreMatchChecks.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/MaxAmbiguities",
    "unit": "",
-   "doc": "",
+   "doc": "Same as the input of the same name.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<prefix>/MotorConnected",
+   "unit": "",
+   "doc": "Diagnostics: the motor answered this loop.",
+   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/Poses",
    "unit": "",
-   "doc": "",
+   "doc": "Same as the input of the same name.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/Reason",
    "unit": "",
-   "doc": "",
+   "doc": "The overall verdict text: GO, or NO-GO and why.",
    "source": "src/main/java/frc/spectrumLib/checks/PreMatchChecks.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/ReceiveErrorCounter",
    "unit": "",
-   "doc": "",
+   "doc": "Copy of CAN/<bus>/ReceiveErrorCounter.",
    "source": "src/main/java/frc/robot/Robot.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<prefix>/StatorCurrent",
+   "unit": "amps",
+   "doc": "Diagnostics: stator current.",
+   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/Status",
    "unit": "",
-   "doc": "",
+   "doc": "Copy of CAN/<bus>/Status.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/StatusOK",
    "unit": "",
-   "doc": "",
+   "doc": "Copy of CAN/<bus>/StatusOK, for the dashboard's bus lights.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/StdDevScales",
    "unit": "",
-   "doc": "",
+   "doc": "Same as the input of the same name.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/Summary",
    "unit": "",
-   "doc": "",
+   "doc": "Each check's last result: status, name and reason.",
    "source": "src/main/java/frc/spectrumLib/checks/PreMatchChecks.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<prefix>/SupplyCurrent",
+   "unit": "amps",
+   "doc": "Diagnostics: supply current.",
+   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/TagCounts",
    "unit": "",
-   "doc": "",
+   "doc": "Same as the input of the same name.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/TagIds",
    "unit": "",
-   "doc": "",
+   "doc": "Same as the input of the same name.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/<prefix>/Temp",
+   "unit": "celsius",
+   "doc": "Diagnostics: motor temperature.",
+   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/Timestamps",
    "unit": "",
-   "doc": "",
+   "doc": "Same as the input of the same name.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/TransmitErrorCounter",
    "unit": "",
-   "doc": "",
+   "doc": "Copy of CAN/<bus>/TransmitErrorCounter.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<prefix>/TxFullCount",
    "unit": "",
-   "doc": "",
+   "doc": "Copy of CAN/<bus>/TxFullCount.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/<pressed>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<rawButtons>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<rawButtonsAvailable>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<rawPov>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<rawRotationsKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<rejectedCountKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<rejectedKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<rejectedPosesKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<rightTrigger>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<rightX>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<rightY>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/gamepads/Gamepad.java",
+   "key": "/RealOutputs/<prefix>/Voltage",
+   "unit": "volts",
+   "doc": "Diagnostics under the mechanism's own prefix: applied voltage.",
+   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<shadowDistance>",
    "unit": "",
-   "doc": "",
+   "doc": "Localization/Shadow/<name>/DistanceFromFusedMeters: how far this source's shadow is from the fused pose.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<shadowPose>",
    "unit": "",
-   "doc": "",
+   "doc": "Localization/Shadow/<name>/Pose: odometry plus only this source, whether enabled or not; at 10 Hz.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
    "key": "/RealOutputs/<shadowTruthError>",
    "unit": "",
-   "doc": "",
+   "doc": "Localization/Shadow/<name>/ErrorVsTruthMeters: sim only, the shadow's error against the true pose.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<statorCurrentKey>",
-   "unit": "amps",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<steerVelocityKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<supplyCurrentKey>",
-   "unit": "amps",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<tempKey>",
-   "unit": "celsius",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<tIMESTAMP_KEY>",
-   "unit": "",
-   "doc": "Lets the web app tell \"the numbers are not moving\" apart from \"the robot went away\".",
-   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<trackingErrorKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<trackingFaultKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<trackingStoppedKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<verdictsKey>",
-   "unit": "",
-   "doc": "One entry per observation, in input order: the tier if accepted, the reason if not.",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<voltageKey>",
-   "unit": "volts",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<xyStdKey>",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
    "input": false
   },
   {
@@ -1069,14 +810,14 @@
   {
    "key": "/RealOutputs/Auton Warmed Up",
    "unit": "",
-   "doc": "",
+   "doc": "The selected auto's first path has been warmed up (followed once while disabled).",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Auton/AutoFileFound",
    "unit": "",
-   "doc": "",
+   "doc": "The selected auto's PathPlanner file was found.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
@@ -1104,77 +845,77 @@
   {
    "key": "/RealOutputs/Auton/RunningAuto",
    "unit": "",
-   "doc": "",
+   "doc": "The auto that started.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Auton/SelectedAuto",
    "unit": "",
-   "doc": "",
+   "doc": "The auto picked on the dashboard, with the alliance.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Auton/StartHeadingErrorDeg",
    "unit": "degrees",
-   "doc": "",
+   "doc": "Robot heading minus the selected auto's start heading.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Auton/StartPoseErrorMeters",
    "unit": "meters",
-   "doc": "",
+   "doc": "How far the robot sits from the selected auto's start pose.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/BatteryLogger/BatteryVoltage",
    "unit": "volts",
-   "doc": "",
+   "doc": "Battery voltage used for the power numbers.",
    "source": "src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java",
    "input": false
   },
   {
    "key": "/RealOutputs/BatteryLogger/Current",
    "unit": "amps",
-   "doc": "",
+   "doc": "Summed current of every tracked motor and the controller, at 10 Hz.",
    "source": "src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java",
    "input": false
   },
   {
    "key": "/RealOutputs/BatteryLogger/Energy",
    "unit": "watt hours",
-   "doc": "",
+   "doc": "Energy drawn from the battery while enabled this session.",
    "source": "src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java",
    "input": false
   },
   {
    "key": "/RealOutputs/BatteryLogger/Power",
    "unit": "watts",
-   "doc": "",
+   "doc": "Current times voltage: power drawn now.",
    "source": "src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java",
    "input": false
   },
   {
    "key": "/RealOutputs/CANConfig/BudgetExhausted",
    "unit": "",
-   "doc": "",
+   "doc": "Failed CAN config time ran out, so remaining config calls are skipped (a dead bus).",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/CANConfig/BudgetSpentSeconds",
    "unit": "seconds",
-   "doc": "",
+   "doc": "Seconds spent on failed CAN configuration calls since boot.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/CANConfig/FailedCalls",
    "unit": "",
-   "doc": "",
+   "doc": "CAN configuration calls that failed since boot.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
@@ -1193,37 +934,30 @@
    "input": false
   },
   {
-   "key": "/RealOutputs/Drive/Pose3d",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/RobotBumpSim.java",
-   "input": false
-  },
-  {
    "key": "/RealOutputs/DSUpload/BytesReceived",
    "unit": "",
-   "doc": "",
+   "doc": "Bytes uploaded since boot.",
    "source": "src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java",
    "input": false
   },
   {
    "key": "/RealOutputs/DSUpload/FilesReceived",
    "unit": "",
-   "doc": "",
+   "doc": "Driver Station logs and match media uploaded to the robot since boot.",
    "source": "src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java",
    "input": false
   },
   {
    "key": "/RealOutputs/DSUpload/LastError",
    "unit": "",
-   "doc": "",
+   "doc": "The last upload error, or empty.",
    "source": "src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java",
    "input": false
   },
   {
    "key": "/RealOutputs/DSUpload/LastFile",
    "unit": "",
-   "doc": "",
+   "doc": "The last file uploaded.",
    "source": "src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java",
    "input": false
   },
@@ -1391,7 +1125,7 @@
   {
    "key": "/RealOutputs/Initialized",
    "unit": "",
-   "doc": "",
+   "doc": "PathPlanner's path-following warmup has run.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
@@ -1510,21 +1244,21 @@
   {
    "key": "/RealOutputs/Leds/CommandPriority",
    "unit": "",
-   "doc": "",
+   "doc": "Its priority: a higher one can take over the LEDs.",
    "source": "src/main/java/frc/robot/subsystems/leds/Leds.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Leds/CurrentCommand",
    "unit": "",
-   "doc": "",
+   "doc": "The LED pattern command running.",
    "source": "src/main/java/frc/robot/subsystems/leds/Leds.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Leds/IsAnimating",
    "unit": "",
-   "doc": "",
+   "doc": "The LEDs are running an animation, not a solid color.",
    "source": "src/main/java/frc/robot/subsystems/leds/Leds.java",
    "input": false
   },
@@ -1538,14 +1272,14 @@
   {
    "key": "/RealOutputs/Localization/FusedErrorVsTruthMeters",
    "unit": "",
-   "doc": "",
+   "doc": "Sim only: fused pose error against the true pose; the CI pose check reads this.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Localization/FusedPose",
    "unit": "",
-   "doc": "",
+   "doc": "The robot pose: odometry corrected by every enabled source. What the robot drives on.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
@@ -1650,14 +1384,14 @@
   {
    "key": "/RealOutputs/Localization/OdometryErrorVsTruthMeters",
    "unit": "",
-   "doc": "",
+   "doc": "Sim only: odometry-only error against the true pose.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Localization/OdometryPose",
    "unit": "",
-   "doc": "",
+   "doc": "Wheels and gyro only, never corrected: the baseline, and how far the robot drifts without vision.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
@@ -1678,91 +1412,189 @@
   {
    "key": "/RealOutputs/Localization/OutOfOrderReapplied",
    "unit": "",
-   "doc": "",
+   "doc": "Times a late vision measurement made newer ones be re-applied in time order (WPILib would have dropped them), since boot.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Localization/SimTruthPose",
    "unit": "",
-   "doc": "",
+   "doc": "Sim only: where the robot really is.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/Sources/<name>/AcceptedCount",
+   "unit": "",
+   "doc": "Observations accepted since boot.",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/Sources/<name>/AcceptedPoses",
+   "unit": "",
+   "doc": "This loop's observations that passed every gate.",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/Sources/<name>/EnabledSwitch",
+   "unit": "",
+   "doc": "The dashboard switch for this source is on (off: it still runs and has a shadow, but never moves the pose).",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/Sources/<name>/LastVerdict",
+   "unit": "",
+   "doc": "The last observation's verdict.",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/Sources/<name>/PolicyAllowsFusion",
+   "unit": "",
+   "doc": "The fusion policy let this source move the fused pose this loop.",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/Sources/<name>/RejectedCount",
+   "unit": "",
+   "doc": "Observations rejected since boot; RejectionCounts/<gate> splits them by reason.",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/Sources/<name>/RejectedPoses",
+   "unit": "",
+   "doc": "This loop's observations a gate rejected.",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/Sources/<name>/Verdicts",
+   "unit": "",
+   "doc": "One entry per observation, in input order: the tier if accepted, the reason if not.",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/Sources/<name>/XYStdDevs",
+   "unit": "",
+   "doc": "Each accepted observation's x/y standard deviation, meters.",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseSource.java",
    "input": false
   },
   {
    "key": "/RealOutputs/MatchData/InShift",
    "unit": "",
-   "doc": "",
+   "doc": "Our hub is active in this shift of the 2026 game.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/MatchData/MatchTime",
    "unit": "seconds",
-   "doc": "",
+   "doc": "Match clock from the Driver Station, seconds left in the period.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/MatchData/TimeLeftInShift",
    "unit": "seconds",
-   "doc": "",
+   "doc": "Time until the current hub shift ends.",
    "source": "src/main/java/frc/robot/Robot.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Mechanisms/<name>/PositionLost",
+   "unit": "",
+   "doc": "The motor rebooted since its position was set, so its position is wrong until it re-homes.",
+   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Mechanisms/<name>/PositionWritePending",
+   "unit": "",
+   "doc": "A new zero was sent and hasn't reached the readings yet; setpoints hold until it does.",
+   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Mechanisms/<name>/TrackingError",
+   "unit": "",
+   "doc": "How far the mechanism is from its goal while tracking one; NaN when not.",
+   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Mechanisms/<name>/TrackingFault",
+   "unit": "",
+   "doc": "Off its goal past tolerance right now (the tracking stop's debounce is running).",
+   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Mechanisms/<name>/TrackingStopped",
+   "unit": "",
+   "doc": "Stopped for being off its goal too long (likely jammed); clears on disable or the operator's clear.",
+   "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Params/Files",
    "unit": "",
-   "doc": "",
+   "doc": "Each param layer and whether it loaded.",
    "source": "src/main/java/frc/spectrumLib/params/Params.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Params/LastSave",
    "unit": "",
-   "doc": "",
+   "doc": "Result of the last pit save.",
    "source": "src/main/java/frc/spectrumLib/params/Params.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Params/LiveTuning",
    "unit": "",
-   "doc": "",
+   "doc": "Dashboard changes to params can apply (tuning mode, disabled, no field).",
    "source": "src/main/java/frc/spectrumLib/params/Params.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Params/LocalFolder",
    "unit": "",
-   "doc": "",
+   "doc": "The robot-local folder pit saves go to, which a deploy doesn't wipe.",
    "source": "src/main/java/frc/spectrumLib/params/Params.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Params/Manifest",
    "unit": "",
-   "doc": "",
+   "doc": "Every param with its group, type, bounds and value, as JSON, for the robot app.",
    "source": "src/main/java/frc/spectrumLib/params/Params.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Params/PendingLive",
    "unit": "",
-   "doc": "",
+   "doc": "Dashboard changes waiting until the robot is disabled with no field attached.",
    "source": "src/main/java/frc/spectrumLib/params/Params.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Params/Problems",
    "unit": "",
-   "doc": "",
+   "doc": "Param files or values that were skipped, and why.",
    "source": "src/main/java/frc/spectrumLib/params/Params.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Params/Robot",
    "unit": "",
-   "doc": "",
+   "doc": "Which robot the params loaded for (from the controller's serial).",
    "source": "src/main/java/frc/spectrumLib/params/Params.java",
    "input": false
   },
@@ -2287,28 +2119,28 @@
   {
    "key": "/RealOutputs/Sim/Components",
    "unit": "",
-   "doc": "",
+   "doc": "Sim only: intake and hood poses for AdvantageScope's 3D robot.",
    "source": "src/main/java/frc/robot/RobotSim.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Sim/Fuel",
    "unit": "",
-   "doc": "",
+   "doc": "Sim only: fuel picked up.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Sim/Launched",
    "unit": "",
-   "doc": "",
+   "doc": "Sim only: fuel launched.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Sim/Scored",
    "unit": "",
-   "doc": "",
+   "doc": "Sim only: fuel scored in the hub.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
@@ -2397,6 +2229,27 @@
    "input": false
   },
   {
+   "key": "/RealOutputs/Summary/CAN/<label>/BusOffs",
+   "unit": "",
+   "doc": "bus-off events from the bus's own counter since the first good status read",
+   "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Summary/CAN/<label>/DownSeconds",
+   "unit": "",
+   "doc": "the bus counts as down while more than half its devices that have ever connected are not answering",
+   "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Summary/CAN/<label>/Drops",
+   "unit": "",
+   "doc": "the bus counts as down while more than half its devices that have ever connected are not answering",
+   "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
+   "input": false
+  },
+  {
    "key": "/RealOutputs/Summary/Devices/Drops",
    "unit": "",
    "doc": "totals over every tracked CAN device",
@@ -2474,23 +2327,37 @@
    "input": false
   },
   {
+   "key": "/RealOutputs/Summary/Vision/<name>/Accepted",
+   "unit": "",
+   "doc": "the source's running counts since boot",
+   "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Summary/Vision/<name>/Rejected",
+   "unit": "",
+   "doc": "the source's running counts since boot",
+   "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
+   "input": false
+  },
+  {
    "key": "/RealOutputs/SuperStructure/CurrentSuperState",
    "unit": "",
-   "doc": "",
+   "doc": "The state SuperStructure is in (AUTON_IDLE when idle in auto or disabled).",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/SuperStructure/IntakeSqueezeTimerElapsed",
    "unit": "seconds",
-   "doc": "",
+   "doc": "Time since a squeeze launch state began; the intake squeezes in after 1 s.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/SuperStructure/WantedSuperState",
    "unit": "",
-   "doc": "",
+   "doc": "The state the drivers or auto asked for.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
@@ -2506,6 +2373,69 @@
    "unit": "deg/s",
    "doc": "Heading rate fed forward while aiming, so the robot keeps up with a moving aim point.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Swerve/Align/<name>/AbsoluteRotations",
+   "unit": "",
+   "doc": "Pit alignment, disabled only: the CANcoder's reading with its offset applied, rotations.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Swerve/Align/<name>/AppliedOffset",
+   "unit": "",
+   "doc": "The offset the CANcoder is running with now.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Swerve/Align/<name>/AppliedOffsetValid",
+   "unit": "",
+   "doc": "The applied offset was read back from the device (false: assumed from config).",
+   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Swerve/Align/<name>/ConfigOffset",
+   "unit": "",
+   "doc": "The offset in the code's config.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Swerve/Align/<name>/Connected",
+   "unit": "",
+   "doc": "The CANcoder answered.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Swerve/Align/<name>/EncoderId",
+   "unit": "",
+   "doc": "The CANcoder's CAN id.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Swerve/Align/<name>/RawRotations",
+   "unit": "",
+   "doc": "The CANcoder's reading without its offset: what to save as the new offset with the wheel straight.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Swerve/Align/<name>/SteerVelocity",
+   "unit": "",
+   "doc": "Steer encoder velocity; non-zero means the wheel is moving, so don't save.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Swerve/Align/Timestamp",
+   "unit": "",
+   "doc": "Lets the web app tell \"the numbers are not moving\" apart from \"the robot went away\".",
+   "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
    "input": false
   },
   {
@@ -2735,35 +2665,35 @@
   {
    "key": "/RealOutputs/System/TopThreads",
    "unit": "",
-   "doc": "",
+   "doc": "The busiest threads and their CPU share.",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
   {
    "key": "/RealOutputs/SystemStats/BrownedOut",
    "unit": "",
-   "doc": "",
+   "doc": "The controller is browned out now (outputs off), where the brownout API works.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/SystemStats/BrownoutVoltage",
    "unit": "volts",
-   "doc": "",
+   "doc": "The voltage at which the controller browns out.",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/<name>/Connected",
    "unit": "",
-   "doc": "",
+   "doc": "Per Orin camera: the camera is talking.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/<x>/Connected",
    "unit": "",
-   "doc": "",
+   "doc": "Per Limelight: the camera is talking, for the Pre-Match tab.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
@@ -2826,42 +2756,42 @@
   {
    "key": "/RealOutputs/Vision/Jetson/Connected",
    "unit": "",
-   "doc": "",
+   "doc": "The Jetson's heartbeat is fresh.",
    "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/Jetson/ExcludedTags",
    "unit": "",
-   "doc": "",
+   "doc": "Tags every Orin multi-tag solve ignores, as sent to the Jetson.",
    "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/Jetson/HeartbeatAgeSeconds",
    "unit": "",
-   "doc": "",
+   "doc": "Time since the Jetson's heartbeat last changed; over the timeout means the Jetson is down.",
    "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/Jetson/RequestedPipeline",
    "unit": "",
-   "doc": "",
+   "doc": "PhotonVision pipeline the robot asked for: 0 match, 1 practice.",
    "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/Jetson/Rewind/Label",
    "unit": "",
-   "doc": "",
+   "doc": "Name the robot gave the Rewind recording.",
    "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/Jetson/Rewind/RecordRequested",
    "unit": "",
-   "doc": "",
+   "doc": "The robot asked Rewind to record.",
    "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
    "input": false
   },
@@ -2870,6 +2800,69 @@
    "unit": "",
    "doc": "Pose seeds from a multi-tag frame, since boot.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Vision/Orin/<cameraName>/<mode>/DivergedSolves",
+   "unit": "",
+   "doc": "Solves thrown out for diverging, since boot.",
+   "source": "src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Vision/Orin/<cameraName>/<mode>/LastError",
+   "unit": "",
+   "doc": "The constrained solve is native code; a failure drops this frame, not the loop.",
+   "source": "src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Vision/Orin/<cameraName>/<mode>/NativeSolver",
+   "unit": "",
+   "doc": "The native gyro-aided solver is working (false: it failed and the Java fallback runs).",
+   "source": "src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Vision/Orin/<cameraName>/<mode>/SolveMicros",
+   "unit": "",
+   "doc": "Time for this loop's solves.",
+   "source": "src/main/java/frc/robot/subsystems/vision/OrinGyroSourceIO.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Vision/Orin/<cameraName>/DecodeFailures",
+   "unit": "",
+   "doc": "Results PhotonLib or the solver couldn't read, since boot; logged once there are any.",
+   "source": "src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Vision/Orin/<cameraName>/ExcludedTargets",
+   "unit": "",
+   "doc": "Targets dropped this loop for being on an excluded tag.",
+   "source": "src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Vision/Orin/<cameraName>/LatencyMs",
+   "unit": "",
+   "doc": "Latest result's capture-to-publish latency.",
+   "source": "src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Vision/Orin/<cameraName>/ResultAgeSeconds",
+   "unit": "",
+   "doc": "Time since the latest result's capture.",
+   "source": "src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Vision/Orin/<cameraName>/ResultsPerSecond",
+   "unit": "",
+   "doc": "PhotonVision results per second from this camera.",
+   "source": "src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java",
    "input": false
   },
   {
@@ -2938,35 +2931,35 @@
   {
    "key": "/SimScript/PlacePose",
    "unit": "",
-   "doc": "",
+   "doc": "Sim script: where it was placed.",
    "source": "src/main/java/frc/robot/SimScript.java",
    "input": true
   },
   {
    "key": "/SimScript/PlaceRobot",
    "unit": "",
-   "doc": "",
+   "doc": "Sim script: the robot was placed at PlacePose this loop.",
    "source": "src/main/java/frc/robot/SimScript.java",
    "input": true
   },
   {
    "key": "/SimScript/ResetQuest",
    "unit": "",
-   "doc": "",
+   "doc": "Sim script: the Quest was re-origined this loop.",
    "source": "src/main/java/frc/robot/SimScript.java",
    "input": true
   },
   {
    "key": "/SummaryInputs/Brownout/BrownedOutValid",
    "unit": "",
-   "doc": "",
+   "doc": "The brownout flag API works on this controller, so the flag counts too.",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": true
   },
   {
    "key": "/SummaryInputs/Brownout/FaultCount",
    "unit": "",
-   "doc": "",
+   "doc": "The controller's brownout fault count, or -1 where there is none.",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": true
   },
@@ -3176,14 +3169,14 @@
   {
    "key": "/Vision/FieldMap/Hash",
    "unit": "",
-   "doc": "",
+   "doc": "Its canonical hash, to compare with the Jetson's Vision/Jetson/FieldMap/Hash.",
    "source": "src/main/java/frc/robot/subsystems/vision/TagField.java",
    "input": true
   },
   {
    "key": "/Vision/FieldMap/Name",
    "unit": "",
-   "doc": "",
+   "doc": "The AprilTag field map the robot solves with: the WPILib field's name, or custom.",
    "source": "src/main/java/frc/robot/subsystems/vision/TagField.java",
    "input": true
   },

@@ -87,7 +87,16 @@ def string_constants(text):
     found = {}
     for name, value in re.findall(r'\bString (\w+)\s*=\s*"((?:[^"\\]|\\.)*)"\s*;', text):
         found[name] = value if found.get(name, value) == value else None
-    return {k: v for k, v in found.items() if v is not None}
+    consts = {k: v for k, v in found.items() if v is not None}
+    # A key field built once from strings, e.g. positionLostKey = "Mechanisms/" + name + "/X".
+    built = {}
+    for name, expr in re.findall(r'(?<![.\w])(?:this\.)?(\w+)\s*=\s*([^;=]*\+[^;]*);', text):
+        if '"' in expr and "?" not in expr and "->" not in expr:
+            built[name] = expr if built.get(name, expr) == expr else None
+    for name, expr in built.items():
+        if expr is not None and name not in consts:
+            consts[name] = render(expr, consts)
+    return consts
 
 
 def render(expr, consts=None):
@@ -117,8 +126,8 @@ def render(expr, consts=None):
     for p in parts:
         if re.fullmatch(r'"(?:[^"\\]|\\.)*"', p):
             out += p[1:-1]
-        elif consts and p in consts:
-            out += consts[p]
+        elif consts and re.fullmatch(r"[\w.]+", p) and p.split(".")[-1] in consts:
+            out += consts[p.split(".")[-1]]
         else:
             words = re.findall(r"[A-Za-z_]\w*", p.split("(")[0])
             name = words[-1] if words else "x"
@@ -168,6 +177,8 @@ def outputs(path, text, lines):
     for m in OUTPUT_CALL.finditer(text):
         if text[:m.start()].rstrip().endswith(("void", "static")):
             continue  # a declaration, not a call
+        if lines[line_of(text, m.start())].lstrip().startswith(("*", "//")):
+            continue  # an example in a comment
         args, _ = split_args(text, m.end())
         if not args or not args[0] or args[0] in ("key", "k", "name"):
             continue  # the helper itself, forwarding its parameter
@@ -302,9 +313,15 @@ def build():
             add(entries, e)
     for e in inputs(input_classes()):
         add(entries, e)
+    # Placeholders match by position: a doc's <bus> is the code's <label>.
+    def generic(k):
+        return re.sub(r"<[^>]*>", "<>", k)
+
+    by_generic = {generic(k): e for k, e in entries.items()}
     for key, meaning in doc_table_meanings().items():
-        if key in entries and not entries[key]["doc"]:
-            entries[key]["doc"] = meaning
+        e = by_generic.get(generic(key))
+        if e is not None and not e["doc"]:
+            e["doc"] = meaning
     keys = sorted(entries.values(), key=lambda e: e["key"].lower())
     for e in keys:
         e.setdefault("input", False)

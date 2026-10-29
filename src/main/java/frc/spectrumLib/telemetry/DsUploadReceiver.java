@@ -292,9 +292,13 @@ public final class DsUploadReceiver {
         }
         r.robotEnabled = enabled;
         if (Telemetry.slowLogThisLoop()) {
+            // Driver Station logs and match media uploaded to the robot since boot.
             Telemetry.log("DSUpload/FilesReceived", r.filesCompleted.get());
+            // Bytes uploaded since boot.
             Telemetry.log("DSUpload/BytesReceived", r.bytesReceived.get());
+            // The last file uploaded.
             Telemetry.log("DSUpload/LastFile", r.lastFile);
+            // The last upload error, or empty.
             Telemetry.log("DSUpload/LastError", r.lastError);
         }
     }

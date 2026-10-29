@@ -250,8 +250,8 @@ public class SystemLoadMonitor {
         // Threads in the robot program.
         Telemetry.logDash("System/ThreadCount", snap.threadCount());
         if (snap.topThreads() != null) {
-            // The busiest threads and their CPU share.
             Telemetry.addDashboardKey("System/TopThreads");
+            // The busiest threads and their CPU share.
             Telemetry.log("System/TopThreads", snap.topThreads());
         }
     }

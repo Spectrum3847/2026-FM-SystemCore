@@ -783,15 +783,19 @@ public class Robot extends SpectrumRobot {
             Telemetry.timeEnd("Scheduler/CommandScheduler");
             CommandLog.periodic();
 
+            // Match clock from the Driver Station, seconds left in the period.
             Telemetry.log("MatchData/MatchTime", MatchState.getMatchTime(), "seconds");
             var shift = ShiftHelpers.getOfficialShiftInfo();
+            // Our hub is active in this shift of the 2026 game.
             Telemetry.log("MatchData/InShift", shift.active());
+            // Time until the current hub shift ends.
             Telemetry.logDash("MatchData/TimeLeftInShift", shift.remainingTime(), "seconds");
 
             Telemetry.time("Scheduler/SystemLogging");
             batteryLogger.setBatteryVoltage(RuntimeInputs.batteryVoltage());
             // Every loop: a brownout is a few hundred milliseconds.
             if (powerApiAvailable) {
+                // The controller is browned out now (outputs off), where the brownout API works.
                 Telemetry.log("SystemStats/BrownedOut", RuntimeInputs.brownedOut());
                 if (RuntimeInputs.brownedOut() != wasBrownedOut) {
                     wasBrownedOut = RuntimeInputs.brownedOut();
@@ -879,11 +883,15 @@ public class Robot extends SpectrumRobot {
         lastCanStatusSeconds = now;
         canBusInputs.buses.forEach(this::logOneCanBus);
 
+        // Seconds spent on failed CAN configuration calls since boot.
         Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds(), "seconds");
+        // CAN configuration calls that failed since boot.
         Telemetry.log("CANConfig/FailedCalls", CanConfigBudget.getFailedCalls());
+        // Failed CAN config time ran out, so remaining config calls are skipped (a dead bus).
         Telemetry.logDash("CANConfig/BudgetExhausted", CanConfigBudget.exhausted());
 
         if (powerApiAvailable) {
+            // The voltage at which the controller browns out.
             Telemetry.log(
                     "SystemStats/BrownoutVoltage", RobotController.getBrownoutVoltage(), "volts");
         }
@@ -895,12 +903,19 @@ public class Robot extends SpectrumRobot {
      * a bus whose status read itself failed, which looks exactly like a healthy idle bus.
      */
     private void logOneCanBus(String prefix, CanBusInputs.Bus bus) {
+        // Copy of CAN/<bus>/BusUtilization for the dashboard and the robot app.
         Telemetry.logDash(prefix + "/BusUtilization", bus.utilizationPct(), "percent");
+        // Copy of CAN/<bus>/BusOffCount for the robot app and robotlog.
         Telemetry.log(prefix + "/BusOffCount", bus.busOffCount());
+        // Copy of CAN/<bus>/TxFullCount.
         Telemetry.log(prefix + "/TxFullCount", bus.txFullCount());
+        // Copy of CAN/<bus>/ReceiveErrorCounter.
         Telemetry.log(prefix + "/ReceiveErrorCounter", bus.receiveErrorCount());
+        // Copy of CAN/<bus>/TransmitErrorCounter.
         Telemetry.log(prefix + "/TransmitErrorCounter", bus.transmitErrorCount());
+        // Copy of CAN/<bus>/Status.
         Telemetry.log(prefix + "/Status", bus.status());
+        // Copy of CAN/<bus>/StatusOK, for the dashboard's bus lights.
         Telemetry.logDash(prefix + "/StatusOK", bus.statusOk());
     }
 
@@ -923,6 +938,7 @@ public class Robot extends SpectrumRobot {
                                     // AdvantageKit's LocalADStarAK so it replays.
                                     Commands.runOnce(
                                             () -> {
+                                                // PathPlanner's path-following warmup has run.
                                                 Telemetry.log("Initialized", true);
                                                 autonWarmedUp = true;
                                             }))
@@ -979,6 +995,7 @@ public class Robot extends SpectrumRobot {
 
         if (!autoName.equals(selectionKey)) {
             autoName = selectionKey;
+            // The selected auto's first path has been warmed up (followed once while disabled).
             Telemetry.log("Auton Warmed Up", false);
             boolean autoFileFound = AutoBuilder.getAllAutoNames().contains(baseAutoName);
             logAutoSelection(fullAutoName, autoFileFound, baseAutoName);
@@ -1083,7 +1100,9 @@ public class Robot extends SpectrumRobot {
     private void logAutoSelection(String fullAutoName, boolean autoFileFound, String baseAutoName) {
         selectedAutoName = fullAutoName;
         this.autoFileFound = autoFileFound;
+        // The auto picked on the dashboard, with the alliance.
         Telemetry.log("Auton/SelectedAuto", fullAutoName);
+        // The selected auto's PathPlanner file was found.
         Telemetry.log("Auton/AutoFileFound", autoFileFound);
         if (autoFileFound) {
             Telemetry.print("Auto selected: " + fullAutoName, PrintPriority.HIGH);
@@ -1117,7 +1136,9 @@ public class Robot extends SpectrumRobot {
 
     /** The robot's distance from the selected auto's start, as the pre-match check measured it. */
     private void logStartPose() {
+        // How far the robot sits from the selected auto's start pose.
         Telemetry.logDash("Auton/StartPoseErrorMeters", autoStart.getDistanceMeters(), "meters");
+        // Robot heading minus the selected auto's start heading.
         Telemetry.logDash("Auton/StartHeadingErrorDeg", autoStart.getHeadingErrorDeg(), "degrees");
     }
 
@@ -1132,6 +1153,7 @@ public class Robot extends SpectrumRobot {
         Telemetry.print("@@@ Auton Init @@@ ");
         String runningAuto = auton.getAutonomousCommand().getName();
         Telemetry.logEvent("Events", "auto started: " + runningAuto);
+        // The auto that started.
         Telemetry.log("Auton/RunningAuto", runningAuto);
         if (robotSim != null) {
             robotSim.getBallSim().clearBalls();
@@ -1216,8 +1238,11 @@ public class Robot extends SpectrumRobot {
         }
         robotSim.getBallSim().tick(); // runs physics, publishes ball positions to NT
         robotSim.updateArticulatedMechanisms();
+        // Sim only: fuel picked up.
         Telemetry.log("Sim/Fuel", robotSim.getBallSim().getTotalIntaked());
+        // Sim only: fuel launched.
         Telemetry.log("Sim/Launched", robotSim.getBallSim().getTotalLaunched());
+        // Sim only: fuel scored in the hub.
         Telemetry.log("Sim/Scored", robotSim.getBallSim().getTotalScored());
     }
 }

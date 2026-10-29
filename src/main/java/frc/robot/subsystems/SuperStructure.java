@@ -126,8 +126,11 @@ public class SuperStructure extends SubsystemBase {
         }
         previousSuperState = currentSuperState;
 
+        // The state the drivers or auto asked for.
         Telemetry.log("SuperStructure/WantedSuperState", wantedSuperState.toString());
+        // The state SuperStructure is in (AUTON_IDLE when idle in auto or disabled).
         Telemetry.log("SuperStructure/CurrentSuperState", currentSuperState.toString());
+        // Time since a squeeze launch state began; the intake squeezes in after 1 s.
         Telemetry.log(
                 "SuperStructure/IntakeSqueezeTimerElapsed", intakeSqueezeTimer.get(), "seconds");
         Telemetry.timeEnd("Scheduler/Periodic/SuperStructure");

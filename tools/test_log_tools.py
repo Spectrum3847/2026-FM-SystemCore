@@ -145,6 +145,23 @@ class LogToolsTest(unittest.TestCase):
         self.assertEqual(1, result.returncode, result.stdout)
         self.assertIn("FAIL  Localization/FusedPose", result.stdout)
 
+    def test_ci_assert_skips_the_second_after_a_sim_stall(self):
+        import ci_assert
+
+        log = Log()
+        log.put("/Vision/PoseSeedConfirmed", 0.0, True)
+        t = 0.0
+        while t < 4.0:
+            log.put("/Timestamp", t, int(t * 1e6))
+            # A 0.3 s stall at 2.0 s: the pose is off until vision catches up 0.6 s later.
+            error = 0.5 if 2.3 <= t < 2.9 else 0.02
+            log.put("/RealOutputs/Localization/FusedErrorVsTruthMeters", t, error)
+            t = round(t + (0.3 if abs(t - 2.0) < 1e-9 else 0.02), 6)
+        records, types = wpilog_summary.read_wpilog(log.write(self.path("stall")))
+        ok, msg = ci_assert.check_fused_error(records, types)
+        self.assertTrue(ok, msg)
+        self.assertIn("1 sim stalls", msg)
+
     def test_replay_compare_after_skips_a_cut_logs_first_moments(self):
         log = Log()
         for i in range(10):

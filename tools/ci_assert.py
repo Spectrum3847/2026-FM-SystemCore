@@ -30,6 +30,11 @@ OVERRUN_FACTOR = 1.25
 PATH_END_TOLERANCE_M = 0.30
 # The fused pose takes about 0.1 s to follow the robot when the script teleports it.
 PLACE_SETTLE_S = 0.25
+# A CI runner can stall the sim for a few hundred ms. The sim's robot keeps moving by wall time
+# while odometry misses the gap (on the robot, odometry has its own thread), so the fused pose is
+# off until vision pulls it back: 0.49 m after a 289 ms stall, under 0.1 m 0.7 s later.
+STALL_S = 0.1
+STALL_SETTLE_S = 1.0
 
 # What WPILib's RobotBase prints when robot code throws or startCompetition returns, what Java
 # prints when another thread dies, and Robot's CrashTracker (only called on the way to a crash). Not
@@ -119,14 +124,19 @@ def check_fused_error(records, types):
     windows = enabled_windows(records, types)
     end = windows[-1][1] if windows else math.inf
     placed = [t for t, v in series(records, types, "SimScript/PlaceRobot") if v]
+    loops = [t for t, _ in series(records, types, "Timestamp")]
+    stalls = [b for a, b in zip(loops, loops[1:]) if b - a > STALL_S]
     errs = [v for t, v in series(records, types, "Localization/FusedErrorVsTruthMeters")
             if seeded[0] <= t < end and v is not None and not math.isnan(v)
-            and not any(p <= t < p + PLACE_SETTLE_S for p in placed)]
+            and not any(p <= t < p + PLACE_SETTLE_S for p in placed)
+            and not any(s <= t < s + STALL_SETTLE_S for s in stalls)]
     if not errs:
         return False, "no FusedErrorVsTruthMeters after the seed"
     p95 = statistics.quantiles(errs, n=20)[-1] if len(errs) > 1 else errs[0]
     msg = (f"fused error after seed: mean {statistics.mean(errs):.3f} m, p95 {p95:.3f} m, "
            f"max {max(errs):.3f} m (limits {MAX_FUSED_ERROR_P95_M}, {MAX_FUSED_ERROR_M})")
+    if stalls:
+        msg += f", {STALL_SETTLE_S:g} s skipped after each of {len(stalls)} sim stalls"
     return p95 <= MAX_FUSED_ERROR_P95_M and max(errs) <= MAX_FUSED_ERROR_M, msg
 
 

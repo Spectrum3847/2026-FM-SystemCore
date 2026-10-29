@@ -317,9 +317,8 @@ public class Robot extends SpectrumRobot {
             powerApiAvailable = true;
         } catch (RuntimeException e) {
             powerApiAvailable = false;
-            Telemetry.print(
-                    "Brownout voltage API unavailable on this controller: " + e.getMessage(),
-                    PrintPriority.HIGH);
+            // Expected on SystemCore until WPILib alpha-7 (docs/upgrading-to-alpha-7.md).
+            Telemetry.print("Brownout API unavailable, brownout telemetry off: " + e.getMessage());
         }
         RuntimeInputs.setBrownoutApiAvailable(powerApiAvailable);
         matchSummary.setBrownedOutAvailable(powerApiAvailable);

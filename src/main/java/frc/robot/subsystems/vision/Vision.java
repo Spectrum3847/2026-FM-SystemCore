@@ -729,6 +729,8 @@ public class Vision implements Subsystem {
         // TXMAN1: while aiming, the side cameras pulled the pose 15-35 cm off LL-Back's.
         boolean aiming = Robot.getSuperStructure() != null && Robot.getSuperStructure().isAiming();
         boolean backOnly = llWindow && useMt2 && aiming && acceptedMultiTag(backMt2);
+        // While aiming, only LL-Back's MT2 multi-tag frames update the pose (the side cameras
+        // pulled it 15-35 cm off at TXMAN1).
         Logger.recordOutput("Vision/AimBackMT2Only", backOnly);
         for (PoseSource s : mt1Sources) {
             applyWithPolicy(s, llWindow && !useMt2 && !backOnly);
@@ -847,6 +849,7 @@ public class Vision implements Subsystem {
         }
         Pose2d fused = fusion.sampleAt(o.timestampSeconds()).orElse(fusion.getPose());
         double errorDeg = o.pose2d().getRotation().minus(fused.getRotation()).getDegrees();
+        // LL-Back MT1 multi-tag heading minus the fused heading at its capture time.
         Logger.recordOutput("Vision/BackHeadingErrorDeg", errorDeg);
         if (Math.abs(errorDeg) > config.backHeadingMaxErrorDeg) {
             return;
@@ -876,6 +879,8 @@ public class Vision implements Subsystem {
                 config.seedXyStdDev,
                 Units.degreesToRadians(config.seedThetaStdDevDeg));
         backHeadingCorrections++;
+        // Times LL-Back held off the fused heading long enough to re-seed it (and re-origin the
+        // Quest), since boot.
         Logger.recordOutput("Vision/BackHeadingCorrections", backHeadingCorrections);
         resetQuestToRobotPose();
     }
@@ -1004,6 +1009,7 @@ public class Vision implements Subsystem {
             }
             addTagFrame(ekf, frame, tilted);
         }
+        // Time to feed this loop's observations to the comparison EKF.
         Logger.recordOutput("Localization/EKF/FeedMicros", (System.nanoTime() - start) / 1000);
     }
 
@@ -1150,6 +1156,8 @@ public class Vision implements Subsystem {
             trackSeedConfirmation(o);
         } else {
             seedConfirmStreak = 0;
+            // Why the seed-confirm run last restarted: disagrees with the fused heading, or heading
+            // spread.
             Telemetry.log("Vision/SeedConfirmBreak", "Disagrees with fused heading");
         }
     }
@@ -1219,6 +1227,7 @@ public class Vision implements Subsystem {
         PoseObservation o = best.observation();
         double errorDeg =
                 o.pose2d().getRotation().minus(headingAt(o.timestampSeconds())).getDegrees();
+        // Best MT1 multi-tag heading minus the fused heading, judged while the robot is still.
         Logger.recordOutput("Vision/GrossHeadingErrorDeg", errorDeg);
         if (Math.abs(errorDeg) < config.grossHeadingErrorDeg) {
             grossHeadingSince = Double.NaN;
@@ -1349,13 +1358,22 @@ public class Vision implements Subsystem {
         updateDeviceAlerts();
         notSeededAlert.set(!poseHeadingSeeded && disabled);
         notConfirmedAlert.set(poseHeadingSeeded && !poseSeedConfirmed && disabled);
+        // Vision has set the pose and heading since boot.
         Telemetry.logDash("Vision/PoseHeadingSeeded", poseHeadingSeeded);
+        // The seed held: 50 multi-tag frames in a row agreed on the heading.
         Telemetry.logDash("Vision/PoseSeedConfirmed", poseSeedConfirmed);
+        // Frames in the current seed-confirm run, of 50.
         Telemetry.logDash("Vision/SeedConfirmProgress", (long) seedConfirmStreak);
+        // Limelight pose used for the chassis: MT1, or MT2 once the seed is confirmed and MT2 is
+        // switched on.
         Telemetry.logDash("Vision/ChassisSource", useMt2 ? "MT2" : "MT1");
+        // Times a still robot's heading was re-seeded from vision for being far off, since boot.
         Telemetry.logDash("Vision/GrossHeadingCorrections", (long) grossHeadingCorrections);
+        // Seeds that happened while enabled because nothing seeded the pose before enable.
         Telemetry.log("Vision/EnabledSeedCount", (long) enabledSeedCount);
+        // Pose seeds from a multi-tag frame, since boot.
         Telemetry.log("Vision/MultiTagSeedCount", multiTagSeedCount);
+        // Time since vision last updated the fused pose; capped at 999.
         Telemetry.logDash(
                 "Vision/SecondsSinceFusedEstimate", Math.min(secondsSinceFusedEstimate(), 999.0));
         if (Telemetry.slowLogThisLoop()) {
@@ -1368,6 +1386,7 @@ public class Vision implements Subsystem {
             for (PoseSource s : orinSources) {
                 Telemetry.logDash("Vision/" + s.getName() + "/Connected", s.isConnected());
             }
+            // The QuestNav is talking. Each camera has its own Vision/<camera>/Connected.
             Telemetry.logDash("Vision/Quest/Connected", questSource.isConnected());
         }
         // (Each source's Connected flag is already a logged input.)

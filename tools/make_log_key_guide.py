@@ -82,8 +82,12 @@ def split_args(text, start):
 
 
 def string_constants(text):
-    """A file's static final String constants, so a key built from one shows its text."""
-    return dict(re.findall(r'static final String (\w+)\s*=\s*"((?:[^"\\]|\\.)*)"\s*;', text))
+    """A file's String constants and String locals set from a literal, so a key built from one
+    shows its text. A name set twice to different strings is left out."""
+    found = {}
+    for name, value in re.findall(r'\bString (\w+)\s*=\s*"((?:[^"\\]|\\.)*)"\s*;', text):
+        found[name] = value if found.get(name, value) == value else None
+    return {k: v for k, v in found.items() if v is not None}
 
 
 def render(expr, consts=None):

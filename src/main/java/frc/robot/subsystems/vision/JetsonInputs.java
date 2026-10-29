@@ -185,6 +185,15 @@ public class JetsonInputs implements LoggableInputs {
     /** Why the Jetson could not load the robot's map, or empty. */
     public String fieldMapError = "";
 
+    /**
+     * PhotonVision's log lines since the last cycle ({@code /photonvision/jetson/log}): warnings
+     * always, every line while the Jetson is quiet. Its own logs of that time are lost at
+     * power-off.
+     */
+    public String[] logLines = NO_LINES;
+
+    private static final String[] NO_LINES = new String[0];
+
     @Override
     public void toLog(LogTable table) {
         table.put("Heartbeat", heartbeat);
@@ -240,6 +249,7 @@ public class JetsonInputs implements LoggableInputs {
         table.put("FieldMap/Name", fieldMapName);
         table.put("FieldMap/LoadedAt", fieldMapLoadedAt);
         table.put("FieldMap/Error", fieldMapError);
+        table.put("LogLines", logLines);
     }
 
     @Override
@@ -299,5 +309,6 @@ public class JetsonInputs implements LoggableInputs {
         fieldMapName = table.get("FieldMap/Name", "");
         fieldMapLoadedAt = table.get("FieldMap/LoadedAt", Double.NaN);
         fieldMapError = table.get("FieldMap/Error", "");
+        logLines = table.get("LogLines", NO_LINES);
     }
 }

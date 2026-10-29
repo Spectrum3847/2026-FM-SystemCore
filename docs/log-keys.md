@@ -496,6 +496,7 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/Vision/Jetson/JpegDecoder` | I |  | Camera JPEG decoder in use: nvjpg (hardware) or libjpeg-turbo (CPU). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Jetson/JpegHardwareOff` | I |  | The hardware decoder was switched off: a check differed from the CPU, or CUDA failed. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Jetson/LastUsbEvent` | I |  | The latest kernel USB trouble line. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/LogLines` | I |  | PhotonVision's log lines since the last cycle (/photonvision/jetson/log): warnings always, every line while the Jetson is quiet. Its own logs of that time are lost at power-off. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Jetson/NtDisconnects` | I |  | NetworkTables disconnects PhotonVision has seen. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Jetson/OverCurrentEvents` | I |  | Over-current throttle events since the Jetson booted (power supply too weak). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Jetson/PowerW` | I |  | Whole board's input power (INA3221 VDD_IN). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |

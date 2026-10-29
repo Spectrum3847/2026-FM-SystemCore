@@ -107,6 +107,7 @@ public class SuperStructure extends SubsystemBase {
 
     @Override
     public void periodic() {
+        Telemetry.time("Scheduler/Periodic/SuperStructure");
         currentSuperState = handleStateTransitions();
 
         // Restart the squeeze timer exactly once when first entering a squeeze state
@@ -125,6 +126,7 @@ public class SuperStructure extends SubsystemBase {
         Telemetry.log("SuperStructure/CurrentSuperState", currentSuperState.toString());
         Telemetry.log(
                 "SuperStructure/IntakeSqueezeTimerElapsed", intakeSqueezeTimer.get(), "seconds");
+        Telemetry.timeEnd("Scheduler/Periodic/SuperStructure");
     }
 
     // -- Shot readiness gate ------------------------------------------------------

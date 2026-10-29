@@ -116,6 +116,7 @@ public class IndexerTower extends Mechanism {
 
     @Override
     public void periodic() {
+        Telemetry.time("Scheduler/Periodic/IndexerTower");
         systemState = handleStateTransition();
         applyStates();
         logBatteryUsage();
@@ -126,6 +127,7 @@ public class IndexerTower extends Mechanism {
         // same signals are also recorded every loop as inputs under Mechanisms/.
         logDiagnostics("IndexerTower");
         Telemetry.log("IndexerTower/RPM", getVelocityRPM(), "RPM");
+        Telemetry.timeEnd("Scheduler/Periodic/IndexerTower");
     }
 
     // --------------------------------------------------------------------------------

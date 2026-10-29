@@ -718,6 +718,7 @@ public class Robot extends SpectrumRobot {
     @Override
     public void robotPeriodic() {
         RobotLoop.next();
+        Telemetry.time("Scheduler/Framework");
         RuntimeInputs.update();
         Params.periodic();
         SwerveOffsetParams.periodic();
@@ -726,6 +727,7 @@ public class Robot extends SpectrumRobot {
         LogStorage.periodic();
         DsUploadReceiver.periodic(RobotState.isEnabled());
         systemLoad.periodic();
+        Telemetry.timeEnd("Scheduler/Framework");
 
         // Latched here rather than in the mode inits so every mode is covered by the same check.
         // Never cleared: a disable does not un-run an auto.
@@ -758,6 +760,7 @@ public class Robot extends SpectrumRobot {
             Telemetry.log("Match Data/InShift", shift.active());
             Telemetry.logDash("Match Data/TimeLeftInShift", shift.remainingTime(), "seconds");
 
+            Telemetry.time("Scheduler/SystemLogging");
             batteryLogger.setBatteryVoltage(RuntimeInputs.batteryVoltage());
             // Every loop: a brownout is a few hundred milliseconds.
             if (powerApiAvailable) {
@@ -769,6 +772,7 @@ public class Robot extends SpectrumRobot {
 
             logCanBusStatus();
             matchSummary.periodic(RuntimeInputs.batteryVoltage(), RuntimeInputs.brownedOut());
+            Telemetry.timeEnd("Scheduler/SystemLogging");
 
             Telemetry.time("Scheduler/PreMatch");
             preMatch.periodic(

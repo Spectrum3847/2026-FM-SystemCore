@@ -54,8 +54,10 @@ public class Leds extends SpectrumLEDs {
 
     @Override
     public void periodic() {
+        Telemetry.time("Scheduler/Periodic/Leds");
         Telemetry.log("Leds/CurrentCommand", getCurrentCommandName());
         Telemetry.log("Leds/CommandPriority", getCommandPriority());
         Telemetry.log("Leds/IsAnimating", isAnimating());
+        Telemetry.timeEnd("Scheduler/Periodic/Leds");
     }
 }

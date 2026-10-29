@@ -115,6 +115,7 @@ public class IndexerBed extends Mechanism {
 
     @Override
     public void periodic() {
+        Telemetry.time("Scheduler/Periodic/IndexerBed");
         systemState = handleStateTransition();
         applyStates();
         logBatteryUsage();
@@ -125,6 +126,7 @@ public class IndexerBed extends Mechanism {
         // same signals are also recorded every loop as inputs under Mechanisms/.
         logDiagnostics("IndexerBed");
         Telemetry.log("IndexerBed/RPM", getVelocityRPM(), "RPM");
+        Telemetry.timeEnd("Scheduler/Periodic/IndexerBed");
     }
 
     // --------------------------------------------------------------------------------

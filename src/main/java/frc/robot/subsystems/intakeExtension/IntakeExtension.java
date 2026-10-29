@@ -586,6 +586,7 @@ public class IntakeExtension extends Mechanism {
 
     @Override
     public void periodic() {
+        Telemetry.time("Scheduler/Periodic/IntakeExtension");
         systemState = handleStateTransition();
         // A rebooted axis restarted its position at 0, so its soft limits and setpoints are off by
         // wherever it stood. Hold until the resync re-zeroes both at the out stop; a request to
@@ -612,6 +613,7 @@ public class IntakeExtension extends Mechanism {
         Telemetry.log("IntakeExtension/ExtendPhase", fullExtend.phase().toString());
 
         previousSystemState = systemState;
+        Telemetry.timeEnd("Scheduler/Periodic/IntakeExtension");
     }
 
     // --------------------------------------------------------------------------------

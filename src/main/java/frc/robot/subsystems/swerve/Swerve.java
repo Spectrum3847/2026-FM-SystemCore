@@ -743,6 +743,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
 
     @Override
     public void periodic() {
+        Telemetry.time("Scheduler/Periodic/Swerve");
         systemState = handleStateTransition();
         applyStates();
 
@@ -767,6 +768,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         }
 
         pigeonAlert.set(!inputs.gyroConnected);
+        Telemetry.timeEnd("Scheduler/Periodic/Swerve");
     }
 
     /**

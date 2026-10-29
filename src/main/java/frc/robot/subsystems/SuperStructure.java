@@ -120,6 +120,10 @@ public class SuperStructure extends SubsystemBase {
 
         applyStates();
 
+        if (currentSuperState != previousSuperState) {
+            Telemetry.logEvent(
+                    "Events", "SuperStructure " + previousSuperState + " -> " + currentSuperState);
+        }
         previousSuperState = currentSuperState;
 
         Telemetry.log("SuperStructure/WantedSuperState", wantedSuperState.toString());

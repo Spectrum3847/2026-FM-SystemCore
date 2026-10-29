@@ -278,9 +278,4 @@ public class Auton {
 
         return pathfindingCommand;
     }
-
-    // Log Command
-    protected static Command log(Command cmd) {
-        return Telemetry.log(cmd);
-    }
 }

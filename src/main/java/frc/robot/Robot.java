@@ -514,6 +514,8 @@ public class Robot extends SpectrumRobot {
 
     private AutoStartCheck autoStart;
 
+    private boolean wasBrownedOut = false;
+
     /** Whether the HAL's brownout API works here (it did not on the 2026-09 SystemCore). */
     private boolean powerApiAvailable = false;
 
@@ -780,6 +782,14 @@ public class Robot extends SpectrumRobot {
             // Every loop: a brownout is a few hundred milliseconds.
             if (powerApiAvailable) {
                 Telemetry.log("SystemStats/BrownedOut", RuntimeInputs.brownedOut());
+                if (RuntimeInputs.brownedOut() != wasBrownedOut) {
+                    wasBrownedOut = RuntimeInputs.brownedOut();
+                    Telemetry.logEvent(
+                            "Events",
+                            String.format(
+                                    wasBrownedOut ? "brownout (%.2f V)" : "brownout over (%.2f V)",
+                                    RuntimeInputs.batteryVoltage()));
+                }
             }
             // SystemCore reports no input current (the roboRIO did); the battery logger sums
             // the mechanisms instead.
@@ -885,6 +895,7 @@ public class Robot extends SpectrumRobot {
 
     @Override
     public void disabledInit() {
+        Telemetry.logEvent("Events", "disabled");
         Telemetry.print("### Disabled Init Starting ### ");
 
         // Offseason: honoured only before the first enable. See mayPlaceAtAutoStart().
@@ -1109,6 +1120,7 @@ public class Robot extends SpectrumRobot {
     public void autonomousInit() {
         Telemetry.print("@@@ Auton Init @@@ ");
         String runningAuto = auton.getAutonomousCommand().getName();
+        Telemetry.logEvent("Events", "auto started: " + runningAuto);
         Telemetry.log("Auton/RunningAuto", runningAuto);
         if (robotSim != null) {
             robotSim.getBallSim().clearBalls();
@@ -1139,6 +1151,7 @@ public class Robot extends SpectrumRobot {
 
     @Override
     public void teleopInit() {
+        Telemetry.logEvent("Events", "teleop");
         try {
             Telemetry.print("!!! Teleop Init Starting !!! ");
             superStructure.setWantedSuperState(WantedSuperState.IDLE);
@@ -1164,6 +1177,7 @@ public class Robot extends SpectrumRobot {
     /* UTILITY MODE (2026's "test" mode) */
     @Override
     public void utilityInit() {
+        Telemetry.logEvent("Events", "utility");
         Telemetry.print("~~~ Utility Init ~~~ ");
     }
 

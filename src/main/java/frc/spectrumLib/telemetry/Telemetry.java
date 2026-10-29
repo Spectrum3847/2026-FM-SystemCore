@@ -4,8 +4,6 @@ import frc.spectrumLib.framework.RobotLoop;
 import java.util.HashMap;
 import java.util.Map;
 import org.littletonrobotics.junction.Logger;
-import org.wpilib.command2.Command;
-import org.wpilib.command2.Commands;
 import org.wpilib.system.Timer;
 import org.wpilib.units.Measure;
 import org.wpilib.units.Unit;
@@ -337,8 +335,12 @@ public class Telemetry {
 
     // ── Events ───────────────────────────────────────────────────────────────
 
-    /** Loop whose events {@link #events} holds. */
-    private static long eventLoop = -1;
+    /**
+     * AdvantageKit cycle whose events {@link #events} holds, by its pinned timestamp. Not {@link
+     * RobotLoop}: that advances inside {@code robotPeriodic}, after the mode init of the same
+     * cycle, so an event from {@code disabledInit} was overwritten by the next one that cycle.
+     */
+    private static long eventCycle = Long.MIN_VALUE;
 
     /** Events logged this loop, by key. */
     private static final Map<String, java.util.List<String>> events = new HashMap<>();
@@ -346,16 +348,16 @@ public class Telemetry {
     /**
      * Logs a discrete event. AdvantageKit keeps one value per key per cycle. Logging two messages
      * to the same key in one loop kept only the second, so two commands ending in the same loop, or
-     * two prints, lost one. Events are accumulated per loop and recorded as a string array holding
+     * two prints, lost one. Events are accumulated per cycle and recorded as a string array holding
      * all of them.
      *
      * @param key the log key
      * @param message the event
      */
     public static void logEvent(String key, String message) {
-        long loop = RobotLoop.count();
-        if (loop != eventLoop) {
-            eventLoop = loop;
+        long cycle = Logger.getTimestamp();
+        if (cycle != eventCycle) {
+            eventCycle = cycle;
             events.clear();
         }
         var list = events.computeIfAbsent(key, k -> new java.util.ArrayList<>(2));
@@ -364,21 +366,6 @@ public class Telemetry {
     }
 
     // ── Commands, prints ─────────────────────────────────────────────────────
-
-    /**
-     * Wraps a command so that its initialization and end are logged to the "Commands" key.
-     *
-     * @param cmd The command to wrap
-     * @return a decorated command that logs lifecycle events and preserves the original name
-     */
-    public static Command log(Command cmd) {
-        return cmd.deadlineFor(
-                        Commands.startEnd(
-                                () -> logEvent("Commands", "Init: " + cmd.getName()),
-                                () -> logEvent("Commands", "End: " + cmd.getName())))
-                .ignoringDisable(cmd.runsWhenDisabled())
-                .withName(cmd.getName());
-    }
 
     /**
      * Print a statement if the priority allows it. AdvantageKit captures the console into the log,

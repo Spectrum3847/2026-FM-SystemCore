@@ -134,6 +134,11 @@ public final class AutoEnd {
         Telemetry.log("Auton/EndReason", reason.name());
         Telemetry.log("Auton/EndInterruptedBy", by);
         Telemetry.log("Auton/EndElapsedSeconds", seconds, "seconds");
+        Telemetry.logEvent(
+                "Events",
+                String.format(
+                        "auto %s ended: %s%s after %.2f s",
+                        auto.getName(), reason, by.isEmpty() ? "" : " by " + by, seconds));
         Telemetry.print(
                 String.format(
                         "*** Auton %s ended: %s%s after %.2f s ***",

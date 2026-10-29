@@ -762,7 +762,7 @@ public class Robot extends SpectrumRobot {
             hasBeenEnabled = true;
         }
         try {
-            Telemetry.time("Scheduler/robotPeriodic");
+            Telemetry.time("Scheduler/RobotPeriodic");
 
             // Start every loop with an empty shot-solution cache so the first mechanism to ask
             // computes it from this loop's pose.
@@ -783,10 +783,10 @@ public class Robot extends SpectrumRobot {
             Telemetry.timeEnd("Scheduler/CommandScheduler");
             CommandLog.periodic();
 
-            Telemetry.log("Match Data/MatchTime", MatchState.getMatchTime(), "seconds");
+            Telemetry.log("MatchData/MatchTime", MatchState.getMatchTime(), "seconds");
             var shift = ShiftHelpers.getOfficialShiftInfo();
-            Telemetry.log("Match Data/InShift", shift.active());
-            Telemetry.logDash("Match Data/TimeLeftInShift", shift.remainingTime(), "seconds");
+            Telemetry.log("MatchData/InShift", shift.active());
+            Telemetry.logDash("MatchData/TimeLeftInShift", shift.remainingTime(), "seconds");
 
             Telemetry.time("Scheduler/SystemLogging");
             batteryLogger.setBatteryVoltage(RuntimeInputs.batteryVoltage());
@@ -820,7 +820,7 @@ public class Robot extends SpectrumRobot {
                 field2d.setRobotPose(swerve.getRobotPose());
             }
 
-            Telemetry.timeEnd("Scheduler/robotPeriodic");
+            Telemetry.timeEnd("Scheduler/RobotPeriodic");
         } catch (Throwable t) {
             // intercept error and log it
             CrashTracker.logThrowableCrash(t);

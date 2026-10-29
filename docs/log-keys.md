@@ -264,9 +264,9 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Localization/Odometry/ModulesUsed` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Localization/OnboardImu/ErrorVsPigeonDeg` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Localization/OnboardImu/ShadowHeadingDeg` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/Match Data/InShift` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/Match Data/MatchTime` |  | seconds |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/Match Data/TimeLeftInShift` |  | seconds |  | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/MatchData/InShift` |  |  |  | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/MatchData/MatchTime` |  | seconds |  | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/MatchData/TimeLeftInShift` |  | seconds |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/Params/Files` |  |  |  | src/main/java/frc/spectrumLib/params/Params.java |
 | `/RealOutputs/Params/LastSave` |  |  |  | src/main/java/frc/spectrumLib/params/Params.java |
 | `/RealOutputs/Params/LiveTuning` |  |  |  | src/main/java/frc/spectrumLib/params/Params.java |
@@ -279,76 +279,76 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/PathPlanner/CurrentPose` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/PathPlanner/TargetPose` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Prints` |  |  |  | src/main/java/frc/spectrumLib/telemetry/Telemetry.java |
-| `/RealOutputs/Shot/AimToleranceDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/BlockedReason` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/CheckAim` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/Feeding` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/FeedReason` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/FlywheelErrorRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/HeadingErrorDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/HeldLoops` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/HoodErrorDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/InRange` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/LaunchingLoops` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/Override` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/PoseTrusted` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/Ready` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/SecondsHeld` |  | seconds |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/SetShotHeadingErrorDeg` |  | degrees | Informational only: how far the fused heading is from the spot's heading. The set shot exists for when that heading cannot be trusted, so it never gates. | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shot/Volleys` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/ShotCalc/DistanceMeters` |  | meters |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/DistanceNoLookahead` |  | meters |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/DriveAngleDeg` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/DriveAngleOffsetDegrees` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/ExitSpeedMs` |  | m/s |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/FeedShot` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/FlywheelSpeedRPM` |  | RPM |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/HoodAngleDeg` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/HoodAngleOffsetDegrees` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/HubPolyModel` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/LookaheadPose` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/RadialVelocityMs` |  | m/s |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/SetShot` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/TangentialVelocityMs` |  | m/s |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/Target` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/TimeOfFlight` |  | seconds |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotCalc/YawOffsetDeg` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/ShotLog/ActualHoodDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/ActualRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/AimToleranceDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/AimTrimDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/Alliance` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/Bypassed` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/DistanceMeters` |  | meters |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/End/BurstSeconds` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/End/FlywheelDips` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/End/Index` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/End/MinRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/FeedReason` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/FeedShot` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/HeadingErrorDeg` |  | degrees | Fused heading minus the aim target, while the drivetrain aims; NaN for a set shot. | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/HoodTrimDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/Index` |  |  | The one key on the dashboard: bursts counting up is how you know rows are being written. | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/InRange` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/Kind` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/LookaheadDistanceMeters` |  | meters |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/MatchTimeSeconds` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/Mode` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/Model` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/Pose` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/PoseTrusted` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/RadialVelocityMs` |  | m/s |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/RobotSpeedMs` |  | m/s |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/SecondsSinceFusedEstimate` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/SecondsWaited` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/SeedConfirmed` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/SetShot` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/SuperState` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/TangentialVelocityMs` |  | m/s |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/TimeOfFlightSeconds` |  | s |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/TimestampSeconds` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/WantedHoodDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/WantedRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Calc/DistanceMeters` |  | meters |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/DistanceNoLookahead` |  | meters |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/DriveAngleDeg` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/DriveAngleOffsetDegrees` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/ExitSpeedMs` |  | m/s |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/FeedShot` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/FlywheelSpeedRPM` |  | RPM |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/HoodAngleDeg` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/HoodAngleOffsetDegrees` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/HubPolyModel` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/LookaheadPose` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/RadialVelocityMs` |  | m/s |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/SetShot` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/TangentialVelocityMs` |  | m/s |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/Target` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/TimeOfFlight` |  | seconds |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/YawOffsetDeg` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Gate/AimToleranceDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/BlockedReason` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/CheckAim` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/Feeding` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/FeedReason` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/FlywheelErrorRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/HeadingErrorDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/HeldLoops` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/HoodErrorDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/InRange` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/LaunchingLoops` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/Override` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/PoseTrusted` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/Ready` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/SecondsHeld` |  | seconds |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/SetShotHeadingErrorDeg` |  | degrees | Informational only: how far the fused heading is from the spot's heading. The set shot exists for when that heading cannot be trusted, so it never gates. | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Gate/Volleys` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
+| `/RealOutputs/Shooting/Log/ActualHoodDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/ActualRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/AimToleranceDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/AimTrimDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/Alliance` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/Bypassed` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/DistanceMeters` |  | meters |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/End/BurstSeconds` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/End/FlywheelDips` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/End/Index` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/End/MinRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/FeedReason` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/FeedShot` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/HeadingErrorDeg` |  | degrees | Fused heading minus the aim target, while the drivetrain aims; NaN for a set shot. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/HoodTrimDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/Index` |  |  | The one key on the dashboard: bursts counting up is how you know rows are being written. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/InRange` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/Kind` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/LookaheadDistanceMeters` |  | meters |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/MatchTimeSeconds` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/Mode` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/Model` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/Pose` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/PoseTrusted` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/RadialVelocityMs` |  | m/s |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/RobotSpeedMs` |  | m/s |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/SecondsSinceFusedEstimate` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/SecondsWaited` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/SeedConfirmed` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/SetShot` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/SuperState` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/TangentialVelocityMs` |  | m/s |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/TimeOfFlightSeconds` |  | s |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/TimestampSeconds` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/WantedHoodDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/WantedRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/Sim/Components` |  |  |  | src/main/java/frc/robot/RobotSim.java |
 | `/RealOutputs/Sim/Fuel` |  |  |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/Sim/Launched` |  |  |  | src/main/java/frc/robot/Robot.java |

@@ -1743,21 +1743,21 @@
    "input": false
   },
   {
-   "key": "/RealOutputs/Match Data/InShift",
+   "key": "/RealOutputs/MatchData/InShift",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Match Data/MatchTime",
+   "key": "/RealOutputs/MatchData/MatchTime",
    "unit": "seconds",
    "doc": "",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Match Data/TimeLeftInShift",
+   "key": "/RealOutputs/MatchData/TimeLeftInShift",
    "unit": "seconds",
    "doc": "",
    "source": "src/main/java/frc/robot/Robot.java",
@@ -1848,490 +1848,490 @@
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/AimToleranceDeg",
+   "key": "/RealOutputs/Shooting/Calc/DistanceMeters",
+   "unit": "meters",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/DistanceNoLookahead",
+   "unit": "meters",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/DriveAngleDeg",
+   "unit": "degrees",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/DriveAngleOffsetDegrees",
+   "unit": "degrees",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/ExitSpeedMs",
+   "unit": "m/s",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/FeedShot",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/FlywheelSpeedRPM",
+   "unit": "RPM",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/HoodAngleDeg",
+   "unit": "degrees",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/HoodAngleOffsetDegrees",
+   "unit": "degrees",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/HubPolyModel",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/LookaheadPose",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/RadialVelocityMs",
+   "unit": "m/s",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/SetShot",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/TangentialVelocityMs",
+   "unit": "m/s",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/Target",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/TimeOfFlight",
+   "unit": "seconds",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Calc/YawOffsetDeg",
+   "unit": "degrees",
+   "doc": "",
+   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Shooting/Gate/AimToleranceDeg",
    "unit": "degrees",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/BlockedReason",
+   "key": "/RealOutputs/Shooting/Gate/BlockedReason",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/CheckAim",
+   "key": "/RealOutputs/Shooting/Gate/CheckAim",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/Feeding",
+   "key": "/RealOutputs/Shooting/Gate/Feeding",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/FeedReason",
+   "key": "/RealOutputs/Shooting/Gate/FeedReason",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/FlywheelErrorRPM",
+   "key": "/RealOutputs/Shooting/Gate/FlywheelErrorRPM",
    "unit": "RPM",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/HeadingErrorDeg",
+   "key": "/RealOutputs/Shooting/Gate/HeadingErrorDeg",
    "unit": "degrees",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/HeldLoops",
+   "key": "/RealOutputs/Shooting/Gate/HeldLoops",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/HoodErrorDeg",
+   "key": "/RealOutputs/Shooting/Gate/HoodErrorDeg",
    "unit": "degrees",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/InRange",
+   "key": "/RealOutputs/Shooting/Gate/InRange",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/LaunchingLoops",
+   "key": "/RealOutputs/Shooting/Gate/LaunchingLoops",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/Override",
+   "key": "/RealOutputs/Shooting/Gate/Override",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/PoseTrusted",
+   "key": "/RealOutputs/Shooting/Gate/PoseTrusted",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/Ready",
+   "key": "/RealOutputs/Shooting/Gate/Ready",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/SecondsHeld",
+   "key": "/RealOutputs/Shooting/Gate/SecondsHeld",
    "unit": "seconds",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/SetShotHeadingErrorDeg",
+   "key": "/RealOutputs/Shooting/Gate/SetShotHeadingErrorDeg",
    "unit": "degrees",
    "doc": "Informational only: how far the fused heading is from the spot's heading. The set shot exists for when that heading cannot be trusted, so it never gates.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/Shot/Volleys",
+   "key": "/RealOutputs/Shooting/Gate/Volleys",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotCalc/DistanceMeters",
-   "unit": "meters",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/DistanceNoLookahead",
-   "unit": "meters",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/DriveAngleDeg",
-   "unit": "degrees",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/DriveAngleOffsetDegrees",
-   "unit": "degrees",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/ExitSpeedMs",
-   "unit": "m/s",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/FeedShot",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/FlywheelSpeedRPM",
-   "unit": "RPM",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/HoodAngleDeg",
-   "unit": "degrees",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/HoodAngleOffsetDegrees",
-   "unit": "degrees",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/HubPolyModel",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/LookaheadPose",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/RadialVelocityMs",
-   "unit": "m/s",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/SetShot",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/TangentialVelocityMs",
-   "unit": "m/s",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/Target",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/TimeOfFlight",
-   "unit": "seconds",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotCalc/YawOffsetDeg",
-   "unit": "degrees",
-   "doc": "",
-   "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/ShotLog/ActualHoodDeg",
+   "key": "/RealOutputs/Shooting/Log/ActualHoodDeg",
    "unit": "degrees",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/ActualRPM",
+   "key": "/RealOutputs/Shooting/Log/ActualRPM",
    "unit": "RPM",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/AimToleranceDeg",
+   "key": "/RealOutputs/Shooting/Log/AimToleranceDeg",
    "unit": "degrees",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/AimTrimDeg",
+   "key": "/RealOutputs/Shooting/Log/AimTrimDeg",
    "unit": "degrees",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/Alliance",
+   "key": "/RealOutputs/Shooting/Log/Alliance",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/Bypassed",
+   "key": "/RealOutputs/Shooting/Log/Bypassed",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/DistanceMeters",
+   "key": "/RealOutputs/Shooting/Log/DistanceMeters",
    "unit": "meters",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/End/BurstSeconds",
+   "key": "/RealOutputs/Shooting/Log/End/BurstSeconds",
    "unit": "seconds",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/End/FlywheelDips",
+   "key": "/RealOutputs/Shooting/Log/End/FlywheelDips",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/End/Index",
+   "key": "/RealOutputs/Shooting/Log/End/Index",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/End/MinRPM",
+   "key": "/RealOutputs/Shooting/Log/End/MinRPM",
    "unit": "RPM",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/FeedReason",
+   "key": "/RealOutputs/Shooting/Log/FeedReason",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/FeedShot",
+   "key": "/RealOutputs/Shooting/Log/FeedShot",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/HeadingErrorDeg",
+   "key": "/RealOutputs/Shooting/Log/HeadingErrorDeg",
    "unit": "degrees",
    "doc": "Fused heading minus the aim target, while the drivetrain aims; NaN for a set shot.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/HoodTrimDeg",
+   "key": "/RealOutputs/Shooting/Log/HoodTrimDeg",
    "unit": "degrees",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/Index",
+   "key": "/RealOutputs/Shooting/Log/Index",
    "unit": "",
    "doc": "The one key on the dashboard: bursts counting up is how you know rows are being written.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/InRange",
+   "key": "/RealOutputs/Shooting/Log/InRange",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/Kind",
+   "key": "/RealOutputs/Shooting/Log/Kind",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/LookaheadDistanceMeters",
+   "key": "/RealOutputs/Shooting/Log/LookaheadDistanceMeters",
    "unit": "meters",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/MatchTimeSeconds",
+   "key": "/RealOutputs/Shooting/Log/MatchTimeSeconds",
    "unit": "seconds",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/Mode",
+   "key": "/RealOutputs/Shooting/Log/Mode",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/Model",
+   "key": "/RealOutputs/Shooting/Log/Model",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/Pose",
+   "key": "/RealOutputs/Shooting/Log/Pose",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/PoseTrusted",
+   "key": "/RealOutputs/Shooting/Log/PoseTrusted",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/RadialVelocityMs",
+   "key": "/RealOutputs/Shooting/Log/RadialVelocityMs",
    "unit": "m/s",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/RobotSpeedMs",
+   "key": "/RealOutputs/Shooting/Log/RobotSpeedMs",
    "unit": "m/s",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/SecondsSinceFusedEstimate",
+   "key": "/RealOutputs/Shooting/Log/SecondsSinceFusedEstimate",
    "unit": "seconds",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/SecondsWaited",
+   "key": "/RealOutputs/Shooting/Log/SecondsWaited",
    "unit": "seconds",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/SeedConfirmed",
+   "key": "/RealOutputs/Shooting/Log/SeedConfirmed",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/SetShot",
+   "key": "/RealOutputs/Shooting/Log/SetShot",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/SuperState",
+   "key": "/RealOutputs/Shooting/Log/SuperState",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/TangentialVelocityMs",
+   "key": "/RealOutputs/Shooting/Log/TangentialVelocityMs",
    "unit": "m/s",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/TimeOfFlightSeconds",
+   "key": "/RealOutputs/Shooting/Log/TimeOfFlightSeconds",
    "unit": "s",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/TimestampSeconds",
+   "key": "/RealOutputs/Shooting/Log/TimestampSeconds",
    "unit": "seconds",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/WantedHoodDeg",
+   "key": "/RealOutputs/Shooting/Log/WantedHoodDeg",
    "unit": "degrees",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
-   "key": "/RealOutputs/ShotLog/WantedRPM",
+   "key": "/RealOutputs/Shooting/Log/WantedRPM",
    "unit": "RPM",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",

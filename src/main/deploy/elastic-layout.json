@@ -729,7 +729,7 @@
             "height": 256,
             "type": "Match Time",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Match Data/TimeLeftInShift",
+              "topic": "/AdvantageKit/RealOutputs/MatchData/TimeLeftInShift",
               "period": 0.1,
               "data_type": "double",
               "time_display_mode": "Minutes and Seconds",
@@ -763,7 +763,7 @@
             "height": 128,
             "type": "Match Time",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Match Data/MatchTime",
+              "topic": "/AdvantageKit/RealOutputs/MatchData/MatchTime",
               "period": 0.1,
               "data_type": "double",
               "time_display_mode": "Minutes and Seconds",
@@ -835,7 +835,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/DistanceMeters",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Calc/DistanceMeters",
               "period": 0.1,
               "data_type": "double",
               "show_submit_button": false
@@ -922,7 +922,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/HoodAngleOffsetDegrees",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Calc/HoodAngleOffsetDegrees",
               "period": 0.1,
               "data_type": "double",
               "show_submit_button": false
@@ -936,7 +936,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/DriveAngleOffsetDegrees",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Calc/DriveAngleOffsetDegrees",
               "period": 0.1,
               "data_type": "double",
               "show_submit_button": false
@@ -964,7 +964,7 @@
             "height": 128,
             "type": "Boolean Box",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Shot/Ready",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Gate/Ready",
               "period": 0.1,
               "data_type": "boolean",
               "true_color": 4283215696,
@@ -981,7 +981,7 @@
             "height": 128,
             "type": "Large Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Shot/BlockedReason",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Gate/BlockedReason",
               "period": 0.1,
               "data_type": "string"
             }
@@ -1066,7 +1066,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Shot/FeedReason",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Gate/FeedReason",
               "period": 0.1,
               "data_type": "string",
               "show_submit_button": false
@@ -1080,7 +1080,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotLog/Index",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Log/Index",
               "period": 0.1,
               "data_type": "int",
               "show_submit_button": false
@@ -1094,7 +1094,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/DistanceMeters",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Calc/DistanceMeters",
               "period": 0.1,
               "data_type": "double",
               "show_submit_button": false
@@ -1108,7 +1108,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/FlywheelSpeedRPM",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Calc/FlywheelSpeedRPM",
               "period": 0.1,
               "data_type": "double",
               "show_submit_button": false
@@ -1122,7 +1122,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/HoodAngleDeg",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Calc/HoodAngleDeg",
               "period": 0.1,
               "data_type": "double",
               "show_submit_button": false
@@ -1136,7 +1136,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/DriveAngleDeg",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Calc/DriveAngleDeg",
               "period": 0.1,
               "data_type": "double",
               "show_submit_button": false
@@ -1150,7 +1150,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/TimeOfFlight",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Calc/TimeOfFlight",
               "period": 0.1,
               "data_type": "double",
               "show_submit_button": false
@@ -1164,7 +1164,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/ExitSpeedMs",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Calc/ExitSpeedMs",
               "period": 0.1,
               "data_type": "double",
               "show_submit_button": false
@@ -1178,7 +1178,7 @@
             "height": 128,
             "type": "Boolean Box",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/FeedShot",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Calc/FeedShot",
               "period": 0.1,
               "data_type": "boolean",
               "true_color": 4283215696,
@@ -1195,7 +1195,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/HoodAngleOffsetDegrees",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Calc/HoodAngleOffsetDegrees",
               "period": 0.1,
               "data_type": "double",
               "show_submit_button": false
@@ -1209,7 +1209,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/DriveAngleOffsetDegrees",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Calc/DriveAngleOffsetDegrees",
               "period": 0.1,
               "data_type": "double",
               "show_submit_button": false
@@ -1223,7 +1223,7 @@
             "height": 128,
             "type": "Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/YawOffsetDeg",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Calc/YawOffsetDeg",
               "period": 0.1,
               "data_type": "double",
               "show_submit_button": false
@@ -1237,7 +1237,7 @@
             "height": 128,
             "type": "Large Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Shot/BlockedReason",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Gate/BlockedReason",
               "period": 0.1,
               "data_type": "string"
             }
@@ -1250,7 +1250,7 @@
             "height": 128,
             "type": "Large Text Display",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/ShotCalc/SetShot",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Calc/SetShot",
               "period": 0.1,
               "data_type": "string"
             }
@@ -1276,7 +1276,7 @@
             "height": 128,
             "type": "Boolean Box",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Shot/Ready",
+              "topic": "/AdvantageKit/RealOutputs/Shooting/Gate/Ready",
               "period": 0.1,
               "data_type": "boolean",
               "true_color": 4283215696,
@@ -2246,7 +2246,7 @@
             "height": 256,
             "type": "Graph",
             "properties": {
-              "topic": "/AdvantageKit/RealOutputs/Scheduler/robotPeriodic",
+              "topic": "/AdvantageKit/RealOutputs/Scheduler/RobotPeriodic",
               "period": 0.05,
               "data_type": "double",
               "time_displayed": 20,

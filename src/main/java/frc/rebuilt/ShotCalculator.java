@@ -308,7 +308,7 @@ public class ShotCalculator {
     private ShotCalculator() {
         hubModelChooser.addDefaultOption(NO_CEILING_HUB_MODEL.name(), NO_CEILING_HUB_MODEL);
         hubModelChooser.addOption(CEILING_3M_HUB_MODEL.name(), CEILING_3M_HUB_MODEL);
-        Telemetry.logDash("ShotCalc/SetShot", selectedSetShot.label);
+        Telemetry.logDash("Shooting/Calc/SetShot", selectedSetShot.label);
     }
 
     /**
@@ -415,7 +415,7 @@ public class ShotCalculator {
      */
     public static void selectSetShot(SetShot shot) {
         selectedSetShot = shot;
-        Telemetry.logDash("ShotCalc/SetShot", shot.label);
+        Telemetry.logDash("Shooting/Calc/SetShot", shot.label);
     }
 
     /** The fixed shot currently selected, {@link SetShot#TOWER} until a binding picks one. */
@@ -621,22 +621,22 @@ public class ShotCalculator {
                         feed,
                         model.name());
 
-        Telemetry.log("ShotCalc/LookaheadPose", lookaheadPose);
-        Telemetry.log("ShotCalc/DistanceMeters", lookaheadDist, "meters");
-        Telemetry.log("ShotCalc/DistanceNoLookahead", distanceNoLookahead, "meters");
-        Telemetry.log("ShotCalc/DriveAngleDeg", driveAngle.getDegrees(), "degrees");
-        Telemetry.log("ShotCalc/YawOffsetDeg", yawOffsetDeg, "degrees");
-        Telemetry.log("ShotCalc/HoodAngleDeg", hoodAngle, "degrees");
-        Telemetry.log("ShotCalc/FlywheelSpeedRPM", flywheelSpeed, "RPM");
-        Telemetry.log("ShotCalc/ExitSpeedMs", exitSpeedMs, "m/s");
-        Telemetry.log("ShotCalc/RadialVelocityMs", radialVelocity, "m/s");
-        Telemetry.log("ShotCalc/TangentialVelocityMs", tangentialVelocity, "m/s");
-        Telemetry.log("ShotCalc/TimeOfFlight", tofFinal, "seconds");
-        Telemetry.log("ShotCalc/FeedShot", feed);
-        Telemetry.log("ShotCalc/HubPolyModel", model.name());
-        Telemetry.log("ShotCalc/DriveAngleOffsetDegrees", DRIVE_ANGLE_OFFSET, "degrees");
-        Telemetry.log("ShotCalc/HoodAngleOffsetDegrees", HOOD_ANGLE_OFFSET, "degrees");
-        Telemetry.log("ShotCalc/Target", target);
+        Telemetry.log("Shooting/Calc/LookaheadPose", lookaheadPose);
+        Telemetry.log("Shooting/Calc/DistanceMeters", lookaheadDist, "meters");
+        Telemetry.log("Shooting/Calc/DistanceNoLookahead", distanceNoLookahead, "meters");
+        Telemetry.log("Shooting/Calc/DriveAngleDeg", driveAngle.getDegrees(), "degrees");
+        Telemetry.log("Shooting/Calc/YawOffsetDeg", yawOffsetDeg, "degrees");
+        Telemetry.log("Shooting/Calc/HoodAngleDeg", hoodAngle, "degrees");
+        Telemetry.log("Shooting/Calc/FlywheelSpeedRPM", flywheelSpeed, "RPM");
+        Telemetry.log("Shooting/Calc/ExitSpeedMs", exitSpeedMs, "m/s");
+        Telemetry.log("Shooting/Calc/RadialVelocityMs", radialVelocity, "m/s");
+        Telemetry.log("Shooting/Calc/TangentialVelocityMs", tangentialVelocity, "m/s");
+        Telemetry.log("Shooting/Calc/TimeOfFlight", tofFinal, "seconds");
+        Telemetry.log("Shooting/Calc/FeedShot", feed);
+        Telemetry.log("Shooting/Calc/HubPolyModel", model.name());
+        Telemetry.log("Shooting/Calc/DriveAngleOffsetDegrees", DRIVE_ANGLE_OFFSET, "degrees");
+        Telemetry.log("Shooting/Calc/HoodAngleOffsetDegrees", HOOD_ANGLE_OFFSET, "degrees");
+        Telemetry.log("Shooting/Calc/Target", target);
 
         return latestParameters;
     }

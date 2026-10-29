@@ -22,6 +22,18 @@ From Limelight's public SystemCore OS repo ([systemcore-os-public](https://githu
 - **Known ports** (from a third-party teardown): 4800 web UI, 4803 package manager, 4804 update manager, 4900 VS Code server, 4901 web terminal, 5800 CAN sniffer, 5812 NT4.
 - SystemCore has 4 GB of RAM (team).
 
+## Params system (verified in this repo, 2026-10-29)
+
+From `src/main/java/frc/spectrumLib/params/`, `spectrumLib/README.md` and `README.md` ("Params").
+
+- **Layers, later wins:** the default declared in code (`Params.group(...)`), then `src/main/deploy/params/<group>.json` (git), then `params/robots/<robot>/<group>.json` (git, per robot), then the robot-local `/home/systemcore/params/<robot>/<group>.json` (survives deploys), then live changes.
+- **Live changes:** only with `Constants.TUNING_MODE` on, under NT `/Tuning/`, applied on the main thread only while disabled with no FMS attached; a change made on the field waits (`Params/PendingLive`). `TUNING_MODE` is `false` today and a test fails a PR to `main` that leaves it on.
+- **Saving:** the `/Tuning/SaveParams` button writes values that differ from git to the robot-local folder, disabled only, on a background thread.
+- **Replay:** every value and the layer it came from are logged inputs (`Params/Values/*`, `Params/Sources/*`).
+- **Hard stops:** the `swerve` (CANcoder offsets, read once at boot, so a change needs a save and a reboot) and `soft-limits` groups carry a `$hardware` stamp; a file from another chassis is refused and git values are used.
+- **Groups today:** `cameras`, `swerve` (per robot), `soft-limits`.
+- **Not built:** nothing pulls saved values from the robot back into git. `pullTuning` and the deploy check exist only in `docs/robot-app-plan.md`. Saved values stay on the robot until someone copies them by hand.
+
 ## Analysis
 
 Six independent reviews (second round, run without steering), merged by question. Options are not chosen; the team decides.
@@ -350,5 +362,6 @@ DC states the counter itself: a task index that links out still shows students m
 8. How far the app replaces each other tool.
 9. Where the controls guide gets its content.
 10. Which bench checks are needed.
+11. How the app edits params: through the existing `/Tuning/` NT transport and `SaveParams` (which needs `TUNING_MODE` on, today blocked on `main`), or another path; and how the pit gets saved values back into git automatically (no pull step exists yet).
 
 **Bench checks:** see Open item 10.

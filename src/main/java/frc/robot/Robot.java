@@ -58,6 +58,7 @@ import frc.spectrumLib.params.Params;
 import frc.spectrumLib.params.TuningMode;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.BatteryLogger;
+import frc.spectrumLib.telemetry.CommandLog;
 import frc.spectrumLib.telemetry.DashboardReceiver;
 import frc.spectrumLib.telemetry.DsUploadReceiver;
 import frc.spectrumLib.telemetry.LogStorage;
@@ -577,6 +578,7 @@ public class Robot extends SpectrumRobot {
                 break;
         }
         Logger.start();
+        CommandLog.start();
         if (Constants.currentMode == Constants.Mode.REAL) {
             LogStorage.start();
         }
@@ -752,6 +754,7 @@ public class Robot extends SpectrumRobot {
             Telemetry.time("Scheduler/CommandScheduler");
             CommandScheduler.getInstance().run();
             Telemetry.timeEnd("Scheduler/CommandScheduler");
+            CommandLog.periodic();
 
             Telemetry.log("Match Data/MatchTime", MatchState.getMatchTime(), "seconds");
             var shift = ShiftHelpers.getOfficialShiftInfo();

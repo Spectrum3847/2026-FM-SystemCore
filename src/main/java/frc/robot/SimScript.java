@@ -37,8 +37,8 @@ import org.wpilib.system.Timer;
  *   <li>{@code auto:<chooser name>}: one PathPlanner auto.
  * </ul>
  *
- * <p>With {@code FM_SIM_EXIT=1} as well, the program closes the log and exits once the script is
- * done, so a scripted run can be the whole of a command line. With {@code
+ * <p>The program closes the log and exits once the script is done, so a scripted run can be the
+ * whole of a command line; {@code FM_SIM_EXIT=0} keeps it running. With {@code
  * FM_SIM_REBOOT=Hood@9,IntakeExtension@12}, those mechanisms' motors reboot at those script
  * seconds, as in a brownout. With {@code FM_SIM_MATCH=Q12} (or {@code P3}, {@code E5}), the Driver
  * Station reports that FMS match, so the end of teleop writes the match summary file.
@@ -464,9 +464,9 @@ public final class SimScript {
         lastRebootCheck = t;
     }
 
-    /** With {@code FM_SIM_EXIT=1}, closes the log and exits a second after the script ends. */
+    /** Closes the log and exits a second after the script ends, unless {@code FM_SIM_EXIT=0}. */
     private static void exitWhenDone(double t, double endSeconds) {
-        if (t > endSeconds + 1.0 && "1".equals(System.getenv("FM_SIM_EXIT"))) {
+        if (t > endSeconds + 1.0 && !"0".equals(System.getenv("FM_SIM_EXIT"))) {
             Logger.end();
             System.exit(0);
         }

@@ -116,7 +116,6 @@ jobs:
       - name: Run the ${{ matrix.name }} sim
         env:
           FM_SIM_SCRIPT: ${{ matrix.script }}
-          FM_SIM_EXIT: 1
         run: |
           set -o pipefail
           timeout 5m ./gradlew simulateJava -PnoSimGui 2>&1 | tee logs-console.txt

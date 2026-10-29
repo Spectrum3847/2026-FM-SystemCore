@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fails a scripted sim run (FM_SIM_EXIT=1) that crashed, lost the pose or overran its loop.
+"""Fails a scripted sim run that crashed, lost the pose or overran its loop.
 
 Usage:
     python tools/ci_assert.py LOG CONSOLE [--auto]

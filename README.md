@@ -67,8 +67,8 @@ Or the chord run: the pilot's LB + face-button chords pressed and let go in slop
 FM_SIM_SCRIPT=chords ./gradlew simulateJava -PnoSimGui
 ```
 
-Add `FM_SIM_EXIT=1` to any scripted run to have the program close its log and exit when the script
-ends, so the run is one command. Add `FM_SIM_MATCH=Q12` to have the Driver Station report an FMS
+A scripted run closes its log and exits when the script ends, so the run is one command. Add
+`FM_SIM_EXIT=0` to keep it running afterwards (to keep looking at it live in AdvantageScope). Add `FM_SIM_MATCH=Q12` to have the Driver Station report an FMS
 match, so the end of teleop writes the match summary file into `logs/`.
 
 All 32 autos and 26 paths from 2026 `main` are in `src/main/deploy/pathplanner`, unchanged. The Auto
@@ -99,7 +99,7 @@ Every PR runs, in parallel:
 Sim logs and replay logs are uploaded as artifacts. To check a sim run locally:
 
 ```bash
-FM_SIM_SCRIPT=drive FM_SIM_EXIT=1 ./gradlew simulateJava -PnoSimGui | tee console.txt
+FM_SIM_SCRIPT=drive ./gradlew simulateJava -PnoSimGui | tee console.txt
 python tools/ci_assert.py logs/akit_XXXX.wpilog console.txt
 ```
 

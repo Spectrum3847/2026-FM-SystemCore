@@ -34,6 +34,272 @@ From `src/main/java/frc/spectrumLib/params/`, `spectrumLib/README.md` and `READM
 - **Groups today:** `cameras`, `swerve` (per robot), `soft-limits`.
 - **Not built:** nothing pulls saved values from the robot back into git. `pullTuning` and the deploy check exist only in `docs/robot-app-plan.md`. Saved values stay on the robot until someone copies them by hand.
 
+## Current position (final check round, with the full picture)
+
+Six reviews that re-examined every earlier conclusion against all team decisions and the robot-specific framing. Where this conflicts with the rounds below, this section is current. Options are not chosen; the team decides.
+
+Reviewers: Design Critic (DC), Codebase Details (CD), Zoom Out (ZO), Comprehension/UX (CX), Implementation Readiness (IR), Structural (ST). All six completed.
+
+The brief was concept7.md, a final check. It re-examines earlier conclusions with the complete picture: the app is specific to one robot, its pages are hand-made, and it lives in the same repo and build as the robot code (decision 12). Round 1 had also been given a wrong CPU figure. This document lays out the reviewers' positions and does not choose answers. The team decides.
+
+---
+
+### 1. Safety problems (stated plainly)
+
+#### S1. A page click does not prove a person confirmed a hard-stop change (blocker)
+
+**Raised by:** DC, ZO, CX, IR, ST (five of six; all call it a blocker or a concrete safety problem).
+
+**The problem.**
+- NT and HTTP are unauthenticated (decision 5).
+- An AI session can drive a browser and click "Confirm", and any NT client can publish the confirmation.
+- So an agent can complete the whole hard-stop path alone, which breaks AGENTS.md's "a person confirms" and the intent of decision 4.
+- ST adds that the tuning-mode button is unauthenticated too.
+- CX notes this was raised as a fact to check in round 2 and never answered.
+
+**Proposed fix (all five).** The page shows old value, new value and failure mode. The robot applies the change only after a physical driver-controller button (DC suggests a chord), pressed while disabled and read on the main thread as a logged input.
+- An agent can't do it, it needs no secrets, it is visible in replay, and it reuses the driver-button model of decision 11.
+- All five say decision 4 stands. Only how it is enforced changes.
+
+**Dissent (CD).** CD keeps a page-only confirmation step that the robot checks and logs as an input, with a confirmation ID, old value, new value and failure mode. CD didn't address the browser-driving agent.
+
+**Related point (ST).** Soft-limit capture (decision 11) writes a hard-stop group, so it needs this confirmation path too.
+
+#### S2. Stale robot-local hard-stop values override newer git values (major)
+
+**Raised by:** CX, IR.
+
+**The problem.** The robot-local layer beats git (decision 7), and deploys only warn (decision 8).
+- Suppose a swerve module is replaced and new offsets are committed to git. A stale robot-local offset still wins on the same chassis, because the `$hardware` stamp only rejects files from a different chassis.
+- The warning scrolls past, and the robot drives with wrong offsets.
+
+**Proposed fix.** Neither reviewer reopens the decisions.
+- The robot logs at boot, as an input, whenever a local hard-stop value overrides a git value that changed after the save.
+- A persistent banner shows this on the app and on the driver dashboard.
+- IR notes this needs the per-key base value recorded, even though decision 8 never merges automatically.
+
+**Conflict.** ZO says decision 8 makes three-way merge and base fields moot, so record only the git SHA. That conflicts with IR's need for a per-key base.
+
+#### S3. Capture validity checked only on the page
+
+**Raised by:** CD, as the only point where it sees a real safety risk.
+
+A capture gate that runs only on the page could act on zeros after a CANivore drop (the TXMAN1 case) and leave no record in the log. All six now recommend the gate on the robot (see section 3).
+
+**Related blocker (CD).** `nt4.js` passes `timestamp` to `onValue` (line 329) but doesn't store it per topic. So today no page can show how old a value is or reject stale data, and the TXMAN1 rule can't be enforced on the page side. ZO agrees the fix is to add per-topic last-update time to `nt4.js`.
+
+#### S4. Other safety-adjacent points
+
+- **Device config is read-only (DC, major).** Any "Tuner X replacement" must be read-only for device config. Phoenix config writes are blocking and close to hard-stop values.
+- **The service must survive robot-code crashes (DC, CX, IR, ST).** If the service is Java, it must not depend on robot classes, the HAL, JNI or Phoenix. A robot-code bug or a bad native library must not take it down. ST wants a build check that enforces this.
+- **Log tuning arm and disarm (CD, major).** Decision 5 has no timer, so log each arm and disarm (who armed it, why it turned off) as an input and show it in a banner. Today `TuningMode` is set only from the constant (Robot.java:173).
+
+**No other safety problems.** CD and ST state explicitly that they found none in decisions 1-12.
+
+---
+
+### 2. Earlier conclusions: current verdicts
+
+Legend: **H** = holds, **HC** = holds with changes, **SC** = should change.
+
+#### 2.1 Service language and runtime (rounds 3-5 leaned to Python stdlib)
+
+| DC | CD | ZO | CX | IR | ST |
+|---|---|---|---|---|---|
+| SC → Java | SC → lean Java, or keep it open and measure | HC (keep Python stdlib) | SC → Java | SC → Java | SC → Java leads, Python the counter |
+
+**Tally:** 5 should change (4 firmly to Java, CD leaning Java), 1 holds with changes.
+
+**Why it changes.** The round 4 objection was that sharing code would tie the service's release cycle to the robot's. Decision 12 already ties them, so the objection no longer applies (DC, CD, CX, IR, ST). Further reasons:
+- **Shared code:** Java can share ParamStore JSON parsing, the robot-vs-git diff, the hardware-stamp rule, key constants, `BuildConstants` and the wpilog reader, rather than keeping copies in Python.
+- **Version control:** Limelight's OS updates control Python's version. IR: an OTA update could break the service in a way no deploy can roll back. The team pins the JDK.
+- **Languages for AI maintainers:** Python would be a third language alongside Java and JS.
+- **RAM:** 100-200 MB out of 4 GB is about 3-5%, and that was never measured.
+
+**ZO's dissent.** The robot-specific framing makes the service *thinner*, so it gains little from shared types.
+- The only real pull to Java is decision 10's diff while the robot program is down. ZO's alternative: the robot writes the finished diff file on every `SaveParams`, and the service serves it as a static file. That keeps one parser.
+- Keep to the standard library (no Flask), and add a bench smoke test for each OS release.
+
+**Agreed by all six:**
+- CPU and GC jitter are the real constraint, and neither runtime has been measured. Measure with `robot_top.sh` and `FullCycleMS` before choosing (CD, ST, CX).
+- Go drops out (DC, CD, ZO; IR keeps it only as a fallback if JVM jitter turns out to be real).
+
+**Changes asked for if Java is chosen:**
+- **Separate jar (DC, CX, IR, ST).** Its own source set or subproject and its own jar, depending only on the JDK (`com.sun.net.httpserver`) plus a pure shared module (params schema, key constants, stamp rule). No robot classes, HAL, JNI or Phoenix, enforced by a build check (ST).
+- **JVM caps.** `-Xmx64m` (DC, CX) or `-Xmx96m` (IR), `-XX:+UseSerialGC`, `-XX:TieredStopAtLevel=1`, plus systemd `Nice` and `CPUQuota`. DC adds `CPUAffinity` if jitter is measurable.
+- **Stable JDK path (CX, ST, DC).** The launcher must find the JDK without hard-coding a version path that GradleRIO or OS updates would break.
+- **Reproducible jar (DC).** Set `preserveFileTimestamps = false` and `reproducibleFileOrder = true`, and keep `BuildConstants` out of the service jar. Otherwise the jar's hash changes on every build and the service restarts on every deploy.
+- **Self-reporting (CD).** The service reports its CPU, RSS, GC pauses and client count on `/health`.
+
+#### 2.2 Pages: plain JS, no build step
+
+| DC | CD | ZO | CX | IR | ST |
+|---|---|---|---|---|---|
+| HC | HC | H | HC | HC | HC |
+
+**Tally:** 1 holds, 5 hold with changes. No laptop JS toolchain and no npm (all six).
+
+**Changes asked for:**
+- **Generated key module (DC, CX, IR, ST).** Gradle generates a JS module, or JSON files, from the Java declarations: keys, params with bounds and `requiresReboot`, procedure ids, button bindings, and the hard-stop list with failure-mode text. Pages import it, so a rename breaks `node --test`. CX says "no build step" should now mean "no laptop JS toolchain", not "no generation at all".
+- **Type checking (all six).** `// @ts-check` plus JSDoc, checked in CI (CD). A per-page `KEYS` declaration (CD).
+- **CAD assets.** Static SVG or PNG exported once per mechanism, in a folder per page (for example `app/pages/<page>/assets/`), with a size budget so the deploy stays within 10-15 s (DC, IR, ST, ZO).
+  - Don't render CAD live in the page (ZO).
+  - CX: if a renderer is used, it goes in `app/vendor/` as one file. Define an export procedure and who updates the assets.
+  - CD: record the Onshape source and version next to each asset (`tools/onshape` exists).
+
+#### 2.3 "No copies of robot facts / robot-published runtime manifest"
+
+| DC | CD | ZO | CX | IR | ST |
+|---|---|---|---|---|---|
+| HC (narrowed) | HC | SC | SC | SC | SC |
+
+**Tally:** 4 should change, 2 hold with changes. The substance is the same across all six.
+- A hand-made page is a copy of robot facts by design.
+- The new rule: no hand-typed *values* (keys, bounds, bindings, CAN or device lists, failure-mode text). Those come from generated files, and CI fails on drift, closed rather than open. Hand-written structure, step text and graphics are allowed.
+- The runtime manifest drops to the SHA and version-mismatch banner, for partial deploys and after a crash.
+- IR adds that a list generated at compile time also works when the robot program has crashed; a runtime manifest does not.
+- The hard-stop list stays in one machine-readable place (ST).
+
+**Drop the cross-repo machinery:** versioned contract documents and a schema-versioned shell solved skew between repos that no longer exists (ZO). CX and ST: rewrite or withdraw reviewer recommendation 5 in "Key Decisions".
+
+#### 2.4 Linking to versus replacing the built-in UI and other tools
+
+All earlier reviewers said "link". The team decided the app replaces tools where possible.
+
+| DC | CD | ZO | CX | IR | ST |
+|---|---|---|---|---|---|
+| SC (earlier advice) | SC | HC | HC | SC (earlier objections lose weight) | SC |
+
+**Tally:** 4 say the earlier "link" advice should change, 2 hold it with changes. In substance all six now agree with the team's decision.
+- **Replace robot-specific jobs.** CAN and power by mechanism, mechanism health, this robot's cameras, procedures, log download.
+- **Keep links** (deep links through the routing table) to Limelight-owned generic OS features: support bundle, service logs, ports and firewall, storage, web terminal, OS update. Rebuilding those adds no robot knowledge and ties the app to the alpha OS (ST, ZO, CX).
+- **No dissent remains on this question.**
+
+**Changes asked for:**
+- Every replaced feature shows its data source and age, and links to the built-in view as a fallback, so the app isn't a single point of failure (CD).
+- The QR sticker or bookmark keeps a fallback list of the built-in tools, in case the app itself is down (IR).
+- Device config stays read-only (DC; see S4).
+
+#### 2.5 Install (decision 6: launcher-only .ipk installed once, Gradle owns the folder, restart on hash change)
+
+| DC | CD | ZO | CX | IR | ST |
+|---|---|---|---|---|---|
+| H (one gap) | HC (gaps) | H (missing items) | H | H (ordering blocker) | H |
+
+**Tally:** all six hold the decision. Gaps raised:
+- **Decide the runtime first (IR, blocker).** The launcher "never changes", so its interface (interpreter, path to `current/`, arguments, environment file) must be fixed before the first .ipk ships. Have the launcher read its exec line from a file in the Gradle-owned folder (IR), or run `current/run` (DC), so the runtime choice stays with Gradle.
+- **Java jar hashes (DC).** The jar must be built reproducibly (see 2.1), or every deploy restarts the service.
+- **Deploy output (CD).** Print the installed hash, whether the service restarted, and how long it took. `/version` reports the launcher version, the folder hash and the robot SHA. The launcher logs to journald why it failed to start.
+- **Robot without the launcher (ZO, IR).** Print one line on how to install it, and continue.
+- **Wording (ZO).** Decision 1 says "installed by every deploy" but decision 6 installs once. Reword it to "updated by every deploy".
+- **Pages without restarts (CX).** Changed pages are served from disk with no restart.
+- **Bench checks still gate the design (CD, CX, ST).** Can the deploy user run `systemctl restart` and `opkg`? Does the tile link to the app?
+- **Rollback.** Deploying an older commit restores the matching app (ST, IR).
+
+#### 2.6 AI interface (one documented API for pages and AI; a person confirms hard stops)
+
+| DC | CD | ZO | CX | IR | ST |
+|---|---|---|---|---|---|
+| H + safety blocker | H | HC + safety blocker | H + safety blocker | H + safety problem | HC + safety blocker |
+
+**Tally:** all six hold "one API". Five find the confirmation mechanism unsafe (S1).
+
+**Changes asked for:**
+- **Build "propose, then confirm" once** (DC).
+- **Simplify (ZO).** The API is the service's read-only HTTP endpoints plus the `/Tuning/` NT topics the pages already write. No separate AI write path and no MCP layer.
+- **Logging (CD).** Log each call with a client ID.
+- **Failure-mode text (CD).** It still has no source, which blocks the swerve page. DC and the generated module (2.2) would take it from the param declaration.
+- **API schema (IR).** A Java service could generate its schema from the shared records.
+
+#### 2.7 Other earlier conclusions
+
+| Item | Verdict and who | Change |
+|---|---|---|
+| NT relay (round 2) | Moot or drop: DC, ZO | Use direct NT4. |
+| Controls guide | Holds, made clearer: DC, ZO | Generate it at build time from a binding registry or `Gamepad`. The same table drives the procedure pages' "press A" (ZO). |
+| Network discovery with mDNS/ARP/latency history (round 2) | Should change: ZO | Over-built for one robot. Use one page listing the devices this robot's code logs, with reachability. |
+| Three-way merge, base fields, `pending.json` schema (rounds 4-5) | Should change: ZO (record the git SHA only) | Conflicts with IR's per-key base, needed for S2. |
+| Resource budget "5% / 150 MB" (round 2) | Should change: ZO | Came from the wrong CPU figure. Drop the numbers; measure, then set `Nice` and `CPUQuota`. |
+| Round 2 client data layer with three adapters | Should change: ZO (YAGNI) | `nt4.js` and `log-loader.js` already are the adapters. Add per-topic timestamps only. |
+| Round 4 ST "service and robot share no code" | Should change: DC, CD, IR, ST | Superseded by decision 12. |
+| Python pip/venv drift, "reuse tools/*.py" | Unnecessary: IR | Only relevant if Python stays. |
+| "Land the shared framework before the season" (round 6) | Holds with changes: DC | Conflicts with "built once the robot exists". Land only the core (service, log download, status, generator) before the season. Pages come later. |
+| Retire the 5800 `WebServer` pages | Missing: IR, CD | Redirect, keep the old pages side by side until each new page passes its sim, then delete. |
+| Event branches | Missing: IR | The smallest-change and no-spectrumLib rules now apply to app code too. Keep the shared framework outside spectrumLib so it can be fixed at an event. |
+| What carries over to the next robot | Missing: ZO, CX | The service, `lib/` and the Java procedure and capture pieces carry over; pages are rewritten. CX: give it an owner and a trigger, e.g. "at kickoff, copy `app/core` and the service source set". |
+
+---
+
+### 3. The round-6 splits
+
+#### 3.1 Where the shared part lives
+
+**All six now say this repo, copied forward, extracted later.** That resolves round 6's three-way split. The remaining disagreement is where the **Java** half goes.
+
+| Reviewer | Recommendation | Counter it gives |
+|---|---|---|
+| DC | `app/core` plus a Java `app-common` source set, not spectrumLib, because of the `event*` ban on spectrumLib edits. Extract when robot two exists. | Fixes won't reach the next robot. Mitigate with `VERSION` and a changelog. |
+| CD | `app/core` plus spectrumLib Java, with `VERSION` and a contract document. | Copies drift. Acceptable for a season, since spectrumLib is already copied per repo. |
+| ZO | `app/lib` plus `spectrumLib/checks`, next to `Check`/`PreMatchChecks`. Extract only when two robots are live at once. | Copies drift. Acceptable: robots are about yearly and pages are rewritten. |
+| CX | `app/core` plus the service source set, with no mechanism names (test-enforced). | Fixes don't flow back. `VERSION` and a changelog of core fixes to port. |
+| IR | A Java service-and-procedure package plus `app/core`, outside spectrumLib so it can be fixed at an event. | Drift, accepted under decision 12. |
+| ST | `app/core` plus Java `procedures/`, with a CI purity test (no key literals or mechanism names in core). Move to spectrumLib off-season. | Drift. The purity test keeps later extraction cheap. |
+
+**Split on the Java half:**
+- **In spectrumLib now:** CD, ZO.
+- **Outside spectrumLib during the season:** DC, IR (because of the event-branch ban), and ST (until the off-season).
+- **In the service source set:** CX.
+
+#### 3.2 Where capture validity is checked
+
+**All six: on the robot.** This resolves round 6's split.
+- **The gate:** a single `CaptureGate` (ZO: on the `Check` pattern). It produces a logged verdict and reason, computed from logged inputs: connected for the whole capture window, fresh, and steady. The page shows only the reason.
+- **Why round 6's counter fell away (DC, CX, IR, ST):** under decision 12 a page fix and a Java fix ship in the same deploy, so iteration speed no longer favours the page.
+- **Remaining counters and their mitigations:**
+  - The reason text lives in Java, far from the page. Fix it with enum reason codes mapped to text in the generated module (DC).
+  - A threshold tweak needs a redeploy. Make the thresholds params (ZO).
+  - A bug in the gate blocks every procedure until the next deploy (IR).
+
+#### 3.3 Who selects the utility-mode test
+
+**Split 3 to 3.**
+
+| Reviewer | Recommendation | Counter it gives |
+|---|---|---|
+| DC | **Driver buttons only.** The robot shows the selection on the dashboard and needs a second press to start. The page shows the expected button and accepts results only after `Seq` advances. | A wrong button runs the wrong test, limited by the two presses and timeouts. ZO's "requested test" field is the fallback if pit trials show errors. |
+| ZO | **Driver buttons only.** Each test on a distinct, labelled button, with rumble and the test name shown at start. | The wrong mechanism moves. Add the logged "requested test" (read only while disabled, selects and never starts) if it happens in practice. |
+| ST | **Driver buttons only for v1.** The page checks `Procedure/Active` after the test starts. | Wrong button. Same fallback. |
+| CD | **The page requests a test while disabled, as a logged NT input.** The robot accepts it only while disabled with no FMS attached. Only the driver's button starts it. | Indirect selection of motion, but within decision 11. Buttons-only also works if the robot logs the test id and `Seq`. |
+| CX | **The page selects while disabled, as a logged command.** One driver button runs only the selected test. The selection clears on leaving utility mode or when an FMS attaches. The driver must see it on the dashboard first. | Selecting from the web, or by AI through the API, is indirect control of motion. |
+| IR | **The page selects while disabled, as a logged command that never starts.** Cleared on FMS attach or leaving utility mode. Dashboard display plus rumble. | Indirect control of motion. Kept in check by the button press, the visible selection and the timeout. |
+
+**Round-6 option dropped:** "page-only arming", where nothing is sent to the robot, is no longer backed by anyone. IR moved from it to page-selects.
+
+**Common ground:** all three page-select reviewers require that selection never starts motion. All three buttons-only reviewers accept page selection as a fallback.
+
+**Interaction with S1 (DC):** with the physical hard-stop confirm, every action that changes the robot stays at the controller. That argues for buttons-only.
+
+---
+
+### 4. Document fixes the reviewers asked for
+
+- **AGENTS.md "Robot app" section** (DC blocker; ST major). It says "find mechanisms, buses and cameras from the log or NT, never a list" and "no CAN IDs in app/", and it still names port 5800. This contradicts decision 12, and AI maintainers will refuse to build hand-made pages or will fight them. Rewrite it to allow generated lists and forbid hand-typed values.
+- **Overview** (CX). Put the robot-specific framing in the first paragraph. Today a newcomer reads it as a generic app until decision 12.
+- **Goals** (CD, ST). They still describe a generic, discovery-based network page and a "How do I" page. Align them with decisions 11-12, and say which jobs get robot-specific pages and which stay generic. Mention the hand-made procedure pages and CAD.
+- **Glossary** (CX, ST; asked for since round 2). Define hard-stop, `$hardware` stamp, utility mode, eventDeploy, TXMAN1, LogKeyGuide and capture.
+- **Pruning:**
+  - Mark open item 1 (language) and the Alternatives "Node... not yet decided" as stale or under review (CX).
+  - Prune open items 1, 7, 9 and 11, which decisions 5, 7 and 12 partly settle (ST).
+  - Cut the "implementation details still undecided" list (ZO).
+  - Mark round 4 ST's "share no code" as superseded (CD).
+  - Withdraw or rewrite reviewer recommendation 5 (CX, ST).
+  - Drop the round 2 resource numbers (ZO).
+- **Current-position table** (ST). Rounds 2-6 repeat each other and conflict. Add one table (question, decided or open, which round superseded which) and archive the rounds below it.
+- **Out of scope** (CX). The section is empty. Candidates: generic mechanism discovery, OS functions Limelight already ships, and editing values while enabled.
+- **Decision 1 wording** (ZO). "Updated by every deploy", not "installed".
+- **Recommendation 2, removing `WebServer.start`** (CD, IR). Add the side-by-side migration step.
+- **Next-robot carry-over** (CX, ZO). Name an owner and a trigger.
+
 ## Analysis
 
 Six independent reviews (second round, run without steering), merged by question. Options are not chosen; the team decides.

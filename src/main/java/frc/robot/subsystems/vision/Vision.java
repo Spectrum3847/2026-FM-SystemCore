@@ -250,8 +250,16 @@ public class Vision implements Subsystem {
          */
         @Getter final double backHeadingErrorDeg = 2.0;
 
-        @Getter final double backHeadingHoldSeconds = 0.25;
-        @Getter final int backHeadingMinFrames = 3;
+        /**
+         * TXMAN1 Playoff 19 and 20: LL-Back MT1's heading scatters about 1.8 deg a frame (p90 3-4
+         * deg), so a 3-frame median over 0.25 s crossed 2 deg on noise. It fired 33 and 19 times a
+         * match with alternating signs, each a 2-7 deg heading step and a Quest re-origin. A median
+         * of 8 or more frames over 1 s has about 0.8 deg of noise; drift of 10 deg a match still
+         * shows within the second.
+         */
+        @Getter final double backHeadingHoldSeconds = 1.0;
+
+        @Getter final int backHeadingMinFrames = 8;
         @Getter final double backHeadingMaxErrorDeg = 20.0;
 
         /** LL-Back MT2 multi-tag trust while aiming; its far frames otherwise get 1.5 m. */

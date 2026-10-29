@@ -100,15 +100,20 @@ public class OrinPoseSourceIO implements PoseSourceIO {
         inputs.kind = PoseObservation.Kind.PHOTON.ordinal();
         inputs.tagIds = solver.seenTags.stream().toArray();
 
+        // PhotonVision results per second from this camera.
         Logger.recordOutput(logPrefix + "/ResultsPerSecond", resultsPerSecond);
+        // Latest result's capture-to-publish latency.
         Logger.recordOutput(logPrefix + "/LatencyMs", solver.lastLatencyMs);
+        // Time since the latest result's capture.
         Logger.recordOutput(logPrefix + "/ResultAgeSeconds", now - solver.lastTimestampSeconds);
         if (solver.decodeFailures > 0 || cameraInputs.readFailures > 0) {
+            // Results PhotonLib or the solver couldn't read, since boot; logged once there are any.
             Logger.recordOutput(
                     logPrefix + "/DecodeFailures",
                     solver.decodeFailures + cameraInputs.readFailures);
         }
         if (solver.excludedTargets > 0) {
+            // Targets dropped this loop for being on an excluded tag.
             Logger.recordOutput(logPrefix + "/ExcludedTargets", solver.excludedTargets);
         }
     }

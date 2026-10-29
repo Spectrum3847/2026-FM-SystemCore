@@ -1,7 +1,9 @@
 # FM Robot App on SystemCore
 
 Plan from 2026-09-24. Status: first cut in `src/main/deploy/app/`, read-only to the robot (see
-[What the first cut covers](#what-the-first-cut-covers)).
+[What the first cut covers](#what-the-first-cut-covers)). Being replaced by the Robot App brief
+(`concepts_brief.md` on branch `ccr-78e179ce-f84m7v`): on FM's SystemCore the first cut can't serve
+on 5800 (below), and the brief installs the app as a SystemCore package instead.
 
 ## Summary
 
@@ -28,7 +30,7 @@ Everything that broke was a fact about the robot that the app kept its own copy 
 | The app's own copy | Where it broke on FM-SystemCore |
 | --- | --- |
 | roboRIO addresses, the `lvuser` account, `/home/lvuser/logs` | SystemCore uses `robot.local`, the `systemcore` user, and `/U/logs` or `/home/systemcore/logs` |
-| A rewrite of `configEncoderOffsets(...)` in `OM2026.java` and of the `LimelightConfig` chains in `Vision.java` | FM uses `FM2026.java`, and `VisionConfig` has different fields (`systemCoreCameras`, `orinRobotToCamera`, `robotToQuest`) |
+| A rewrite of `configEncoderOffsets(...)` in `OM2026.java` and of the `LimelightConfig` chains in `Vision.java` | FM uses `FM2026.java`, and `VisionConfig` has different fields (`systemCoreCameras`, `orinRobotToCamera`) |
 | NT key names under `/Robot/Swerve/Align/` (the old DogLog logging library) | AdvantageKit publishes under `/AdvantageKit/RealOutputs/…`, and `DashboardReceiver` only sends dashboard keys to NT |
 | `robot-profile.json` (CAN IDs, current limits) and `controls.json`, mirrored by hand from Java | The drift check reads Java with a custom parser and only shows a warning banner |
 | Lived in one repo's `tools/` folder | Wasn't brought over; FM's README lists it as a known gap, and `SwerveAlignment.java` still points at a `tools/swerve-align` that doesn't exist |
@@ -98,7 +100,7 @@ Only the numbers the app writes move out of Java, into `src/main/deploy/params/`
 | --- | --- |
 | `swerve.json` | `swerve.configEncoderOffsets(...)` in `FM2026.java` |
 | `soft-limits.json` | e.g. `minRotations` / `maxRotations` in `Hood.java` |
-| `cameras.json` | `systemCoreCameras`, `orinRobotToCamera`, `robotToQuest` and the Limelight mounts in `VisionConfig` |
+| `cameras.json` | `systemCoreCameras`, `orinRobotToCamera` and the Limelight mounts in `VisionConfig` |
 
 Everything else stays in Java. The Java rewriters (`swerve-config.js`, `vision-config.js`) and their Spotless workarounds are deleted.
 
@@ -262,7 +264,7 @@ Steps 1–5 are realistic before the October event; 6 and 7 can wait. Build on `
 
 - [x] **1. Trial run.** Swerve Align is plain files in `src/main/deploy/app/`, served by the existing `WebServer`. Its NT prefix is still a constant in the page; the manifest replaces it in step 2. Port 5800 and phone access still need the bench.
 - [ ] **2. Manifest.** Build it from `Mechanism`, `SwerveAlignment`, `VisionConfig` and `LogStorage`. Publish on NT and log it once at startup.
-- [ ] **3. Tuning JSON.** `swerve.json`, `soft-limits.json`, `cameras.json`; the loader with overrides and the bad-file alert; NT commands; the effective tuning logged as an input. Turn on `pushLimelightMounts`.
+- [ ] **3. Tuning JSON.** `swerve.json`, `soft-limits.json`, `cameras.json`; the loader with overrides and the bad-file alert; NT commands; the effective tuning logged as an input. Turn on `pushLimelightMounts`. Each command the app sends, and whether the robot accepted it, is logged as an input too, so replay applies the same changes at the same loop and the log shows who changed what.
 - [ ] **4. Laptop tasks.** `pullTuning` and the deploy check.
 - [ ] **5. Pit pages.** Soft Limits, Cameras (port), and Logs with downloads. Cameras is ported; Logs opens a file from the laptop but cannot list the robot's log folder yet.
 - [x] **6. Log pages.** Port Power and CAN, with SystemCore's native buses.
@@ -283,12 +285,12 @@ Steps 2 to 4 and 7 remain.
 
 None of these should change the plan, but each one could change a detail, so check them during step 1.
 
-- [ ] **Port 5800.** A [SystemCore teardown](https://dunkirk.sh/blog/frc-systemcore-image/) lists a built-in CAN sniffer on 5800. Confirm our `WebServer` really serves there (for example, Elastic loads its layout from the robot).
+- [x] **Port 5800.** Checked on FM, 2026-10-29: SystemCore's own `visionserver` listens on 5800 (and 5802, 5805-5807), so our `WebServer.start(5800, ...)` can't bind there; the robot program's only listener is NT on 5810. Ports in use from 5800 to 5837: 5800-5803, 5805-5807, 5810, 5812, 5815-5817, 5819, 5820, 5822, 5825-5827, 5832, 5835-5837.
 - [x] **`WebServer` behavior.** From the allwpilib source (`wpinet` `WebServer.cpp` and `HttpServerConnection.cpp`): every response sends `Cache-Control: no-store, no-cache`, so the `version.js` stamp is not needed. A directory serves its `index.html`, else an HTML listing, and `?format=json` returns the listing as JSON. The log folder is outside the deploy folder, so the Logs page still needs robot code to list it.
-- [ ] **SystemCore cameras.** Do `limelightsc0/1` answer the same Limelight HTTP API on port 5807 as standalone Limelights? The Cameras page assumes they do, at the robot's own address. A Limelight streams on 5800, the same port as our `WebServer`, so the built-in cameras' stream must be somewhere else.
+- [x] **SystemCore cameras.** Yes for the API: on FM, `http://<robot>:5807/results` returns the standard Limelight results JSON (2026-10-29). Their stream is `visionserver` on 5800, which is why our `WebServer` can't use that port. Which of the two cameras answers on 5807 is not checked.
 - [ ] **Joystick data.** Which topics on SystemCore's system NT server carry Driver Station joystick data, for the controller page.
 - [ ] **CPU headroom.** The README measured the bench unit at 80–90% busy, with SystemCore's own vision servers using about 55%. Watch loop time with a page open and a log download running (`-ProbotTop`).
-- [ ] **Log folder.** Where logs land with and without a USB stick, and whether the web server can read that folder.
+- [ ] **Log folder.** Without a USB stick, logs land in `/home/systemcore/logs` (FM, 2026-10-29), outside the deploy folder, so the `WebServer` can't list them. With a USB stick: not checked.
 
 ## Sources
 

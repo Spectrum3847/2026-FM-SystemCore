@@ -85,20 +85,39 @@ public class ShotCalculator {
     public static final double STARTING_DRIVE_ANGLE_OFFSET = 0; // degrees
     public static double DRIVE_ANGLE_OFFSET = STARTING_DRIVE_ANGLE_OFFSET;
 
+    // The operator's d-pad trims every shot for the rest of the match, so each press is an event.
+    private static void setHoodAngleOffset(double degrees) {
+        HOOD_ANGLE_OFFSET = degrees;
+        Telemetry.logEvent("Events", String.format("hood angle offset %.1f deg", degrees));
+    }
+
+    private static void setDriveAngleOffset(double degrees) {
+        DRIVE_ANGLE_OFFSET = degrees;
+        Telemetry.logEvent("Events", String.format("drive angle offset %.0f deg", degrees));
+    }
+
     public static Command increaseHoodAngleOffset() {
-        return Commands.runOnce(() -> HOOD_ANGLE_OFFSET += 0.1).ignoringDisable(true);
+        return Commands.runOnce(() -> setHoodAngleOffset(HOOD_ANGLE_OFFSET + 0.1))
+                .ignoringDisable(true)
+                .withName("ShotCalculator.increaseHoodAngleOffset");
     }
 
     public static Command decreaseHoodAngleOffset() {
-        return Commands.runOnce(() -> HOOD_ANGLE_OFFSET -= 0.1).ignoringDisable(true);
+        return Commands.runOnce(() -> setHoodAngleOffset(HOOD_ANGLE_OFFSET - 0.1))
+                .ignoringDisable(true)
+                .withName("ShotCalculator.decreaseHoodAngleOffset");
     }
 
     public static Command increaseDriveAngleOffset() {
-        return Commands.runOnce(() -> DRIVE_ANGLE_OFFSET += 1).ignoringDisable(true);
+        return Commands.runOnce(() -> setDriveAngleOffset(DRIVE_ANGLE_OFFSET + 1))
+                .ignoringDisable(true)
+                .withName("ShotCalculator.increaseDriveAngleOffset");
     }
 
     public static Command decreaseDriveAngleOffset() {
-        return Commands.runOnce(() -> DRIVE_ANGLE_OFFSET -= 1).ignoringDisable(true);
+        return Commands.runOnce(() -> setDriveAngleOffset(DRIVE_ANGLE_OFFSET - 1))
+                .ignoringDisable(true)
+                .withName("ShotCalculator.decreaseDriveAngleOffset");
     }
 
     // =========================================================================
@@ -289,7 +308,7 @@ public class ShotCalculator {
     private ShotCalculator() {
         hubModelChooser.addDefaultOption(NO_CEILING_HUB_MODEL.name(), NO_CEILING_HUB_MODEL);
         hubModelChooser.addOption(CEILING_3M_HUB_MODEL.name(), CEILING_3M_HUB_MODEL);
-        Telemetry.logDash("ShotCalc/SetShot", selectedSetShot.label);
+        Telemetry.logDash("Shooting/Calc/SetShot", selectedSetShot.label);
     }
 
     /**
@@ -396,7 +415,8 @@ public class ShotCalculator {
      */
     public static void selectSetShot(SetShot shot) {
         selectedSetShot = shot;
-        Telemetry.logDash("ShotCalc/SetShot", shot.label);
+        // The set-shot spot the operator picked (Tower, LeftTrench, RightTrench).
+        Telemetry.logDash("Shooting/Calc/SetShot", shot.label);
     }
 
     /** The fixed shot currently selected, {@link SetShot#TOWER} until a binding picks one. */
@@ -602,22 +622,39 @@ public class ShotCalculator {
                         feed,
                         model.name());
 
-        Telemetry.log("ShotCalc/LookaheadPose", lookaheadPose);
-        Telemetry.log("ShotCalc/DistanceMeters", lookaheadDist, "meters");
-        Telemetry.log("ShotCalc/DistanceNoLookahead", distanceNoLookahead, "meters");
-        Telemetry.log("ShotCalc/DriveAngleDeg", driveAngle.getDegrees(), "degrees");
-        Telemetry.log("ShotCalc/YawOffsetDeg", yawOffsetDeg, "degrees");
-        Telemetry.log("ShotCalc/HoodAngleDeg", hoodAngle, "degrees");
-        Telemetry.log("ShotCalc/FlywheelSpeedRPM", flywheelSpeed, "RPM");
-        Telemetry.log("ShotCalc/ExitSpeedMs", exitSpeedMs, "m/s");
-        Telemetry.log("ShotCalc/RadialVelocityMs", radialVelocity, "m/s");
-        Telemetry.log("ShotCalc/TangentialVelocityMs", tangentialVelocity, "m/s");
-        Telemetry.log("ShotCalc/TimeOfFlight", tofFinal, "seconds");
-        Telemetry.log("ShotCalc/FeedShot", feed);
-        Telemetry.log("ShotCalc/HubPolyModel", model.name());
-        Telemetry.log("ShotCalc/DriveAngleOffsetDegrees", DRIVE_ANGLE_OFFSET, "degrees");
-        Telemetry.log("ShotCalc/HoodAngleOffsetDegrees", HOOD_ANGLE_OFFSET, "degrees");
-        Telemetry.log("ShotCalc/Target", target);
+        // Where the launcher will be when the ball arrives, facing the drive angle.
+        Telemetry.log("Shooting/Calc/LookaheadPose", lookaheadPose);
+        // Shoot-on-move virtual distance the model was evaluated at.
+        Telemetry.log("Shooting/Calc/DistanceMeters", lookaheadDist, "meters");
+        // Real distance from the launcher to the target now; validity is judged on this.
+        Telemetry.log("Shooting/Calc/DistanceNoLookahead", distanceNoLookahead, "meters");
+        // Heading the robot should face to shoot, with the move compensation and the operator's
+        // trim.
+        Telemetry.log("Shooting/Calc/DriveAngleDeg", driveAngle.getDegrees(), "degrees");
+        // Shoot-on-move aim offset from the straight-line bearing.
+        Telemetry.log("Shooting/Calc/YawOffsetDeg", yawOffsetDeg, "degrees");
+        // Hood target, with the operator's trim (never below 9).
+        Telemetry.log("Shooting/Calc/HoodAngleDeg", hoodAngle, "degrees");
+        // Flywheel target.
+        Telemetry.log("Shooting/Calc/FlywheelSpeedRPM", flywheelSpeed, "RPM");
+        // Ball exit speed the model asks for.
+        Telemetry.log("Shooting/Calc/ExitSpeedMs", exitSpeedMs, "m/s");
+        // Launcher velocity toward the target; positive is closing.
+        Telemetry.log("Shooting/Calc/RadialVelocityMs", radialVelocity, "m/s");
+        // Launcher velocity across the line to the target.
+        Telemetry.log("Shooting/Calc/TangentialVelocityMs", tangentialVelocity, "m/s");
+        // The model's ball flight time.
+        Telemetry.log("Shooting/Calc/TimeOfFlight", tofFinal, "seconds");
+        // A feed (passing) shot, not a hub shot.
+        Telemetry.log("Shooting/Calc/FeedShot", feed);
+        // The fitted shot model in use.
+        Telemetry.log("Shooting/Calc/HubPolyModel", model.name());
+        // The operator's drive-angle trim (d-pad left/right).
+        Telemetry.log("Shooting/Calc/DriveAngleOffsetDegrees", DRIVE_ANGLE_OFFSET, "degrees");
+        // The operator's hood trim (d-pad up/down).
+        Telemetry.log("Shooting/Calc/HoodAngleOffsetDegrees", HOOD_ANGLE_OFFSET, "degrees");
+        // Where the shot is aimed: the hub, or the feed target while in the feed zone.
+        Telemetry.log("Shooting/Calc/Target", target);
 
         return latestParameters;
     }

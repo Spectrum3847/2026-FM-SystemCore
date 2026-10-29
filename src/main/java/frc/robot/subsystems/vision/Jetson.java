@@ -57,6 +57,8 @@ public class Jetson {
     // Alert thresholds: the issue's starting points; tune with logs.
     private static final double HEARTBEAT_TIMEOUT_SECONDS = 3.0;
     private static final double MIN_FPS = 100; // bench: 122
+    // The Jetson idles cameras at ~30 fps while disabled; its fps reading lags the enable.
+    private static final double FULL_SPEED_AFTER_ENABLE_SECONDS = 3.0;
     private static final double MAX_TJ_TEMP_C = 75;
     private static final double MIN_FAN_RPM = 1000;
     private static final double MIN_REWIND_FREE_GB = 20;
@@ -97,6 +99,7 @@ public class Jetson {
     private double framesDroppedRoseSeconds = Double.NaN;
     private long overCurrentAtEnable = -1;
     private boolean wasEnabled = false;
+    private double enabledAtSeconds = Double.NaN;
 
     private final Alert jetsonDown =
             new Alert("Jetson not responding (no heartbeat): Orin cameras are out", Level.HIGH);
@@ -111,7 +114,7 @@ public class Jetson {
     private final Alert rewindDropping =
             new Alert("Rewind is dropping frames while recording", Level.MEDIUM);
     private final Alert rebooted = new Alert("", Level.MEDIUM);
-    private double lastUptime = Double.NaN;
+    private String lastBootId = "";
     private final Alert rewindNotRecording =
             new Alert("Rewind should be recording this match but isn't", Level.MEDIUM);
 
@@ -190,6 +193,11 @@ public class Jetson {
         }
     }
 
+    /** Whether the reboot alert is up. */
+    boolean rebooted() {
+        return rebooted.get();
+    }
+
     /** Whether the Jetson should answer: installed, on a real robot or a replay of one. */
     public boolean isExpected() {
         return expectJetson.getAsBoolean();
@@ -256,6 +264,7 @@ public class Jetson {
             lastExcludedText = text;
             excludedTags = parseTags(text);
             io.setExcludedTags(excludedTags.stream().mapToLong(Integer::longValue).toArray());
+            // Tags every Orin multi-tag solve ignores, as sent to the Jetson.
             Logger.recordOutput(
                     PREFIX + "ExcludedTags",
                     excludedTags.stream().mapToLong(Integer::longValue).toArray());
@@ -277,6 +286,7 @@ public class Jetson {
         updateRewind(now, enabled);
 
         if (enabled && !wasEnabled) {
+            enabledAtSeconds = now;
             rebooted.set(false);
             overCurrentAtEnable = inputs.overCurrentEvents;
             for (CameraCheck c : checks) {
@@ -284,10 +294,11 @@ public class Jetson {
             }
         }
         wasEnabled = enabled;
+        boolean fullSpeed = enabled && now - enabledAtSeconds > FULL_SPEED_AFTER_ENABLE_SECONDS;
 
         updateJetsonAlerts(now);
         for (CameraCheck c : checks) {
-            updateCameraAlerts(c, now, disabled && robotStill);
+            updateCameraAlerts(c, now, disabled && robotStill, fullSpeed);
         }
     }
 
@@ -301,6 +312,7 @@ public class Jetson {
                 c.source().setPipelineIndex(wanted);
             }
         }
+        // PhotonVision pipeline the robot asked for: 0 match, 1 practice.
         Logger.recordOutput(PREFIX + "RequestedPipeline", requestedPipeline);
     }
 
@@ -313,6 +325,7 @@ public class Jetson {
             String label = rewindLabel();
             recordRequested = now - lastEnabledSeconds < REWIND_TAIL_SECONDS;
             io.setRewind(recordRequested, label);
+            // Name the robot gave the Rewind recording.
             Logger.recordOutput(PREFIX + "Rewind/Label", label);
         } else {
             boolean manual = manualRecord.get();
@@ -324,6 +337,7 @@ public class Jetson {
             recordRequested = manual;
         }
         lastFmsAttached = fmsAttached;
+        // The robot asked Rewind to record.
         Logger.recordOutput(PREFIX + "Rewind/RecordRequested", recordRequested);
     }
 
@@ -368,22 +382,27 @@ public class Jetson {
         boolean down =
                 inputs.heartbeat < 0
                         || now - lastHeartbeatChangeSeconds > HEARTBEAT_TIMEOUT_SECONDS;
+        // Time since the Jetson's heartbeat last changed; over the timeout means the Jetson is
+        // down.
         Logger.recordOutput(PREFIX + "HeartbeatAgeSeconds", now - lastHeartbeatChangeSeconds);
         jetsonDown.set(isExpected() && down);
         responding = !down;
+        // The Jetson's heartbeat is fresh.
         frc.spectrumLib.telemetry.Telemetry.logDash("Vision/Jetson/Connected", !down);
         boolean up = isExpected() && !down;
 
-        // Uptime dropping means the Jetson rebooted (power or watchdog); its own log survives power
-        // cuts, so look up why after the match. Stays up until the next enable.
-        if (!Double.isNaN(lastUptime) && inputs.uptimeSeconds < lastUptime - 1.0) {
-            rebooted.setText(
-                    String.format(
-                            "Jetson rebooted at robot time %.0f s: check its log and power", now));
-            rebooted.set(isExpected());
-        }
-        if (!Double.isNaN(inputs.uptimeSeconds)) {
-            lastUptime = inputs.uptimeSeconds;
+        // A new boot ID means the Jetson rebooted (power or watchdog); a reconnect keeps it. Its
+        // own
+        // log survives power cuts, so look up why after the match. Stays up until the next enable.
+        if (!inputs.bootId.isEmpty()) {
+            if (!lastBootId.isEmpty() && !inputs.bootId.equals(lastBootId)) {
+                rebooted.setText(
+                        String.format(
+                                "Jetson rebooted at robot time %.0f s: check its log and power",
+                                now));
+                rebooted.set(isExpected());
+            }
+            lastBootId = inputs.bootId;
         }
 
         show(
@@ -433,7 +452,8 @@ public class Jetson {
                 up && RobotState.isFMSAttached() && mismatch && now - recordingMismatchSince > 2.0);
     }
 
-    private void updateCameraAlerts(CameraCheck c, double now, boolean mountCheckAllowed) {
+    private void updateCameraAlerts(
+            CameraCheck c, double now, boolean mountCheckAllowed, boolean fullSpeed) {
         OrinCameraInputs in = c.camera.source().getCameraInputs();
         // A camera turned off on purpose reads as disconnected after 0.5 s: no alerts for it (8f).
         boolean watch = isExpected() && c.camera.installed() && in.enabled;
@@ -446,7 +466,11 @@ public class Jetson {
         show(
                 c.slow,
                 c.slowDebounce.calculate(
-                        watch && in.connected && in.healthFps > 0 && in.healthFps < MIN_FPS),
+                        watch
+                                && fullSpeed
+                                && in.connected
+                                && in.healthFps > 0
+                                && in.healthFps < MIN_FPS),
                 () ->
                         String.format(
                                 "Orin camera %s slow: %.0f fps", c.camera.name(), in.healthFps));

@@ -8,7 +8,10 @@ docs/pose-sources.md for the localization testbed.
 - Java 25, the WPILib 2027 JDK. On team laptops:
   `export JAVA_HOME=/c/Users/Public/wpilib/2027_alpha5/jdk`.
 - `./gradlew build` compiles, applies Spotless (Google Java Format AOSP, 4 spaces) and runs tests.
-- `FM_SIM_SCRIPT=drive ./gradlew simulateJava -PnoSimGui` runs the scripted sim; then
+- To verify a change, run `python tools/check.py` (add `--quick`, `--sims`, `--log <robot log>`
+  as needed) in the background and read its summary. It builds once and runs tests, sims and
+  replays in parallel. Don't run those steps one by one.
+- `FM_SIM_SCRIPT=drive ./gradlew simulateJava -PnoSimGui` runs one scripted sim by hand; then
   `python tools/wpilog_summary.py logs/<log>.wpilog`.
 - The WPILib API is 2027 alpha-6 (`org.wpilib.*`). Do not guess 2026 names: check the jars
   (`javap`) or the existing code. Common moves: `DriverStation` → `MatchState` / `RobotState` /
@@ -52,6 +55,12 @@ docs/pose-sources.md for the localization testbed.
   dependency update.
 - Never put the log-site upload key, radio keys or tokens in code, chat or commits. Logs uploaded
   to robotlog.spectrum3847.org are public; upload only what was asked.
+- Every log carries `LogKeyGuide` metadata: what each key means, its unit, input or output, and
+  its source file (`docs/log-keys.md` is the same list). Read it before guessing at a key. After
+  adding or renaming a logged key, run `python tools/make_log_key_guide.py` (CI checks it), and
+  put a one-line comment above the call or field saying what the value means.
+- The log tools have tests: `python -m unittest discover -s tools -p "test_*.py"`. A change to a
+  tool, or a renamed key a tool reads, updates `tools/test_log_tools.py` too.
 - Logs: `tools/wpilog_summary.py`, `tools/shot_log.py`, `tools/replay_compare.py`, the
   `spectrum-logs` MCP (robotlog.spectrum3847.org) and the `frc-log-triage` skill in
   Spectrum-AI-Tools.

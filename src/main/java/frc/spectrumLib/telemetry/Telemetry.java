@@ -4,8 +4,6 @@ import frc.spectrumLib.framework.RobotLoop;
 import java.util.HashMap;
 import java.util.Map;
 import org.littletonrobotics.junction.Logger;
-import org.wpilib.command2.Command;
-import org.wpilib.command2.Commands;
 import org.wpilib.system.Timer;
 import org.wpilib.units.Measure;
 import org.wpilib.units.Unit;
@@ -320,9 +318,15 @@ public class Telemetry {
         epochStartNanos.computeIfAbsent(key, k -> new long[1])[0] = System.nanoTime();
     }
 
+    /** Per timer key: sum of seconds, spans, worst span, window start (ns), over this second. */
+    private static final Map<String, double[]> timerWindows = new HashMap<>();
+
+    private static final Map<String, String> timerMeanKeys = new HashMap<>();
+
     /**
-     * Ends a timed span and logs its length in seconds, so existing analysis of the {@code
-     * Scheduler/*} keys keeps working.
+     * Ends a timed span. Once a second it logs the worst span of that second under {@code key} and
+     * the mean under {@code key + "Mean"}, in seconds: every loop was ~15 values a loop, 7% of a
+     * log, and the worst loop is what an overrun investigation needs.
      *
      * @param key the key passed to {@link #time(String)}
      */
@@ -331,14 +335,31 @@ public class Telemetry {
         if (start == null || start[0] == 0) {
             return;
         }
-        log(key, (System.nanoTime() - start[0]) / 1e9, "seconds");
+        long now = System.nanoTime();
+        double seconds = (now - start[0]) / 1e9;
         start[0] = 0;
+        double[] w = timerWindows.computeIfAbsent(key, k -> new double[] {0, 0, 0, now});
+        w[0] += seconds;
+        w[1]++;
+        w[2] = Math.max(w[2], seconds);
+        if (now - w[3] >= 1_000_000_000L) {
+            log(key, w[2], "seconds");
+            log(timerMeanKeys.computeIfAbsent(key, k -> k + "Mean"), w[0] / w[1], "seconds");
+            w[0] = 0;
+            w[1] = 0;
+            w[2] = 0;
+            w[3] = now;
+        }
     }
 
     // ── Events ───────────────────────────────────────────────────────────────
 
-    /** Loop whose events {@link #events} holds. */
-    private static long eventLoop = -1;
+    /**
+     * AdvantageKit cycle whose events {@link #events} holds, by its pinned timestamp. Not {@link
+     * RobotLoop}: that advances inside {@code robotPeriodic}, after the mode init of the same
+     * cycle, so an event from {@code disabledInit} was overwritten by the next one that cycle.
+     */
+    private static long eventCycle = Long.MIN_VALUE;
 
     /** Events logged this loop, by key. */
     private static final Map<String, java.util.List<String>> events = new HashMap<>();
@@ -346,16 +367,16 @@ public class Telemetry {
     /**
      * Logs a discrete event. AdvantageKit keeps one value per key per cycle. Logging two messages
      * to the same key in one loop kept only the second, so two commands ending in the same loop, or
-     * two prints, lost one. Events are accumulated per loop and recorded as a string array holding
+     * two prints, lost one. Events are accumulated per cycle and recorded as a string array holding
      * all of them.
      *
      * @param key the log key
      * @param message the event
      */
     public static void logEvent(String key, String message) {
-        long loop = RobotLoop.count();
-        if (loop != eventLoop) {
-            eventLoop = loop;
+        long cycle = Logger.getTimestamp();
+        if (cycle != eventCycle) {
+            eventCycle = cycle;
             events.clear();
         }
         var list = events.computeIfAbsent(key, k -> new java.util.ArrayList<>(2));
@@ -366,21 +387,6 @@ public class Telemetry {
     // ── Commands, prints ─────────────────────────────────────────────────────
 
     /**
-     * Wraps a command so that its initialization and end are logged to the "Commands" key.
-     *
-     * @param cmd The command to wrap
-     * @return a decorated command that logs lifecycle events and preserves the original name
-     */
-    public static Command log(Command cmd) {
-        return cmd.deadlineFor(
-                        Commands.startEnd(
-                                () -> logEvent("Commands", "Init: " + cmd.getName()),
-                                () -> logEvent("Commands", "End: " + cmd.getName())))
-                .ignoringDisable(cmd.runsWhenDisabled())
-                .withName(cmd.getName());
-    }
-
-    /**
      * Print a statement if the priority allows it. AdvantageKit captures the console into the log,
      * so the text is also recorded; it is additionally logged under "Prints" for search.
      */
@@ -389,6 +395,7 @@ public class Telemetry {
         if (priority == PrintPriority.HIGH || Telemetry.priority == PrintPriority.NORMAL) {
             System.out.println(out);
         }
+        // Every Telemetry.print line in this cycle, with its robot time.
         logEvent("Prints", out);
     }
 

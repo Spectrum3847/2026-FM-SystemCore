@@ -131,9 +131,18 @@ public final class AutoEnd {
                         RobotState.isDSAttached(),
                         MatchState.getMatchTime());
         String by = interruptor.map(Command::getName).orElse("");
+        // Why the auto ended: FINISHED, END_OF_PERIOD, DISABLED_BY_FMS_EARLY, DS_DISCONNECTED,
+        // E_STOP, ...
         Telemetry.log("Auton/EndReason", reason.name());
+        // The command that interrupted the auto, if one did.
         Telemetry.log("Auton/EndInterruptedBy", by);
+        // How long the auto ran.
         Telemetry.log("Auton/EndElapsedSeconds", seconds, "seconds");
+        Telemetry.logEvent(
+                "Events",
+                String.format(
+                        "auto %s ended: %s%s after %.2f s",
+                        auto.getName(), reason, by.isEmpty() ? "" : " by " + by, seconds));
         Telemetry.print(
                 String.format(
                         "*** Auton %s ended: %s%s after %.2f s ***",

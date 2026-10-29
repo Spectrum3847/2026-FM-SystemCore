@@ -93,7 +93,7 @@ public class Launcher extends Mechanism {
         SET_SHOT,
     }
 
-    private WantedState wantedState = WantedState.OFF;
+    @Getter private WantedState wantedState = WantedState.OFF;
     private SystemState systemState = SystemState.OFF;
 
     public void setWantedState(WantedState state) {
@@ -157,16 +157,22 @@ public class Launcher extends Mechanism {
 
     @Override
     public void periodic() {
+        Telemetry.time("Scheduler/Periodic/Launcher");
         systemState = handleStateTransition();
         applyStates();
         logBatteryUsage();
+        // What SuperStructure asked of the launcher.
         Telemetry.log("Launcher/WantedState", wantedState.toString());
+        // The state the launcher is actually in, after its own transitions.
         Telemetry.log("Launcher/SystemState", systemState.toString());
+        // The command requiring the launcher, if any.
         Telemetry.log("Launcher/CurrentCommand", getCurrentCommandName());
         // Voltage, currents, temperature and connection at 10 Hz (offseason); the
         // same signals are also recorded every loop as inputs under Mechanisms/.
         logDiagnostics("Launcher");
+        // The launcher's speed, mechanism RPM.
         Telemetry.log("Launcher/RPM", getVelocityRPM(), "RPM");
+        Telemetry.timeEnd("Scheduler/Periodic/Launcher");
     }
 
     // --------------------------------------------------------------------------------

@@ -7,7 +7,6 @@ import frc.robot.RuntimeInputs;
 import frc.robot.auton.Auton;
 import frc.robot.subsystems.swerve.Swerve;
 import frc.spectrumLib.checks.CameraHeadingCheck;
-import frc.spectrumLib.localization.Gate;
 import frc.spectrumLib.localization.GateContext;
 import frc.spectrumLib.localization.PoseFusion;
 import frc.spectrumLib.localization.PoseObservation;
@@ -53,8 +52,8 @@ import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 import org.wpilib.vision.apriltag.AprilTagFields;
 
 /**
- * FM's multi-source localization testbed: up to three Limelights, three Orin/PhotonVision cameras
- * and a QuestNav, each gated on its own and each logged well enough to compare after the fact.
+ * FM's multi-source localization testbed: up to three Limelights and three Orin/PhotonVision
+ * cameras, each gated on its own and each logged well enough to compare after the fact.
  *
  * <h2>Every loop</h2>
  *
@@ -79,7 +78,7 @@ import org.wpilib.vision.apriltag.AprilTagFields;
  *       weights each by its std-devs).
  *   <li>MegaTag1 until the disabled seed is confirmed, MegaTag2 after (offseason, switchable at
  *       {@code Vision/ChassisUseMT2}).
- *   <li>The Orin and QuestNav fuse whenever enabled and the robot is enabled. Both start
+ *   <li>The Orin cameras fuse whenever enabled and the robot is enabled. They start
  *       <b>disabled</b>: they are logged and shadowed, but do not move the robot pose until someone
  *       flips {@code /Localization/Sources/<name>/Enabled} on the dashboard.
  * </ul>
@@ -192,24 +191,6 @@ public class Vision implements Subsystem {
         /** Whether the Jetson is on the robot; its alerts are off without it. */
         @Getter final boolean jetsonInstalled = true;
 
-        // -- QuestNav (CALIBRATE: placeholder until mounted) --------------------
-
-        @Getter
-        final Transform3d robotToQuest =
-                new Transform3d(new Translation3d(0.0, 0.0, 0.40), Rotation3d.kZero);
-
-        /** Frames arriving within this long of a pose reset may predate it. */
-        @Getter final double questResetSettleSeconds = 0.5;
-
-        /** Quest frames older than this are stale (it runs at ~100 Hz). */
-        @Getter final double questMaxAgeSeconds = 0.25;
-
-        /**
-         * A Quest frame whose motion since the previous frame differs from wheel odometry's by more
-         * than this is a tracking jump (re-localisation, re-origin) rather than motion.
-         */
-        @Getter final double questMaxJumpMeters = 0.25;
-
         // -- Seeding (offseason) ------------------------------------------------
 
         /** Translation std-dev while seeding, metres. From the 2026 {@code forceIntegrateXY}. */
@@ -246,12 +227,23 @@ public class Vision implements Subsystem {
 
         /**
          * TXMAN1: the Pigeon drifted about 10 deg a match, under the gross threshold, and shots
-         * went 5-9 deg right. The median keeps one bad two-tag frame from setting the heading.
+         * went 5-9 deg right. The median keeps one bad two-tag frame from setting the heading. 4
+         * deg, not 2: in Playoff 19 replay a 2 deg trigger still made 7 corrections that alternated
+         * in sign (LL-Back MT1 carries a few degrees of position-dependent bias); 4 deg made 3, and
+         * still catches drift well before the 5-9 deg that cost shots.
          */
-        @Getter final double backHeadingErrorDeg = 2.0;
+        @Getter final double backHeadingErrorDeg = 4.0;
 
-        @Getter final double backHeadingHoldSeconds = 0.25;
-        @Getter final int backHeadingMinFrames = 3;
+        /**
+         * TXMAN1 Playoff 19 and 20: LL-Back MT1's heading scatters about 1.8 deg a frame (p90 3-4
+         * deg), so a 3-frame median over 0.25 s crossed 2 deg on noise. It fired 33 and 19 times a
+         * match with alternating signs, each a 2-7 deg heading step and a Quest re-origin. A median
+         * of 8 or more frames over 1 s has about 0.8 deg of noise; drift of 10 deg a match still
+         * shows within the second.
+         */
+        @Getter final double backHeadingHoldSeconds = 1.0;
+
+        @Getter final int backHeadingMinFrames = 8;
         @Getter final double backHeadingMaxErrorDeg = 20.0;
 
         /** LL-Back MT2 multi-tag trust while aiming; its far frames otherwise get 1.5 m. */
@@ -296,12 +288,10 @@ public class Vision implements Subsystem {
 
     @Getter private Jetson jetson;
     private double autoStartSeconds = Double.NaN;
-    @Getter private PoseSource questSource;
     @Getter private final List<PoseSource> allSources = new ArrayList<>();
     private PoseSource backMt1;
     private PoseSource backMt2;
 
-    private QuestNavControl questControl = QuestNavControl.NONE;
     private SimVision simVision;
     private final List<SimVision.LimelightSimCamera> simLimelights = new ArrayList<>();
 
@@ -334,8 +324,6 @@ public class Vision implements Subsystem {
             org.wpilib.math.filter.Debouncer debounce) {}
 
     private final List<CameraAlert> cameraAlerts = new ArrayList<>();
-
-    private final Alert questBatteryAlert = new Alert("", Level.MEDIUM);
 
     private final Alert notSeededAlert =
             new Alert(
@@ -452,29 +440,12 @@ public class Vision implements Subsystem {
             jetson.publishFieldMap(tagField.name(), tagLayoutHash, FieldMapJson.of(tagLayout));
         }
 
-        // QuestNav.
-        PoseSourceIO questIo;
-        if (replay) {
-            questIo = PoseSourceIO.NONE;
-        } else if (sim) {
-            var q = new SimVision.QuestSimIO(swerve::getSimTruthPose);
-            questControl = q;
-            questIo = q;
-        } else {
-            var q = new QuestNavIO(config.robotToQuest);
-            questControl = q;
-            questIo = q;
-        }
-        questSource =
-                new PoseSource("Quest", questIo, questGates(), VisionGates.QUEST_MODEL, false);
-
         allSources.addAll(mt1Sources);
         allSources.addAll(mt2Sources);
         allSources.addAll(scMt1Sources);
         allSources.addAll(scMt2Sources);
         allSources.addAll(orinSources);
         allSources.addAll(orinGyroSources); // after orinSources: they read this loop's results
-        allSources.add(questSource);
         for (PoseSource s : allSources) {
             fusion.register(s);
         }
@@ -485,7 +456,6 @@ public class Vision implements Subsystem {
             addCameraAlert(List.of(scMt1Sources.get(i), scMt2Sources.get(i)), false);
         }
         // (The Orin cameras' alerts are in Jetson.)
-        addCameraAlert(List.of(questSource), false);
 
         if (!replay) {
             for (Limelight ll : limelights) {
@@ -595,60 +565,6 @@ public class Vision implements Subsystem {
     }
 
     // =========================================================================
-    // QuestNav gates (VIO failure modes, not AprilTag ones)
-    // =========================================================================
-
-    private Pose2d lastQuestPose = null;
-    private Pose2d lastQuestOdometry = null;
-
-    private List<Gate> questGates() {
-        return List.of(
-                Gate.rejectIf("Not Tracking Rejection", (o, c) -> !o.tracking()),
-                Gate.rejectIf(
-                        "Not Reset Rejection",
-                        (o, c) -> Double.isNaN(questHealth(QuestNavIO.H_LAST_RESET_TIME))),
-                Gate.rejectIf(
-                        "Recent Reset Rejection",
-                        (o, c) ->
-                                o.timestampSeconds() - questHealth(QuestNavIO.H_LAST_RESET_TIME)
-                                        < config.questResetSettleSeconds),
-                Gate.rejectIf(
-                        "Stale Estimate Rejection",
-                        (o, c) ->
-                                c.nowSeconds() - o.timestampSeconds() > config.questMaxAgeSeconds),
-                VisionGates.FUTURE_TIMESTAMP_GATE,
-                Gate.rejectIf(
-                        "Out of Field Rejection",
-                        (o, c) -> frc.rebuilt.FieldHelpers.poseOutOfField(o.pose2d())),
-                this::questJumpGate);
-    }
-
-    /**
-     * Compares the Quest's motion since its last frame with wheel odometry's over the same loop. A
-     * VIO source that re-localises or re-origins jumps; the wheels never do.
-     */
-    private String questJumpGate(PoseObservation o, GateContext c) {
-        Pose2d quest = o.pose2d();
-        Pose2d odom = c.odometryPose();
-        String result = null;
-        if (lastQuestPose != null && lastQuestOdometry != null) {
-            double questMove = quest.getTranslation().getDistance(lastQuestPose.getTranslation());
-            double odomMove = odom.getTranslation().getDistance(lastQuestOdometry.getTranslation());
-            if (Math.abs(questMove - odomMove) > config.questMaxJumpMeters) {
-                result = "Jump vs Odometry Rejection";
-            }
-        }
-        lastQuestPose = quest;
-        lastQuestOdometry = odom;
-        return result;
-    }
-
-    private double questHealth(int index) {
-        double[] h = questSource.getInputs().health;
-        return index < h.length ? h[index] : Double.NaN;
-    }
-
-    // =========================================================================
     // Periodic
     // =========================================================================
 
@@ -718,6 +634,8 @@ public class Vision implements Subsystem {
         // TXMAN1: while aiming, the side cameras pulled the pose 15-35 cm off LL-Back's.
         boolean aiming = Robot.getSuperStructure() != null && Robot.getSuperStructure().isAiming();
         boolean backOnly = llWindow && useMt2 && aiming && acceptedMultiTag(backMt2);
+        // While aiming, only LL-Back's MT2 multi-tag frames update the pose (the side cameras
+        // pulled it 15-35 cm off at TXMAN1).
         Logger.recordOutput("Vision/AimBackMT2Only", backOnly);
         for (PoseSource s : mt1Sources) {
             applyWithPolicy(s, llWindow && !useMt2 && !backOnly);
@@ -741,19 +659,17 @@ public class Vision implements Subsystem {
         for (PoseSource s : orinGyroSources) {
             applyWithPolicy(s, !disabled && !backOnly);
         }
-        applyWithPolicy(questSource, !disabled && !backOnly);
 
         if (!disabled) {
             checkGrossHeadingError(context);
         }
         feedTagEkf();
 
-        // 4. Keep the Limelights and the Quest aligned with the fused pose.
+        // 4. Keep the Limelights aligned with the fused pose.
         if (Constants.currentMode != Constants.Mode.REPLAY) {
             sendCameraSettings(now);
         }
         pushHeadingToLimelights();
-        resetQuestAfterSeed();
         jetson.periodic(
                 context.linearSpeed() < 0.05 && Math.abs(context.robotVelocity().omega) < 0.05);
 
@@ -836,6 +752,7 @@ public class Vision implements Subsystem {
         }
         Pose2d fused = fusion.sampleAt(o.timestampSeconds()).orElse(fusion.getPose());
         double errorDeg = o.pose2d().getRotation().minus(fused.getRotation()).getDegrees();
+        // LL-Back MT1 multi-tag heading minus the fused heading at its capture time.
         Logger.recordOutput("Vision/BackHeadingErrorDeg", errorDeg);
         if (Math.abs(errorDeg) > config.backHeadingMaxErrorDeg) {
             return;
@@ -865,8 +782,8 @@ public class Vision implements Subsystem {
                 config.seedXyStdDev,
                 Units.degreesToRadians(config.seedThetaStdDevDeg));
         backHeadingCorrections++;
+        // Times LL-Back held off the fused heading long enough to re-seed it, since boot.
         Logger.recordOutput("Vision/BackHeadingCorrections", backHeadingCorrections);
-        resetQuestToRobotPose();
     }
 
     private List<PoseSource.Result> tightMultiTag(List<PoseSource.Result> results) {
@@ -993,6 +910,7 @@ public class Vision implements Subsystem {
             }
             addTagFrame(ekf, frame, tilted);
         }
+        // Time to feed this loop's observations to the comparison EKF.
         Logger.recordOutput("Localization/EKF/FeedMicros", (System.nanoTime() - start) / 1000);
     }
 
@@ -1121,7 +1039,6 @@ public class Vision implements Subsystem {
             poseHeadingSeeded = true;
             enabledSeedCount++;
             multiTagSeedCount++;
-            resetQuestToRobotPose();
             Telemetry.print(
                     String.format(
                             "Vision: pose seeded WHILE ENABLED from %s (%d tags); nothing had"
@@ -1139,6 +1056,8 @@ public class Vision implements Subsystem {
             trackSeedConfirmation(o);
         } else {
             seedConfirmStreak = 0;
+            // Why the seed-confirm run last restarted: disagrees with the fused heading, or heading
+            // spread.
             Telemetry.log("Vision/SeedConfirmBreak", "Disagrees with fused heading");
         }
     }
@@ -1208,6 +1127,7 @@ public class Vision implements Subsystem {
         PoseObservation o = best.observation();
         double errorDeg =
                 o.pose2d().getRotation().minus(headingAt(o.timestampSeconds())).getDegrees();
+        // Best MT1 multi-tag heading minus the fused heading, judged while the robot is still.
         Logger.recordOutput("Vision/GrossHeadingErrorDeg", errorDeg);
         if (Math.abs(errorDeg) < config.grossHeadingErrorDeg) {
             grossHeadingSince = Double.NaN;
@@ -1223,7 +1143,6 @@ public class Vision implements Subsystem {
                     Units.degreesToRadians(config.seedThetaStdDevDeg));
             grossHeadingCorrections++;
             grossHeadingSince = Double.NaN;
-            resetQuestToRobotPose();
             Telemetry.print(
                     String.format(
                             "Vision: gross heading correction of %.1f deg from %s",
@@ -1280,29 +1199,6 @@ public class Vision implements Subsystem {
         }
     }
 
-    /** Whether the seed was confirmed as of last loop, to catch the moment it becomes confirmed. */
-    private boolean wasSeedConfirmed = false;
-
-    /**
-     * Re-origins the Quest onto the fused pose whenever the fused pose has just been set by vision:
-     * the moment the disabled seed is confirmed, and after a gross heading correction. A Quest
-     * re-origined before the seed would carry the robot's pre-seed guess forever. Explicit resets
-     * (auto start, reorient, the operator's LB+X) call {@link #resetQuestToRobotPose()}.
-     */
-    private void resetQuestAfterSeed() {
-        if (poseSeedConfirmed && !wasSeedConfirmed) {
-            resetQuestToRobotPose();
-        }
-        wasSeedConfirmed = poseSeedConfirmed;
-    }
-
-    /** Sends the Quest the current fused pose. */
-    public void resetQuestToRobotPose() {
-        questControl.resetPose(fusion.getPose());
-        lastQuestPose = null;
-        Telemetry.print("Vision: QuestNav re-origined to the robot pose");
-    }
-
     private void addCameraAlert(List<PoseSource> sources, boolean always) {
         String camera = sources.get(0).getName().split("/")[0];
         cameraAlerts.add(
@@ -1314,7 +1210,7 @@ public class Vision implements Subsystem {
                         new org.wpilib.math.filter.Debouncer(2.0)));
     }
 
-    /** Disconnected-camera and Quest battery alerts, from logged inputs. */
+    /** Disconnected-camera alerts, from logged inputs. */
     private void updateDeviceAlerts() {
         for (CameraAlert c : cameraAlerts) {
             boolean connected = false;
@@ -1325,39 +1221,42 @@ public class Vision implements Subsystem {
             }
             c.alert().set(c.debounce().calculate(wanted && !connected));
         }
-        double[] health = questSource.getInputs().health;
-        double battery = health.length > 2 ? health[2] : -1;
-        questBatteryAlert.setText(String.format("Quest battery low: %.0f%%", battery));
-        questBatteryAlert.set(
-                questSource.isConnected()
-                        && battery >= 0
-                        && battery < CameraParams.QUEST_LOW_BATTERY_PERCENT.get());
     }
 
     private void logStatus(boolean disabled, boolean useMt2) {
         updateDeviceAlerts();
         notSeededAlert.set(!poseHeadingSeeded && disabled);
         notConfirmedAlert.set(poseHeadingSeeded && !poseSeedConfirmed && disabled);
+        // Vision has set the pose and heading since boot.
         Telemetry.logDash("Vision/PoseHeadingSeeded", poseHeadingSeeded);
+        // The seed held: 50 multi-tag frames in a row agreed on the heading.
         Telemetry.logDash("Vision/PoseSeedConfirmed", poseSeedConfirmed);
+        // Frames in the current seed-confirm run, of 50.
         Telemetry.logDash("Vision/SeedConfirmProgress", (long) seedConfirmStreak);
+        // Limelight pose used for the chassis: MT1, or MT2 once the seed is confirmed and MT2 is
+        // switched on.
         Telemetry.logDash("Vision/ChassisSource", useMt2 ? "MT2" : "MT1");
+        // Times a still robot's heading was re-seeded from vision for being far off, since boot.
         Telemetry.logDash("Vision/GrossHeadingCorrections", (long) grossHeadingCorrections);
+        // Seeds that happened while enabled because nothing seeded the pose before enable.
         Telemetry.log("Vision/EnabledSeedCount", (long) enabledSeedCount);
+        // Pose seeds from a multi-tag frame, since boot.
         Telemetry.log("Vision/MultiTagSeedCount", multiTagSeedCount);
+        // Time since vision last updated the fused pose; capped at 999.
         Telemetry.logDash(
                 "Vision/SecondsSinceFusedEstimate", Math.min(secondsSinceFusedEstimate(), 999.0));
         if (Telemetry.slowLogThisLoop()) {
             // One connected light per camera for the Pre-Match tab.
             for (int i = 0; i < mt1Sources.size(); i++) {
+                // Per Limelight: the camera is talking, for the Pre-Match tab.
                 Telemetry.logDash(
                         "Vision/" + mt1Sources.get(i).getName().split("/")[0] + "/Connected",
                         mt1Sources.get(i).isConnected());
             }
             for (PoseSource s : orinSources) {
+                // Per Orin camera: the camera is talking.
                 Telemetry.logDash("Vision/" + s.getName() + "/Connected", s.isConnected());
             }
-            Telemetry.logDash("Vision/Quest/Connected", questSource.isConnected());
         }
         // (Each source's Connected flag is already a logged input.)
         if (!Telemetry.slowLogThisLoop()) {
@@ -1439,13 +1338,6 @@ public class Vision implements Subsystem {
                         () -> limelights.forEach(Limelight::blinkLEDs),
                         () -> limelights.forEach(ll -> ll.setLEDMode(false)))
                 .withName("Vision.blinkLimelights");
-    }
-
-    /** Re-origins the QuestNav onto the current robot pose. */
-    public Command resetQuestCommand() {
-        return runOnce(this::resetQuestToRobotPose)
-                .ignoringDisable(true)
-                .withName("Vision.resetQuest");
     }
 
     /** A {@link BooleanSupplier} for whether the pose seed is confirmed. */

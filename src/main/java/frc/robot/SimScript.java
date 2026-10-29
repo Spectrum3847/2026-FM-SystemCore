@@ -37,8 +37,8 @@ import org.wpilib.system.Timer;
  *   <li>{@code auto:<chooser name>}: one PathPlanner auto.
  * </ul>
  *
- * <p>With {@code FM_SIM_EXIT=1} as well, the program closes the log and exits once the script is
- * done, so a scripted run can be the whole of a command line. With {@code
+ * <p>The program closes the log and exits once the script is done, so a scripted run can be the
+ * whole of a command line; {@code FM_SIM_EXIT=0} keeps it running. With {@code
  * FM_SIM_REBOOT=Hood@9,IntakeExtension@12}, those mechanisms' motors reboot at those script
  * seconds, as in a brownout. With {@code FM_SIM_MATCH=Q12} (or {@code P3}, {@code E5}), the Driver
  * Station reports that FMS match, so the end of teleop writes the match summary file.
@@ -209,25 +209,23 @@ public final class SimScript {
     public static final class Actions implements LoggableInputs {
         public boolean placeRobot = false;
         public Pose2d placePose = Pose2d.kZero;
-        public boolean resetQuest = false;
 
         @Override
         public void toLog(LogTable table) {
+            // Sim script: the robot was placed at PlacePose this loop.
             table.put("PlaceRobot", placeRobot);
+            // Sim script: where it was placed.
             table.put("PlacePose", placePose);
-            table.put("ResetQuest", resetQuest);
         }
 
         @Override
         public void fromLog(LogTable table) {
             placeRobot = table.get("PlaceRobot", placeRobot);
             placePose = table.get("PlacePose", placePose);
-            resetQuest = table.get("ResetQuest", resetQuest);
         }
     }
 
     private static final Actions actions = new Actions();
-    private static boolean questResetDone = false;
 
     /**
      * Advances the script. Call from {@code simulationPeriodic}, in simulation (script requested)
@@ -235,16 +233,12 @@ public final class SimScript {
      */
     public static void periodic() {
         actions.placeRobot = false;
-        actions.resetQuest = false;
         if (Constants.currentMode == Constants.Mode.SIM) {
             drive();
         }
         Logger.processInputs("SimScript", actions);
         if (actions.placeRobot) {
             Robot.getSwerve().resetPose(actions.placePose);
-        }
-        if (actions.resetQuest) {
-            Robot.getVision().resetQuestToRobotPose();
         }
     }
 
@@ -275,11 +269,6 @@ public final class SimScript {
         }
         double t = holdForFreshSignals(now, steps[0][UNTIL]);
         rebootMotors(t);
-        if (!questResetDone && t > 4.0) {
-            // What the operator's LB+X does: put the QuestNav's frame on the robot's pose.
-            questResetDone = true;
-            actions.resetQuest = true;
-        }
         int index = steps.length - 1;
         for (int i = 0; i < steps.length; i++) {
             if (t < steps[i][UNTIL]) {
@@ -475,9 +464,9 @@ public final class SimScript {
         lastRebootCheck = t;
     }
 
-    /** With {@code FM_SIM_EXIT=1}, closes the log and exits a second after the script ends. */
+    /** Closes the log and exits a second after the script ends, unless {@code FM_SIM_EXIT=0}. */
     private static void exitWhenDone(double t, double endSeconds) {
-        if (t > endSeconds + 1.0 && "1".equals(System.getenv("FM_SIM_EXIT"))) {
+        if (t > endSeconds + 1.0 && !"0".equals(System.getenv("FM_SIM_EXIT"))) {
             Logger.end();
             System.exit(0);
         }

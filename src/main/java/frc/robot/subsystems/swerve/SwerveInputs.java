@@ -35,8 +35,13 @@ public class SwerveInputs implements LoggableInputs {
     /** CTRE's own pose estimate, for comparison only. */
     public Pose2d ctrePose = Pose2d.kZero;
 
+    /** Chassis velocity CTRE measured from the modules, robot-relative. */
     public ChassisVelocities robotVelocity = new ChassisVelocities();
+
+    /** Each module's measured speed and angle, front-left, front-right, back-left, back-right. */
     public SwerveModuleVelocity[] moduleVelocities = new SwerveModuleVelocity[0];
+
+    /** Each module's commanded speed and angle, same order. */
     public SwerveModuleVelocity[] moduleTargets = new SwerveModuleVelocity[0];
 
     /** Per module: drive and steer motors both answering this loop. */
@@ -48,37 +53,64 @@ public class SwerveInputs implements LoggableInputs {
      */
     public boolean[] moduleResetOccurred = new boolean[0];
 
+    /** The Pigeon answered this loop. */
     public boolean gyroConnected = false;
 
     /** Phoenix's raw Pigeon reset flag; logic reads {@code Swerve.gyroRebootedThisLoop}. */
     public boolean gyroResetOccurred = false;
 
+    /** Pigeon yaw rate, counterclockwise positive. */
     public double gyroYawRateRadPerSec = 0;
+
+    /** Pigeon pitch: the robot tipping forward or back. */
     public double gyroPitchDegrees = 0;
+
+    /** Pigeon roll: the robot tipping sideways. */
     public double gyroRollDegrees = 0;
+
+    /** Pigeon pitch rate. */
     public double gyroPitchRateDegPerSec = 0;
+
+    /** Pigeon roll rate. */
     public double gyroRollRateDegPerSec = 0;
 
     /** Pigeon acceleration along its own axes, g (gravity included). All 0 when not read. */
     public double accelXG = 0;
 
+    /** Pigeon acceleration, y axis. */
     public double accelYG = 0;
+
+    /** Pigeon acceleration, z axis; about 1 g sitting flat. */
     public double accelZG = 0;
 
     /** SystemCore's onboard IMU, the backup gyro. Not on CAN, so a CANivore drop spares it. */
     public boolean onboardImuPresent = false;
 
+    /** Onboard IMU yaw. */
     public double onboardImuYawRadians = 0;
+
+    /** Onboard IMU yaw rate. */
     public double onboardImuYawRateRadPerSec = 0;
 
     /** Raw, m/s^2: WPILib does not apply the mount orientation to the accelerometer. */
     public double onboardImuAccelX = 0;
 
+    /** Onboard IMU acceleration, y. */
     public double onboardImuAccelY = 0;
+
+    /** Onboard IMU acceleration, z. */
     public double onboardImuAccelZ = 0;
 
+    /** Average time between CTRE odometry samples; 0.004 at 250 Hz. */
     public double odometryPeriodSeconds = 0;
+
+    /** CTRE odometry thread reads that got every signal, since boot. */
     public int successfulDaqs = 0;
+
+    /**
+     * CTRE odometry thread reads that timed out or missed a signal, since boot; rising means CAN
+     * trouble.
+     */
     public int failedDaqs = 0;
 
     @Override
@@ -96,20 +128,20 @@ public class SwerveInputs implements LoggableInputs {
         table.put("GyroConnected", gyroConnected);
         table.put("GyroResetOccurred", gyroResetOccurred);
         table.put("GyroYawRateRadPerSec", gyroYawRateRadPerSec);
-        table.put("GyroPitchDegrees", gyroPitchDegrees);
-        table.put("GyroRollDegrees", gyroRollDegrees);
-        table.put("GyroPitchRateDegPerSec", gyroPitchRateDegPerSec);
-        table.put("GyroRollRateDegPerSec", gyroRollRateDegPerSec);
+        table.put("GyroPitchDegrees", gyroPitchDegrees, "degrees");
+        table.put("GyroRollDegrees", gyroRollDegrees, "degrees");
+        table.put("GyroPitchRateDegPerSec", gyroPitchRateDegPerSec, "degrees per second");
+        table.put("GyroRollRateDegPerSec", gyroRollRateDegPerSec, "degrees per second");
         table.put("AccelXG", accelXG);
         table.put("AccelYG", accelYG);
         table.put("AccelZG", accelZG);
         table.put("OnboardImu/Present", onboardImuPresent);
-        table.put("OnboardImu/YawRadians", onboardImuYawRadians);
+        table.put("OnboardImu/YawRadians", onboardImuYawRadians, "radians");
         table.put("OnboardImu/YawRateRadPerSec", onboardImuYawRateRadPerSec);
         table.put("OnboardImu/AccelX", onboardImuAccelX);
         table.put("OnboardImu/AccelY", onboardImuAccelY);
         table.put("OnboardImu/AccelZ", onboardImuAccelZ);
-        table.put("OdometryPeriodSeconds", odometryPeriodSeconds);
+        table.put("OdometryPeriodSeconds", odometryPeriodSeconds, "seconds");
         table.put("SuccessfulDaqs", successfulDaqs);
         table.put("FailedDaqs", failedDaqs);
     }

@@ -72,7 +72,7 @@ public class FuelIntake extends Mechanism {
         SLOW_INTAKE,
     }
 
-    private WantedState wantedState = WantedState.NEUTRAL;
+    @Getter private WantedState wantedState = WantedState.NEUTRAL;
     private SystemState systemState = SystemState.NEUTRAL;
 
     public void setWantedState(WantedState state) {
@@ -125,16 +125,22 @@ public class FuelIntake extends Mechanism {
 
     @Override
     public void periodic() {
+        Telemetry.time("Scheduler/Periodic/FuelIntake");
         systemState = handleStateTransition();
         applyStates();
         logBatteryUsage();
+        // What SuperStructure asked of the fuel intake.
         Telemetry.log("FuelIntake/WantedState", wantedState.toString());
+        // The state the fuel intake is actually in, after its own transitions.
         Telemetry.log("FuelIntake/SystemState", systemState.toString());
+        // The command requiring the fuel intake, if any.
         Telemetry.log("FuelIntake/CurrentCommand", getCurrentCommandName());
         // Voltage, currents, temperature and connection at 10 Hz (offseason); the
         // same signals are also recorded every loop as inputs under Mechanisms/.
         logDiagnostics("FuelIntake");
+        // The fuel intake's speed, mechanism RPM.
         Telemetry.log("FuelIntake/RPM", getVelocityRPM(), "RPM");
+        Telemetry.timeEnd("Scheduler/Periodic/FuelIntake");
     }
 
     // --------------------------------------------------------------------------------

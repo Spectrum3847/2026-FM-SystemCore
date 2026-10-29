@@ -4,7 +4,7 @@ FRC Team 3847 Spectrum's 2026 robot **FM** ("Final Machine"), converted to run o
 for an October 2026 offseason event where it competes as **8515**.
 
 It is also a testbed for robot-pose sources. FM has Limelights, a Jetson Orin running PhotonVision,
-a Meta Quest running QuestNav, and the SystemCore's own cameras. Each source is gated on its own,
+and the SystemCore's own cameras. Each source is gated on its own,
 logged before and after gating, and given its own "shadow" pose track. The logs then show which
 source to trust, and when.
 
@@ -15,7 +15,6 @@ source to trust, and when.
 | Motors | Phoenix 6 `26.50.0-alpha-1` (needs 26.x device firmware) |
 | Autos | PathPlannerLib `2027.0.0-alpha-3` |
 | Orin cameras | PhotonLib `v2027.0.0-alpha-2` |
-| QuestNav | hand-written NT4 protobuf client (QuestNavLib has no 2027 build) |
 | Team number | 8515 (`.wpilib/wpilib_preferences.json`) |
 
 Why alpha-6 and not alpha-7: PathPlanner and PhotonLib have no alpha-7 builds yet, and alpha-7
@@ -42,8 +41,7 @@ Joystick 0 with "Map gamepad" on reads correctly, see [Controllers](#controllers
 ./gradlew simulateJava
 ```
 
-Or run the scripted demo drive, which needs no driver. It seeds the pose while disabled, re-origins the
-QuestNav, then drives a lap of straights, spins and strafes in teleop:
+Or run the scripted demo drive, which needs no driver. It seeds the pose while disabled, then drives a lap of straights, spins and strafes in teleop:
 
 ```bash
 FM_SIM_SCRIPT=drive ./gradlew simulateJava -PnoSimGui
@@ -69,8 +67,8 @@ Or the chord run: the pilot's LB + face-button chords pressed and let go in slop
 FM_SIM_SCRIPT=chords ./gradlew simulateJava -PnoSimGui
 ```
 
-Add `FM_SIM_EXIT=1` to any scripted run to have the program close its log and exit when the script
-ends, so the run is one command. Add `FM_SIM_MATCH=Q12` to have the Driver Station report an FMS
+A scripted run closes its log and exits when the script ends, so the run is one command. Add
+`FM_SIM_EXIT=0` to keep it running afterwards (to keep looking at it live in AdvantageScope). Add `FM_SIM_MATCH=Q12` to have the Driver Station report an FMS
 match, so the end of teleop writes the match summary file into `logs/`.
 
 All 32 autos and 26 paths from 2026 `main` are in `src/main/deploy/pathplanner`, unchanged. The Auto
@@ -98,12 +96,23 @@ Every PR runs, in parallel:
 | `replay` | the PR moving the fused pose (5 cm, 2°) or the shot gate's verdicts (10 loops) in any replay fixture, against the base branch replaying the same fixtures ([tools/replay_regression.py](tools/replay_regression.py)) |
 | `app` | the robot app's tests |
 
-Sim logs and replay logs are uploaded as artifacts. To check a sim run locally:
+Sim logs and replay logs are uploaded as artifacts.
+
+To check locally in one command, use [tools/check.py](tools/check.py). It builds once, then runs the
+tests, scripted sims and replays in parallel, and prints one PASS/FAIL summary (full output in
+`build/check/`):
 
 ```bash
-FM_SIM_SCRIPT=drive FM_SIM_EXIT=1 ./gradlew simulateJava -PnoSimGui | tee console.txt
-python tools/ci_assert.py logs/akit_XXXX.wpilog console.txt
+python tools/check.py --quick --log robotlogs/X.wpilog   # ~80 s: unit tests, drive sim, a replay
+python tools/check.py --sims drive,shoot,auto            # ~2.5 min: everything CI's build and sims run
 ```
+
+Loop overruns only warn there, since the jobs share the laptop's CPU; CI judges loop timing.
+A `--log` replays only the enabled part of the log (10 s before the first enable to 5 s after the
+last disable; `--full-log` for all of it), since a replay costs about 16 s plus 0.1 s per logged
+second. The comparison with the robot then skips the cut's first 2 s, raw odometry and the shadow
+tracks, which build up from wherever they start; the fused pose replays exactly. A log from older
+code differs where the code changed: that is the replay's answer, not a failure.
 
 When a PR is meant to change the replay (a gate, a std-dev tier), add the `replay-change-expected`
 label.
@@ -189,7 +198,6 @@ Sources (names are the log paths under `Localization/Sources/`):
 | `LL-Back/MT2`, `LL-Left/MT2`, `LL-Right/MT2` | FM's Limelights, MegaTag2 | yes, once the seed is confirmed |
 | `SC0/MT1`, `SC0/MT2`, `SC1/…` | cameras plugged into the SystemCore (its built-in Limelight stack) | no |
 | `Orin-Left`, `Orin-Right` | Jetson Orin + PhotonVision (`orin-left`, `orin-right`) | no |
-| `Quest` | Meta Quest + QuestNav | no |
 
 **Every source runs all the time.** "Fuses" only decides whether its accepted measurements move the
 robot's pose. Toggle any of them live from a dashboard at
@@ -319,8 +327,9 @@ the FMS, the robot leaves `record` alone unless the manual switch changes. FM's 
 save their own 165 s buffers at auto and teleop end.
 
 **Clock.** The robot publishes its wall clock (`/photonvision/clock/unixMs`) every loop once the DS
-has set it. The Jetson has no clock battery, and this gives it the right date offline. Still to check
-on the robot: does SystemCore get its clock from the DS the way the roboRIO does?
+has set it. The Jetson has no clock battery, and this gives it the right date offline. SystemCore
+gets its clock from the DS like the roboRIO (`MrcCommDaemon` sets it when the DS connects), and the
+Jetson's clock follows (checked on FM, 2026-10-29). Until a DS connects, both can be days off.
 
 **Logged** under `Vision/Jetson/*` and `Vision/Orin/<camera>/*`:
 - Jetson health: temperatures, fan, power, GPU load, throttle reason, over-current events, JPEG
@@ -336,7 +345,7 @@ on the robot: does SystemCore get its clock from the DS the way the roboRIO does
 |---|---|
 | Jetson heartbeat stale > 3 s | error |
 | Camera not on NetworkTables (2 s), connected but no frames for 1.5 s, or 0 fps for 1 s | error |
-| Camera under 100 fps for 2 s | warning |
+| Camera under 100 fps for 2 s, once enabled for 3 s (disabled, the Jetson idles cameras at ~30 fps) | warning |
 | Camera JPEG decode failures rising, or the camera was reset during the match | warning |
 | Result timestamps more than 0.5 s from now for 2 s (time sync / timebase) | warning |
 | Jetson tj temp > 75 °C, fan < 1000 rpm, throttling, over-current during the match, CPU JPEG fallback | warning |
@@ -573,7 +582,6 @@ Operator (port 1):
 | Input | Does |
 |---|---|
 | **Y (without LB)** | **Hold to feed regardless of the shot gate** |
-| LB + X | Re-origin the QuestNav on the robot pose |
 | LB + Y | Intake extension: reset position to max |
 | Select | Force home |
 | Start | Release mechanisms held by their tracking stop (off by default, see `Mechanism.Config`) |
@@ -736,7 +744,6 @@ other layout ("Pilot controller looks like the WPILIB_DS layout, but is read as 
     SystemCore's reading has been reported ~1.5 V low (SystemcoreTesting #306).
   - **Camera disconnected:** FM's Limelights always. Any other camera only while one of its pose
     sources has its fuse switch on.
-  - **Quest battery low:** below 20%.
 - **Limelight rewind** (Limelight 4 only): each camera keeps a rolling buffer of the last 165 s,
   covering video plus every frame's targeting results. With the FMS attached, the robot tells FM's
   three Limelights to save it to their own storage when auto ends and when teleop ends. Review a
@@ -823,8 +830,9 @@ Deployed to the bench SystemCore (no CAN devices, two cameras):
   - **With `USE_CANIVORE = true` and no CANivore plugged in, one Phoenix native thread spins a
     full core.** It starts as the first device on the `*` bus is constructed. With the native
     layout nothing spins: the program uses ~18% of the machine instead of ~35%, and the
-    busiest thread is the main loop at ~25% of one core. Not yet checked: whether the spin also
-    happens with a real CANivore attached. **Check `System/TopThreads` on the real robot.**
+    busiest thread is the main loop at ~25% of one core. With a real CANivore attached nothing
+    spins either: on FM (2026-10-29, disabled) `System/TopThreads` tops out at the main loop,
+    ~25%.
   - Native layout, bench unit: mean period 10.1–10.3 ms, 1–5% of loops over 12.5 ms, worst
     14–30 ms, versus 20–45 ms with the CANivore layout.
   - Unplug or disable the SystemCore cameras when they aren't being tested.
@@ -836,8 +844,8 @@ Deployed to the bench SystemCore (no CAN devices, two cameras):
 - The SystemCore's own cameras connect straight to this program as `limelightsc0/1`. No NT bridge
   is needed when the SystemCore is the robot controller. (Deploying this code replaced the
   SystemCoreVision bridge program on that unit; redeploy that repo to get it back.)
-- `RobotController.setBrownoutVoltage` fails (HAL -1098) on that image; the code carries on
-  without it.
+- `RobotController.setBrownoutVoltage` fails (HAL -1098) on that image, so the code doesn't set
+  one and SystemCore keeps its default brownout voltage.
 
 Read the robot's console over the deploy connection (it restarts the program afterwards):
 
@@ -886,7 +894,7 @@ then the robot's own `/home/systemcore/params/<robot>/<group>.json`, which a dep
 Each value is declared in code (`spectrumLib/params`), and the log records what it was and which file
 it came from under `Params/`. A bad file raises an alert and is skipped. The groups so far:
 
-- `cameras`: Limelight rewind lengths, the Quest battery alert, the settings resend period and
+- `cameras`: Limelight rewind lengths, the settings resend period and
   `pushLimelightMounts` (`CameraParams`).
 - `swerve`, per robot in `params/robots/<robot>/swerve.json`: the four CANcoder offsets
   (`SwerveOffsetParams`), within ±0.5 rotations. The defaults are the robot config's
@@ -931,8 +939,6 @@ when it is built: a live change raises an alert and needs a save and a reboot.
 - [ ] **Orin camera mounts** (`VisionConfig.orinRobotToCamera`): position and yaw from CAD, pitch
       from the Q17 Jetson video. Check height, pitch and roll against `Vision/Orin/<camera>/Mount/*`
       with 2+ tags in view. See [Orin and the Jetson](#orin-and-the-jetson).
-- [ ] **QuestNav mount** (`VisionConfig.robotToQuest`): placeholder. Check the protocol against the
-      headset's QuestNav version ([QuestNavProtocol](src/main/java/frc/robot/subsystems/vision/QuestNavProtocol.java)).
 - [ ] **SystemCore camera mounts** (`VisionConfig.systemCoreCameras`): placeholders.
 - [ ] **Rio.java**: add the SystemCore's serial so it selects `FM2026` by identity (it defaults to FM anyway).
 - [ ] **Hood homing**: the [bench checklist](#hood-homing-drivers-no-more-pushing-the-hood-down).

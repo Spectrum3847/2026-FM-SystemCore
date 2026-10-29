@@ -114,7 +114,7 @@ final class PreMatch {
 
     /**
      * A camera the robot fuses must answer; one that is only logged may be missing. FM's Limelights
-     * fuse by default; the SystemCore cameras, the Orin and the Quest only when switched on.
+     * fuse by default; the SystemCore cameras and the Orin only when switched on.
      */
     private static DeviceHealthCheck coprocessors(Vision vision) {
         DeviceHealthCheck co = new DeviceHealthCheck("coprocessors");
@@ -159,9 +159,6 @@ final class PreMatch {
                                                 : null);
             }
         }
-        PoseSource quest = vision.getQuestSource();
-        co.add("Quest", "Quest", quest::isConnected)
-                .missingIs(() -> quest.isEnabled() ? Status.FAIL : Status.SKIP);
         return co;
     }
 

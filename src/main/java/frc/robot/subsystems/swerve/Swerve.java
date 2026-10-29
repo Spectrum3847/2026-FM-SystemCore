@@ -578,15 +578,21 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
 
         wheelHeading = headingSource == OdometryGuard.HeadingSource.WHEELS;
         poseFusion.setWheelHeading(wheelHeading);
+        // Modules odometry trusted this loop: connected, not reading a dead 0, within 1.5x top
+        // speed.
         Logger.recordOutput("Localization/Odometry/ModulesUsed", modulesUsed);
         if (headingSource != null) {
+            // Where odometry's heading came from: PRIMARY (Pigeon), BACKUP (onboard IMU), WHEELS,
+            // or NONE.
             Logger.recordOutput("Localization/Odometry/HeadingSource", headingSource.name());
         }
         double imuShadow = odometryGuard.getBackupShadowHeading();
         if (!Double.isNaN(imuShadow)) {
+            // The heading the onboard IMU would give, tracked alongside in case the Pigeon drops.
             Logger.recordOutput(
                     "Localization/OnboardImu/ShadowHeadingDeg", Math.toDegrees(imuShadow));
             if (headingSource == OdometryGuard.HeadingSource.PRIMARY) {
+                // Onboard IMU shadow heading minus the Pigeon's, while the Pigeon is in use.
                 Logger.recordOutput(
                         "Localization/OnboardImu/ErrorVsPigeonDeg",
                         Math.toDegrees(
@@ -630,17 +636,34 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         if (Telemetry.slowLogThisLoop()) {
             ImuMountCheck c = mountCheck;
             String p = "Localization/MountCheck/";
+            // Mount check: Pigeon pitch and roll near 0 at rest: OK, WRONG or UNKNOWN (not enough
+            // driving yet).
             Logger.recordOutput(p + "Pigeon/Level", c.pigeonLevel().name());
+            // Mount check: mean Pigeon pitch over the most level rest.
             Logger.recordOutput(p + "Pigeon/RestPitchDeg", c.pigeonRestPitchDeg());
+            // Mount check: mean Pigeon roll over the most level rest.
             Logger.recordOutput(p + "Pigeon/RestRollDeg", c.pigeonRestRollDeg());
+            // Mount check: the Pigeon's acceleration points where the wheels accelerate.
             Logger.recordOutput(p + "Pigeon/Forward", c.pigeonForward().name());
+            // Mount check: how far the Pigeon's X axis sits from the robot's forward,
+            // counterclockwise.
             Logger.recordOutput(p + "Pigeon/ForwardErrorDeg", c.pigeonForwardErrorDeg());
+            // Mount check: 1 when every sample put the Pigeon at the same angle from the wheels,
+            // near 0 if random.
             Logger.recordOutput(p + "Pigeon/ForwardConsistency", c.pigeonForwardConsistency());
+            // Mount check: the Pigeon's heading turns the way the wheels turn the robot.
             Logger.recordOutput(p + "Pigeon/YawSense", c.pigeonYawSense().verdict().name());
+            // Mount check: Pigeon turn rate over the wheels' turn rate; about 1, lower while wheels
+            // scrub.
             Logger.recordOutput(p + "Pigeon/YawGain", c.pigeonYawSense().gain());
+            // Mount check: the onboard IMU's heading turns the way the wheels turn the robot.
             Logger.recordOutput(p + "OnboardImu/YawSense", c.imuYawSense().verdict().name());
+            // Mount check: onboard IMU turn rate over the wheels' turn rate.
             Logger.recordOutput(p + "OnboardImu/YawGain", c.imuYawSense().gain());
+            // Mount check: gravity is on the axis the onboard IMU's mount setting implies.
             Logger.recordOutput(p + "OnboardImu/Orientation", c.imuOrientation().name());
+            // Mount check: share of gravity on the onboard IMU's Z axis at rest; about 1 lying
+            // flat.
             Logger.recordOutput(p + "OnboardImu/GravityZShare", c.imuGravityZShare());
         }
     }
@@ -716,7 +739,9 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
             moduleRebooted[m] = moduleResetFilters[m].filter(connected, raw);
         }
         gyroRebooted = gyroResetFilter.filter(inputs.gyroConnected, inputs.gyroResetOccurred);
+        // Per module, a drive or steer motor rebooted this loop.
         Logger.recordOutput("Swerve/ModuleRebooted", moduleRebooted);
+        // The Pigeon rebooted this loop.
         Logger.recordOutput("Swerve/GyroRebooted", gyroRebooted);
     }
 
@@ -743,23 +768,38 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
 
     @Override
     public void periodic() {
+        Telemetry.time("Scheduler/Periodic/Swerve");
         systemState = handleStateTransition();
         applyStates();
 
+        // What SuperStructure asked of the drivetrain.
         Telemetry.log("Swerve/WantedState", wantedState.toString());
+        // The state the drivetrain is actually in, after its own transitions.
         Telemetry.log("Swerve/SystemState", systemState.toString());
+        // The command requiring the drivetrain, if any.
         Telemetry.log("Swerve/CurrentCommand", getCurrentCommandName());
+        // Scale on the pilot's translation: lower while aiming or shooting.
         Telemetry.log("Swerve/TeleopVelocityCoefficient", getTeleopVelocityCoefficient());
+        // Scale on the pilot's rotation.
         Telemetry.log("Swerve/RotationVelocityCoefficient", getRotationVelocityCoefficient());
         // (Pose, module targets/velocities and chassis speed are not re-logged here: they are
         // Localization/FusedPose and the Swerve inputs ModuleTargets, ModuleVelocities and
         // RobotVelocity already.)
         Telemetry.log("Swerve/OdometrySamplesThisLoop", inputs.odometryTimestamps.length);
-        Telemetry.log("Swerve/Tilt/TiltDegrees", tilt.tiltDeg());
-        Telemetry.log("Swerve/Tilt/TiltRateDegPerSec", tilt.tiltRateDegPerSec());
+        // Angle between the robot's up axis and vertical, from Pigeon pitch and roll.
+        Telemetry.log("Swerve/Tilt/TiltDegrees", tilt.tiltDeg(), "degrees");
+        // How fast the tilt is changing.
+        Telemetry.log(
+                "Swerve/Tilt/TiltRateDegPerSec", tilt.tiltRateDegPerSec(), "degrees per second");
+        // How far total acceleration is from 1 g: near 0 standing or driving smoothly, a spike on a
+        // hit or bump.
         Telemetry.log("Swerve/Tilt/ImpactG", tilt.impactG());
+        // Tilted past the gating limit; vision that assumes a level robot is held off.
         Telemetry.log("Swerve/Tilt/Tilted", tilt.tilted());
+        // An impact happened recently (logged for review; nothing gates on it yet).
         Telemetry.log("Swerve/Tilt/BumpedRecently", wasBumpedRecently());
+        // How much wheel travel odometry counts: 1 level, falling to 0 as tilt grows (wheels slip
+        // on bumps).
         Telemetry.log("Swerve/Tilt/OdometryScale", odometryScale);
         if (Constants.hasHardware()) {
             logBatteryUsage();
@@ -767,6 +807,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         }
 
         pigeonAlert.set(!inputs.gyroConnected);
+        Telemetry.timeEnd("Scheduler/Periodic/Swerve");
     }
 
     /**
@@ -835,9 +876,14 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                         moduleConnectedKeys[i / 2 + 1],
                         moduleCurrentSignals[i + 2].getStatus().isOK());
             }
+            // All four drive motors' stator current, summed, at 10 Hz. Per module under
+            // Swerve/Currents/<module>/.
             Telemetry.log(CURRENTS_PREFIX + "DriveStatorCurrent", driveStatorCurrent);
+            // All four steer motors' stator current, summed, at 10 Hz.
             Telemetry.log(CURRENTS_PREFIX + "SteerStatorCurrent", steerStatorCurrent);
+            // All four drive motors' battery current, summed, at 10 Hz.
             Telemetry.log(CURRENTS_PREFIX + "DriveSupplyCurrent", driveSupplyCurrent);
+            // All four steer motors' battery current, summed, at 10 Hz.
             Telemetry.log(CURRENTS_PREFIX + "SteerSupplyCurrent", steerSupplyCurrent);
         }
         Robot.getBatteryLogger().reportCurrentUsage("Mechanisms/SwerveSteer", steerSupplyCurrent);
@@ -884,10 +930,13 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                                 .withVelocityY(joystick.vy)
                                 .withTargetDirection(aimTarget)
                                 .withTargetRateFeedforward(aimFeedforward));
+                // Heading rate fed forward while aiming, so the robot keeps up with a moving aim
+                // point.
                 Telemetry.log(
                         "Swerve/Aim/TargetRateFeedforward",
                         Units.radiansToDegrees(aimFeedforward),
                         "deg/s");
+                // Robot heading minus the aim heading, while aiming.
                 Telemetry.log(
                         "Swerve/Aim/HeadingErrorDeg",
                         Units.radiansToDegrees(getAimHeadingErrorRadians()),
@@ -1226,11 +1275,14 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         // PathPlanner's commands, so on the main loop.
         PathPlannerLogging.setLogActivePathCallback(
                 poses ->
+                        // The path PathPlanner is following, as poses.
                         Logger.recordOutput(
                                 "PathPlanner/ActivePath", poses.toArray(new Pose2d[0])));
         PathPlannerLogging.setLogTargetPoseCallback(
+                // Where PathPlanner wants the robot now on the active path.
                 pose -> Logger.recordOutput("PathPlanner/TargetPose", pose));
         PathPlannerLogging.setLogCurrentPoseCallback(
+                // The pose PathPlanner is following from.
                 pose -> Logger.recordOutput("PathPlanner/CurrentPose", pose));
 
         try {

@@ -50,26 +50,81 @@ public class OrinCameraInputs implements LoggableInputs {
 
     // -- /photonvision/<camera>/health/ (section 9a), NaN / -1 until first published --
 
+    /** Pipeline results per second; 0 after 2 s with none. */
     public double healthFps = Double.NaN;
+
+    /** Average pipeline time over the last second. */
     public double healthPipelineMs = Double.NaN;
+
+    /** Worst pipeline time over the last second. */
     public double healthPipelineMsMax = Double.NaN;
+
+    /** Average time from capture to result. */
     public double healthLatencyMs = Double.NaN;
+
+    /** Frames processed since PhotonVision started. */
     public long healthFrames = -1;
+
+    /** Frames the JPEG decoder rejected since start; rising means corrupt frames get through. */
     public long healthDecodeFailures = -1;
+
+    /** Reconnects, USB resets and bandwidth retries the stuck-camera watchdog tried. */
     public long healthRecoveries = -1;
+
+    /**
+     * Counts up each second from a timer that doesn't depend on results; stalled means the Jetson's
+     * health publisher stopped.
+     */
+    public long healthHeartbeat = -1;
+
+    /**
+     * streaming, stalled (connected, no frame for 1 s), recovering, disconnected, gave-up, paused
+     * (disabled by robot code) or starting.
+     */
+    public String healthState = "";
+
+    /** Time since the last usable frame; -1 before the first. */
+    public long healthLastFrameAgeMs = -1;
+
+    /**
+     * What the watchdog found wrong, e.g. gone from USB port, no frames after 4 USB resets; stays
+     * until frames return.
+     */
+    public String healthProblem = "";
 
     // -- /photonvision/<camera>/mount/ (section 9b) --
 
+    /** Camera height above the field, mean over the last 2 s of multi-tag frames. */
     public double mountHeightM = Double.NaN;
+
+    /** Camera pitch on the field, mean; positive points down (WPILib). */
     public double mountPitchDeg = Double.NaN;
+
+    /** Camera roll on the field, mean. */
     public double mountRollDeg = Double.NaN;
+
+    /** Spread of the height over the window. */
     public double mountHeightStdM = Double.NaN;
+
+    /** Spread of the pitch over the window. */
     public double mountPitchStdDeg = Double.NaN;
+
+    /** Spread of the roll over the window. */
     public double mountRollStdDeg = Double.NaN;
+
+    /** Camera position on the field, x. */
     public double mountFieldXM = Double.NaN;
+
+    /** Camera position on the field, y. */
     public double mountFieldYM = Double.NaN;
+
+    /** Camera heading on the field (circular mean). */
     public double mountFieldYawDeg = Double.NaN;
+
+    /** Mean multi-tag reprojection error. */
     public double mountReprojErrorPx = Double.NaN;
+
+    /** Multi-tag frames in the 2 s window; 0 means the other mount values are stale. */
     public long mountSamples = 0;
 
     /** {@code /photonvision/<camera>/settingsJson} (section 11a); written to the log on change. */
@@ -93,21 +148,25 @@ public class OrinCameraInputs implements LoggableInputs {
         table.put("CameraMatrix", cameraMatrix);
         table.put("DistCoeffs", distCoeffs);
         table.put("Health/Fps", healthFps);
-        table.put("Health/PipelineMs", healthPipelineMs);
+        table.put("Health/PipelineMs", healthPipelineMs, "milliseconds");
         table.put("Health/PipelineMsMax", healthPipelineMsMax);
-        table.put("Health/LatencyMs", healthLatencyMs);
+        table.put("Health/LatencyMs", healthLatencyMs, "milliseconds");
         table.put("Health/Frames", healthFrames);
         table.put("Health/DecodeFailures", healthDecodeFailures);
         table.put("Health/Recoveries", healthRecoveries);
+        table.put("Health/Heartbeat", healthHeartbeat);
+        table.put("Health/State", healthState);
+        table.put("Health/LastFrameAgeMs", healthLastFrameAgeMs, "milliseconds");
+        table.put("Health/Problem", healthProblem);
         table.put("Mount/HeightM", mountHeightM);
-        table.put("Mount/PitchDeg", mountPitchDeg);
-        table.put("Mount/RollDeg", mountRollDeg);
+        table.put("Mount/PitchDeg", mountPitchDeg, "degrees");
+        table.put("Mount/RollDeg", mountRollDeg, "degrees");
         table.put("Mount/HeightStdM", mountHeightStdM);
-        table.put("Mount/PitchStdDeg", mountPitchStdDeg);
-        table.put("Mount/RollStdDeg", mountRollStdDeg);
+        table.put("Mount/PitchStdDeg", mountPitchStdDeg, "degrees");
+        table.put("Mount/RollStdDeg", mountRollStdDeg, "degrees");
         table.put("Mount/FieldXM", mountFieldXM);
         table.put("Mount/FieldYM", mountFieldYM);
-        table.put("Mount/FieldYawDeg", mountFieldYawDeg);
+        table.put("Mount/FieldYawDeg", mountFieldYawDeg, "degrees");
         table.put("Mount/ReprojErrorPx", mountReprojErrorPx);
         table.put("Mount/Samples", mountSamples);
         table.put("SettingsJson", settingsJson);
@@ -131,6 +190,11 @@ public class OrinCameraInputs implements LoggableInputs {
         healthFrames = table.get("Health/Frames", healthFrames);
         healthDecodeFailures = table.get("Health/DecodeFailures", healthDecodeFailures);
         healthRecoveries = table.get("Health/Recoveries", healthRecoveries);
+        // Logs from before patch 81 have none: not reported.
+        healthHeartbeat = table.get("Health/Heartbeat", -1);
+        healthState = table.get("Health/State", "");
+        healthLastFrameAgeMs = table.get("Health/LastFrameAgeMs", -1);
+        healthProblem = table.get("Health/Problem", "");
         mountHeightM = table.get("Mount/HeightM", mountHeightM);
         mountPitchDeg = table.get("Mount/PitchDeg", mountPitchDeg);
         mountRollDeg = table.get("Mount/RollDeg", mountRollDeg);

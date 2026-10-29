@@ -108,7 +108,7 @@ MECHANISMS = ["Hood", "Launcher", "FuelIntake", "IndexerBed", "IndexerTower",
 
 SOURCES = ["LL-Back/MT1", "LL-Back/MT2", "LL-Left/MT1", "LL-Left/MT2", "LL-Right/MT1",
            "LL-Right/MT2", "SC0/MT1", "SC0/MT2", "SC1/MT1", "SC1/MT2", "Orin-Left",
-           "Orin-Right", "Quest"]
+           "Orin-Right"]
 
 # The main CAN bus follows CanBuses.USE_CANIVORE: the CANivore, or else the drivetrain's SystemCore
 # port (the busiest one). Rerun this script after flipping it.
@@ -150,24 +150,24 @@ pre_match = [
 
 match = [
     field(0, 0, 7, 3),
-    match_time("Shift Time", out("Match Data/TimeLeftInShift"), 0, 3, 3, 2),
+    match_time("Shift Time", out("MatchData/TimeLeftInShift"), 0, 3, 3, 2),
     battery(3, 3, 4),
-    match_time("Match Time", out("Match Data/MatchTime"), 3, 4, 4, 1),
+    match_time("Match Time", out("MatchData/MatchTime"), 3, 4, 4, 1),
     big("Super State", out("SuperStructure/CurrentSuperState"), 0, 5, 7),
     alerts(7, 0, 4, 2),
     light("Pose Seed Confirmed", out("Vision/PoseSeedConfirmed"), 11, 0, 3),
     text("Vision Age (s)", out("Vision/SecondsSinceFusedEstimate"), 11, 1, 3),
-    text("Distance (m)", out("ShotCalc/DistanceMeters"), 7, 2),
+    text("Distance (m)", out("Shooting/Calc/DistanceMeters"), 7, 2),
     text("Launcher RPM", out("Launcher/RPM"), 9, 2),
     text("Hood (deg)", out("Hood/PositionDegrees"), 11, 2),
     light("Hood Zeroed", out("Hood/Zeroed"), 13, 2, 1),
     text("Swerve State", out("Swerve/SystemState"), 7, 3, 3, data_type="string"),
     text("Intake State", out("FuelIntake/SystemState"), 10, 3, 4, data_type="string"),
-    text("Hood Trim (deg)", out("ShotCalc/HoodAngleOffsetDegrees"), 7, 4),
-    text("Aim Trim (deg)", out("ShotCalc/DriveAngleOffsetDegrees"), 9, 4),
+    text("Hood Trim (deg)", out("Shooting/Calc/HoodAngleOffsetDegrees"), 7, 4),
+    text("Aim Trim (deg)", out("Shooting/Calc/DriveAngleOffsetDegrees"), 9, 4),
     text("Intake Extension (rot)", out("IntakeExtension/Position"), 11, 4, 3),
-    light("Shot Ready", out("Shot/Ready"), 7, 5, 3),
-    big("Shot Blocked By", out("Shot/BlockedReason"), 10, 5, 4),
+    light("Shot Ready", out("Shooting/Gate/Ready"), 7, 5, 3),
+    big("Shot Blocked By", out("Shooting/Gate/BlockedReason"), 10, 5, 4),
 ]
 
 shooting = [
@@ -175,22 +175,22 @@ shooting = [
     graph("Hood Position (deg)", out("Hood/PositionDegrees"), 0, 3, 7, 2, 0, 60, 4283215696),
     text("Launcher Current (A)", out("Launcher/StatorCurrent"), 0, 5, 2),
     text("Hood Current (A)", out("Hood/StatorCurrent"), 2, 5, 2),
-    text("Feed Reason", out("Shot/FeedReason"), 4, 5, 2, data_type="string"),
-    text("Shots", out("ShotLog/Index"), 6, 5, 1, data_type="int"),
-    text("Distance (m)", out("ShotCalc/DistanceMeters"), 7, 0, 3),
-    text("Wanted Flywheel RPM", out("ShotCalc/FlywheelSpeedRPM"), 7, 1, 3),
-    text("Wanted Hood (deg)", out("ShotCalc/HoodAngleDeg"), 7, 2, 3),
-    text("Wanted Heading (deg)", out("ShotCalc/DriveAngleDeg"), 7, 3, 3),
-    text("Time Of Flight (s)", out("ShotCalc/TimeOfFlight"), 7, 4, 3),
-    text("Exit Speed (m/s)", out("ShotCalc/ExitSpeedMs"), 7, 5, 3),
-    light("Feed Shot", out("ShotCalc/FeedShot"), 10, 0),
-    text("Hood Trim (deg)", out("ShotCalc/HoodAngleOffsetDegrees"), 12, 0),
-    text("Aim Trim (deg)", out("ShotCalc/DriveAngleOffsetDegrees"), 10, 1),
-    text("Yaw Offset (deg)", out("ShotCalc/YawOffsetDeg"), 12, 1),
-    big("Shot Blocked By", out("Shot/BlockedReason"), 10, 2, 2),
-    big("Set Shot", out("ShotCalc/SetShot"), 12, 2, 2),
+    text("Feed Reason", out("Shooting/Gate/FeedReason"), 4, 5, 2, data_type="string"),
+    text("Shots", out("Shooting/Log/Index"), 6, 5, 1, data_type="int"),
+    text("Distance (m)", out("Shooting/Calc/DistanceMeters"), 7, 0, 3),
+    text("Wanted Flywheel RPM", out("Shooting/Calc/FlywheelSpeedRPM"), 7, 1, 3),
+    text("Wanted Hood (deg)", out("Shooting/Calc/HoodAngleDeg"), 7, 2, 3),
+    text("Wanted Heading (deg)", out("Shooting/Calc/DriveAngleDeg"), 7, 3, 3),
+    text("Time Of Flight (s)", out("Shooting/Calc/TimeOfFlight"), 7, 4, 3),
+    text("Exit Speed (m/s)", out("Shooting/Calc/ExitSpeedMs"), 7, 5, 3),
+    light("Feed Shot", out("Shooting/Calc/FeedShot"), 10, 0),
+    text("Hood Trim (deg)", out("Shooting/Calc/HoodAngleOffsetDegrees"), 12, 0),
+    text("Aim Trim (deg)", out("Shooting/Calc/DriveAngleOffsetDegrees"), 10, 1),
+    text("Yaw Offset (deg)", out("Shooting/Calc/YawOffsetDeg"), 12, 1),
+    big("Shot Blocked By", out("Shooting/Gate/BlockedReason"), 10, 2, 2),
+    big("Set Shot", out("Shooting/Calc/SetShot"), 12, 2, 2),
     chooser("Hub Model", "/SmartDashboard/Hub Model Chooser", 10, 3, 4),
-    light("Shot Ready", out("Shot/Ready"), 10, 4),
+    light("Shot Ready", out("Shooting/Gate/Ready"), 10, 4),
     big("Super State", out("SuperStructure/CurrentSuperState"), 12, 4, 2),
     text("Launcher Temp (C)", out("Launcher/Temp"), 10, 5),
     text("Hood Temp (C)", out("Hood/Temp"), 12, 5),
@@ -208,7 +208,6 @@ for i, s in enumerate(SOURCES):
         text("last verdict", out(base + "/LastVerdict"), c + 2, r, 2, data_type="string"),
     ]
 localization += [
-    light("Quest", out("Vision/Quest/Connected"), 8, 2),
     light("Orin left", out("Vision/Orin-Left/Connected"), 10, 2),
     light("Orin right", out("Vision/Orin-Right/Connected"), 8, 3),
     light("Jetson", out("Vision/Jetson/Connected"), 10, 3),
@@ -241,7 +240,7 @@ for i, f in enumerate(["Launcher Top Right", "Launcher Bottom Left", "Launcher B
     power.append(bar(f + " (A)", out("Followers/" + f + "/SupplyCurrent"), 11, i, 0, 80, 3))
 
 diagnostics = [
-    graph("Loop Time (s, budget 0.010)", out("Scheduler/robotPeriodic"), 0, 0, 7, 2, 0, 0.02),
+    graph("Worst loop each second (s, budget 0.010)", out("Scheduler/RobotPeriodic"), 0, 0, 7, 2, 0, 0.02),
     text("Loop Mean (ms)", out("System/Loop/MeanPeriodMs"), 0, 2),
     bar("Loops Over Budget (%)", out("System/Loop/OverrunPercent"), 2, 2, 0, 100),
     text("Loop Max (ms)", out("System/Loop/MaxPeriodMs"), 5, 2),

@@ -102,12 +102,14 @@ test {
 }
 
 // Tests tagged "sim" boot the whole robot in simulation. They get their own JVM because they start
-// the logger, pause the sim clock and fill the command scheduler, which the unit tests don't expect.
+// the logger, pause the sim clock and fill the command scheduler, which the unit tests don't expect;
+// and one JVM per class, since a robot boots once per JVM.
 def simTest = tasks.register('simTest', Test) {
     group = 'verification'
-    description = 'Boots the robot in simulation and presses every binding (tests tagged sim).'
+    description = 'Boots the robot in simulation: every binding, and SuperStructure sequences (tests tagged sim).'
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
+    forkEvery = 1
     useJUnitPlatform {
         includeTags 'sim'
     }

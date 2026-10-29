@@ -2,7 +2,10 @@
 """Checks that an AdvantageKit replay reproduced the robot's outputs.
 
 Usage:
-    python tools/replay_compare.py logs/akit_X_sim.wpilog [key ...]
+    python tools/replay_compare.py logs/akit_X_sim.wpilog [--after SECONDS] [key ...]
+
+--after skips replayed samples before that log time: a replay of a cut log starts from the cut's
+inputs but fresh code state, so its first moments differ.
 
 A replay log holds both the original /RealOutputs/... and the regenerated /ReplayOutputs/...
 With no code changes they should match; after a change (a gate threshold, a std-dev tier) the
@@ -22,7 +25,6 @@ DEFAULT_KEYS = [
     "Localization/Shadow/Orin-Left/Pose",
     "Localization/Sources/Orin-Left/Observations/Poses",
     "Localization/Sources/Orin-Left/Verdicts",
-    "Localization/Shadow/Quest/Pose",
     "Vision/ChassisSource",
     "Swerve/SystemState",
 ]
@@ -67,7 +69,12 @@ def distance(a, b):
 
 def main():
     path = sys.argv[1]
-    keys = sys.argv[2:] or DEFAULT_KEYS
+    args = sys.argv[2:]
+    after = -math.inf
+    if args[:1] == ["--after"]:
+        after = float(args[1])
+        args = args[2:]
+    keys = args or DEFAULT_KEYS
     records, types = read_wpilog(path)
     worst_all = 0.0
     for key in keys:
@@ -82,6 +89,8 @@ def main():
         worst = 0.0
         worst_t = None
         for t, v in replay:
+            if t < after:
+                continue
             r = value_at(real, t)
             if r is None:
                 continue

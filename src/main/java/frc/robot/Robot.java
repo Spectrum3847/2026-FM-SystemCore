@@ -46,6 +46,7 @@ import frc.spectrumLib.checks.AutoStartCheck;
 import frc.spectrumLib.checks.PreMatchChecks;
 import frc.spectrumLib.framework.RobotLoop;
 import frc.spectrumLib.framework.SpectrumRobot;
+import frc.spectrumLib.hardware.CanBusInputs;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.hardware.CanConfigBudget;
 import frc.spectrumLib.hardware.Rio;
@@ -58,6 +59,7 @@ import frc.spectrumLib.params.Params;
 import frc.spectrumLib.params.TuningMode;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.BatteryLogger;
+import frc.spectrumLib.telemetry.CommandLog;
 import frc.spectrumLib.telemetry.DashboardReceiver;
 import frc.spectrumLib.telemetry.DsUploadReceiver;
 import frc.spectrumLib.telemetry.LogStorage;
@@ -98,7 +100,6 @@ import org.wpilib.smartdashboard.SmartDashboard;
 import org.wpilib.system.Filesystem;
 import org.wpilib.system.RobotController;
 import org.wpilib.system.Timer;
-import org.wpilib.units.Units;
 
 /**
  * FM (2026 "Final Machine") on SystemCore, competing as 8515.
@@ -308,16 +309,11 @@ public class Robot extends SpectrumRobot {
             throw t;
         }
 
-        // Offseason: 6.0 V rather than 4.6 V. A worse sag than Chezy's 8.8 V would take the
-        // controller below its own reset point before a 4.6 V brownout ever tripped, and a reboot
-        // mid-match is far worse than a second of disabled outputs.
-        //
-        // SystemCore image on the alpha-6 bench unit rejects this (HAL -1098, "handle"), which
-        // crashed the constructor. The brownout API is treated as optional: if setting it
-        // fails, the brownout telemetry that reads it is skipped too.
+        // SystemCore keeps its default brownout voltage: setting one fails there (HAL -1098). The
+        // reads are optional too: if either fails, the brownout telemetry is skipped.
         try {
-            RobotController.setBrownoutVoltage(Units.Volts.of(6.0));
             RobotController.isBrownedOut();
+            RobotController.getBrownoutVoltage();
             powerApiAvailable = true;
         } catch (RuntimeException e) {
             powerApiAvailable = false;
@@ -372,6 +368,7 @@ public class Robot extends SpectrumRobot {
         for (PoseSource s : vision.getAllSources()) {
             matchSummary.addVisionSource(s.getName(), s::getAcceptedCount, s::getRejectedCount);
         }
+        matchSummary.addCanBuses(() -> canBusInputs.buses);
         auton.onAutoEnded(e -> matchSummary.autoEnded(e.reason().name(), e.seconds()));
     }
 
@@ -512,6 +509,8 @@ public class Robot extends SpectrumRobot {
 
     private AutoStartCheck autoStart;
 
+    private boolean wasBrownedOut = false;
+
     /** Whether the HAL's brownout API works here (it did not on the 2026-09 SystemCore). */
     private boolean powerApiAvailable = false;
 
@@ -546,6 +545,16 @@ public class Robot extends SpectrumRobot {
                     default -> "Unknown";
                 });
 
+        // What each key means (tools/make_log_key_guide.py), so a log explains itself.
+        try {
+            Logger.recordMetadata(
+                    "LogKeyGuide",
+                    java.nio.file.Files.readString(
+                            Filesystem.getDeployDirectory().toPath().resolve("log-keys.json")));
+        } catch (IOException e) {
+            Logger.recordMetadata("LogKeyGuide", "");
+        }
+
         // Every receiver goes through RadioStatusRedactor.addFirst, so no log file or dashboard
         // ever gets the radio's Wi-Fi key hashes (replay too: older logs still carry them).
         switch (Constants.currentMode) {
@@ -563,9 +572,10 @@ public class Robot extends SpectrumRobot {
                         new DashboardReceiver(new NT4Publisher(), ntEveryN()));
                 break;
             case SIM:
-                // Log to NT for AdvantageScope and to ./logs for replay practice.
+                // Log to NT for AdvantageScope and to ./logs for replay practice. FM_SIM_LOG_DIR
+                // gives parallel sims (tools/check.py) their own folders.
                 RadioStatusRedactor.addFirst(
-                        new WPILOGWriter("logs"),
+                        new WPILOGWriter(System.getenv().getOrDefault("FM_SIM_LOG_DIR", "logs")),
                         new DashboardReceiver(new NT4Publisher(), ntEveryN()));
                 break;
             case REPLAY:
@@ -577,6 +587,7 @@ public class Robot extends SpectrumRobot {
                 break;
         }
         Logger.start();
+        CommandLog.start();
         if (Constants.currentMode == Constants.Mode.REAL) {
             LogStorage.start();
         }
@@ -604,16 +615,19 @@ public class Robot extends SpectrumRobot {
         // LT alone intakes fuel. Does nothing if RT is already held (RT+LT is handled below).
         pilot.LT.onTrue(
                 Commands.either(
-                        superStructure.setStateCommand(WantedSuperState.INTAKE_FUEL),
-                        Commands.none(),
-                        pilot.RT.negate()));
+                                superStructure.setStateCommand(WantedSuperState.INTAKE_FUEL),
+                                Commands.none(),
+                                pilot.RT.negate())
+                        .withName("Pilot.LTAlone"));
 
         // RT alone launches. Does nothing if LT is already held (RT+LT is handled below).
         pilot.RT.onTrue(
                 Commands.either(
-                        superStructure.setStateCommand(WantedSuperState.LAUNCH_WITH_SQUEEZE),
-                        Commands.none(),
-                        pilot.LT.negate()));
+                                superStructure.setStateCommand(
+                                        WantedSuperState.LAUNCH_WITH_SQUEEZE),
+                                Commands.none(),
+                                pilot.LT.negate())
+                        .withName("Pilot.RTAlone"));
 
         // RT and LT both held: launch, intake stays extended (LAUNCH_WITHOUT_SQUEEZE).
         pilot.RT
@@ -667,16 +681,14 @@ public class Robot extends SpectrumRobot {
         Util.disabled.and(operator.AButton).onTrue(superStructure.coastMechanisms());
         Util.disabled.and(operator.BButton).onTrue(superStructure.brakeMechanisms());
 
-        // Re-origin the QuestNav onto the current robot pose (disabled or not).
-        operator.LB.and(operator.XButton).onTrue(vision.resetQuestCommand());
-
         operator.LB
                 .and(operator.YButton)
                 .onTrue(
                         Commands.parallel(
                                         intakeExtension.resetCurrentPositionToMaxCommand(),
                                         operator.rumbleCommand(1, 0.5))
-                                .ignoringDisable(true));
+                                .ignoringDisable(true)
+                                .withName("IntakeExtension.resetToMax"));
 
         operator.selectButton.onTrue(superStructure.setStateCommand(WantedSuperState.FORCE_HOME));
         operator.selectButton.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
@@ -693,9 +705,14 @@ public class Robot extends SpectrumRobot {
         operator.dPadLeft.onTrue(ShotCalculator.increaseDriveAngleOffset());
 
         // Reset hub shift timer when enabling
-        Util.teleop.onTrue(Commands.runOnce(ShiftHelpers::initialize));
-        Util.autoMode.onTrue(Commands.runOnce(ShiftHelpers::initialize));
-        Util.disabled.onTrue(Commands.runOnce(ShiftHelpers::initialize).ignoringDisable(true));
+        Util.teleop.onTrue(
+                Commands.runOnce(ShiftHelpers::initialize).withName("ShiftHelpers.initialize"));
+        Util.autoMode.onTrue(
+                Commands.runOnce(ShiftHelpers::initialize).withName("ShiftHelpers.initialize"));
+        Util.disabled.onTrue(
+                Commands.runOnce(ShiftHelpers::initialize)
+                        .ignoringDisable(true)
+                        .withName("ShiftHelpers.initialize"));
 
         // Auton Triggers
         Auton.autonIntake.onTrue(
@@ -704,9 +721,11 @@ public class Robot extends SpectrumRobot {
                 superStructure.setStateCommand(WantedSuperState.AUTON_TRACK_TARGET));
         Auton.autonUnjam.onTrue(
                 Commands.sequence(
-                        superStructure.setStateCommand(WantedSuperState.UNJAM),
-                        Commands.waitSeconds(1),
-                        superStructure.setStateCommand(WantedSuperState.LAUNCH_WITH_SQUEEZE)));
+                                superStructure.setStateCommand(WantedSuperState.UNJAM),
+                                Commands.waitSeconds(1),
+                                superStructure.setStateCommand(
+                                        WantedSuperState.LAUNCH_WITH_SQUEEZE))
+                        .withName("Auton.unjamThenLaunch"));
         Auton.autonClearState.onTrue(superStructure.setStateCommand(WantedSuperState.IDLE));
     }
 
@@ -718,6 +737,7 @@ public class Robot extends SpectrumRobot {
     @Override
     public void robotPeriodic() {
         RobotLoop.next();
+        Telemetry.time("Scheduler/Framework");
         RuntimeInputs.update();
         Params.periodic();
         SwerveOffsetParams.periodic();
@@ -726,6 +746,7 @@ public class Robot extends SpectrumRobot {
         LogStorage.periodic();
         DsUploadReceiver.periodic(RobotState.isEnabled());
         systemLoad.periodic();
+        Telemetry.timeEnd("Scheduler/Framework");
 
         // Latched here rather than in the mode inits so every mode is covered by the same check.
         // Never cleared: a disable does not un-run an auto.
@@ -733,7 +754,7 @@ public class Robot extends SpectrumRobot {
             hasBeenEnabled = true;
         }
         try {
-            Telemetry.time("Scheduler/robotPeriodic");
+            Telemetry.time("Scheduler/RobotPeriodic");
 
             // Start every loop with an empty shot-solution cache so the first mechanism to ask
             // computes it from this loop's pose.
@@ -752,16 +773,30 @@ public class Robot extends SpectrumRobot {
             Telemetry.time("Scheduler/CommandScheduler");
             CommandScheduler.getInstance().run();
             Telemetry.timeEnd("Scheduler/CommandScheduler");
+            CommandLog.periodic();
 
-            Telemetry.log("Match Data/MatchTime", MatchState.getMatchTime(), "seconds");
+            // Match clock from the Driver Station, seconds left in the period.
+            Telemetry.log("MatchData/MatchTime", MatchState.getMatchTime(), "seconds");
             var shift = ShiftHelpers.getOfficialShiftInfo();
-            Telemetry.log("Match Data/InShift", shift.active());
-            Telemetry.logDash("Match Data/TimeLeftInShift", shift.remainingTime(), "seconds");
+            // Our hub is active in this shift of the 2026 game.
+            Telemetry.log("MatchData/InShift", shift.active());
+            // Time until the current hub shift ends.
+            Telemetry.logDash("MatchData/TimeLeftInShift", shift.remainingTime(), "seconds");
 
+            Telemetry.time("Scheduler/SystemLogging");
             batteryLogger.setBatteryVoltage(RuntimeInputs.batteryVoltage());
             // Every loop: a brownout is a few hundred milliseconds.
             if (powerApiAvailable) {
+                // The controller is browned out now (outputs off), where the brownout API works.
                 Telemetry.log("SystemStats/BrownedOut", RuntimeInputs.brownedOut());
+                if (RuntimeInputs.brownedOut() != wasBrownedOut) {
+                    wasBrownedOut = RuntimeInputs.brownedOut();
+                    Telemetry.logEvent(
+                            "Events",
+                            String.format(
+                                    wasBrownedOut ? "brownout (%.2f V)" : "brownout over (%.2f V)",
+                                    RuntimeInputs.batteryVoltage()));
+                }
             }
             // SystemCore reports no input current (the roboRIO did); the battery logger sums
             // the mechanisms instead.
@@ -769,6 +804,7 @@ public class Robot extends SpectrumRobot {
 
             logCanBusStatus();
             matchSummary.periodic(RuntimeInputs.batteryVoltage(), RuntimeInputs.brownedOut());
+            Telemetry.timeEnd("Scheduler/SystemLogging");
 
             Telemetry.time("Scheduler/PreMatch");
             preMatch.periodic(
@@ -780,7 +816,7 @@ public class Robot extends SpectrumRobot {
                 field2d.setRobotPose(swerve.getRobotPose());
             }
 
-            Telemetry.timeEnd("Scheduler/robotPeriodic");
+            Telemetry.timeEnd("Scheduler/RobotPeriodic");
         } catch (Throwable t) {
             // intercept error and log it
             CrashTracker.logThrowableCrash(t);
@@ -821,53 +857,63 @@ public class Robot extends SpectrumRobot {
 
     private long lastCanStatusSequence = 0;
 
+    private final CanBusInputs canBusInputs = new CanBusInputs();
+
     /** Logs CAN bus health once a second, plus the match identity, which the 2026 logs lacked. */
     private void logCanBusStatus() {
+        if (canStatus != null && canStatus.sequence() != lastCanStatusSequence) {
+            lastCanStatusSequence = canStatus.sequence();
+            canBusInputs.set(canStatus.get());
+        }
+        // Every loop, so replay reads the samples back at the loop they arrived.
+        Logger.processInputs("CAN", canBusInputs);
+
         double now = Timer.getTimestamp();
         if (now - lastCanStatusSeconds < 1.0) {
             return;
         }
         lastCanStatusSeconds = now;
+        canBusInputs.buses.forEach(this::logOneCanBus);
 
-        if (canStatus != null && canStatus.sequence() != lastCanStatusSequence) {
-            lastCanStatusSequence = canStatus.sequence();
-            canStatus.get().forEach(this::logOneCanBus);
-        }
-
-        Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds());
+        // Seconds spent on failed CAN configuration calls since boot.
+        Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds(), "seconds");
+        // CAN configuration calls that failed since boot.
         Telemetry.log("CANConfig/FailedCalls", CanConfigBudget.getFailedCalls());
+        // Failed CAN config time ran out, so remaining config calls are skipped (a dead bus).
         Telemetry.logDash("CANConfig/BudgetExhausted", CanConfigBudget.exhausted());
 
-        Telemetry.log("Match Data/EventName", MatchState.getEventName());
-        Telemetry.log("Match Data/MatchType", MatchState.getMatchType().name());
-        Telemetry.log("Match Data/MatchNumber", MatchState.getMatchNumber());
-        Telemetry.log("Match Data/ReplayNumber", MatchState.getReplayNumber());
-        Telemetry.log(
-                "Match Data/Alliance", MatchState.getAlliance().map(Enum::name).orElse("NONE"));
-        Telemetry.log("Match Data/Station", MatchState.getLocation().orElse(0));
-        Telemetry.log("Match Data/FMSAttached", RobotState.isFMSAttached());
         if (powerApiAvailable) {
+            // The voltage at which the controller browns out.
             Telemetry.log(
                     "SystemStats/BrownoutVoltage", RobotController.getBrownoutVoltage(), "volts");
         }
     }
 
     /**
-     * Logs one bus's health under {@code <prefix>/}, status code included: every counter reads 0 on
+     * Logs one bus's health under {@code <prefix>/} from the inputs, for the dashboard, the robot
+     * app's CAN page and robotlog, which read these keys. Status included: every counter reads 0 on
      * a bus whose status read itself failed, which looks exactly like a healthy idle bus.
      */
-    private void logOneCanBus(String prefix, CANBusStatus canInfo) {
-        Telemetry.logDash(prefix + "/BusUtilization", canInfo.BusUtilization * 100, "%");
-        Telemetry.log(prefix + "/BusOffCount", canInfo.BusOffCount);
-        Telemetry.log(prefix + "/TxFullCount", canInfo.TxFullCount);
-        Telemetry.log(prefix + "/ReceiveErrorCounter", canInfo.REC);
-        Telemetry.log(prefix + "/TransmitErrorCounter", canInfo.TEC);
-        Telemetry.log(prefix + "/Status", canInfo.Status.getName());
-        Telemetry.logDash(prefix + "/StatusOK", canInfo.Status.isOK());
+    private void logOneCanBus(String prefix, CanBusInputs.Bus bus) {
+        // Copy of CAN/<bus>/BusUtilization for the dashboard and the robot app.
+        Telemetry.logDash(prefix + "/BusUtilization", bus.utilizationPct(), "percent");
+        // Copy of CAN/<bus>/BusOffCount for the robot app and robotlog.
+        Telemetry.log(prefix + "/BusOffCount", bus.busOffCount());
+        // Copy of CAN/<bus>/TxFullCount.
+        Telemetry.log(prefix + "/TxFullCount", bus.txFullCount());
+        // Copy of CAN/<bus>/ReceiveErrorCounter.
+        Telemetry.log(prefix + "/ReceiveErrorCounter", bus.receiveErrorCount());
+        // Copy of CAN/<bus>/TransmitErrorCounter.
+        Telemetry.log(prefix + "/TransmitErrorCounter", bus.transmitErrorCount());
+        // Copy of CAN/<bus>/Status.
+        Telemetry.log(prefix + "/Status", bus.status());
+        // Copy of CAN/<bus>/StatusOK, for the dashboard's bus lights.
+        Telemetry.logDash(prefix + "/StatusOK", bus.statusOk());
     }
 
     @Override
     public void disabledInit() {
+        Telemetry.logEvent("Events", "disabled");
         Telemetry.print("### Disabled Init Starting ### ");
 
         // Offseason: honoured only before the first enable. See mayPlaceAtAutoStart().
@@ -884,10 +930,12 @@ public class Robot extends SpectrumRobot {
                                     // AdvantageKit's LocalADStarAK so it replays.
                                     Commands.runOnce(
                                             () -> {
+                                                // PathPlanner's path-following warmup has run.
                                                 Telemetry.log("Initialized", true);
                                                 autonWarmedUp = true;
                                             }))
-                            .ignoringDisable(true);
+                            .ignoringDisable(true)
+                            .withName("Auton.warmUpPathFollowing");
             CommandScheduler.getInstance().schedule(autonStartCommand);
         }
 
@@ -939,6 +987,7 @@ public class Robot extends SpectrumRobot {
 
         if (!autoName.equals(selectionKey)) {
             autoName = selectionKey;
+            // The selected auto's first path has been warmed up (followed once while disabled).
             Telemetry.log("Auton Warmed Up", false);
             boolean autoFileFound = AutoBuilder.getAllAutoNames().contains(baseAutoName);
             logAutoSelection(fullAutoName, autoFileFound, baseAutoName);
@@ -984,7 +1033,8 @@ public class Robot extends SpectrumRobot {
                                                                 PrintPriority.HIGH);
                                                         Telemetry.log("Auton Warmed Up", true);
                                                     }))
-                                    .ignoringDisable(true);
+                                    .ignoringDisable(true)
+                                    .withName("Auton.warmUpStartPath");
                     CommandScheduler.getInstance().schedule(warmUpPath);
                 } else {
                     Telemetry.print("Warning: No paths loaded for auto: " + baseAutoName);
@@ -1042,7 +1092,9 @@ public class Robot extends SpectrumRobot {
     private void logAutoSelection(String fullAutoName, boolean autoFileFound, String baseAutoName) {
         selectedAutoName = fullAutoName;
         this.autoFileFound = autoFileFound;
+        // The auto picked on the dashboard, with the alliance.
         Telemetry.log("Auton/SelectedAuto", fullAutoName);
+        // The selected auto's PathPlanner file was found.
         Telemetry.log("Auton/AutoFileFound", autoFileFound);
         if (autoFileFound) {
             Telemetry.print("Auto selected: " + fullAutoName, PrintPriority.HIGH);
@@ -1076,8 +1128,10 @@ public class Robot extends SpectrumRobot {
 
     /** The robot's distance from the selected auto's start, as the pre-match check measured it. */
     private void logStartPose() {
-        Telemetry.logDash("Auton/StartPoseErrorMeters", autoStart.getDistanceMeters(), "m");
-        Telemetry.logDash("Auton/StartHeadingErrorDeg", autoStart.getHeadingErrorDeg(), "deg");
+        // How far the robot sits from the selected auto's start pose.
+        Telemetry.logDash("Auton/StartPoseErrorMeters", autoStart.getDistanceMeters(), "meters");
+        // Robot heading minus the selected auto's start heading.
+        Telemetry.logDash("Auton/StartHeadingErrorDeg", autoStart.getHeadingErrorDeg(), "degrees");
     }
 
     @Override
@@ -1090,6 +1144,8 @@ public class Robot extends SpectrumRobot {
     public void autonomousInit() {
         Telemetry.print("@@@ Auton Init @@@ ");
         String runningAuto = auton.getAutonomousCommand().getName();
+        Telemetry.logEvent("Events", "auto started: " + runningAuto);
+        // The auto that started.
         Telemetry.log("Auton/RunningAuto", runningAuto);
         if (robotSim != null) {
             robotSim.getBallSim().clearBalls();
@@ -1120,6 +1176,7 @@ public class Robot extends SpectrumRobot {
 
     @Override
     public void teleopInit() {
+        Telemetry.logEvent("Events", "teleop");
         try {
             Telemetry.print("!!! Teleop Init Starting !!! ");
             superStructure.setWantedSuperState(WantedSuperState.IDLE);
@@ -1145,6 +1202,7 @@ public class Robot extends SpectrumRobot {
     /* UTILITY MODE (2026's "test" mode) */
     @Override
     public void utilityInit() {
+        Telemetry.logEvent("Events", "utility");
         Telemetry.print("~~~ Utility Init ~~~ ");
     }
 
@@ -1172,8 +1230,11 @@ public class Robot extends SpectrumRobot {
         }
         robotSim.getBallSim().tick(); // runs physics, publishes ball positions to NT
         robotSim.updateArticulatedMechanisms();
+        // Sim only: fuel picked up.
         Telemetry.log("Sim/Fuel", robotSim.getBallSim().getTotalIntaked());
+        // Sim only: fuel launched.
         Telemetry.log("Sim/Launched", robotSim.getBallSim().getTotalLaunched());
+        // Sim only: fuel scored in the hub.
         Telemetry.log("Sim/Scored", robotSim.getBallSim().getTotalScored());
     }
 }

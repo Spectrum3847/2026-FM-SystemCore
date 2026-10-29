@@ -680,7 +680,7 @@ They also disagree on whether copies build up:
 8. Conflicts (git changed after a value was saved): show both values and let a person choose; no automatic merge.
 9. The website shows a read-only robot-versus-git diff with "copy patch" and "copy AI prompt", and never writes to git.
 10. While the robot program has crashed: show the read-only diff, the errors and the program log, and allow disabling a bad saved file by renaming it (confirmed by a person, logged by the robot at next boot). Usually the fix is a redeploy; the app's job is to show what went wrong.
-11. Guided tuning procedures, each with its own page, using live readings: swerve offsets (the page reads each wheel's angle, has the user spin each wheel and point it forward, then captures); soft limits (the user moves a mechanism to each end and the page records the positions); direction checks; others later. Pages can use graphics from the robot CAD.
+11. Guided tuning procedures, each with its own page, using live readings: swerve offsets (the page reads each wheel's angle, has the user spin each wheel and point it forward, then captures); soft limits (the user moves a mechanism to each end and the page records the positions); direction checks; others later. Pages can use graphics from the robot CAD. Most steps are hand-move with the robot disabled. Some steps ask for the robot to be enabled so the page can read what happens; those run in utility mode (the 2027 name for test mode), and the driver presses controller buttons to run each test. The website never commands motion itself.
 
 **Reviewer recommendations, not yet approved by the team:**
 1. The service runs under systemd, installed through a GradleRIO `CommandArtifact` that restarts it only when its files changed.

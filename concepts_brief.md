@@ -1113,7 +1113,7 @@ This document lays out the options and does not choose answers. The team decides
 15. Fix `lib/nt4.js` to keep each topic's last-update time, so pages can show data age and refuse stale readings.
 16. The service is written in Java, in its own source set, with no dependency on robot classes, the HAL or Phoenix.
 17. Gradle generates a module of keys, params and button bindings from the Java during the build. The drift check runs in CI on push and can be run locally; a local build does not stop a push.
-18. Utility-mode tests: common tests run from driver-controller buttons; niche tests start from the website. (How a website start fits decision 11's "the website never commands motion" is open.)
+18. Utility-mode tests: the website starts its own guided session (which steps, which parts of the robot to show, which buttons to ask for); it never commands the robot. The driver presses controller buttons to make anything move. Common tests have driver-controller bindings; niche tests are guided from the website the same way. Consistent with decision 11.
 
 **Reviewer recommendations, not yet approved by the team:**
 1. The service runs under systemd, installed through a GradleRIO `CommandArtifact` that restarts it only when its files changed.

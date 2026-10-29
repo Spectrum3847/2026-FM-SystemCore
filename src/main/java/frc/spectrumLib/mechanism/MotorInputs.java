@@ -33,6 +33,16 @@ public class MotorInputs implements LoggableInputs, Cloneable {
     public double statorCurrentAmps = 0;
     public double supplyCurrentAmps = 0;
     public double tempCelsius = 0;
+
+    /**
+     * Phoenix's fault bitfields ({@code getFaultField}, {@code getStickyFaultField}): active now,
+     * and latched since boot (sticky faults are cleared when the motor is created). Nonzero means
+     * check Tuner X or CTRE's fault-field bit list for which fault.
+     */
+    public long faultField = 0;
+
+    public long stickyFaultField = 0;
+    public long[] followerStickyFaultField = new long[0];
     public double[] followerSupplyCurrentAmps = new double[0];
     public boolean[] followerConnected = new boolean[0];
     public boolean[] followerResetOccurred = new boolean[0];
@@ -48,6 +58,9 @@ public class MotorInputs implements LoggableInputs, Cloneable {
         table.put("StatorCurrentAmps", statorCurrentAmps);
         table.put("SupplyCurrentAmps", supplyCurrentAmps);
         table.put("TempCelsius", tempCelsius);
+        table.put("FaultField", faultField);
+        table.put("StickyFaultField", stickyFaultField);
+        table.put("FollowerStickyFaultField", followerStickyFaultField);
         table.put("FollowerSupplyCurrentAmps", followerSupplyCurrentAmps);
         table.put("FollowerConnected", followerConnected);
         table.put("FollowerResetOccurred", followerResetOccurred);
@@ -67,6 +80,10 @@ public class MotorInputs implements LoggableInputs, Cloneable {
         statorCurrentAmps = table.get("StatorCurrentAmps", statorCurrentAmps);
         supplyCurrentAmps = table.get("SupplyCurrentAmps", supplyCurrentAmps);
         tempCelsius = table.get("TempCelsius", tempCelsius);
+        // Logs from before faults were recorded have none: no faults.
+        faultField = table.get("FaultField", 0L);
+        stickyFaultField = table.get("StickyFaultField", 0L);
+        followerStickyFaultField = table.get("FollowerStickyFaultField", new long[0]);
         followerSupplyCurrentAmps =
                 table.get("FollowerSupplyCurrentAmps", followerSupplyCurrentAmps);
         followerConnected = table.get("FollowerConnected", followerConnected);

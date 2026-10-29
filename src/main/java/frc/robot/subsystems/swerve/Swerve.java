@@ -756,8 +756,9 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         // Localization/FusedPose and the Swerve inputs ModuleTargets, ModuleVelocities and
         // RobotVelocity already.)
         Telemetry.log("Swerve/OdometrySamplesThisLoop", inputs.odometryTimestamps.length);
-        Telemetry.log("Swerve/Tilt/TiltDegrees", tilt.tiltDeg());
-        Telemetry.log("Swerve/Tilt/TiltRateDegPerSec", tilt.tiltRateDegPerSec());
+        Telemetry.log("Swerve/Tilt/TiltDegrees", tilt.tiltDeg(), "degrees");
+        Telemetry.log(
+                "Swerve/Tilt/TiltRateDegPerSec", tilt.tiltRateDegPerSec(), "degrees per second");
         Telemetry.log("Swerve/Tilt/ImpactG", tilt.impactG());
         Telemetry.log("Swerve/Tilt/Tilted", tilt.tilted());
         Telemetry.log("Swerve/Tilt/BumpedRecently", wasBumpedRecently());

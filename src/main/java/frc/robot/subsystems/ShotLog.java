@@ -5,15 +5,15 @@ import frc.spectrumLib.telemetry.Telemetry;
 import org.wpilib.math.geometry.Pose2d;
 
 /**
- * One row per volley, under {@code ShotLog/}: what was aimed, and what the mechanisms were doing,
- * on the loop the feed opened. From the offseason bot's shot record (eb2d86e, {@code
+ * One row per volley, under {@code Shooting/Log/}: what was aimed, and what the mechanisms were
+ * doing, on the loop the feed opened. From the offseason bot's shot record (eb2d86e, {@code
  * ShotCalc/Shot/*}), extended with the gate's view and the pose's trust. Schema and how to read it:
  * docs/shot-log.md; {@code tools/shot_log.py} turns a log into a CSV.
  *
  * <p>The row is written on the rising edge of the feed: the first loop fuel is allowed into the
  * flywheel, and so the last loop on which the aim is still a prediction. When the feed closes, an
- * end row under {@code ShotLog/End/} gives the volley's length and how many flywheel dips (roughly,
- * balls) it saw.
+ * end row under {@code Shooting/Log/End/} gives the volley's length and how many flywheel dips
+ * (roughly, balls) it saw.
  *
  * <p>AdvantageKit writes a value only when it changes, so a key that is the same as last shot's has
  * no record at this shot's time. Read a row as each key's last value at or before the row's {@code
@@ -108,9 +108,9 @@ public final class ShotLog {
         Telemetry.log("Shooting/Log/ActualHoodDeg", shot.actualHoodDeg(), "degrees");
         // Fused heading minus the aim target, while the drivetrain aims; NaN for a set shot.
         Telemetry.log(
-                "Shooting/Log/HeadingErrorDeg", Math.toDegrees(shot.headingErrorRad()), "deg");
+                "Shooting/Log/HeadingErrorDeg", Math.toDegrees(shot.headingErrorRad()), "degrees");
         Telemetry.log(
-                "Shooting/Log/AimToleranceDeg", Math.toDegrees(shot.aimToleranceRad()), "deg");
+                "Shooting/Log/AimToleranceDeg", Math.toDegrees(shot.aimToleranceRad()), "degrees");
         Telemetry.log("Shooting/Log/HoodTrimDeg", ShotCalculator.HOOD_ANGLE_OFFSET, "degrees");
         Telemetry.log("Shooting/Log/AimTrimDeg", ShotCalculator.DRIVE_ANGLE_OFFSET, "degrees");
 

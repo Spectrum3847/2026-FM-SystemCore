@@ -52,6 +52,10 @@ docs/pose-sources.md for the localization testbed.
   dependency update.
 - Never put the log-site upload key, radio keys or tokens in code, chat or commits. Logs uploaded
   to robotlog.spectrum3847.org are public; upload only what was asked.
+- Every log carries `LogKeyGuide` metadata: what each key means, its unit, input or output, and
+  its source file (`docs/log-keys.md` is the same list). Read it before guessing at a key. After
+  adding or renaming a logged key, run `python tools/make_log_key_guide.py` (CI checks it), and
+  put a one-line comment above the call or field saying what the value means.
 - Logs: `tools/wpilog_summary.py`, `tools/shot_log.py`, `tools/replay_compare.py`, the
   `spectrum-logs` MCP (robotlog.spectrum3847.org) and the `frc-log-triage` skill in
   Spectrum-AI-Tools.

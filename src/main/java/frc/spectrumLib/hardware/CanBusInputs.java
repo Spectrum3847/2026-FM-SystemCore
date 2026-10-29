@@ -49,7 +49,7 @@ public class CanBusInputs implements LoggableInputs {
         buses.forEach(
                 (label, b) -> {
                     LogTable t = table.getSubtable(label);
-                    t.put("BusUtilization", b.utilizationPct());
+                    t.put("BusUtilization", b.utilizationPct(), "percent");
                     t.put("BusOffCount", b.busOffCount());
                     t.put("TxFullCount", b.txFullCount());
                     t.put("ReceiveErrorCounter", b.receiveErrorCount());

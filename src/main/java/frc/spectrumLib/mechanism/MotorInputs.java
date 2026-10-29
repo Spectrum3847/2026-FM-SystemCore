@@ -58,13 +58,16 @@ public class MotorInputs implements LoggableInputs, Cloneable {
     public void toLog(LogTable table) {
         table.put("Connected", connected);
         table.put("ResetOccurred", resetOccurred);
-        table.put("PositionRotations", positionRotations);
-        table.put("LatencyCompensatedPositionRotations", latencyCompensatedPositionRotations);
-        table.put("VelocityRPS", velocityRps);
-        table.put("Voltage", voltage);
-        table.put("StatorCurrentAmps", statorCurrentAmps);
-        table.put("SupplyCurrentAmps", supplyCurrentAmps);
-        table.put("TempCelsius", tempCelsius);
+        table.put("PositionRotations", positionRotations, "rotations");
+        table.put(
+                "LatencyCompensatedPositionRotations",
+                latencyCompensatedPositionRotations,
+                "rotations");
+        table.put("VelocityRPS", velocityRps, "rotations per second");
+        table.put("Voltage", voltage, "volts");
+        table.put("StatorCurrentAmps", statorCurrentAmps, "amps");
+        table.put("SupplyCurrentAmps", supplyCurrentAmps, "amps");
+        table.put("TempCelsius", tempCelsius, "celsius");
         table.put("FaultField", faultField);
         table.put("StickyFaultField", stickyFaultField);
         table.put("FollowerStickyFaultField", followerStickyFaultField);

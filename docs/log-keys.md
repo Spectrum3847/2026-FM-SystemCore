@@ -33,19 +33,19 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/CAN/<label>/TxFullCount` | I |  | Frames dropped because the transmit buffer was full since boot. | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
 | `/CAN/Labels` | I |  | The buses found, by the label each one is logged under. | src/main/java/frc/spectrumLib/hardware/CanBusInputs.java |
 | `/Hood/Homing/RecordedWithHoming` | I |  |  | src/main/java/frc/robot/subsystems/hood/HoodHoming.java |
-| `/Localization/Sources/<name>/AvgTagDistances` | I |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/Localization/Sources/<name>/AvgTagDistances` | I |  | Mean camera-to-tag distance per observation. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/Connected` | I |  | Whether the device is talking at all (NT heartbeat, frames arriving). | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/Fiducials` | I |  | Per-tag data of this loop's frame, FIDUCIAL_STRIDE values per tag: id, horizontal and vertical angle from the principal point (deg, positive right and up), camera-to-tag distance (m), ambiguity. Limelight MegaTag1 only; empty otherwise. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/Health` | I |  | Source-specific health numbers, e.g. QuestNav battery, Limelight fps. Keys fixed per IO. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/Kind` | I |  | Kind ordinal of this source's observations; -1 before the first. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/Localization/Sources/<name>/MaxAmbiguities` | I |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/Localization/Sources/<name>/Poses` | I |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/Localization/Sources/<name>/MaxAmbiguities` | I |  | Largest single-tag ambiguity in each solve, 0 to 1; high means the pose may be flipped. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/Localization/Sources/<name>/Poses` | I |  | Each observation's robot pose, before any gate. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/StdDevScales` | I |  | Per-observation PoseObservation#stdDevScale; logged only when some entry isn't 1. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/Localization/Sources/<name>/TagCounts` | I |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/Localization/Sources/<name>/TagCounts` | I |  | Tags in each observation's solve; -1 for a source with no tags (the Quest). | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/TagIds` | I |  | Every tag id seen this loop, for display. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/Localization/Sources/<name>/TargetSizes` | I |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/Localization/Sources/<name>/Timestamps` | I |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/Localization/Sources/<name>/Tracking` | I |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/Localization/Sources/<name>/TargetSizes` | I |  | Limelight target area as a percentage of the image, per observation. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/Localization/Sources/<name>/Timestamps` | I |  | Capture time of each observation this loop, robot time. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/Localization/Sources/<name>/Tracking` | I |  | Per observation, whether the source was tracking; logged only in a loop where one wasn't. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Mechanisms/<name>/Connected` | I |  | The leader answered this loop's signal refresh. Readings are stale or zero while false. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
 | `/Mechanisms/<name>/FaultField` | I |  | Phoenix's fault bitfields (getFaultField, getStickyFaultField): active now, and latched since boot (sticky faults are cleared when the motor is created). The bit order is undocumented: Tuner X decodes it. troubleFaults names the ones that matter. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
 | `/Mechanisms/<name>/FollowerConnected` | I |  | Whether each follower answered this loop, in config order. | src/main/java/frc/spectrumLib/mechanism/MotorInputs.java |
@@ -77,10 +77,6 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/<computeIfAbsent>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSource.java |
 | `/RealOutputs/<connected>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
 | `/RealOutputs/<connectedKey>` |  |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
-| `/RealOutputs/<cURRENTS_PREFIX>DriveStatorCurrent` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/<cURRENTS_PREFIX>DriveSupplyCurrent` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/<cURRENTS_PREFIX>SteerStatorCurrent` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/<cURRENTS_PREFIX>SteerSupplyCurrent` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/<detected>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
 | `/RealOutputs/<downSecondsKey>` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/<dropsKey>` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
@@ -141,7 +137,7 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/<prefix>/AvgTagDistances` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/RealOutputs/<prefix>/BusOffCount` |  |  |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/<prefix>/BusUtilization` |  | percent |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/<prefix>/Connected` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/RealOutputs/<prefix>/Connected` |  |  | A derived source's observations, as outputs: each is the input of the same name. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/RealOutputs/<prefix>/Go` |  |  |  | src/main/java/frc/spectrumLib/checks/PreMatchChecks.java |
 | `/RealOutputs/<prefix>/MaxAmbiguities` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/RealOutputs/<prefix>/Poses` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
@@ -156,17 +152,6 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/<prefix>/Timestamps` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/RealOutputs/<prefix>/TransmitErrorCounter` |  |  |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/<prefix>/TxFullCount` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/<pREFIX>ExcludedTags` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
-| `/RealOutputs/<pREFIX>FusedErrorVsTruthMeters` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<pREFIX>FusedPose` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<pREFIX>HeartbeatAgeSeconds` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
-| `/RealOutputs/<pREFIX>OdometryErrorVsTruthMeters` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<pREFIX>OdometryPose` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<pREFIX>OutOfOrderReapplied` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
-| `/RealOutputs/<pREFIX>RequestedPipeline` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
-| `/RealOutputs/<pREFIX>Rewind/Label` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
-| `/RealOutputs/<pREFIX>Rewind/RecordRequested` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
-| `/RealOutputs/<pREFIX>SimTruthPose` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
 | `/RealOutputs/<pressed>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
 | `/RealOutputs/<rawButtons>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
 | `/RealOutputs/<rawButtonsAvailable>` |  |  |  | src/main/java/frc/spectrumLib/gamepads/Gamepad.java |
@@ -192,14 +177,14 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/<verdictsKey>` |  |  | One entry per observation, in input order: the tier if accepted, the reason if not. | src/main/java/frc/spectrumLib/localization/PoseSource.java |
 | `/RealOutputs/<voltageKey>` |  | volts |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
 | `/RealOutputs/<xyStdKey>` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSource.java |
-| `/RealOutputs/Alerts/Errors` |  |  |  | src/main/java/frc/spectrumLib/telemetry/Alert.java |
-| `/RealOutputs/Alerts/Infos` |  |  |  | src/main/java/frc/spectrumLib/telemetry/Alert.java |
-| `/RealOutputs/Alerts/Warnings` |  |  |  | src/main/java/frc/spectrumLib/telemetry/Alert.java |
+| `/RealOutputs/Alerts/Errors` |  |  | Active error alerts, newest first. | src/main/java/frc/spectrumLib/telemetry/Alert.java |
+| `/RealOutputs/Alerts/Infos` |  |  | Active info alerts, newest first. | src/main/java/frc/spectrumLib/telemetry/Alert.java |
+| `/RealOutputs/Alerts/Warnings` |  |  | Active warning alerts, newest first. | src/main/java/frc/spectrumLib/telemetry/Alert.java |
 | `/RealOutputs/Auton Warmed Up` |  |  |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/Auton/AutoFileFound` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/Auton/EndElapsedSeconds` |  | seconds |  | src/main/java/frc/robot/auton/AutoEnd.java |
-| `/RealOutputs/Auton/EndInterruptedBy` |  |  |  | src/main/java/frc/robot/auton/AutoEnd.java |
-| `/RealOutputs/Auton/EndReason` |  |  |  | src/main/java/frc/robot/auton/AutoEnd.java |
+| `/RealOutputs/Auton/EndElapsedSeconds` |  | seconds | How long the auto ran. | src/main/java/frc/robot/auton/AutoEnd.java |
+| `/RealOutputs/Auton/EndInterruptedBy` |  |  | The command that interrupted the auto, if one did. | src/main/java/frc/robot/auton/AutoEnd.java |
+| `/RealOutputs/Auton/EndReason` |  |  | Why the auto ended: FINISHED, END_OF_PERIOD, DISABLED_BY_FMS_EARLY, DS_DISCONNECTED, E_STOP, ... | src/main/java/frc/robot/auton/AutoEnd.java |
 | `/RealOutputs/Auton/RunningAuto` |  |  |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/Auton/SelectedAuto` |  |  |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/Auton/StartHeadingErrorDeg` |  | degrees |  | src/main/java/frc/robot/Robot.java |
@@ -212,17 +197,17 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/CANConfig/BudgetSpentSeconds` |  | seconds |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/CANConfig/FailedCalls` |  |  |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/Commands/Events` |  |  | Empty on quiet loops so each event appears once, in the loop it happened. | src/main/java/frc/spectrumLib/telemetry/CommandLog.java |
-| `/RealOutputs/Commands/Running` |  |  |  | src/main/java/frc/spectrumLib/telemetry/CommandLog.java |
+| `/RealOutputs/Commands/Running` |  |  | Names of the commands running now. | src/main/java/frc/spectrumLib/telemetry/CommandLog.java |
 | `/RealOutputs/Drive/Pose3d` |  |  |  | src/main/java/frc/rebuilt/RobotBumpSim.java |
 | `/RealOutputs/DSUpload/BytesReceived` |  |  |  | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
 | `/RealOutputs/DSUpload/FilesReceived` |  |  |  | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
 | `/RealOutputs/DSUpload/LastError` |  |  |  | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
 | `/RealOutputs/DSUpload/LastFile` |  |  |  | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
-| `/RealOutputs/Events` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/FuelIntake/CurrentCommand` |  |  |  | src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java |
-| `/RealOutputs/FuelIntake/RPM` |  | RPM |  | src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java |
-| `/RealOutputs/FuelIntake/SystemState` |  |  |  | src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java |
-| `/RealOutputs/FuelIntake/WantedState` |  |  |  | src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java |
+| `/RealOutputs/Events` |  |  | Events: one line per thing that happened, in order: modes, auto, state changes, alerts, brownouts, trims, param changes. | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/FuelIntake/CurrentCommand` |  |  | The command requiring the fuel intake, if any. | src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java |
+| `/RealOutputs/FuelIntake/RPM` |  | RPM | The fuel intake's speed, mechanism RPM. | src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java |
+| `/RealOutputs/FuelIntake/SystemState` |  |  | The state the fuel intake is actually in, after its own transitions. | src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java |
+| `/RealOutputs/FuelIntake/WantedState` |  |  | What SuperStructure asked of the fuel intake. | src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java |
 | `/RealOutputs/Hood/CurrentCommand` |  |  |  | src/main/java/frc/robot/subsystems/hood/Hood.java |
 | `/RealOutputs/Hood/GoalClamped` |  |  |  | src/main/java/frc/robot/subsystems/hood/Hood.java |
 | `/RealOutputs/Hood/Homing/AssumedZeroedForReplay` |  |  |  | src/main/java/frc/robot/subsystems/hood/Hood.java |
@@ -233,14 +218,14 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Hood/SystemState` |  |  |  | src/main/java/frc/robot/subsystems/hood/Hood.java |
 | `/RealOutputs/Hood/WantedState` |  |  |  | src/main/java/frc/robot/subsystems/hood/Hood.java |
 | `/RealOutputs/Hood/Zeroed` |  |  |  | src/main/java/frc/robot/subsystems/hood/Hood.java |
-| `/RealOutputs/IndexerBed/CurrentCommand` |  |  |  | src/main/java/frc/robot/subsystems/indexerBed/IndexerBed.java |
-| `/RealOutputs/IndexerBed/RPM` |  | RPM |  | src/main/java/frc/robot/subsystems/indexerBed/IndexerBed.java |
-| `/RealOutputs/IndexerBed/SystemState` |  |  |  | src/main/java/frc/robot/subsystems/indexerBed/IndexerBed.java |
-| `/RealOutputs/IndexerBed/WantedState` |  |  |  | src/main/java/frc/robot/subsystems/indexerBed/IndexerBed.java |
-| `/RealOutputs/IndexerTower/CurrentCommand` |  |  |  | src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java |
-| `/RealOutputs/IndexerTower/RPM` |  | RPM |  | src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java |
-| `/RealOutputs/IndexerTower/SystemState` |  |  |  | src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java |
-| `/RealOutputs/IndexerTower/WantedState` |  |  |  | src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java |
+| `/RealOutputs/IndexerBed/CurrentCommand` |  |  | The command requiring the indexer bed, if any. | src/main/java/frc/robot/subsystems/indexerBed/IndexerBed.java |
+| `/RealOutputs/IndexerBed/RPM` |  | RPM | The indexer bed's speed, mechanism RPM. | src/main/java/frc/robot/subsystems/indexerBed/IndexerBed.java |
+| `/RealOutputs/IndexerBed/SystemState` |  |  | The state the indexer bed is actually in, after its own transitions. | src/main/java/frc/robot/subsystems/indexerBed/IndexerBed.java |
+| `/RealOutputs/IndexerBed/WantedState` |  |  | What SuperStructure asked of the indexer bed. | src/main/java/frc/robot/subsystems/indexerBed/IndexerBed.java |
+| `/RealOutputs/IndexerTower/CurrentCommand` |  |  | The command requiring the indexer tower, if any. | src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java |
+| `/RealOutputs/IndexerTower/RPM` |  | RPM | The indexer tower's speed, mechanism RPM. | src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java |
+| `/RealOutputs/IndexerTower/SystemState` |  |  | The state the indexer tower is actually in, after its own transitions. | src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java |
+| `/RealOutputs/IndexerTower/WantedState` |  |  | What SuperStructure asked of the indexer tower. | src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java |
 | `/RealOutputs/Initialized` |  |  |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/IntakeExtension/CurrentCommand` |  |  |  | src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java |
 | `/RealOutputs/IntakeExtension/ExtendPhase` |  |  |  | src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java |
@@ -254,18 +239,24 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/IntakeExtensionRight/CurrentCommand` |  |  |  | src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java |
 | `/RealOutputs/IntakeExtensionRight/Position` |  | rotations |  | src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java |
 | `/RealOutputs/IntakeExtensionRight/RPM` |  | RPM |  | src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java |
-| `/RealOutputs/Launcher/CurrentCommand` |  |  |  | src/main/java/frc/robot/subsystems/launcher/Launcher.java |
-| `/RealOutputs/Launcher/RPM` |  | RPM |  | src/main/java/frc/robot/subsystems/launcher/Launcher.java |
-| `/RealOutputs/Launcher/SystemState` |  |  |  | src/main/java/frc/robot/subsystems/launcher/Launcher.java |
-| `/RealOutputs/Launcher/WantedState` |  |  |  | src/main/java/frc/robot/subsystems/launcher/Launcher.java |
+| `/RealOutputs/Launcher/CurrentCommand` |  |  | The command requiring the launcher, if any. | src/main/java/frc/robot/subsystems/launcher/Launcher.java |
+| `/RealOutputs/Launcher/RPM` |  | RPM | The launcher's speed, mechanism RPM. | src/main/java/frc/robot/subsystems/launcher/Launcher.java |
+| `/RealOutputs/Launcher/SystemState` |  |  | The state the launcher is actually in, after its own transitions. | src/main/java/frc/robot/subsystems/launcher/Launcher.java |
+| `/RealOutputs/Launcher/WantedState` |  |  | What SuperStructure asked of the launcher. | src/main/java/frc/robot/subsystems/launcher/Launcher.java |
 | `/RealOutputs/Leds/CommandPriority` |  |  |  | src/main/java/frc/robot/subsystems/leds/Leds.java |
 | `/RealOutputs/Leds/CurrentCommand` |  |  |  | src/main/java/frc/robot/subsystems/leds/Leds.java |
 | `/RealOutputs/Leds/IsAnimating` |  |  |  | src/main/java/frc/robot/subsystems/leds/Leds.java |
 | `/RealOutputs/Localization/EKF/FeedMicros` |  |  |  | src/main/java/frc/robot/subsystems/vision/Vision.java |
+| `/RealOutputs/Localization/FusedErrorVsTruthMeters` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/Localization/FusedPose` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
 | `/RealOutputs/Localization/Odometry/HeadingSource` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Localization/Odometry/ModulesUsed` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
+| `/RealOutputs/Localization/OdometryErrorVsTruthMeters` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/Localization/OdometryPose` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
 | `/RealOutputs/Localization/OnboardImu/ErrorVsPigeonDeg` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Localization/OnboardImu/ShadowHeadingDeg` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
+| `/RealOutputs/Localization/OutOfOrderReapplied` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
+| `/RealOutputs/Localization/SimTruthPose` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
 | `/RealOutputs/MatchData/InShift` |  |  |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/MatchData/MatchTime` |  | seconds |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/MatchData/TimeLeftInShift` |  | seconds |  | src/main/java/frc/robot/Robot.java |
@@ -280,7 +271,7 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/PathPlanner/ActivePath` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/PathPlanner/CurrentPose` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/PathPlanner/TargetPose` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/Prints` |  |  |  | src/main/java/frc/spectrumLib/telemetry/Telemetry.java |
+| `/RealOutputs/Prints` |  |  | Every Telemetry.print line in this cycle, with its robot time. | src/main/java/frc/spectrumLib/telemetry/Telemetry.java |
 | `/RealOutputs/Shooting/Calc/DistanceMeters` |  | meters | Shoot-on-move virtual distance the model was evaluated at. | src/main/java/frc/rebuilt/ShotCalculator.java |
 | `/RealOutputs/Shooting/Calc/DistanceNoLookahead` |  | meters | Real distance from the launcher to the target now; validity is judged on this. | src/main/java/frc/rebuilt/ShotCalculator.java |
 | `/RealOutputs/Shooting/Calc/DriveAngleDeg` |  | degrees | Heading the robot should face to shoot, with the move compensation and the operator's trim. | src/main/java/frc/rebuilt/ShotCalculator.java |
@@ -384,6 +375,10 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Swerve/Aim/HeadingErrorDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/Aim/TargetRateFeedforward` |  | deg/s |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/CurrentCommand` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
+| `/RealOutputs/Swerve/Currents/DriveStatorCurrent` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
+| `/RealOutputs/Swerve/Currents/DriveSupplyCurrent` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
+| `/RealOutputs/Swerve/Currents/SteerStatorCurrent` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
+| `/RealOutputs/Swerve/Currents/SteerSupplyCurrent` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/GyroRebooted` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/ModuleRebooted` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/OdometrySamplesThisLoop` |  |  | (Pose, module targets/velocities and chassis speed are not re-logged here: they are Localization/FusedPose and the Swerve inputs ModuleTargets, ModuleVelocities and RobotVelocity already.) | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
@@ -397,20 +392,20 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Swerve/Tilt/Tilted` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/Tilt/TiltRateDegPerSec` |  | degrees per second |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/WantedState` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/System/CpuPercent` |  | percent |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/Gc/CollectionsPerSecond` |  |  |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/Gc/MsPerSecond` |  | milliseconds |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/HeapUsedMB` |  | MB |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/Loop/MaxPeriodMs` |  | milliseconds |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/Loop/MeanPeriodMs` |  | milliseconds |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/Loop/OverrunPercent` |  | percent |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/MainThreadPercent` |  | percent |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/CpuPercent` |  | percent | Whole controller's CPU busy share. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/Gc/CollectionsPerSecond` |  |  | Garbage collections in the last second. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/Gc/MsPerSecond` |  | milliseconds | Java garbage collection time in the last second; long pauses stall the loop. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/HeapUsedMB` |  | MB | Java heap in use. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/Loop/MaxPeriodMs` |  | milliseconds | Longest loop over the last second. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/Loop/MeanPeriodMs` |  | milliseconds | Mean loop period over the last second. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/Loop/OverrunPercent` |  | percent | Share of loops over the overrun limit (1.25 periods) in the last second. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/MainThreadPercent` |  | percent | CPU used by the main robot loop thread. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
 | `/RealOutputs/System/MainThreadPriority` |  |  | An output, not metadata: AdvantageKit ignores recordMetadata after Logger.start(). | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/System/MemAvailableMB` |  | MB |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/ProcessPercent` |  | percent |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/Storage/FreeMB` |  |  |  | src/main/java/frc/spectrumLib/telemetry/LogStorage.java |
-| `/RealOutputs/System/Storage/LogsMB` |  |  |  | src/main/java/frc/spectrumLib/telemetry/LogStorage.java |
-| `/RealOutputs/System/ThreadCount` |  |  |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/MemAvailableMB` |  | MB | Memory the controller has available. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/ProcessPercent` |  | percent | CPU used by the robot program, percent of all cores. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/Storage/FreeMB` |  |  | Free space where logs are written (USB stick or the controller). | src/main/java/frc/spectrumLib/telemetry/LogStorage.java |
+| `/RealOutputs/System/Storage/LogsMB` |  |  | Space the logs in the log folder take. | src/main/java/frc/spectrumLib/telemetry/LogStorage.java |
+| `/RealOutputs/System/ThreadCount` |  |  | Threads in the robot program. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
 | `/RealOutputs/System/TopThreads` |  |  |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
 | `/RealOutputs/SystemStats/BrownedOut` |  |  |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/SystemStats/BrownoutVoltage` |  | volts |  | src/main/java/frc/robot/Robot.java |
@@ -425,6 +420,11 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Vision/GrossHeadingCorrections` |  |  |  | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/GrossHeadingErrorDeg` |  |  |  | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/Jetson/Connected` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
+| `/RealOutputs/Vision/Jetson/ExcludedTags` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
+| `/RealOutputs/Vision/Jetson/HeartbeatAgeSeconds` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
+| `/RealOutputs/Vision/Jetson/RequestedPipeline` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
+| `/RealOutputs/Vision/Jetson/Rewind/Label` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
+| `/RealOutputs/Vision/Jetson/Rewind/RecordRequested` |  |  |  | src/main/java/frc/robot/subsystems/vision/Jetson.java |
 | `/RealOutputs/Vision/MultiTagSeedCount` |  |  |  | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/PoseHeadingSeeded` |  |  |  | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/PoseSeedConfirmed` |  |  |  | src/main/java/frc/robot/subsystems/vision/Vision.java |
@@ -441,34 +441,34 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/SummaryInputs/Brownout/BrownedOutValid` | I |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/SummaryInputs/Brownout/FaultCount` | I |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/Swerve/AccelXG` | I |  | Pigeon acceleration along its own axes, g (gravity included). All 0 when not read. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/AccelYG` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/AccelZG` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/AccelYG` | I |  | Pigeon acceleration, y axis. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/AccelZG` | I |  | Pigeon acceleration, z axis; about 1 g sitting flat. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Swerve/CtrePose` | I |  | CTRE's own pose estimate, for comparison only. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/FailedDaqs` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/GyroConnected` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/GyroPitchDegrees` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/GyroPitchRateDegPerSec` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/FailedDaqs` | I |  | CTRE odometry thread reads that timed out or missed a signal, since boot; rising means CAN trouble. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/GyroConnected` | I |  | The Pigeon answered this loop. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/GyroPitchDegrees` | I |  | Pigeon pitch: the robot tipping forward or back. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/GyroPitchRateDegPerSec` | I |  | Pigeon pitch rate. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Swerve/GyroResetOccurred` | I |  | Phoenix's raw Pigeon reset flag; logic reads Swerve.gyroRebootedThisLoop. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/GyroRollDegrees` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/GyroRollRateDegPerSec` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/GyroYawRateRadPerSec` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/GyroRollDegrees` | I |  | Pigeon roll: the robot tipping sideways. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/GyroRollRateDegPerSec` | I |  | Pigeon roll rate. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/GyroYawRateRadPerSec` | I |  | Pigeon yaw rate, counterclockwise positive. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Swerve/ModuleConnected` | I |  | Per module: drive and steer motors both answering this loop. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Swerve/ModuleResetOccurred` | I |  | Per module: Phoenix's raw reset flag for the drive motor, which is also true on the first contact after boot. Logic reads Swerve.moduleRebootedThisLoop instead. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/ModuleTargets` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/ModuleVelocities` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/ModuleTargets` | I |  | Each module's commanded speed and angle, same order. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/ModuleVelocities` | I |  | Each module's measured speed and angle, front-left, front-right, back-left, back-right. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Swerve/OdometryModuleAngles` | I |  | Module steer angle per sample, radians, flattened. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Swerve/OdometryModuleDistances` | I |  | Module drive distance per sample, metres, flattened. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/OdometryPeriodSeconds` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/OdometryPeriodSeconds` | I |  | Average time between CTRE odometry samples; 0.004 at 250 Hz. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Swerve/OdometryTimestamps` | I |  | Sample times, Timer.getTimestamp() base. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Swerve/OdometryYawRadians` | I |  | Gyro yaw per sample, radians. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Swerve/OnboardImu/AccelX` | I |  | Raw, m/s^2: WPILib does not apply the mount orientation to the accelerometer. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/OnboardImu/AccelY` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/OnboardImu/AccelZ` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/OnboardImu/AccelY` | I |  | Onboard IMU acceleration, y. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/OnboardImu/AccelZ` | I |  | Onboard IMU acceleration, z. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Swerve/OnboardImu/Present` | I |  | SystemCore's onboard IMU, the backup gyro. Not on CAN, so a CANivore drop spares it. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/OnboardImu/YawRadians` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/OnboardImu/YawRateRadPerSec` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/RobotVelocity` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
-| `/Swerve/SuccessfulDaqs` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/OnboardImu/YawRadians` | I |  | Onboard IMU yaw. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/OnboardImu/YawRateRadPerSec` | I |  | Onboard IMU yaw rate. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/RobotVelocity` | I |  | Chassis velocity CTRE measured from the modules, robot-relative. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
+| `/Swerve/SuccessfulDaqs` | I |  | CTRE odometry thread reads that got every signal, since boot. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Vision/FieldMap/Hash` | I |  |  | src/main/java/frc/robot/subsystems/vision/TagField.java |
 | `/Vision/FieldMap/Name` | I |  |  | src/main/java/frc/robot/subsystems/vision/TagField.java |
 | `/Vision/Jetson/BootId` | I |  | Changes on every Jetson reboot, not on a reconnect; the robot's reboot alert watches it. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |

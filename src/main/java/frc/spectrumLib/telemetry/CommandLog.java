@@ -44,6 +44,7 @@ public final class CommandLog {
 
     /** Logs this loop's commands. Call once per loop, after the scheduler runs. */
     public static void periodic() {
+        // Names of the commands running now.
         Telemetry.log("Commands/Running", running.values().toArray(new String[0]));
         // Empty on quiet loops so each event appears once, in the loop it happened.
         Telemetry.log("Commands/Events", events.toArray(new String[0]));

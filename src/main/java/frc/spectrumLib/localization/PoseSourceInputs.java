@@ -33,7 +33,10 @@ public class PoseSourceInputs implements LoggableInputs {
     private static final boolean[] EMPTY_BOOLEAN = new boolean[0];
     private static final Pose3d[] EMPTY_POSE = new Pose3d[0];
 
+    /** Capture time of each observation this loop, robot time. */
     public double[] timestamps = EMPTY_DOUBLE;
+
+    /** Each observation's robot pose, before any gate. */
     public Pose3d[] poses = EMPTY_POSE;
 
     /** {@link Kind} ordinal of this source's observations; -1 before the first. */
@@ -42,10 +45,19 @@ public class PoseSourceInputs implements LoggableInputs {
     /** Per-observation kinds, only from logs written before {@link #kind}; else empty. */
     private int[] legacyKinds = EMPTY_INT;
 
+    /** Tags in each observation's solve; -1 for a source with no tags (the Quest). */
     public int[] tagCounts = EMPTY_INT;
+
+    /** Mean camera-to-tag distance per observation. */
     public double[] avgTagDistances = EMPTY_DOUBLE;
+
+    /** Limelight target area as a percentage of the image, per observation. */
     public double[] targetSizes = EMPTY_DOUBLE;
+
+    /** Largest single-tag ambiguity in each solve, 0 to 1; high means the pose may be flipped. */
     public double[] maxAmbiguities = EMPTY_DOUBLE;
+
+    /** Per observation, whether the source was tracking; logged only in a loop where one wasn't. */
     public boolean[] tracking = EMPTY_BOOLEAN;
 
     /** Per-observation {@link PoseObservation#stdDevScale}; logged only when some entry isn't 1. */
@@ -189,6 +201,7 @@ public class PoseSourceInputs implements LoggableInputs {
      * PoseSourceIO#derived()}). In replay they are recomputed, not read back.
      */
     public void recordAsOutputs(String prefix) {
+        // A derived source's observations, as outputs: each is the input of the same name.
         Logger.recordOutput(prefix + "/Connected", connected);
         Logger.recordOutput(prefix + "/Timestamps", timestamps);
         Logger.recordOutput(prefix + "/Poses", poses);

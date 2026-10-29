@@ -124,7 +124,7 @@
   {
    "key": "/Localization/Sources/<name>/AvgTagDistances",
    "unit": "",
-   "doc": "",
+   "doc": "Mean camera-to-tag distance per observation.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": true
   },
@@ -159,14 +159,14 @@
   {
    "key": "/Localization/Sources/<name>/MaxAmbiguities",
    "unit": "",
-   "doc": "",
+   "doc": "Largest single-tag ambiguity in each solve, 0 to 1; high means the pose may be flipped.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": true
   },
   {
    "key": "/Localization/Sources/<name>/Poses",
    "unit": "",
-   "doc": "",
+   "doc": "Each observation's robot pose, before any gate.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": true
   },
@@ -180,7 +180,7 @@
   {
    "key": "/Localization/Sources/<name>/TagCounts",
    "unit": "",
-   "doc": "",
+   "doc": "Tags in each observation's solve; -1 for a source with no tags (the Quest).",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": true
   },
@@ -194,21 +194,21 @@
   {
    "key": "/Localization/Sources/<name>/TargetSizes",
    "unit": "",
-   "doc": "",
+   "doc": "Limelight target area as a percentage of the image, per observation.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": true
   },
   {
    "key": "/Localization/Sources/<name>/Timestamps",
    "unit": "",
-   "doc": "",
+   "doc": "Capture time of each observation this loop, robot time.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": true
   },
   {
    "key": "/Localization/Sources/<name>/Tracking",
    "unit": "",
-   "doc": "",
+   "doc": "Per observation, whether the source was tracking; logged only in a loop where one wasn't.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": true
   },
@@ -427,34 +427,6 @@
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<cURRENTS_PREFIX>DriveStatorCurrent",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<cURRENTS_PREFIX>DriveSupplyCurrent",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<cURRENTS_PREFIX>SteerStatorCurrent",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<cURRENTS_PREFIX>SteerSupplyCurrent",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
@@ -880,7 +852,7 @@
   {
    "key": "/RealOutputs/<prefix>/Connected",
    "unit": "",
-   "doc": "",
+   "doc": "A derived source's observations, as outputs: each is the input of the same name.",
    "source": "src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java",
    "input": false
   },
@@ -980,83 +952,6 @@
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/Robot.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<pREFIX>ExcludedTags",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<pREFIX>FusedErrorVsTruthMeters",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<pREFIX>FusedPose",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<pREFIX>HeartbeatAgeSeconds",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<pREFIX>OdometryErrorVsTruthMeters",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<pREFIX>OdometryPose",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<pREFIX>OutOfOrderReapplied",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<pREFIX>RequestedPipeline",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<pREFIX>Rewind/Label",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<pREFIX>Rewind/RecordRequested",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<pREFIX>SimTruthPose",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
@@ -1237,21 +1132,21 @@
   {
    "key": "/RealOutputs/Alerts/Errors",
    "unit": "",
-   "doc": "",
+   "doc": "Active error alerts, newest first.",
    "source": "src/main/java/frc/spectrumLib/telemetry/Alert.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Alerts/Infos",
    "unit": "",
-   "doc": "",
+   "doc": "Active info alerts, newest first.",
    "source": "src/main/java/frc/spectrumLib/telemetry/Alert.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Alerts/Warnings",
    "unit": "",
-   "doc": "",
+   "doc": "Active warning alerts, newest first.",
    "source": "src/main/java/frc/spectrumLib/telemetry/Alert.java",
    "input": false
   },
@@ -1272,21 +1167,21 @@
   {
    "key": "/RealOutputs/Auton/EndElapsedSeconds",
    "unit": "seconds",
-   "doc": "",
+   "doc": "How long the auto ran.",
    "source": "src/main/java/frc/robot/auton/AutoEnd.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Auton/EndInterruptedBy",
    "unit": "",
-   "doc": "",
+   "doc": "The command that interrupted the auto, if one did.",
    "source": "src/main/java/frc/robot/auton/AutoEnd.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Auton/EndReason",
    "unit": "",
-   "doc": "",
+   "doc": "Why the auto ended: FINISHED, END_OF_PERIOD, DISABLED_BY_FMS_EARLY, DS_DISCONNECTED, E_STOP, ...",
    "source": "src/main/java/frc/robot/auton/AutoEnd.java",
    "input": false
   },
@@ -1377,7 +1272,7 @@
   {
    "key": "/RealOutputs/Commands/Running",
    "unit": "",
-   "doc": "",
+   "doc": "Names of the commands running now.",
    "source": "src/main/java/frc/spectrumLib/telemetry/CommandLog.java",
    "input": false
   },
@@ -1419,35 +1314,35 @@
   {
    "key": "/RealOutputs/Events",
    "unit": "",
-   "doc": "",
+   "doc": "Events: one line per thing that happened, in order: modes, auto, state changes, alerts, brownouts, trims, param changes.",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/FuelIntake/CurrentCommand",
    "unit": "",
-   "doc": "",
+   "doc": "The command requiring the fuel intake, if any.",
    "source": "src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java",
    "input": false
   },
   {
    "key": "/RealOutputs/FuelIntake/RPM",
    "unit": "RPM",
-   "doc": "",
+   "doc": "The fuel intake's speed, mechanism RPM.",
    "source": "src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java",
    "input": false
   },
   {
    "key": "/RealOutputs/FuelIntake/SystemState",
    "unit": "",
-   "doc": "",
+   "doc": "The state the fuel intake is actually in, after its own transitions.",
    "source": "src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java",
    "input": false
   },
   {
    "key": "/RealOutputs/FuelIntake/WantedState",
    "unit": "",
-   "doc": "",
+   "doc": "What SuperStructure asked of the fuel intake.",
    "source": "src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java",
    "input": false
   },
@@ -1524,56 +1419,56 @@
   {
    "key": "/RealOutputs/IndexerBed/CurrentCommand",
    "unit": "",
-   "doc": "",
+   "doc": "The command requiring the indexer bed, if any.",
    "source": "src/main/java/frc/robot/subsystems/indexerBed/IndexerBed.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IndexerBed/RPM",
    "unit": "RPM",
-   "doc": "",
+   "doc": "The indexer bed's speed, mechanism RPM.",
    "source": "src/main/java/frc/robot/subsystems/indexerBed/IndexerBed.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IndexerBed/SystemState",
    "unit": "",
-   "doc": "",
+   "doc": "The state the indexer bed is actually in, after its own transitions.",
    "source": "src/main/java/frc/robot/subsystems/indexerBed/IndexerBed.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IndexerBed/WantedState",
    "unit": "",
-   "doc": "",
+   "doc": "What SuperStructure asked of the indexer bed.",
    "source": "src/main/java/frc/robot/subsystems/indexerBed/IndexerBed.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IndexerTower/CurrentCommand",
    "unit": "",
-   "doc": "",
+   "doc": "The command requiring the indexer tower, if any.",
    "source": "src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IndexerTower/RPM",
    "unit": "RPM",
-   "doc": "",
+   "doc": "The indexer tower's speed, mechanism RPM.",
    "source": "src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IndexerTower/SystemState",
    "unit": "",
-   "doc": "",
+   "doc": "The state the indexer tower is actually in, after its own transitions.",
    "source": "src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IndexerTower/WantedState",
    "unit": "",
-   "doc": "",
+   "doc": "What SuperStructure asked of the indexer tower.",
    "source": "src/main/java/frc/robot/subsystems/indexerTower/IndexerTower.java",
    "input": false
   },
@@ -1671,28 +1566,28 @@
   {
    "key": "/RealOutputs/Launcher/CurrentCommand",
    "unit": "",
-   "doc": "",
+   "doc": "The command requiring the launcher, if any.",
    "source": "src/main/java/frc/robot/subsystems/launcher/Launcher.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Launcher/RPM",
    "unit": "RPM",
-   "doc": "",
+   "doc": "The launcher's speed, mechanism RPM.",
    "source": "src/main/java/frc/robot/subsystems/launcher/Launcher.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Launcher/SystemState",
    "unit": "",
-   "doc": "",
+   "doc": "The state the launcher is actually in, after its own transitions.",
    "source": "src/main/java/frc/robot/subsystems/launcher/Launcher.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Launcher/WantedState",
    "unit": "",
-   "doc": "",
+   "doc": "What SuperStructure asked of the launcher.",
    "source": "src/main/java/frc/robot/subsystems/launcher/Launcher.java",
    "input": false
   },
@@ -1725,6 +1620,20 @@
    "input": false
   },
   {
+   "key": "/RealOutputs/Localization/FusedErrorVsTruthMeters",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/FusedPose",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
+   "input": false
+  },
+  {
    "key": "/RealOutputs/Localization/Odometry/HeadingSource",
    "unit": "",
    "doc": "",
@@ -1739,6 +1648,20 @@
    "input": false
   },
   {
+   "key": "/RealOutputs/Localization/OdometryErrorVsTruthMeters",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/OdometryPose",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
+   "input": false
+  },
+  {
    "key": "/RealOutputs/Localization/OnboardImu/ErrorVsPigeonDeg",
    "unit": "",
    "doc": "",
@@ -1750,6 +1673,20 @@
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/OutOfOrderReapplied",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/SimTruthPose",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/spectrumLib/localization/PoseFusion.java",
    "input": false
   },
   {
@@ -1853,7 +1790,7 @@
   {
    "key": "/RealOutputs/Prints",
    "unit": "",
-   "doc": "",
+   "doc": "Every Telemetry.print line in this cycle, with its robot time.",
    "source": "src/main/java/frc/spectrumLib/telemetry/Telemetry.java",
    "input": false
   },
@@ -2579,6 +2516,34 @@
    "input": false
   },
   {
+   "key": "/RealOutputs/Swerve/Currents/DriveStatorCurrent",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Swerve/Currents/DriveSupplyCurrent",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Swerve/Currents/SteerStatorCurrent",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Swerve/Currents/SteerSupplyCurrent",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
    "key": "/RealOutputs/Swerve/GyroRebooted",
    "unit": "",
    "doc": "",
@@ -2672,56 +2637,56 @@
   {
    "key": "/RealOutputs/System/CpuPercent",
    "unit": "percent",
-   "doc": "",
+   "doc": "Whole controller's CPU busy share.",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
   {
    "key": "/RealOutputs/System/Gc/CollectionsPerSecond",
    "unit": "",
-   "doc": "",
+   "doc": "Garbage collections in the last second.",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
   {
    "key": "/RealOutputs/System/Gc/MsPerSecond",
    "unit": "milliseconds",
-   "doc": "",
+   "doc": "Java garbage collection time in the last second; long pauses stall the loop.",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
   {
    "key": "/RealOutputs/System/HeapUsedMB",
    "unit": "MB",
-   "doc": "",
+   "doc": "Java heap in use.",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
   {
    "key": "/RealOutputs/System/Loop/MaxPeriodMs",
    "unit": "milliseconds",
-   "doc": "",
+   "doc": "Longest loop over the last second.",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
   {
    "key": "/RealOutputs/System/Loop/MeanPeriodMs",
    "unit": "milliseconds",
-   "doc": "",
+   "doc": "Mean loop period over the last second.",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
   {
    "key": "/RealOutputs/System/Loop/OverrunPercent",
    "unit": "percent",
-   "doc": "",
+   "doc": "Share of loops over the overrun limit (1.25 periods) in the last second.",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
   {
    "key": "/RealOutputs/System/MainThreadPercent",
    "unit": "percent",
-   "doc": "",
+   "doc": "CPU used by the main robot loop thread.",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
@@ -2735,35 +2700,35 @@
   {
    "key": "/RealOutputs/System/MemAvailableMB",
    "unit": "MB",
-   "doc": "",
+   "doc": "Memory the controller has available.",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
   {
    "key": "/RealOutputs/System/ProcessPercent",
    "unit": "percent",
-   "doc": "",
+   "doc": "CPU used by the robot program, percent of all cores.",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
   {
    "key": "/RealOutputs/System/Storage/FreeMB",
    "unit": "",
-   "doc": "",
+   "doc": "Free space where logs are written (USB stick or the controller).",
    "source": "src/main/java/frc/spectrumLib/telemetry/LogStorage.java",
    "input": false
   },
   {
    "key": "/RealOutputs/System/Storage/LogsMB",
    "unit": "",
-   "doc": "",
+   "doc": "Space the logs in the log folder take.",
    "source": "src/main/java/frc/spectrumLib/telemetry/LogStorage.java",
    "input": false
   },
   {
    "key": "/RealOutputs/System/ThreadCount",
    "unit": "",
-   "doc": "",
+   "doc": "Threads in the robot program.",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
@@ -2860,6 +2825,41 @@
   },
   {
    "key": "/RealOutputs/Vision/Jetson/Connected",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Vision/Jetson/ExcludedTags",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Vision/Jetson/HeartbeatAgeSeconds",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Vision/Jetson/RequestedPipeline",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Vision/Jetson/Rewind/Label",
+   "unit": "",
+   "doc": "",
+   "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Vision/Jetson/Rewind/RecordRequested",
    "unit": "",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/vision/Jetson.java",
@@ -2980,14 +2980,14 @@
   {
    "key": "/Swerve/AccelYG",
    "unit": "",
-   "doc": "",
+   "doc": "Pigeon acceleration, y axis.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
   {
    "key": "/Swerve/AccelZG",
    "unit": "",
-   "doc": "",
+   "doc": "Pigeon acceleration, z axis; about 1 g sitting flat.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
@@ -3001,28 +3001,28 @@
   {
    "key": "/Swerve/FailedDaqs",
    "unit": "",
-   "doc": "",
+   "doc": "CTRE odometry thread reads that timed out or missed a signal, since boot; rising means CAN trouble.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
   {
    "key": "/Swerve/GyroConnected",
    "unit": "",
-   "doc": "",
+   "doc": "The Pigeon answered this loop.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
   {
    "key": "/Swerve/GyroPitchDegrees",
    "unit": "",
-   "doc": "",
+   "doc": "Pigeon pitch: the robot tipping forward or back.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
   {
    "key": "/Swerve/GyroPitchRateDegPerSec",
    "unit": "",
-   "doc": "",
+   "doc": "Pigeon pitch rate.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
@@ -3036,21 +3036,21 @@
   {
    "key": "/Swerve/GyroRollDegrees",
    "unit": "",
-   "doc": "",
+   "doc": "Pigeon roll: the robot tipping sideways.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
   {
    "key": "/Swerve/GyroRollRateDegPerSec",
    "unit": "",
-   "doc": "",
+   "doc": "Pigeon roll rate.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
   {
    "key": "/Swerve/GyroYawRateRadPerSec",
    "unit": "",
-   "doc": "",
+   "doc": "Pigeon yaw rate, counterclockwise positive.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
@@ -3071,14 +3071,14 @@
   {
    "key": "/Swerve/ModuleTargets",
    "unit": "",
-   "doc": "",
+   "doc": "Each module's commanded speed and angle, same order.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
   {
    "key": "/Swerve/ModuleVelocities",
    "unit": "",
-   "doc": "",
+   "doc": "Each module's measured speed and angle, front-left, front-right, back-left, back-right.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
@@ -3099,7 +3099,7 @@
   {
    "key": "/Swerve/OdometryPeriodSeconds",
    "unit": "",
-   "doc": "",
+   "doc": "Average time between CTRE odometry samples; 0.004 at 250 Hz.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
@@ -3127,14 +3127,14 @@
   {
    "key": "/Swerve/OnboardImu/AccelY",
    "unit": "",
-   "doc": "",
+   "doc": "Onboard IMU acceleration, y.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
   {
    "key": "/Swerve/OnboardImu/AccelZ",
    "unit": "",
-   "doc": "",
+   "doc": "Onboard IMU acceleration, z.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
@@ -3148,28 +3148,28 @@
   {
    "key": "/Swerve/OnboardImu/YawRadians",
    "unit": "",
-   "doc": "",
+   "doc": "Onboard IMU yaw.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
   {
    "key": "/Swerve/OnboardImu/YawRateRadPerSec",
    "unit": "",
-   "doc": "",
+   "doc": "Onboard IMU yaw rate.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
   {
    "key": "/Swerve/RobotVelocity",
    "unit": "",
-   "doc": "",
+   "doc": "Chassis velocity CTRE measured from the modules, robot-relative.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },
   {
    "key": "/Swerve/SuccessfulDaqs",
    "unit": "",
-   "doc": "",
+   "doc": "CTRE odometry thread reads that got every signal, since boot.",
    "source": "src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java",
    "input": true
   },

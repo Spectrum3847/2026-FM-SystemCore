@@ -81,8 +81,13 @@ def split_args(text, start):
     return None, i
 
 
-def render(expr):
-    """A key expression as text: literals kept, anything computed as <name>."""
+def string_constants(text):
+    """A file's static final String constants, so a key built from one shows its text."""
+    return dict(re.findall(r'static final String (\w+)\s*=\s*"((?:[^"\\]|\\.)*)"\s*;', text))
+
+
+def render(expr, consts=None):
+    """A key expression as text: literals and string constants kept, anything computed as <name>."""
     parts, depth, cur, quote = [], 0, "", None
     for c in expr:
         if quote:
@@ -108,6 +113,8 @@ def render(expr):
     for p in parts:
         if re.fullmatch(r'"(?:[^"\\]|\\.)*"', p):
             out += p[1:-1]
+        elif consts and p in consts:
+            out += consts[p]
         else:
             words = re.findall(r"[A-Za-z_]\w*", p.split("(")[0])
             name = words[-1] if words else "x"
@@ -160,7 +167,7 @@ def outputs(path, text, lines):
         args, _ = split_args(text, m.end())
         if not args or not args[0] or args[0] in ("key", "k", "name"):
             continue  # the helper itself, forwarding its parameter
-        key = render(args[0])
+        key = render(args[0], string_constants(text))
         n = line_of(text, m.start())
         yield {
             "key": "/RealOutputs/" + key.lstrip("/"),
@@ -200,7 +207,8 @@ def input_classes():
                 if depth == 0:
                     break
             body = text[body_start:i]
-            subs = {v: render(e) + "/" for v, e in SUBTABLE.findall(body)}
+            consts = string_constants(text)
+            subs = {v: render(e, consts) + "/" for v, e in SUBTABLE.findall(body)}
             keys = []
             for pm in PUT_CALL.finditer(body):
                 args, _ = split_args(body, pm.end())
@@ -210,7 +218,7 @@ def input_classes():
                 field = field[-1] if field else ""
                 beside = comment_above(lines, line_of(text, body_start + pm.start()))
                 keys.append({
-                    "key": subs.get(pm.group(1), "") + render(args[0]),
+                    "key": subs.get(pm.group(1), "") + render(args[0], consts),
                     "doc": docs.get(field, "") or beside,
                     "source": os.path.relpath(path, ROOT).replace(os.sep, "/"),
                 })
@@ -232,7 +240,7 @@ def inputs(classes):
                 assigned = re.search(r"\b" + prefix_expr + r"\s*=\s*([^;=][^;]*);", text)
                 if assigned:
                     prefix_expr = assigned.group(1)
-            prefix = render(prefix_expr)
+            prefix = render(prefix_expr, string_constants(text))
             types = re.findall(r"\b(\w+)\s+" + re.escape(var) + r"\s*(?:=|;)", text)
             types += re.findall(r"\b" + re.escape(var) + r"\s*=\s*new\s+(\w+)", text)
             cls = next((t for t in types if t in classes), None)

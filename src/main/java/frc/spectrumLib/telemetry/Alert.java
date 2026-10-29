@@ -139,6 +139,8 @@ public class Alert extends org.wpilib.driverstation.Alert {
         var listener = raisedListener;
         for (Alert a : ALL) {
             if (a.active && !a.reported) {
+                // Events: one line per thing that happened, in order: modes, auto, state changes,
+                // alerts, brownouts, trims, param changes.
                 Telemetry.logEvent("Events", "alert " + a.level + ": " + a.text);
                 if (listener != null) {
                     listener.accept(a.level, a.text);
@@ -151,8 +153,11 @@ public class Alert extends org.wpilib.driverstation.Alert {
         String[] e = active(Level.HIGH);
         String[] w = active(Level.MEDIUM);
         String[] i = active(Level.LOW);
+        // Active error alerts, newest first.
         Logger.recordOutput("Alerts/Errors", e);
+        // Active warning alerts, newest first.
         Logger.recordOutput("Alerts/Warnings", w);
+        // Active info alerts, newest first.
         Logger.recordOutput("Alerts/Infos", i);
         if (table == null) {
             table = NetworkTableInstance.getDefault().getTable("SmartDashboard/Alerts");

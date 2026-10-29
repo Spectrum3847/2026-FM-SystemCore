@@ -150,6 +150,9 @@ class LogToolsTest(unittest.TestCase):
         self.assertEqual("Mechanisms/<name>/Voltage", render('"Mechanisms/" + config.getName() + "/Voltage"'))
         self.assertEqual("CAN/<label>", render('"CAN/" + label'))
         self.assertEqual("Shooting/Calc/Target", render('"Shooting/Calc/Target"'))
+        consts = make_log_key_guide.string_constants(
+            'private static final String PREFIX = "Vision/Jetson/";')
+        self.assertEqual("Vision/Jetson/Rewind/Label", render('PREFIX + "Rewind/Label"', consts))
 
     def test_key_guide_reads_unit_and_comment_beside_a_call(self):
         lines = [

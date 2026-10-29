@@ -395,6 +395,7 @@ public class Telemetry {
         if (priority == PrintPriority.HIGH || Telemetry.priority == PrintPriority.NORMAL) {
             System.out.println(out);
         }
+        // Every Telemetry.print line in this cycle, with its robot time.
         logEvent("Prints", out);
     }
 

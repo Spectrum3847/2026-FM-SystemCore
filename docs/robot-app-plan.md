@@ -1,7 +1,9 @@
 # FM Robot App on SystemCore
 
 Plan from 2026-09-24. Status: first cut in `src/main/deploy/app/`, read-only to the robot (see
-[What the first cut covers](#what-the-first-cut-covers)).
+[What the first cut covers](#what-the-first-cut-covers)). Being replaced by the Robot App brief
+(`concepts_brief.md` on branch `ccr-78e179ce-f84m7v`): on FM's SystemCore the first cut can't serve
+on 5800 (below), and the brief installs the app as a SystemCore package instead.
 
 ## Summary
 
@@ -283,12 +285,12 @@ Steps 2 to 4 and 7 remain.
 
 None of these should change the plan, but each one could change a detail, so check them during step 1.
 
-- [ ] **Port 5800.** A [SystemCore teardown](https://dunkirk.sh/blog/frc-systemcore-image/) lists a built-in CAN sniffer on 5800. Confirm our `WebServer` really serves there (for example, Elastic loads its layout from the robot).
+- [x] **Port 5800.** Checked on FM, 2026-10-29: SystemCore's own `visionserver` listens on 5800 (and 5802, 5805-5807), so our `WebServer.start(5800, ...)` can't bind there; the robot program's only listener is NT on 5810. Ports in use from 5800 to 5837: 5800-5803, 5805-5807, 5810, 5812, 5815-5817, 5819, 5820, 5822, 5825-5827, 5832, 5835-5837.
 - [x] **`WebServer` behavior.** From the allwpilib source (`wpinet` `WebServer.cpp` and `HttpServerConnection.cpp`): every response sends `Cache-Control: no-store, no-cache`, so the `version.js` stamp is not needed. A directory serves its `index.html`, else an HTML listing, and `?format=json` returns the listing as JSON. The log folder is outside the deploy folder, so the Logs page still needs robot code to list it.
-- [ ] **SystemCore cameras.** Do `limelightsc0/1` answer the same Limelight HTTP API on port 5807 as standalone Limelights? The Cameras page assumes they do, at the robot's own address. A Limelight streams on 5800, the same port as our `WebServer`, so the built-in cameras' stream must be somewhere else.
+- [x] **SystemCore cameras.** Yes for the API: on FM, `http://<robot>:5807/results` returns the standard Limelight results JSON (2026-10-29). Their stream is `visionserver` on 5800, which is why our `WebServer` can't use that port. Which of the two cameras answers on 5807 is not checked.
 - [ ] **Joystick data.** Which topics on SystemCore's system NT server carry Driver Station joystick data, for the controller page.
 - [ ] **CPU headroom.** The README measured the bench unit at 80–90% busy, with SystemCore's own vision servers using about 55%. Watch loop time with a page open and a log download running (`-ProbotTop`).
-- [ ] **Log folder.** Where logs land with and without a USB stick, and whether the web server can read that folder.
+- [ ] **Log folder.** Without a USB stick, logs land in `/home/systemcore/logs` (FM, 2026-10-29), outside the deploy folder, so the `WebServer` can't list them. With a USB stick: not checked.
 
 ## Sources
 

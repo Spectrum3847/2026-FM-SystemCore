@@ -183,6 +183,123 @@ All six asked for these:
 - **Home page (CD, CX):** show what is available right now: robot code up, NT connected, log folder present, each camera reachable.
 - **Glossary (CX, nit):** terms like "hard-stop values", "gyro scalar", "TXMAN1" and "LogKeyGuide" need definitions, or links to AGENTS.md and docs/log-keys.md.
 
+### Round 3: language, packaging, shortcut, built-in UI overlap
+
+Six new reviews with the verified facts above. Options are not chosen; the team decides.
+
+Reviewers: Comprehension/UX (CX), Codebase Details (CD), Implementation Readiness (IR), Zoom Out (ZO), Structural (ST), Design Critic (DC). All six completed. The brief was concept3.md, which added these facts: system Python is on the image, SystemCore uses an .ipk package format that shows as tiles, installing a package stops the robot program, the built-in web UI on port 4800 has its own features, there is a known port list, and the target is the latest OS on a 2027 robot. This document lays out the options and does not choose answers. The team decides.
+
+### Agreement carried over from round 2 (still unanimous or nearly so)
+
+- **Crash survival:** the app must run as its own systemd service, not inside the robot program (Robot.java:294). CX, ZO, ST, CD and DC say this outright.
+- **Pages:** plain JS modules with no build step. Keep the existing `lib/` (NT4, wpilog, log-model) and `tools/app-test` as the shared layer (CX, ZO, ST, DC).
+- **Changes:** go through NT commands handled on the robot's main thread, only while disabled, logged as inputs. Hard-stop changes need a person to confirm, showing old value, new value and failure mode. The service never writes robot config (all six).
+- **AI parity:** every capability is a documented HTTP/JSON (or NT) endpoint, and the pages are clients of that same API. ZO says no separate MCP layer for now (CX, CD, ZO, ST, DC).
+- **Version check:** the service reports its own SHA next to the robot code's SHA, and the UI shows a loud mismatch banner (CX, CD, IR, ST, DC).
+- **CPU budget:** measure loop overruns with and without the service, then set a budget and enforce it with systemd limits (Nice, CPUWeight, MemoryMax, IOSchedulingClass=idle) (CX, CD, IR, DC, ZO).
+
+### What changed since round 2
+
+- **Python:** in round 2 its availability was unknown and Python was a minority choice. Now that system Python is on the image, Python is the leading option: ZO, ST, DC and CX lean to it. Java has fallen to the counter-option, and Go is mentioned only by DC as a counter.
+- **Port:** the clash is now known to be three-way. The CAN sniffer also uses 5800, alongside the first-cut app and Limelight forwarding. Every reviewer calls a new port a blocker or major issue.
+- **Packaging:** a new question. Reviewers converge on installing the service rarely and copying the page files on every deploy.
+- **Overlap with the built-in UI:** in round 2 the "link out" advice was aimed at AdvantageScope, Tuner X and similar tools. In round 3 the same lean is aimed at the 4800 UI: all six default to linking to it.
+- **Live data:** DC now explicitly says browsers connect straight to NT4. No one argued for a relay this round.
+
+---
+
+### Q1. Service language/runtime and page approach
+
+| Option | Backed by | Strongest argument | Strongest counter |
+|---|---|---|---|
+| System Python, standard library only (or the Flask already on the image); no pip or venv at deploy | ZO, ST, DC; CX leans this way | It's on the image and matches the official package examples. About 20-30 MB of RAM and millisecond startup (ZO). It can reuse `tools/*.py`. | Limelight controls the Python version, and an OTA update could change it, so pin and test (DC). If pip/venv were ever needed, an OS update could break them (ST). CX notes it needs pip/venv handling if you go beyond the standard library. |
+| Second JVM (Java) | Counter-option only (ZO, ST, CX) | Same language as the robot code. Could reuse WPILib's wpilog and NT classes (ST). | Costs 100-200 MB of RAM and seconds of startup. ST adds that log parsing already happens in the browser, so the reuse gains little. |
+| Go static binary | Counter only (DC, ZO) | Doesn't depend on the OS's Python. | Adds a toolchain. |
+
+**Pages:** all reviewers agree on plain JS with no build step. DC raises TypeScript, for type safety with AI maintainers, as the counter.
+
+**Facts to check:** the Python version on alpha/beta 18, and whether it changes across OTA updates; whether the standard library (or the bundled Flask) covers range requests and streaming; the service's RSS and CPU on a real device.
+
+### Q2. Packaging and install on each deploy
+
+| Option | Backed by | Strongest argument | Strongest counter |
+|---|---|---|---|
+| **Split by what changes.** Install the .ipk (service plus systemd unit) only when the service's hash changes. Every deploy copies page and data files with no restart. | IR (option a), ST, DC, CX | An ordinary deploy pays no package-manager time and causes no extra robot restart. The tile and the package manager know about the app. | Two install paths can drift: an old service serving new pages (DC). It also ties the team to the alpha package-manager API on port 4803 (ST). |
+| **Gradle-installed systemd unit.** One more `CommandArtifact` copies `app/` and the unit file and runs `systemctl enable --now` or `restart`. Build an .ipk only if the tile needs one. | ZO; IR (option b: install the unit once, then replace files and restart only that service) | Simplest. Versions match because the same deploy ships both. ZO points out that GradleRIO already stops the robot program before any artifact runs (build.gradle:290), so the restart that package install causes adds nothing during a deploy. | A hand-installed unit is outside the package manager: an OS reflash may wipe it, and the built-in UI won't know about it (ZO's own counter). No tile. |
+| .ipk installed on every deploy | No one backs it | One mechanism. | Restarts the robot program, includes postinst sleeps and daemon-reload, and adds unmeasured time. A failed install leaves versions mismatched (IR, ST, DC). |
+
+**ZO's point and the round-3 consensus.** ZO's observation (build.gradle:290) weakens the main argument against using .ipk at deploy time. The consensus is still not to reinstall the package on every deploy.
+
+**Shared requirements under any option:**
+- Stamp the service and the pages with the same build ID. Deploy prints both IDs, says whether it reinstalled and how long it took, and fails loudly if the app install fails (CD, CX, IR).
+- Keep the previous app version on disk and swap a symlink for rollback (IR).
+- Set StartLimitBurst to stop crash loops (DC).
+- Deploy checks the OS version and fails clearly, or falls back, if the OS is too old (IR).
+
+**Facts to check:**
+- Deploy time on a real SystemCore when nothing changed and when the service changed (IR).
+- What package-manager install costs.
+- Whether a reflash or OTA removes `/etc/systemd/system` units and installed packages (ZO, DC).
+- Whether GradleRIO's stop of the robot program really covers the package install.
+
+### Q3. Shortcut from the built-in web UI
+
+There is near agreement: the `X-Has-UI` and `X-Port` fields strongly suggest the package tile links to host:port, but nobody has confirmed it (ZO, CX, ST, DC, IR).
+- **Way to settle it:** install the official hello-world-autostart .ipk on a bench SystemCore running alpha/beta 18 and see whether the tile links (ZO, DC).
+- **Related fields:** CX and ST note the README also documents `X-Https`, which may change the link scheme or break iframes, and `X-Services`, which adds restart and stop buttons to the tile.
+- **Fallbacks:** a QR code, a bookmark, a fixed URL such as robot.local/<name>, and a link from the Elastic dashboard (CX, ZO, DC, ST).
+- **Strongest argument for the tile:** it is the official entry point and needs no patching.
+- **Counter:** it is unverified, and it requires the .ipk route from Q2.
+
+**Port:** all six agree on a dedicated port outside 5800-5819 and the other known ports, checked with `ss -ltnp` on the latest OS and declared in `X-Port`. Nobody types it: students reach it only through the tile or shortcut (CX). Pages use relative URLs (ST). Redirect the old URL for one season and update the docs that name it in the same PR (IR).
+
+**Facts to check:** whether the tile links, and to which scheme, host and port; what `X-Https` and `X-Services` do; which ports are free on alpha/beta 18.
+
+### Q4. Overlap with the built-in SystemCore UI
+
+**The team's decision:** the app is the single starting place and replaces tools where possible.
+
+**Dissent:** all six reviewers default to linking to the built-in features rather than replacing them. Their reasons:
+- Limelight owns these features and they change with each OS release (DC).
+- The built-ins keep working when the robot program is down (CD).
+- Rebuilding them is the biggest YAGNI risk (ZO).
+
+DC states the counter itself: a task index that links out still shows students more than one UI, which is what the team wants to avoid.
+
+**Embedding (iframes):** CX and DC advise against it, citing cross-port auth, X-Frame-Options, `X-Https` and OTA changes. ZO and ST would embed only if a check confirms the pages can be framed. Nobody recommends embedding by default.
+
+**Replace, link or embed, per feature, as raised:**
+
+| Built-in feature | What reviewers suggest | Notes |
+|---|---|---|
+| Per-service "Download Log", support bundle | Link to them (CD, ZO). The app also logs to stdout/journald so the bundle includes the app's log (CD). | |
+| Robot log download (wpilog) | Replace, which is the unanimous exception (CX, IR, ZO, ST, DC). Add range/resume, checksum, size, a mark on the active log, no zipping of the active log while enabled, and show free storage (CD, DC). | ZO estimates about 30 lines of Python. Use documented OS paths with a version check (IR). |
+| CAN utilisation and warnings | Rebuild the team's CAN page with AdvantageKit keys and FM's own device mapping. Link to the built-in utilisation view (ZO, ST, CD). | |
+| Cameras portal | Link to it. The team's Cameras page adds calibration and mounts (ZO). | |
+| Ports and firewall, storage | Link to them (ZO). Show free storage on the log page (CD). | |
+| Live robot program log | Link to it from the robot-program status banner on every page (CX, ZO, CD). | |
+| Web terminal (4901), VS Code (4900) | Link to them for file viewing and arbitrary writes (ZO, ST). | |
+| Elastic package | Link to it, and link back to the app from Elastic (ZO, DC). | |
+
+**Structure for the starting place:** CX (blocker) and ST want one routing table, kept as data, mapping each pit job to where it is done (an app page, a deep link into 4800, or an external tool) and why. The landing page is generated from that table. Jobs the app doesn't cover still get a row with a link and one sentence.
+
+**Facts to check:** whether the 4800 pages can be framed; whether stable deep-link URLs into 4800 exist; which 4800 features have actually failed for the team, since replacing a feature is justified most clearly where it fails (CX, IR).
+
+---
+
+### Other issues raised
+
+- **Crash-time feature set (DC, CX):** state explicitly what works while the robot program is down: logs, files, network, service status, program log. Live tuning does not. NT pages fall back to log and file views. Every page shows "robot program: running / crashed / not deployed".
+- **Health endpoint (CD, DC):** `/health` reports app SHA, robot SHA, whether they match, uptime, restart count, robot program state and NT4 state. A compact status strip on phones (CD).
+- **File security (DC, ST):** the official example runs as root. Run the service as the systemcore user or a dedicated user instead. Allowlist reads (logs, deploy, /var/log) and writes (the tuning folder only). Refuse writes while enabled or attached to the FMS.
+- **Network discovery (CD, ZO):** for each device show last seen, address, discovery method, latency and last error. Bound and cache the probes, and pause them while enabled. ZO would keep it to a page of links plus one ping/mDNS scan.
+- **Single key source (IR, ST):** key names come from LogKeyGuide / docs/log-keys.md, read at runtime. State how the CI check of `make_log_key_guide.py` covers the app. One published contract: the robot manifest over NT, plus LogKeyGuide, plus the HTTP API.
+- **Rebuilt pages state data source and age (CD):** CAN, Power and Cameras pages show where each value comes from and how stale it is.
+- **Thin service (ST):** keep the service "dumb". Logic lives in the page files, which are replaced on every deploy.
+- **Never write Phoenix configs directly (ZO).**
+- **Download load (DC):** measure loop overruns during a 200 MB download, and stream files in chunks.
+- **Glossary (CX):** define hard-stop values, gyro scalar, SystemCore, Elastic, package manager on port 4803, and .ipk.
+
 ## Goals vs. Non-Goals
 
 * **In-Scope Goals:**

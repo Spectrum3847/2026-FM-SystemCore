@@ -72,7 +72,7 @@ docs/pose-sources.md for the localization testbed.
 
 ## Robot app
 
-`src/main/deploy/app/` is the pit web app, built for this robot. It lives in this repo, is built by
+`src/main/deploy/app/` is the Robot App, a web app built for this robot. It lives in this repo, is built by
 the same Gradle build and ships with every deploy. Today the robot program serves it at
 `http://robot.local:5800/app/`; it is moving to its own service. Design: concepts_brief.md.
 

@@ -1,4 +1,4 @@
-# Pit App for Robots on SystemCore
+# Robot App on SystemCore
 
 * **Author:** Allen Gregory (EGM brainstorm)
 * **Date:** 2026-10-29
@@ -6,7 +6,7 @@
 
 ## Overview
 
-A pit and diagnostics web app built for one specific robot, in the same repo as that robot's code. It is built in the same Gradle build and updated by every robot deploy, so it changes whenever the code changes. The first one is for the team's 2027 robot, built once that robot exists.
+The Robot App: a web app built for one specific robot, in the same repo as that robot's code. It is built in the same Gradle build and updated by every robot deploy, so it changes whenever the code changes. The first one is for the team's 2027 robot, built once that robot exists.
 
 Pit students and programmers open it from a laptop or phone. It is the one place they start: for each pit job it does the job itself, or says which tool to use and links to it. Its pages are hand-made for that robot's mechanisms, with steps and graphics from the robot's CAD:
 

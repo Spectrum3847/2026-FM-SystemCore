@@ -11,6 +11,17 @@ The app is a separate small service on the SystemCore, installed by the normal `
 
 It is the one place a student starts. For every pit job it either does the job itself or says which tool to use and links to it, so nobody has to learn where each tool lives.
 
+## Verified facts (2026-10-29)
+
+From Limelight's public SystemCore OS repo ([systemcore-os-public](https://github.com/LimelightVision/systemcore-os-public): README release notes and `package_examples/`). The image itself was not downloaded; release files are blocked from the session that checked.
+
+- **Python is on the image.** Since OS alpha 11 / beta 11: "Add venv support and pip support to system python" and "Add common python package dependencies (gunicorn, flask-sqlalchemy, requests)". This repo's README records the team running image alpha 13 (alpha 10–13 with WPILib alpha-5/6), so it has system Python.
+- **SystemCore has its own package format for add-on services.** An `.ipk` package with a `control` file, a systemd unit and a `postinst` script that enables and starts it. Control fields include `X-Port`, `X-Has-UI`, `X-Auto-Start` and `X-Icon-Path`; the built-in web UI shows installed packages as tiles. Both official examples are Python `http.server` services with `Restart=always`. This may answer the shortcut question (a package tile with a UI link) without patching SystemCore's page; how the tile links to the UI is not yet confirmed.
+- **Installing a package stops the robot program** and restarts it after (alpha 18 notes). Effect on deploy time unmeasured.
+- **The built-in web UI already covers some pit jobs:** per-service "Download Log", a support bundle with optional robot logs, CAN bus utilisation and warnings, a cameras portal (`robot.local/cameras`, `robot.local/camerastreams`), ports and firewall views, storage use, and a live robot program log.
+- **Known ports** (from a third-party teardown): 4800 web UI, 4803 package manager, 4804 update manager, 4900 VS Code server, 4901 web terminal, 5800 CAN sniffer, 5812 NT4.
+- SystemCore has 4 GB of RAM (team).
+
 ## Analysis
 
 Six independent reviews (second round, run without steering), merged by question. Options are not chosen; the team decides.

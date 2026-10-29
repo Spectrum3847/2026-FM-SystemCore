@@ -333,7 +333,7 @@ on the robot: does SystemCore get its clock from the DS the way the roboRIO does
 |---|---|
 | Jetson heartbeat stale > 3 s | error |
 | Camera not on NetworkTables (2 s), connected but no frames for 1.5 s, or 0 fps for 1 s | error |
-| Camera under 100 fps for 2 s | warning |
+| Camera under 100 fps for 2 s, once enabled for 3 s (disabled, the Jetson idles cameras at ~30 fps) | warning |
 | Camera JPEG decode failures rising, or the camera was reset during the match | warning |
 | Result timestamps more than 0.5 s from now for 2 s (time sync / timebase) | warning |
 | Jetson tj temp > 75 °C, fan < 1000 rpm, throttling, over-current during the match, CPU JPEG fallback | warning |

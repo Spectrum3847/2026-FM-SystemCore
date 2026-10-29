@@ -46,6 +46,7 @@ import frc.spectrumLib.checks.AutoStartCheck;
 import frc.spectrumLib.checks.PreMatchChecks;
 import frc.spectrumLib.framework.RobotLoop;
 import frc.spectrumLib.framework.SpectrumRobot;
+import frc.spectrumLib.hardware.CanBusInputs;
 import frc.spectrumLib.hardware.CanBuses;
 import frc.spectrumLib.hardware.CanConfigBudget;
 import frc.spectrumLib.hardware.Rio;
@@ -821,18 +822,23 @@ public class Robot extends SpectrumRobot {
 
     private long lastCanStatusSequence = 0;
 
+    private final CanBusInputs canBusInputs = new CanBusInputs();
+
     /** Logs CAN bus health once a second, plus the match identity, which the 2026 logs lacked. */
     private void logCanBusStatus() {
+        if (canStatus != null && canStatus.sequence() != lastCanStatusSequence) {
+            lastCanStatusSequence = canStatus.sequence();
+            canBusInputs.set(canStatus.get());
+        }
+        // Every loop, so replay reads the samples back at the loop they arrived.
+        Logger.processInputs("CAN", canBusInputs);
+
         double now = Timer.getTimestamp();
         if (now - lastCanStatusSeconds < 1.0) {
             return;
         }
         lastCanStatusSeconds = now;
-
-        if (canStatus != null && canStatus.sequence() != lastCanStatusSequence) {
-            lastCanStatusSequence = canStatus.sequence();
-            canStatus.get().forEach(this::logOneCanBus);
-        }
+        canBusInputs.buses.forEach(this::logOneCanBus);
 
         Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds());
         Telemetry.log("CANConfig/FailedCalls", CanConfigBudget.getFailedCalls());
@@ -853,17 +859,18 @@ public class Robot extends SpectrumRobot {
     }
 
     /**
-     * Logs one bus's health under {@code <prefix>/}, status code included: every counter reads 0 on
+     * Logs one bus's health under {@code <prefix>/} from the inputs, for the dashboard, the robot
+     * app's CAN page and robotlog, which read these keys. Status included: every counter reads 0 on
      * a bus whose status read itself failed, which looks exactly like a healthy idle bus.
      */
-    private void logOneCanBus(String prefix, CANBusStatus canInfo) {
-        Telemetry.logDash(prefix + "/BusUtilization", canInfo.BusUtilization * 100, "%");
-        Telemetry.log(prefix + "/BusOffCount", canInfo.BusOffCount);
-        Telemetry.log(prefix + "/TxFullCount", canInfo.TxFullCount);
-        Telemetry.log(prefix + "/ReceiveErrorCounter", canInfo.REC);
-        Telemetry.log(prefix + "/TransmitErrorCounter", canInfo.TEC);
-        Telemetry.log(prefix + "/Status", canInfo.Status.getName());
-        Telemetry.logDash(prefix + "/StatusOK", canInfo.Status.isOK());
+    private void logOneCanBus(String prefix, CanBusInputs.Bus bus) {
+        Telemetry.logDash(prefix + "/BusUtilization", bus.utilizationPct(), "%");
+        Telemetry.log(prefix + "/BusOffCount", bus.busOffCount());
+        Telemetry.log(prefix + "/TxFullCount", bus.txFullCount());
+        Telemetry.log(prefix + "/ReceiveErrorCounter", bus.receiveErrorCount());
+        Telemetry.log(prefix + "/TransmitErrorCounter", bus.transmitErrorCount());
+        Telemetry.log(prefix + "/Status", bus.status());
+        Telemetry.logDash(prefix + "/StatusOK", bus.statusOk());
     }
 
     @Override

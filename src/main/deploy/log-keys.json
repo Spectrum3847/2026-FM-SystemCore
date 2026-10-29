@@ -3363,6 +3363,13 @@
    "input": true
   },
   {
+   "key": "/Vision/Jetson/LogLines",
+   "unit": "",
+   "doc": "PhotonVision's log lines since the last cycle (/photonvision/jetson/log): warnings always, every line while the Jetson is quiet. Its own logs of that time are lost at power-off.",
+   "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
+   "input": true
+  },
+  {
    "key": "/Vision/Jetson/NtDisconnects",
    "unit": "",
    "doc": "NetworkTables disconnects PhotonVision has seen.",

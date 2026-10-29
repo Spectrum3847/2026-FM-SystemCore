@@ -9,6 +9,7 @@ import org.wpilib.networktables.IntegerPublisher;
 import org.wpilib.networktables.NetworkTable;
 import org.wpilib.networktables.NetworkTableInstance;
 import org.wpilib.networktables.NetworkTableValue;
+import org.wpilib.networktables.PubSubOption;
 import org.wpilib.networktables.StringPublisher;
 import org.wpilib.networktables.StringSubscriber;
 
@@ -79,6 +80,7 @@ public class JetsonNTIO implements JetsonIO {
     private final StringSubscriber fieldMapName;
     private final GenericSubscriber fieldMapLoadedAt;
     private final StringSubscriber fieldMapError;
+    private final StringSubscriber logLines;
 
     private final BooleanPublisher record;
     private final StringPublisher label;
@@ -141,6 +143,14 @@ public class JetsonNTIO implements JetsonIO {
         fieldMapName = jetsonMap.getStringTopic("Name").subscribe("");
         fieldMapLoadedAt = number(jetsonMap, "LoadedAt");
         fieldMapError = jetsonMap.getStringTopic("Error").subscribe("");
+        // Every line, in order: the Jetson sends at most 20 a second, read every cycle.
+        logLines =
+                jetson.getStringTopic("log")
+                        .subscribe(
+                                "",
+                                PubSubOption.SEND_ALL,
+                                PubSubOption.KEEP_DUPLICATES,
+                                PubSubOption.pollStorage(100));
 
         NetworkTable rewind = pv.getSubTable("rewind");
         recording = rewind.getBooleanTopic("recording").subscribe(false);
@@ -233,6 +243,7 @@ public class JetsonNTIO implements JetsonIO {
         inputs.fieldMapName = fieldMapName.get();
         inputs.fieldMapLoadedAt = read(fieldMapLoadedAt, Double.NaN);
         inputs.fieldMapError = fieldMapError.get();
+        inputs.logLines = logLines.readQueueValues();
     }
 
     @Override

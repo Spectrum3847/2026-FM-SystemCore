@@ -1,5 +1,6 @@
 package frc.robot.subsystems.vision;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -8,6 +9,7 @@ import frc.spectrumLib.vision.FieldMapJson;
 import io.avaje.jsonb.Jsonb;
 import org.junit.jupiter.api.Test;
 import org.wpilib.networktables.NetworkTableInstance;
+import org.wpilib.networktables.PubSubOption;
 import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 import org.wpilib.vision.apriltag.AprilTagFields;
 
@@ -83,5 +85,31 @@ class JetsonNTIOTest {
         name.close();
         loadedAt.close();
         error.close();
+    }
+
+    @Test
+    void readsEveryJetsonLogLineOnce() {
+        JetsonNTIO io = new JetsonNTIO();
+        var log =
+                NetworkTableInstance.getDefault()
+                        .getStringTopic("/photonvision/jetson/log")
+                        .publish(PubSubOption.SEND_ALL, PubSubOption.KEEP_DUPLICATES);
+        // Two identical lines in a row are two events (the same USB error twice).
+        log.set("[WARN] usb 1-2.1: disconnect");
+        log.set("[WARN] usb 1-2.1: disconnect");
+        log.set("[INFO] Quiet mode on (the match ended)");
+
+        JetsonInputs inputs = new JetsonInputs();
+        io.updateInputs(inputs);
+        assertArrayEquals(
+                new String[] {
+                    "[WARN] usb 1-2.1: disconnect",
+                    "[WARN] usb 1-2.1: disconnect",
+                    "[INFO] Quiet mode on (the match ended)"
+                },
+                inputs.logLines);
+        io.updateInputs(inputs);
+        assertArrayEquals(new String[0], inputs.logLines);
+        log.close();
     }
 }

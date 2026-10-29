@@ -56,6 +56,7 @@ It runs as its own Java service on the SystemCore, so it keeps working when the 
 17. Gradle generates a module of keys, params and button bindings from the Java during the build. The drift check runs in CI on push and can be run locally; a local build does not stop a push.
 18. Utility-mode tests: the website starts its own guided session (which steps, which parts of the robot to show, which buttons to ask for); it never commands the robot. The driver presses controller buttons to make anything move. Common tests have driver-controller bindings; niche tests are guided from the website the same way. Consistent with decision 11.
 19. The shared Java part (procedure state, capture check) can live in spectrumLib. AGENTS.md's event-branch rule already allows a spectrumLib bug fix when that is the smallest change that fixes the problem; it forbids spectrumLib updates (tweaks, features). Reviewers read it as a total ban.
+20. The network page discovers devices, not only the ones the code declares. Main use: someone plugs in a new or unconfigured device and needs to find its address and config page. Devices the code declares are shown alongside, with their `connected` state; anything found that the code doesn't know is shown as unknown, with a link to its web page if it has one.
 
 ## Reviewer recommendations, not yet approved by the team
 
@@ -73,7 +74,7 @@ It runs as its own Java service on the SystemCore, so it keeps working when the 
 
 1. File transfer: which directions, which folders, read-only or not.
 2. Login on the API: none (decision 13 accepts this for confirmation), or any.
-3. Network page: how this robot's devices are listed (from the code, generated) and checked.
+3. Network page: which discovery methods (neighbour/ARP table, mDNS, DHCP leases, a bounded scan) work on SystemCore, how a device on a wrong or default subnet is found, and the CPU cost (bounded, paused while enabled).
 4. What carries over to the next robot, who owns it, and when it is extracted.
 5. The JVM's CPU and memory with the robot loop running, and the limits to set.
 

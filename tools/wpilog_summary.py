@@ -21,7 +21,8 @@ import sys
 
 
 def read_wpilog(path):
-    data = open(path, "rb").read()
+    with open(path, "rb") as f:
+        data = f.read()
     if data[:6] != b"WPILOG":
         raise ValueError("not a wpilog")
     extra_len = struct.unpack_from("<I", data, 8)[0]

@@ -10,9 +10,6 @@ import frc.spectrumLib.gamepads.GamepadLayout;
 import frc.spectrumLib.params.Params;
 import frc.spectrumLib.params.TuningMode;
 import frc.spectrumLib.telemetry.RadioStatusRedactor;
-import java.io.File;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,9 +24,6 @@ import org.wpilib.command2.Command;
 import org.wpilib.command2.CommandScheduler;
 import org.wpilib.command2.Subsystem;
 import org.wpilib.driverstation.POVDirection;
-import org.wpilib.framework.IterativeRobotBase;
-import org.wpilib.hardware.hal.AllianceStationID;
-import org.wpilib.hardware.hal.HAL;
 import org.wpilib.hardware.hal.RobotMode;
 import org.wpilib.simulation.DriverStationSim;
 import org.wpilib.simulation.GenericHIDSim;
@@ -143,41 +137,12 @@ class BindingsSmokeTest {
         BINDINGS.put(key, expect);
     }
 
-    private static Robot robot;
-    private static Method beforeUser, afterUser, loopFunc;
-    private static long bootMillis;
-    private static final Set<File> logsBefore = new java.util.HashSet<>();
-
     /** Commands initialized since the last {@link #clearInitialized}, default commands left out. */
     private static final List<Command> initialized = new ArrayList<>();
 
     @BeforeAll
     static void boot() throws Exception {
-        File[] logs = new File("logs").listFiles();
-        if (logs != null) {
-            logsBefore.addAll(List.of(logs));
-        }
-        assertTrue(HAL.initialize(500, 0), "HAL failed to initialize");
-        SimHooks.pauseTiming();
-        DriverStationSim.setDsAttached(true);
-        DriverStationSim.setAllianceStationId(AllianceStationID.BLUE_1);
-        DriverStationSim.setRobotMode(RobotMode.TELEOPERATED);
-        DriverStationSim.setEnabled(false);
-        DriverStationSim.notifyNewData();
-
-        long start = System.nanoTime();
-        robot = new Robot();
-        bootMillis = (System.nanoTime() - start) / 1_000_000;
-
-        // What LoggedRobot.startCompetition calls around each loop.
-        beforeUser = Logger.class.getDeclaredMethod("periodicBeforeUser");
-        beforeUser.setAccessible(true);
-        afterUser = Logger.class.getDeclaredMethod("periodicAfterUser", long.class, long.class);
-        afterUser.setAccessible(true);
-        loopFunc = IterativeRobotBase.class.getDeclaredMethod("loopFunc");
-        loopFunc.setAccessible(true);
-        robot.simulationInit();
-
+        SimRobot.boot();
         pilot = new Pad("pilot", 0, Robot.getPilot());
         operator = new Pad("operator", 1, Robot.getOperator());
         CommandScheduler.getInstance()
@@ -187,21 +152,11 @@ class BindingsSmokeTest {
                                 initialized.add(c);
                             }
                         });
-        step(50);
     }
 
     @AfterAll
     static void cleanUp() {
-        Logger.end();
-        // The run's log is the robot's sim log; this test's results are in the test report.
-        File[] logs = new File("logs").listFiles();
-        if (logs != null) {
-            for (File f : logs) {
-                if (!logsBefore.contains(f) && f.getName().endsWith(".wpilog")) {
-                    f.delete();
-                }
-            }
-        }
+        SimRobot.cleanUp();
     }
 
     private static boolean isDefaultCommand(Command c) {
@@ -214,16 +169,7 @@ class BindingsSmokeTest {
     }
 
     private static void step(int loops) throws Exception {
-        for (int i = 0; i < loops; i++) {
-            SimHooks.stepTiming(Constants.LOOP_PERIOD_SECONDS);
-            beforeUser.invoke(null);
-            try {
-                loopFunc.invoke(robot);
-            } catch (InvocationTargetException e) {
-                throw (Exception) (e.getCause() instanceof Exception ? e.getCause() : e);
-            }
-            afterUser.invoke(null, 0L, 0L);
-        }
+        SimRobot.step(loops);
     }
 
     private static Pad pilot;
@@ -357,7 +303,8 @@ class BindingsSmokeTest {
             }
         }
         long millis = (System.nanoTime() - start) / 1_000_000;
-        System.out.printf("BindingsSmokeTest: boot %d ms, sweep %d ms%n", bootMillis, millis);
+        System.out.printf(
+                "BindingsSmokeTest: boot %d ms, sweep %d ms%n", SimRobot.bootMillis, millis);
 
         for (String key : BINDINGS.keySet()) {
             String[] parts = key.split(" ");

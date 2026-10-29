@@ -241,7 +241,7 @@ for i, f in enumerate(["Launcher Top Right", "Launcher Bottom Left", "Launcher B
     power.append(bar(f + " (A)", out("Followers/" + f + "/SupplyCurrent"), 11, i, 0, 80, 3))
 
 diagnostics = [
-    graph("Loop Time (s, budget 0.010)", out("Scheduler/RobotPeriodic"), 0, 0, 7, 2, 0, 0.02),
+    graph("Worst loop each second (s, budget 0.010)", out("Scheduler/RobotPeriodic"), 0, 0, 7, 2, 0, 0.02),
     text("Loop Mean (ms)", out("System/Loop/MeanPeriodMs"), 0, 2),
     bar("Loops Over Budget (%)", out("System/Loop/OverrunPercent"), 2, 2, 0, 100),
     text("Loop Max (ms)", out("System/Loop/MaxPeriodMs"), 5, 2),

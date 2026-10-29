@@ -130,7 +130,7 @@ public class Hood extends Mechanism {
         SET_SHOT,
     }
 
-    private WantedState wantedState = WantedState.HOME;
+    @Getter private WantedState wantedState = WantedState.HOME;
     private SystemState systemState = SystemState.HOME;
 
     public void setWantedState(WantedState state) {

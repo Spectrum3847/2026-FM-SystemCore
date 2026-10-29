@@ -440,13 +440,14 @@ class DsUploadReceiverTest {
 
     @Test
     void anIdleConnectionDoesNotBlockAnUploadAndIsDroppedSoon() throws Exception {
+        rx.headTimeoutMs = 500; // the upload must be served before the idle one is dropped
         try (ServerSocket server = new ServerSocket()) {
             server.bind(new InetSocketAddress("127.0.0.1", 0));
             rx.startServing(server);
             int port = server.getLocalPort();
             try (Socket idle = new Socket()) {
                 idle.connect(new InetSocketAddress("127.0.0.1", port), 2000);
-                idle.setSoTimeout(DsUploadReceiver.HEAD_TIMEOUT_MS + 5000);
+                idle.setSoTimeout(rx.headTimeoutMs + 5000);
                 long t0 = System.nanoTime();
                 String req =
                         "PUT /upload/audio/a.m4a?offset=0&total=4 HTTP/1.1\r\n"
@@ -456,11 +457,11 @@ class DsUploadReceiverTest {
                 String reply = send(port, req.getBytes(StandardCharsets.ISO_8859_1));
                 assertTrue(reply.startsWith("HTTP/1.1 200"), reply);
                 assertTrue(
-                        System.nanoTime() - t0 < 2_000_000_000L,
+                        System.nanoTime() - t0 < rx.headTimeoutMs * 1_000_000L,
                         "served while the idle one is open");
                 assertEquals(-1, idle.getInputStream().read(), "idle one closed, no reply");
                 long held = (System.nanoTime() - t0) / 1_000_000;
-                assertTrue(held < DsUploadReceiver.HEAD_TIMEOUT_MS + 2000, "held " + held + " ms");
+                assertTrue(held < rx.headTimeoutMs + 2000, "held " + held + " ms");
             }
         }
     }
@@ -468,6 +469,7 @@ class DsUploadReceiverTest {
     @Test
     void aTricklingHeadIsDroppedAtTheHeadDeadline() throws IOException {
         // Bytes keep arriving, so only the head deadline (not the socket timeout) ends it.
+        rx.headTimeoutMs = 200;
         InputStream trickle =
                 new InputStream() {
                     @Override
@@ -491,7 +493,8 @@ class DsUploadReceiverTest {
         rx.handleConnection(trickle, out);
         long ms = (System.nanoTime() - t0) / 1_000_000;
         assertEquals(0, out.size());
-        assertTrue(ms < DsUploadReceiver.HEAD_TIMEOUT_MS + 1000, "took " + ms + " ms");
+        assertTrue(ms >= rx.headTimeoutMs, "dropped before its deadline: " + ms + " ms");
+        assertTrue(ms < rx.headTimeoutMs + 1000, "took " + ms + " ms");
     }
 
     // ── extend ──────────────────────────────────────────────────────────────────────────────────

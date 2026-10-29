@@ -312,6 +312,148 @@ DC states the counter itself: a task index that links out still shows students m
 - **Download load (DC):** measure loop overruns during a 200 MB download, and stream files in chunks.
 - **Glossary (CX):** define hard-stop values, gyro scalar, SystemCore, Elastic, package manager on port 4803, and .ipk.
 
+### Round 4: params, tuning and the path back to git
+
+Six new reviews with the params system added. Options are not chosen; the team decides.
+
+Reviewers: Design Critic (DC), Codebase Details (CD), Zoom Out (ZO), Comprehension/UX (CX), Implementation Readiness (IR), Structural (ST). All six completed. The brief was concept4.md, which adds the params system and the planned "pull back to git" step. The team intends the app to tune param values through these files if the reviewers agree. This document lays out the options and does not choose answers. The team decides.
+
+### Summary of agreement
+
+- **Edit path (Q1):** all six recommend that the app edit values only through the existing `/Tuning/` NT transport and `SaveParams`, with the robot program as the only writer of robot-local JSON. That is the reviewers' answer to "if the reviewers agree": they agree with tuning through params, by that path.
+- **TUNING_MODE (Q4):** all six recommend replacing the compile-time constant with a runtime gate the robot enforces, off by default, and changing the CI test to check that default.
+- **Runtime (Q3):** all six say params do not push the service towards Java. The service gets thinner, which strengthens the Python choice.
+- **Back to git (Q2):** all who addressed conflicts want the save to record its base and the pull to report conflicts rather than overwrite (DC, IR, ST, ZO in a simpler form). All want hard-stop values kept out of unreviewed auto-commits on `event*` branches (DC, ZO, CX, IR, ST).
+
+### What this round changes from earlier rounds
+
+- **Language:** round 3 already leaned to system Python. Round 4 makes the lean stronger and unanimous. If the robot program owns all param logic, the service is only a file, log and network helper plus an NT viewer (ZO, ST, DC, IR, CD). Java stays the counter-option, for one language across the code and reuse of WPILib's DataLog reader (ST), or sharing ParamStore parsing (CD). ST warns that sharing code would tie the service's release cycle to the robot's.
+- **Packaging:** round 3 converged on "install the service only when it changes". Round 4 keeps that, but the vehicle splits:
+  - **Gradle-installed systemd unit, gated on a hash:** DC, ZO and IR. They use .ipk only if the tile proves worth it.
+  - **.ipk, gated on a hash:** ST.
+- **Change path:** round 2 and round 3 said "NT commands while disabled, logged as inputs" in general terms. Round 4 names the concrete mechanism already in the code (`/Tuning/`, `SaveParams`, `ParamsInputs`, `liveChangesAllowed`).
+- **The crash case is sharper:** tuning is unavailable when the robot program is down. Reviewers split on whether that matters (see Q1).
+- **Built-in UI:** ZO repeats round 3's "link to the built-in UI, build only tuning and log download". That remains a dissent from the team's decision that the app is the single starting place and replaces tools where possible.
+
+---
+
+### Q1. Edit tuning through params? Which path?
+
+| Option | Backed by | Strongest argument | Strongest counter |
+|---|---|---|---|
+| `/Tuning/` NT transport plus `SaveParams`. The robot program is the only writer. The service or browser is only an NT client. | All six | The robot already handles everything a second path would rebuild: bounds, applying on the main thread, the disabled/no-FMS gate, logged inputs (`Params/Values`, `Params/Sources`, so replay works), and hard-stop stamps (`ParamStore.stamped`). `ParamTransport` is already the place new clients plug in (ZO). | It needs the robot program running. If a bad value crashes the program at boot, nobody can fix it from the app (DC, CX, ST, CD, IR). ZO considers this acceptable: with no robot program there is nothing to tune. |
+| The service writes robot-local JSON directly | No one. CD, ZO and ST call it a blocker. | Works after a crash. | It makes two writers of one format. The service would have to copy the schema, bounds, stamp rules and `.moved`/`.refused` handling (ST: the old app's stale-copy failure). The robot sees the change only at next boot, with no logged cause, which breaks replay and the audit trail (DC, CD, ZO, ST). |
+| A new command path | No one | | Reinvents `ParamTransport` (ZO). |
+
+**Crash-case options**, offered as a narrow fallback alongside the NT path:
+- **Quarantine (DC, ST):** the service may only rename a robot-local file to `.disabled`, so the git values come back. A person must confirm it, and the robot logs it at the next boot. There is still only one writer of values.
+- **Read-only view (CX, IR):** a view-only display of the robot-local files, with diff and download. CX adds a reviewed "revert to git" action.
+- **Nothing (ZO):** the crash case needs logs and files, not params.
+- **Open question (CX):** who the tuning user is in the crash state, a student or an AI session, and what the app must do then, is not stated in the concept.
+
+**Hard-stop confirmation:** all six agree it is enforced on the robot, not only in the browser. The app shows old value, new value and failure mode and requires a typed confirm. The robot checks a confirm token or a second logged "confirm" NT write. CD adds that the confirmation (person, old, new, failure-mode text) is logged as an input and written into the saved JSON, so the pull-to-git PR carries it.
+
+**Gaps in the existing params code, needed for the app** (mostly CD, echoed by others):
+- **Save result:** `SaveParams` has no acknowledgement. Add a logged result such as `Params/Save/{requested, result, files, error, time}` (CD, DC).
+- **Who changed it:** each request carries the client and a reason, logged as an input, for example `Params/Requests/{client, key, requested, accepted, why}`. Without it there is no way to tell which client made a change (CD).
+- **Boot-only values:** swerve offsets and other boot-only values need a "pending reboot" state published by the robot, so the app doesn't present them as active. ZO suggests the app offer to restart the robot program; no hot reload (CD, DC, IR, ST, CX, ZO).
+- **Refusals:** each refused request (wrong type, out of bounds) is echoed back, so a slider doesn't silently snap back (CD).
+- **Why edits are blocked:** log why edits are refused (tuning off, enabled, FMS attached, program not running) as an input. CD notes `liveChangesAllowed` reads RobotState directly today. CX wants the app to show the reason instead of simply greying out controls.
+- **Per-value display (CX):** effective value, the layer it came from, pending, needs reboot, hard stop.
+
+**Facts to check:**
+- Whether `SaveParams` reports its outcome anywhere a client can read.
+- Whether `liveChangesAllowed` inputs are logged in a way replay can use.
+- Whether a bad robot-local value can actually crash boot, or whether ParamStore refuses it and falls back.
+
+### Q2. Getting saved values back into git
+
+| Option | Backed by | Strongest argument | Strongest counter |
+|---|---|---|---|
+| Gradle `pullTuning` (fetch over the deploy SSH connection into `params/robots/<robot>/`) plus a deploy check that stops while unpulled values exist, with an override flag | ZO, DC, ST, CX | One mechanism, a normal git diff, and the check takes under 1 s (DC). | A hard block at an event costs matches. The override becomes a habit, and values get lost silently (CX, ST, DC). |
+| Same, but the check warns and blocks only for hard-stop groups | IR; DC on event branches (never block an event deploy) | Avoids a new event failure mode. | Values that aren't hard stops can sit unpulled indefinitely. |
+| The pit service also offers a diff or patch download, and a "copy prompt for AI session" option | DC (as a fallback), CX, CD | Works for laptops without the repo or the right branch, and keeps the app as the single starting place (CX). | It's the same diff in another wrapper. An AI session can run `pullTuning` itself (ZO, YAGNI). Two paths to keep in sync (CD). |
+| The robot publishes one export of the values that differ from git, which every consumer reads | ST, CD (the service exposes the local-versus-deployed diff even without the robot program) | One source for Gradle, the app and AI. | A new interface to build. |
+
+**Conflicts.** The reviewers differ on how much merging to do:
+- **Three-way merge (DC blocker; IR and ST major):** the save records its base, either per-key git values or the GitSHA of the build that saved. The pull does a three-way compare:
+  - local equals base: the value is stale, so drop it;
+  - git equals base: take the local value;
+  - all three differ: conflict, so stop.
+  IR suggests storing the base as a reserved key, the way the stamp is stored, and treating old files with no base as conflicts. ST wants one merge library in `tools/`, with tests, which every consumer calls, so that three implementations don't drift (ST blocker).
+- **Print and let the person choose (ZO):** never auto-merge.
+
+**Stale overrides (DC, major):** after a pull and a deploy, the pulled local values must be cleared or renamed once git matches them. Otherwise later git edits never take effect.
+
+**Hard stops:** never merged automatically (ZO). `pullTuning` prints old value, new value, failure mode and stamp for the PR (DC, ZO, IR).
+
+**Event branches:** `eventDeploy` runs `git add -A` (IR, ZO). The options raised:
+- Run `pullTuning` before the auto-commit, so values land on the event branch and reach main through the normal PR (DC).
+- Pulled values get their own commit, and hard-stop groups get a separate commit flagged for review (CX, ST).
+- Exclude hard-stop groups or stop the deploy (ZO). Refuse unless a confirm flag is given (IR).
+- Commit only params JSON, never Java or spectrumLib (ST).
+
+**Facts to check:**
+- How `eventDeploy` stages and commits today.
+- Whether ParamStore's legacy (pre-per-robot) local path is still in use. `pullTuning` must read both paths (IR).
+- Deploy-check time over SSH.
+
+### Q3. Does params change the runtime and packaging answers?
+
+**Runtime:** all six agree there is no change towards Java. The params design makes the service thinner. System Python (`http.server` or Flask, already on the image) uses about 20-40 MB, against 100 MB or more for a second JVM.
+- **Strongest counter:** a second language for AI maintainers, and no CI setup for a Python service yet (DC). DC suggests following the `tools/` unittest pattern and vendoring a pinned NT4 client. Java would share the DataLog reader or ParamStore parsing (ST, CD).
+- **ST requirement:** the service and the robot share only a versioned NT/HTTP contract, never code.
+- **ZO alternative:** the browser tunes over NT4 directly (WebSocket on port 5812), so the service never touches params at all. DC also treats the service as only an NT client, and ST as an NT relay and viewer.
+
+**Packaging:** there is agreement on installing only when the service's hash changes. The vehicle splits:
+
+| Option | Backed by | Argument | Counter |
+|---|---|---|---|
+| Systemd unit installed by Gradle | DC, ZO, IR | Fits the 10-15 s budget, and avoids the robot program restart that a package install causes. | No tile on the built-in page, which loses the shortcut goal (CX). |
+| .ipk | ST | The tile and the package manager know about the app. | Restarts the robot program when installed. Whether the tile links to the app is still unconfirmed. |
+
+**IR rollout requirements:**
+- Install into a versioned directory with a symlink switch.
+- Deploying an older commit reinstalls that commit's service.
+- A failed service install warns but never fails the robot deploy.
+- Never install while the robot is enabled.
+
+CX wants the deploy output to say "app unchanged, skipped" or "app updated, robot program restarted".
+
+**Facts to check:** whether the package tile links to the app (still open from round 3); a measured CPU baseline (DC, CD, ZO, using `FullCycleMS` with and without the service).
+
+### Q4. Replacing TUNING_MODE
+
+All six agree: replace the compile-time constant with a runtime gate enforced on the robot. Tuning is accepted only while disabled with no FMS, and only after an explicit arm, logged as an input. FMS connecting turns it off. The CI test changes to check that the default is off, and IR says this must happen in the same PR, or main loses its only guard.
+
+How the gate is armed differs:
+- **NT request or command from the app while disabled and with no FMS,** logged, which turns off on enable or FMS (DC, CX). ST adds expiry after N minutes. DC adds that a driver station must be connected and that nothing tunable is published until armed. CD wants the arm to time out.
+- **A robot-local switch read at boot** (a file in the robot-local folder, or a param that can't be set over NT), off by default (ZO).
+- **An explicit unlock input each boot** (IR).
+
+**Strongest counter (all six):** a compile-time false can't be left on at a match or switched on over the network. A runtime gate moves that safety into code that could have bugs. NT and HTTP have no authentication, so anyone on the pit network could try to arm it. DC wants the design to say this explicitly. The proposed mitigations are the disabled/no-FMS gate, the hard-stop confirm, and a visible "tuning on" banner.
+
+**ST requirement:** one `TuningMode` authority in spectrumLib that the transport checks, with a test for every condition. The app only displays the gate's state and never decides it.
+
+**Facts to check:** every caller of `TuningMode` and `Constants.TUNING_MODE`; which test enforces it today.
+
+---
+
+### Other issues raised
+
+- **Renamed keys orphan values (IR blocker):** robot-local values for renamed or removed keys go unread, and the robot silently runs the git default (for swerve, a wrong offset). On load, log unknown keys as a warning input and show them in the app. `pullTuning` reports them and never drops them. Define a key-rename procedure (an alias or migration entry) before the app writes anything.
+- **Version skew (IR blocker, repeated from round 3):** the robot publishes its git SHA, the params list with bounds, and a hash of the log-key guide. The service reads its key list from that. On a mismatch the app goes read-only.
+- **No copies of robot facts in the app (ST blocker, ZO):** group names, the hard-stop list and bounds come from `Params/` metadata. A versioned contract document plus contract tests in `tools/app-test`, so a renamed key fails CI.
+- **Visibility of unpulled values (CD):** the robot logs `Params/UnpulledCount` at boot. The app and the deploy check show the same list.
+- **Paths defined once (IR):** robot-local and legacy paths are published by the robot, and migration happens on first save only.
+- **Built-in UI and scope (ZO):** the front page links to the built-in tools for each pit job, and the app builds only tuning and log download. This is the round 3 "link out" view, recorded as a dissent from the team's decision.
+- **Device discovery (CX):** needs a stated method (mDNS, ARP, a list in the log) so it doesn't become a hand-kept list.
+- **Port (IR):** move off 5800, keep a redirect from WPILib's WebServer during the transition, and delete the old pages in one PR.
+- **Service health (CD):** `/health` reports the deploy's git SHA, and the service keeps a rotating log of its requests.
+- **CPU limits (DC):** systemd `CPUQuota=10%`, `Nice=10`, `MemoryMax`, measured before relying on them.
+- **AI parity (ZO):** if every write is a documented NT topic, AI parity comes for free and no separate API is needed.
+- **Glossary (CX):** define "hardware stamp", "eventDeploy" and "pull back to git". CX found no definition of eventDeploy.
+
 ## Goals vs. Non-Goals
 
 * **In-Scope Goals:**

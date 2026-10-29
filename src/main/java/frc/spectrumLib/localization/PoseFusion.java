@@ -268,6 +268,8 @@ public class PoseFusion {
         int n = results.size();
         Integer last = lastObservationCount.put(name, n);
         if (k != null) {
+            // Localization/Sources/<name>/FusedThisLoop: this source's measurement corrected the
+            // robot pose this loop.
             Logger.recordOutput(k.fusedThisLoop(), fuse);
         }
         if (n == 0 && last != null && last == 0) {
@@ -302,9 +304,15 @@ public class PoseFusion {
             }
         }
         if (k != null) {
+            // Localization/Sources/<name>/ErrorVsFusedMeters: how far the source's pose was from
+            // the fused pose.
             Logger.recordOutput(k.errorVsFused(), errorMeters);
+            // Localization/Sources/<name>/HeadingErrorVsFusedDeg: source heading minus fused
+            // heading.
             Logger.recordOutput(k.headingErrorVsFused(), headingErrorDeg);
             if (truth.isPresent()) {
+                // Localization/Sources/<name>/ErrorVsTruthMeters: sim only, the source's error
+                // against the true pose.
                 Logger.recordOutput(k.errorVsTruth(), truthErrorMeters);
             }
         }
@@ -399,8 +407,13 @@ public class PoseFusion {
     /** Logs every track. Call once per loop after all sources are applied. */
     public void log() {
         Pose2d fusedPose = getPose();
+        // The robot pose: odometry corrected by every enabled source. What the robot drives on.
         Logger.recordOutput(PREFIX + "FusedPose", fusedPose);
+        // Wheels and gyro only, never corrected: the baseline, and how far the robot drifts without
+        // vision.
         Logger.recordOutput(PREFIX + "OdometryPose", getOdometryPose());
+        // Times a late vision measurement made newer ones be re-applied in time order (WPILib would
+        // have dropped them), since boot.
         Logger.recordOutput(PREFIX + "OutOfOrderReapplied", fusedVision.reapplied());
         // Shadow tracks use the 10 Hz tier. At 100 Hz they were a fifth of the log. Every value
         // here comes from logged inputs, so replay regenerates them at any rate.
@@ -411,11 +424,17 @@ public class PoseFusion {
                     continue;
                 }
                 Pose2d shadowPose = e.getValue().getEstimatedPosition();
+                // Localization/Shadow/<name>/Pose: odometry plus only this source, whether enabled
+                // or not; at 10 Hz.
                 Logger.recordOutput(k.shadowPose(), shadowPose);
+                // Localization/Shadow/<name>/DistanceFromFusedMeters: how far this source's shadow
+                // is from the fused pose.
                 Logger.recordOutput(
                         k.shadowDistance(),
                         shadowPose.getTranslation().getDistance(fusedPose.getTranslation()));
                 if (truth.isPresent()) {
+                    // Localization/Shadow/<name>/ErrorVsTruthMeters: sim only, the shadow's error
+                    // against the true pose.
                     Logger.recordOutput(
                             k.shadowTruthError(),
                             shadowPose.getTranslation().getDistance(truth.get().getTranslation()));
@@ -425,10 +444,13 @@ public class PoseFusion {
         logTagEkf(fusedPose);
         if (truth.isPresent()) {
             Pose2d t = truth.get();
+            // Sim only: where the robot really is.
             Logger.recordOutput(PREFIX + "SimTruthPose", t);
+            // Sim only: fused pose error against the true pose; the CI pose check reads this.
             Logger.recordOutput(
                     PREFIX + "FusedErrorVsTruthMeters",
                     fusedPose.getTranslation().getDistance(t.getTranslation()));
+            // Sim only: odometry-only error against the true pose.
             Logger.recordOutput(
                     PREFIX + "OdometryErrorVsTruthMeters",
                     getOdometryPose().getTranslation().getDistance(t.getTranslation()));
@@ -442,18 +464,25 @@ public class PoseFusion {
         String p = PREFIX + "EKF/";
         Pose2d ekf = tagEkf.getPose();
         double[] std = tagEkf.getStdDevs();
+        // The comparison EKF's pose (tag-by-tag filter); logged only, the robot doesn't drive on
+        // it.
         Logger.recordOutput(p + "Pose", ekf);
+        // The EKF has been seeded with a starting pose.
         Logger.recordOutput(p + "Seeded", tagEkf.isSeeded());
+        // EKF uncertainty: x and y in meters, heading in degrees.
         Logger.recordOutput(
                 p + "StdDevs", new double[] {std[0], std[1], Math.toDegrees(std[2])}); // m, m, deg
+        // EKF pose distance from the fused pose.
         Logger.recordOutput(
                 p + "ErrorVsFusedMeters",
                 ekf.getTranslation().getDistance(fusedPose.getTranslation()));
+        // EKF heading minus fused heading.
         Logger.recordOutput(
                 p + "HeadingErrorVsFusedDeg",
                 ekf.getRotation().minus(fusedPose.getRotation()).getDegrees());
         truth.ifPresent(
                 t ->
+                        // Sim only: EKF error against the true pose.
                         Logger.recordOutput(
                                 p + "ErrorVsTruthMeters",
                                 ekf.getTranslation().getDistance(t.getTranslation())));
@@ -461,16 +490,23 @@ public class PoseFusion {
                 || tagEkf.getRejectedCount() != lastEkfRejected) {
             lastEkfAccepted = tagEkf.getAcceptedCount();
             lastEkfRejected = tagEkf.getRejectedCount();
+            // Tag measurements the EKF accepted, since boot.
             Logger.recordOutput(p + "AcceptedCount", lastEkfAccepted);
+            // Tag measurements the EKF rejected, since boot.
             Logger.recordOutput(p + "RejectedCount", lastEkfRejected);
+            // Times tags kept failing for 1 s and the EKF widened its uncertainty so the cameras
+            // could pull it back.
             Logger.recordOutput(p + "Relocalizations", tagEkf.getRelocalizations());
             for (var e : tagEkf.getRejectionCounts().entrySet()) {
+                // EKF rejections by reason, since boot.
                 Logger.recordOutput(p + "RejectionCounts/" + e.getKey(), e.getValue());
             }
             for (var e : tagEkf.getCameraStats().entrySet()) {
                 String c = p + "Cameras/" + e.getKey() + "/";
                 TagEkf.CameraStats st = e.getValue();
+                // Per camera: tag measurements the EKF accepted.
                 Logger.recordOutput(c + "AcceptedCount", st.accepted);
+                // Per camera: tag measurements the EKF rejected.
                 Logger.recordOutput(c + "RejectedCount", st.rejected);
             }
         }
@@ -480,7 +516,10 @@ public class PoseFusion {
             TagEkf.CameraStats st = e.getValue();
             if (st.loopCount() > 0 || st.loggedResiduals) {
                 String c = p + "Cameras/" + e.getKey() + "/";
+                // Per camera, this loop's accepted tags: bearing residuals; sitting off zero means
+                // a mount yaw error.
                 Logger.recordOutput(c + "BearingResidualsDeg", st.bearingResidualsDeg());
+                // Per camera, this loop's accepted tags: range residuals.
                 Logger.recordOutput(c + "RangeResidualsMeters", st.rangeResidualsM());
                 st.loggedResiduals = st.loopCount() > 0;
             }

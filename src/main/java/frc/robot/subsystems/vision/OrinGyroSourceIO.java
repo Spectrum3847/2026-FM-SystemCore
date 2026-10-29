@@ -134,8 +134,10 @@ public class OrinGyroSourceIO implements PoseSourceIO {
             nativeSolverFailed = true;
             Logger.recordOutput(logPrefix + "/LastError", e.toString());
         }
+        // The native gyro-aided solver is working (false: it failed and the Java fallback runs).
         Logger.recordOutput(logPrefix + "/NativeSolver", !nativeSolverFailed);
         if (o != null) {
+            // Time for this loop's solves.
             Logger.recordOutput(logPrefix + "/SolveMicros", (System.nanoTime() - start) / 1000);
             inputs.resize(1);
             inputs.set(0, o);
@@ -201,6 +203,7 @@ public class OrinGyroSourceIO implements PoseSourceIO {
                                     .getDistance(fused.getTranslation())
                             > MAX_CONSTRAINED_JUMP_METERS) {
                 divergedSolves++;
+                // Solves thrown out for diverging, since boot.
                 Logger.recordOutput(logPrefix + "/DivergedSolves", divergedSolves);
                 est = estimator.estimatePnpDistanceTrigSolvePose(filtered);
             }

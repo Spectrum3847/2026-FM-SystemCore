@@ -26,6 +26,8 @@ final class ParamsInputs implements LoggableInputs {
                 case BOOLEAN -> table.put(key, (Boolean) p.get());
                 case STRING -> table.put(key, (String) p.get());
             }
+            // Params/Sources/<group>/<key>: which layer each value came from: DEFAULT, DEPLOY,
+            // ROBOT, LOCAL or LIVE.
             table.put("Sources/" + p.path(), p.source().name());
         }
     }

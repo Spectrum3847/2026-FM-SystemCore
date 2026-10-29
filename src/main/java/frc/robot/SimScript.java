@@ -213,8 +213,11 @@ public final class SimScript {
 
         @Override
         public void toLog(LogTable table) {
+            // Sim script: the robot was placed at PlacePose this loop.
             table.put("PlaceRobot", placeRobot);
+            // Sim script: where it was placed.
             table.put("PlacePose", placePose);
+            // Sim script: the Quest was re-origined this loop.
             table.put("ResetQuest", resetQuest);
         }
 

@@ -272,7 +272,9 @@ public final class MatchSummary {
 
         @Override
         public void toLog(LogTable table) {
+            // The controller's brownout fault count, or -1 where there is none.
             table.put("FaultCount", faultCount);
+            // The brownout flag API works on this controller, so the flag counts too.
             table.put("BrownedOutValid", brownedOutValid);
         }
 
@@ -892,6 +894,7 @@ public final class MatchSummary {
                 faulted++;
             }
             if (d.peakTempKey != null && !Double.isNaN(d.peakTemp)) {
+                // Summary/PeakTempC/<device>: hottest reading while the motor was connected.
                 Logger.recordOutput(d.peakTempKey, d.peakTemp);
             }
         }

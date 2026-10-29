@@ -140,7 +140,8 @@ open again; a review may confirm or replace them.
 9. What it can do while the robot program has crashed.
 10. What it replaces versus explains and links to.
 11. How AI sessions use it.
-12. Whether a shortcut can be added to SystemCore's web UI.
+12. Answered: a package with `X-Has-UI` and `X-Port` gets a tile linking to that port's root (see
+    Verified facts).
 13. What carries over to the next robot.
 
 ## Verified facts
@@ -151,19 +152,46 @@ From Limelight's public SystemCore OS repo ([systemcore-os-public](https://githu
   python"; gunicorn, flask-sqlalchemy, requests). Limelight controls its version.
 * Add-on packages are `.ipk` files with a systemd unit and a control file (`X-Port`, `X-Has-UI`,
   `X-Auto-Start`, `X-Icon-Path`, also `X-Https`, `X-Services`). The web UI shows packages as tiles.
-  Whether a tile links to the package's page is unconfirmed. The image ships `opkg-utils`.
-* Installing a package stops the robot program and restarts it after.
-* SystemCore's web UI (port 4800) already has per-service log download, a support bundle with
-  optional robot logs, CAN utilisation, a cameras portal, ports and firewall views, storage use and
-  a live robot program log.
+  The image ships `opkg-utils`.
+* Installing a package stops the robot program and restarts it after. Not yet seen on our robot.
+* SystemCore's web UI already has per-service log download, a support bundle with optional robot
+  logs, CAN utilisation, a cameras portal, ports and firewall views, storage use and a live robot
+  program log.
 * Ports (third-party teardown): 4800 web UI, 4803 package manager, 4900 VS Code server, 4901 web
-  terminal, 5800 CAN sniffer, 5812 NT4.
+  terminal, 5800 CAN sniffer, 5812 NT4. Our robot differs on 4800 and 5800 (below).
+
+From 8515's SystemCore (2026-10-29, OS `6eab208`, read only, nothing installed):
+
+* Installed packages: `Blocks` 0.2.2, `elastic_dashboard` 2027.0.0-alpha8, `canivore-usb` and
+  `canivore-usb-kernel`. `opkg` and `opkg-build` are in `/bin`. Package metadata lives in
+  `/var/lib/opkg/info/<name>.{control,list,postinst,prerm,postrm}`.
+* Elastic is the closest model for the app: a static web app served by a small Python script.
+  Control file: `X-Port: 5803`, `X-Display-Name: Elastic`, `X-Has-UI: true`, `X-Auto-Start: true`,
+  `X-Icon-Path: /usr/share/elastic_dashboard.png`. Its unit
+  `/etc/systemd/system/elastic_dashboard.service` runs `python3 start_elastic.py` as root from
+  `/usr/local/bin/elastic` with `Restart=always`, `ProtectSystem=strict` and `ProtectHome=true`.
+  `postinst` runs `daemon-reload`, `enable` and `start`; `prerm` stops and disables it.
+* Blocks runs gunicorn from its own venv in `/opt/blocks` on port 9001.
+* The web UI page is on port 80. Port 4800 is `diagnosticsproc` (a backend, not a page) and 4803 is
+  `packagemanager`.
+* A tile shows only when the package has a UI and a port above 0. It links to
+  `http://<robot>:<X-Port>/`, the root with no path (`https` when `X-Https` is set). The icon is
+  served by the package manager from `X-Icon-Path`. So a shortcut in SystemCore's web UI works, and
+  the app must answer at `/`.
+* Install paths: the web UI uploads to the package manager (`POST /packages/upload`, or
+  `/packages/upload_async` with `/packages/install_status/<id>`). The `systemcore` user (the one
+  GradleRIO deploys as) has passwordless sudo, so a deploy can also run `sudo opkg install` over
+  SSH.
+* Port 5800 is SystemCore's `visionserver`, as are 5802 and 5805-5807. The robot program's Java
+  listens only on 5810 (NetworkTables). Ports in use from 5800 to 5837: 5800-5803, 5805-5807, 5810,
+  5812, 5815-5817, 5819, 5820, 5822, 5825-5827, 5832, 5835-5837.
 * SystemCore has 4 GB of RAM (team). Java runs on it.
 
 From this repo:
 
 * The current first version is served by `WebServer.start(5800, ...)` inside the robot program
-  (`Robot.java:294`), so it stops when the robot program stops. `LimelightHelpers` port forwarding
+  (`Robot.java:294`), so it stops when the robot program stops, and on SystemCore it collides with
+  `visionserver` on 5800. `LimelightHelpers` port forwarding
   uses 5800-5819.
 * Params (`spectrumLib/params`, README "Params"): values declared in code; layers are the code
   default, `src/main/deploy/params/<group>.json`, `params/robots/<robot>/<group>.json`, the robot's

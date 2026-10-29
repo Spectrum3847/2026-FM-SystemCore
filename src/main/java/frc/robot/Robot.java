@@ -838,14 +838,6 @@ public class Robot extends SpectrumRobot {
         Telemetry.log("CANConfig/FailedCalls", CanConfigBudget.getFailedCalls());
         Telemetry.logDash("CANConfig/BudgetExhausted", CanConfigBudget.exhausted());
 
-        Telemetry.log("Match Data/EventName", MatchState.getEventName());
-        Telemetry.log("Match Data/MatchType", MatchState.getMatchType().name());
-        Telemetry.log("Match Data/MatchNumber", MatchState.getMatchNumber());
-        Telemetry.log("Match Data/ReplayNumber", MatchState.getReplayNumber());
-        Telemetry.log(
-                "Match Data/Alliance", MatchState.getAlliance().map(Enum::name).orElse("NONE"));
-        Telemetry.log("Match Data/Station", MatchState.getLocation().orElse(0));
-        Telemetry.log("Match Data/FMSAttached", RobotState.isFMSAttached());
         if (powerApiAvailable) {
             Telemetry.log(
                     "SystemStats/BrownoutVoltage", RobotController.getBrownoutVoltage(), "volts");

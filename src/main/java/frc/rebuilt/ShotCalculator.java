@@ -88,13 +88,11 @@ public class ShotCalculator {
     // The operator's d-pad trims every shot for the rest of the match, so each press is an event.
     private static void setHoodAngleOffset(double degrees) {
         HOOD_ANGLE_OFFSET = degrees;
-        Telemetry.log("ShotCalc/HoodAngleOffset", degrees, "degrees");
         Telemetry.logEvent("Events", String.format("hood angle offset %.1f deg", degrees));
     }
 
     private static void setDriveAngleOffset(double degrees) {
         DRIVE_ANGLE_OFFSET = degrees;
-        Telemetry.log("ShotCalc/DriveAngleOffset", degrees, "degrees");
         Telemetry.logEvent("Events", String.format("drive angle offset %.0f deg", degrees));
     }
 

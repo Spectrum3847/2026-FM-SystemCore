@@ -47,7 +47,8 @@ docs/pose-sources.md for the localization testbed.
 - Compiling is not verification. A change to robot behavior needs a scripted sim run, a replay
   comparison on a real log, or a bench test described in the PR, under "How I verified".
 - On `event*` branches, make the smallest change that works: no refactors, no `spectrumLib` updates
-  (a bug fix there is fine when it is the smallest fix), and a person reviews before deploying. After the event, merge to `main` only through a PR.
+  (a bug fix there is fine when it is the smallest fix), and a person reviews before deploying.
+  After the event, merge to `main` only through a PR.
 - Never edit `BuildConstants.java` (generated). Change `vendordeps/*.json` only when asked for a
   dependency update.
 - Never put the log-site upload key, radio keys or tokens in code, chat or commits. Logs uploaded

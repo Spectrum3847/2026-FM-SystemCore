@@ -3,10 +3,13 @@
 S="$(dirname "${BASH_SOURCE[0]}")/require-committer.sh"
 pass=0; fail=0
 
-check() { # $1=label $2=want $3=command-string
+json() { printf '%s' "$1" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))'; }
+
+check() { # $1=label $2=want $3=command-string [$4=description]
   local payload got
-  # Real payloads carry paths like these, and repos usually live under a "github" folder.
-  payload=$(printf '{"session_id":"abc","transcript_path":"/home/student/.claude/projects/-home-student-github-2026-Spectrum/abc.jsonl","cwd":"/home/student/github/2026-Spectrum","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":%s}}' "$(printf '%s' "$3" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))')")
+  # Real payloads carry paths like these, repos usually live under a "github" folder, and the
+  # tool call's description sits right after the command.
+  payload=$(printf '{"session_id":"abc","transcript_path":"/home/student/.claude/projects/-home-student-github-2026-Spectrum/abc.jsonl","cwd":"/home/student/github/2026-Spectrum","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":%s,"description":%s}}' "$(json "$3")" "$(json "${4:-Run a command}")")
   printf '%s' "$payload" | bash "$S" >/dev/null 2>&1
   got=$?
   if [ "$got" = "$2" ]; then pass=$((pass+1)); printf 'PASS  %-34s exit=%s\n' "$1" "$got"
@@ -34,6 +37,13 @@ check "github cwd, commit text"  0 "echo 'no local $C here'"
 check "word ending in git"       0 "echo legit $C"
 check "git by full path"         2 "/usr/bin/$G $C -m x"
 check "git in subshell"          2 "($G $C -m x)"
+# Only the command counts, and only git where a command starts.
+check "commit in description"    0 "$G status -sb; $G log --oneline -1" "Confirm the brief $C was pushed"
+check "heredoc prose"            0 "$(printf 'cat > notes.md <<EOF\nthe reviewer ran a %s %s command\nEOF' "$G" "$C")"
+check "echo of a commit command" 0 "echo \"run $G $C -m x\""
+check "env prefix"               2 "GIT_EDITOR=true $G $C -m x"
+check "quoted message in command" 2 "$G $C -m \"say \\\"hi\\\"\""
+check "backquoted"               2 "x=\`$G $C -m x\`"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" = 0 ]

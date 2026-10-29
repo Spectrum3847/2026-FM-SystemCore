@@ -9,20 +9,30 @@ set -uo pipefail
 
 payload="$(cat)"
 
+# Look only at the command itself. The payload also carries the call's description, cwd and
+# transcript path, and prose there ("Confirm the commit was pushed") must not count. If the
+# field can't be found, fall back to the whole payload, which only blocks more.
+command_field='"command"[[:blank:]]*:[[:blank:]]*"((\\.|[^"\\])*)"'
+if [[ "$payload" =~ $command_field ]]; then
+    payload="${BASH_REMATCH[1]}"
+fi
+
 # Newlines inside the command arrive JSON-escaped as the two characters \n, so a multi-line
 # script is one long line here. Turn them back into real newlines (pure bash, no jq) so the
 # line-bounded match below can tell "one command" from "several commands in a script".
 payload="${payload//\\n/$'\n'}"
 
 # Is this a commit attempt? Match a git invocation whose subcommand is commit, allowing any
-# number of -c options in between ("git -c user.name=... commit"). The character class stops
+# number of -c options in between ("git -c user.name=... commit"). git must be where a command
+# starts (line start, or after ; & | ( or a backquote, then optional VAR=value prefixes and a
+# path), so text that mentions git inside a heredoc or an echo is left alone. The character class stops
 # the match at a command separator or a newline, so a multi-command script that happens to
 # mention both words in different places is left alone.
 # "commit" must end there: a trailing word character means this is "committer", "commit-graph",
 # or a flag like --no-commit-id, none of which write a commit.
 # "git" must be a whole word followed by a blank: the payload also holds cwd and transcript
 # paths, and a repo under a "github" folder would otherwise match.
-is_commit=$'(^|[^a-zA-Z0-9_.-])git[[:blank:]][^&|;\n]*commit([^a-zA-Z0-9_-]|$)'
+is_commit=$'(^|[;&|(`\n])[[:blank:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:blank:]]*[[:blank:]]+)*([^[:blank:];&|()]*/)?git[[:blank:]][^&|;\n]*commit([^a-zA-Z0-9_-]|$)'
 if [[ ! "$payload" =~ $is_commit ]]; then
     exit 0
 fi

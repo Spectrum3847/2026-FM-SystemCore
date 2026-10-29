@@ -240,13 +240,17 @@ public class SystemLoadMonitor {
     /** Logs this program's CPU share and busiest threads from a background reading. */
     private void logProcessShare(ProcSnapshot snap) {
         if (!Double.isNaN(snap.processPercent())) {
+            // CPU used by the robot program, percent of all cores.
             Telemetry.logDash("System/ProcessPercent", snap.processPercent(), "percent");
         }
         if (!Double.isNaN(snap.mainThreadPercent())) {
+            // CPU used by the main robot loop thread.
             Telemetry.logDash("System/MainThreadPercent", snap.mainThreadPercent(), "percent");
         }
+        // Threads in the robot program.
         Telemetry.logDash("System/ThreadCount", snap.threadCount());
         if (snap.topThreads() != null) {
+            // The busiest threads and their CPU share.
             Telemetry.addDashboardKey("System/TopThreads");
             Telemetry.log("System/TopThreads", snap.topThreads());
         }
@@ -359,8 +363,11 @@ public class SystemLoadMonitor {
         // ── Loop ──────────────────────────────────────────────────────────────
         double overrunPercent = bucketLoops > 0 ? 100.0 * bucketOverruns / bucketLoops : 0;
         double meanMs = bucketLoops > 0 ? bucketSumMs / bucketLoops : 0;
+        // Mean loop period over the last second.
         Telemetry.logDashAlways("System/Loop/MeanPeriodMs", meanMs, "milliseconds");
+        // Longest loop over the last second.
         Telemetry.logDashAlways("System/Loop/MaxPeriodMs", bucketMaxMs, "milliseconds");
+        // Share of loops over the overrun limit (1.25 periods) in the last second.
         Telemetry.logDashAlways("System/Loop/OverrunPercent", overrunPercent, "percent");
 
         if (overrunPercent >= LOOP_OVERRUN_ALERT_PERCENT) {
@@ -399,6 +406,7 @@ public class SystemLoadMonitor {
 
         // ── CPU ───────────────────────────────────────────────────────────────
         if (!Double.isNaN(cpuPercent)) {
+            // Whole controller's CPU busy share.
             Telemetry.logDashAlways("System/CpuPercent", cpuPercent, "percent");
             if (cpuPercent >= CPU_ALERT_PERCENT) {
                 if (Double.isNaN(cpuHighSinceSeconds)) {
@@ -420,6 +428,7 @@ public class SystemLoadMonitor {
 
         // ── Memory ────────────────────────────────────────────────────────────
         if (!Double.isNaN(availableMb)) {
+            // Memory the controller has available.
             Telemetry.logDashAlways("System/MemAvailableMB", availableMb, "MB");
             if (availableMb < MEMORY_ALERT_MB) {
                 if (Double.isNaN(memoryLowSinceSeconds)) {
@@ -455,8 +464,10 @@ public class SystemLoadMonitor {
         if (lastGcTimeMs >= 0) {
             long gcMsThisSecond = gcTimeMs - lastGcTimeMs;
             long collectionsThisSecond = gcCount - lastGcCount;
+            // Java garbage collection time in the last second; long pauses stall the loop.
             Telemetry.logDashAlways(
                     "System/Gc/MsPerSecond", (double) gcMsThisSecond, "milliseconds");
+            // Garbage collections in the last second.
             Telemetry.logDashAlways("System/Gc/CollectionsPerSecond", collectionsThisSecond);
             if (gcMsThisSecond >= GC_ALERT_MS_PER_SECOND && enabled) {
                 gcAlert.setText(
@@ -471,6 +482,7 @@ public class SystemLoadMonitor {
         lastGcCount = gcCount;
 
         Runtime runtime = Runtime.getRuntime();
+        // Java heap in use.
         Telemetry.logDashAlways(
                 "System/HeapUsedMB", (runtime.totalMemory() - runtime.freeMemory()) / 1e6, "MB");
 

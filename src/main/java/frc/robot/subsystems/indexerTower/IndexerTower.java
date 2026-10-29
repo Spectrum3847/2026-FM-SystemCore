@@ -120,12 +120,16 @@ public class IndexerTower extends Mechanism {
         systemState = handleStateTransition();
         applyStates();
         logBatteryUsage();
+        // What SuperStructure asked of the indexer tower.
         Telemetry.log("IndexerTower/WantedState", wantedState.toString());
+        // The state the indexer tower is actually in, after its own transitions.
         Telemetry.log("IndexerTower/SystemState", systemState.toString());
+        // The command requiring the indexer tower, if any.
         Telemetry.log("IndexerTower/CurrentCommand", getCurrentCommandName());
         // Voltage, currents, temperature and connection at 10 Hz (offseason); the
         // same signals are also recorded every loop as inputs under Mechanisms/.
         logDiagnostics("IndexerTower");
+        // The indexer tower's speed, mechanism RPM.
         Telemetry.log("IndexerTower/RPM", getVelocityRPM(), "RPM");
         Telemetry.timeEnd("Scheduler/Periodic/IndexerTower");
     }

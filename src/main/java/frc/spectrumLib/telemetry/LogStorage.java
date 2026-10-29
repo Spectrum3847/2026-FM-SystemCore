@@ -330,7 +330,9 @@ public final class LogStorage {
                 String.format("Robot storage low: %.0f MB free (%s)", free / 1e6, folder));
         lowSpaceAlert.set(free < FREE_ALERT_BYTES);
         if (Telemetry.slowLogThisLoop()) {
+            // Free space where logs are written (USB stick or the controller).
             Telemetry.logDash("System/Storage/FreeMB", free / 1e6);
+            // Space the logs in the log folder take.
             Telemetry.log("System/Storage/LogsMB", logBytes / 1e6);
         }
     }

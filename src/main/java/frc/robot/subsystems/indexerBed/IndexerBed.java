@@ -119,12 +119,16 @@ public class IndexerBed extends Mechanism {
         systemState = handleStateTransition();
         applyStates();
         logBatteryUsage();
+        // What SuperStructure asked of the indexer bed.
         Telemetry.log("IndexerBed/WantedState", wantedState.toString());
+        // The state the indexer bed is actually in, after its own transitions.
         Telemetry.log("IndexerBed/SystemState", systemState.toString());
+        // The command requiring the indexer bed, if any.
         Telemetry.log("IndexerBed/CurrentCommand", getCurrentCommandName());
         // Voltage, currents, temperature and connection at 10 Hz (offseason); the
         // same signals are also recorded every loop as inputs under Mechanisms/.
         logDiagnostics("IndexerBed");
+        // The indexer bed's speed, mechanism RPM.
         Telemetry.log("IndexerBed/RPM", getVelocityRPM(), "RPM");
         Telemetry.timeEnd("Scheduler/Periodic/IndexerBed");
     }

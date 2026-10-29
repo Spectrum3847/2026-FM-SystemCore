@@ -129,12 +129,16 @@ public class FuelIntake extends Mechanism {
         systemState = handleStateTransition();
         applyStates();
         logBatteryUsage();
+        // What SuperStructure asked of the fuel intake.
         Telemetry.log("FuelIntake/WantedState", wantedState.toString());
+        // The state the fuel intake is actually in, after its own transitions.
         Telemetry.log("FuelIntake/SystemState", systemState.toString());
+        // The command requiring the fuel intake, if any.
         Telemetry.log("FuelIntake/CurrentCommand", getCurrentCommandName());
         // Voltage, currents, temperature and connection at 10 Hz (offseason); the
         // same signals are also recorded every loop as inputs under Mechanisms/.
         logDiagnostics("FuelIntake");
+        // The fuel intake's speed, mechanism RPM.
         Telemetry.log("FuelIntake/RPM", getVelocityRPM(), "RPM");
         Telemetry.timeEnd("Scheduler/Periodic/FuelIntake");
     }

@@ -484,6 +484,7 @@ How the gate is armed differs:
 2. The app is the single starting point: it explains which tool to use for every pit job and replaces other tools where it can.
 3. The existing Power, CAN and Cameras pages are rebuilt, with the current code as a reference, not a base.
 4. AI sessions are directed by a person; a person confirms any hard-stop change.
+5. Tuning mode is turned on by a NetworkTables request from a button on the website. It has no timer: the robot network is secured at events and the robot is only powered while people work on it. It starts off at every boot, since the request is not saved. (Turning off when an FMS attaches is a reviewer recommendation, not yet confirmed by the team.)
 
 **Reviewer recommendations, not yet approved by the team:**
 1. The service runs under systemd, installed through a GradleRIO `CommandArtifact` that restarts it only when its files changed.

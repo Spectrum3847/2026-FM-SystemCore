@@ -153,7 +153,7 @@ From Limelight's public SystemCore OS repo ([systemcore-os-public](https://githu
 * Add-on packages are `.ipk` files with a systemd unit and a control file (`X-Port`, `X-Has-UI`,
   `X-Auto-Start`, `X-Icon-Path`, also `X-Https`, `X-Services`). The web UI shows packages as tiles.
   The image ships `opkg-utils`.
-* Installing a package stops the robot program and restarts it after.
+* Installing a package stops the robot program and restarts it after. Not true on our robot (below).
 * SystemCore's web UI already has per-service log download, a support bundle with optional robot
   logs, CAN utilisation, a cameras portal, ports and firewall views, storage use and a live robot
   program log.
@@ -191,8 +191,10 @@ From 8515's SystemCore (2026-10-29, OS `6eab208`):
   up. The package manager's list
   (`http://<robot>:4803/api/packages/launcher`) showed it with its icon, and its tile in the web UI
   opened `http://10.85.15.2:5808/`. Remove it with `sudo opkg remove robot-app`.
-* Whether installing a package restarts the robot program is still unseen: GradleRIO stops the
-  robot program before any artifact runs, so the Gradle test can't show it.
+* Installing or removing a package does not touch the robot program. A web UI upload (saved to
+  `/tmp/package_uploads/`, then plain `opkg install`, then two systemd reloads) and an `opkg remove`
+  over SSH both left it running. A Gradle install stops it only because GradleRIO stops the robot
+  program before any artifact runs.
 * Port 5800 is SystemCore's `visionserver`, as are 5802 and 5805-5807. The robot program's Java
   listens only on 5810 (NetworkTables). Ports in use from 5800 to 5837: 5800-5803, 5805-5807, 5810,
   5812, 5815-5817, 5819, 5820, 5822, 5825-5827, 5832, 5835-5837.

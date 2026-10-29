@@ -8,7 +8,10 @@ docs/pose-sources.md for the localization testbed.
 - Java 25, the WPILib 2027 JDK. On team laptops:
   `export JAVA_HOME=/c/Users/Public/wpilib/2027_alpha5/jdk`.
 - `./gradlew build` compiles, applies Spotless (Google Java Format AOSP, 4 spaces) and runs tests.
-- `FM_SIM_SCRIPT=drive ./gradlew simulateJava -PnoSimGui` runs the scripted sim; then
+- To verify a change, run `python tools/check.py` (add `--quick`, `--sims`, `--log <robot log>`
+  as needed) in the background and read its summary. It builds once and runs tests, sims and
+  replays in parallel. Don't run those steps one by one.
+- `FM_SIM_SCRIPT=drive ./gradlew simulateJava -PnoSimGui` runs one scripted sim by hand; then
   `python tools/wpilog_summary.py logs/<log>.wpilog`.
 - The WPILib API is 2027 alpha-6 (`org.wpilib.*`). Do not guess 2026 names: check the jars
   (`javap`) or the existing code. Common moves: `DriverStation` → `MatchState` / `RobotState` /

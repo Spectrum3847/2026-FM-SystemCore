@@ -578,9 +578,10 @@ public class Robot extends SpectrumRobot {
                         new DashboardReceiver(new NT4Publisher(), ntEveryN()));
                 break;
             case SIM:
-                // Log to NT for AdvantageScope and to ./logs for replay practice.
+                // Log to NT for AdvantageScope and to ./logs for replay practice. FM_SIM_LOG_DIR
+                // gives parallel sims (tools/check.py) their own folders.
                 RadioStatusRedactor.addFirst(
-                        new WPILOGWriter("logs"),
+                        new WPILOGWriter(System.getenv().getOrDefault("FM_SIM_LOG_DIR", "logs")),
                         new DashboardReceiver(new NT4Publisher(), ntEveryN()));
                 break;
             case REPLAY:

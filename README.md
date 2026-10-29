@@ -108,6 +108,11 @@ python tools/check.py --sims drive,shoot,auto            # ~2.5 min: everything 
 ```
 
 Loop overruns only warn there, since the jobs share the laptop's CPU; CI judges loop timing.
+A `--log` replays only the enabled part of the log (10 s before the first enable to 5 s after the
+last disable; `--full-log` for all of it), since a replay costs about 16 s plus 0.1 s per logged
+second. The comparison with the robot then skips the cut's first 2 s, raw odometry and the shadow
+tracks, which build up from wherever they start; the fused pose replays exactly. A log from older
+code differs where the code changed: that is the replay's answer, not a failure.
 
 When a PR is meant to change the replay (a gate, a std-dev tier), add the `replay-change-expected`
 label.

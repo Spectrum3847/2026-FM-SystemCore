@@ -4,7 +4,9 @@
 Usage:
     python tools/check.py                          # tests + drive sim
     python tools/check.py --sims drive,shoot,auto  # more sims (auto is TBTB Left)
-    python tools/check.py --log robotlogs/X.wpilog # also replay a robot log
+    python tools/check.py --log robotlogs/X.wpilog # also replay a robot log: its enabled part
+                                                   # (10 s before the first enable to 5 s after
+                                                   # the last disable); --full-log for all of it
     python tools/check.py --quick                  # unit tests only: skips simTest (~2 min)
     python tools/check.py --no-tests               # no Gradle tests at all
 
@@ -15,17 +17,25 @@ only warn: the jobs share the laptop's CPU.
 import argparse
 import os
 import shutil
+import struct
 import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import replay_compare
+import trim_wpilog
+
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "build" / "check"
 WPILIB_JDK = Path("C:/Users/Public/wpilib/2027_alpha5/jdk")
 SIM_SCRIPTS = {"drive": "drive", "shoot": "shoot", "chords": "chords", "auto": "auto:TBTB Left"}
 JOB_TIMEOUT_S = 600
+# Measured on TXMAN1 Q30: a cut replay's fused pose agrees with the full replay's 0.4 s in.
+LEAD_IN_S = 10.0
+WARM_UP_S = 2.0
+TAIL_S = 5.0
 
 
 def java_home():
@@ -107,12 +117,44 @@ def job_sim(name, env):
     return ok, last_lines(report)
 
 
-def job_replay(log, env):
+def enabled_window(data):
+    """(first enable, last disable) in log seconds, or None if the robot never enabled."""
+    enabled_id = None
+    first = last = end = None
+    enabled = False
+    for eid, ts, payload, _ in trim_wpilog.records(data):
+        if eid == 0:
+            if payload and payload[0] == 0:
+                (entry,) = struct.unpack_from("<I", payload, 1)
+                (ln,) = struct.unpack_from("<I", payload, 5)
+                if payload[9 : 9 + ln] == b"/DriverStation/Enabled":
+                    enabled_id = entry
+        elif eid == enabled_id:
+            now = bool(payload[0])
+            if now and not enabled:
+                first = ts if first is None else first
+                last = None
+            elif enabled and not now:
+                last = ts
+            enabled = now
+            end = ts
+    if first is None:
+        return None
+    return first / 1e6, (last if last is not None else end) / 1e6
+
+
+def job_replay(log, full_log, env):
     env = dict(env)
     folder = OUT / "replay"
     folder.mkdir(parents=True, exist_ok=True)
     src = folder / Path(log).name
-    shutil.copyfile(log, src)
+    data = Path(log).read_bytes()
+    window = None if full_log else enabled_window(data)
+    if window:
+        start, end = window[0] - LEAD_IN_S, window[1] + TAIL_S
+        src.write_bytes(trim_wpilog.trim(data, max(start, 0.0), end))
+    else:
+        src.write_bytes(data)
     out = src.with_name(src.stem + "_sim.wpilog")
     out.unlink(missing_ok=True)
     env["FM_REPLAY"] = "1"
@@ -122,8 +164,20 @@ def job_replay(log, env):
     if rc != 0 or not out.exists():
         return False, f"exit {rc}, see {console.name}"
     compare = OUT / f"replay-{src.stem}-compare.txt"
-    ok = tool(["replay_compare.py", str(out)], compare, env) == 0
-    return ok, last_lines(compare)
+    # Odometry and the shadow tracks accumulate from their own start, so a cut log can't reproduce
+    # them (TXMAN1 Q30: LL-Back's MT1 shadow off 0.24 m cut, exact in full); the fused pose can.
+    keys = [
+        k
+        for k in replay_compare.DEFAULT_KEYS
+        if not (window and (k.endswith("OdometryPose") or "/Shadow/" in k))
+    ]
+    after = ["--after", str(window[0] - LEAD_IN_S + WARM_UP_S)] if window else []
+    ok = tool(["replay_compare.py", str(out), *after, *keys], compare, env) == 0
+    scope = f"{start:.0f}-{end:.0f} s (enabled part)" if window else "whole log"
+    # A difference is the effect of the change, not a failure.
+    differs = "REPLAY DIFFERS" in compare.read_text(encoding="utf-8")
+    verdict = "differs from" if differs else "matches"
+    return ok, f"replayed {scope}, {verdict} the robot; details in {compare.name}"
 
 
 def last_lines(path, n=4):
@@ -146,6 +200,7 @@ def main():
     ap.add_argument("--log", action="append", default=[], help="robot .wpilog to replay")
     ap.add_argument("--no-tests", action="store_true")
     ap.add_argument("--quick", action="store_true", help="unit tests only, no simTest")
+    ap.add_argument("--full-log", action="store_true", help="replay whole logs, not the enabled part")
     args = ap.parse_args()
 
     sims = [s for s in args.sims.split(",") if s]
@@ -163,7 +218,7 @@ def main():
     print(f"PASS  build ({time.monotonic() - start:.0f} s)", flush=True)
 
     jobs = [("sim " + s, job_sim, s, env) for s in sims]
-    jobs += [("replay " + Path(l).name, job_replay, l, env) for l in args.log]
+    jobs += [("replay " + Path(l).name, job_replay, l, args.full_log, env) for l in args.log]
     if not args.no_tests:
         tasks = ["test"] if args.quick else ["test", "simTest"]
         jobs.append(("tests", job_tests, tasks, env))

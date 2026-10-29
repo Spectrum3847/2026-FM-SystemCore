@@ -205,6 +205,42 @@ public abstract class Mechanism implements Subsystem {
     private BaseStatusSignal tempSignal;
     private BaseStatusSignal faultSignal;
     private BaseStatusSignal stickyFaultSignal;
+    private BaseStatusSignal[] troubleFaultSignals = new BaseStatusSignal[0];
+
+    /**
+     * Bits of {@link #troubleFaultSignals} set at the last read, to rebuild the names only then.
+     */
+    private int lastTroubleFaults;
+
+    /**
+     * Sticky faults that mean something went wrong, by name, in {@link #troubleFaults}'s order. Not
+     * current or position limits, which latch in normal use (homing against a stop sets
+     * StatorCurrLimit). By name because the fault field's bit order is undocumented.
+     */
+    private static final String[] TROUBLE_FAULT_NAMES = {
+        "Hardware",
+        "ProcTemp",
+        "DeviceTemp",
+        "Undervoltage",
+        "BootDuringEnable",
+        "BridgeBrownout",
+        "OverSupplyV",
+        "UnstableSupplyV"
+    };
+
+    private static BaseStatusSignal[] troubleFaults(TalonFX t, boolean refresh) {
+        return new BaseStatusSignal[] {
+            t.getStickyFault_Hardware(refresh),
+            t.getStickyFault_ProcTemp(refresh),
+            t.getStickyFault_DeviceTemp(refresh),
+            t.getStickyFault_Undervoltage(refresh),
+            t.getStickyFault_BootDuringEnable(refresh),
+            t.getStickyFault_BridgeBrownout(refresh),
+            t.getStickyFault_OverSupplyV(refresh),
+            t.getStickyFault_UnstableSupplyV(refresh)
+        };
+    }
+
     private BaseStatusSignal[] followerStickyFaultSignals = new BaseStatusSignal[0];
     private BaseStatusSignal[] followerSupplySignals = new BaseStatusSignal[0];
 
@@ -333,8 +369,10 @@ public abstract class Mechanism implements Subsystem {
             tempSignal = motor.getDeviceTemp(false);
             faultSignal = motor.getFaultField(false);
             stickyFaultSignal = motor.getStickyFaultField(false);
+            troubleFaultSignals = troubleFaults(motor, false);
             int n = followerSupplySignals.length;
-            loopSignals = new BaseStatusSignal[8 + 2 * n];
+            int t = troubleFaultSignals.length;
+            loopSignals = new BaseStatusSignal[8 + 2 * n + t];
             loopSignals[0] = positionSignal;
             loopSignals[1] = velocitySignal;
             loopSignals[2] = voltageSignal;
@@ -345,6 +383,7 @@ public abstract class Mechanism implements Subsystem {
             loopSignals[7] = stickyFaultSignal;
             System.arraycopy(followerSupplySignals, 0, loopSignals, 8, n);
             System.arraycopy(followerStickyFaultSignals, 0, loopSignals, 8 + n, n);
+            System.arraycopy(troubleFaultSignals, 0, loopSignals, 8 + 2 * n, t);
 
             inputs.followerSupplyCurrentAmps = new double[followerSupplySignals.length];
             inputs.followerConnected = new boolean[followerSupplySignals.length];
@@ -450,6 +489,8 @@ public abstract class Mechanism implements Subsystem {
         // Sticky faults latch between samples (cleared at boot), so 4 Hz misses nothing.
         BaseStatusSignal.setUpdateFrequencyForAll(
                 TEMPERATURE_SIGNAL_HZ, talon.getFaultField(), talon.getStickyFaultField());
+        BaseStatusSignal.setUpdateFrequencyForAll(
+                TEMPERATURE_SIGNAL_HZ, troubleFaults(talon, true));
         // A long run of per-signal config calls, and only ever an optimisation. On a dead
         // bus it is pure boot latency, so it is the first thing dropped once the budget is
         // spent.
@@ -922,6 +963,23 @@ public abstract class Mechanism implements Subsystem {
         inputs.tempCelsius = tempSignal.getValueAsDouble();
         inputs.faultField = (long) faultSignal.getValueAsDouble();
         inputs.stickyFaultField = (long) stickyFaultSignal.getValueAsDouble();
+        int trouble = 0;
+        for (int i = 0; i < troubleFaultSignals.length; i++) {
+            if (troubleFaultSignals[i].getValueAsDouble() != 0) {
+                trouble |= 1 << i;
+            }
+        }
+        // A new array only when it changes: AdvantageKit keeps a reference to a logged array.
+        if (trouble != lastTroubleFaults) {
+            lastTroubleFaults = trouble;
+            String[] names = new String[Integer.bitCount(trouble)];
+            for (int i = 0, k = 0; i < TROUBLE_FAULT_NAMES.length; i++) {
+                if ((trouble & (1 << i)) != 0) {
+                    names[k++] = TROUBLE_FAULT_NAMES[i];
+                }
+            }
+            inputs.troubleFaults = names;
+        }
         // New arrays every loop, never written in place. AdvantageKit holds a reference to an
         // input array and serializes it after this cycle, so reusing one logged whatever the next
         // loop wrote into it. The log then disagreed with what the code used, and replay diverged.

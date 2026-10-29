@@ -454,6 +454,196 @@ How the gate is armed differs:
 - **AI parity (ZO):** if every write is a documented NT topic, AI parity comes for free and no separate API is needed.
 - **Glossary (CX):** define "hardware stamp", "eventDeploy" and "pull back to git". CX found no definition of eventDeploy.
 
+### Round 5: team proposals for install and pulling tuned values
+
+Six new reviews of the team's proposals. Options are not chosen; the team decides.
+
+Reviewers: Design Critic (DC), Codebase Details (CD), Zoom Out (ZO), Comprehension/UX (CX), Implementation Readiness (IR), Structural (ST). All six completed. The brief was concept5.md.
+- **Proposal A:** install the service once as an .ipk, then each Gradle deploy updates its files and restarts the service only when they changed.
+- **Proposal B:** on every deploy, copy to the laptop the robot's saved values that differ from git, print a summary and carry on. Ask a person when an interactive console exists; otherwise the choice is made later.
+
+This document lays out the options and does not choose answers. The team decides.
+
+### How the reviewers judged the team's proposals
+
+| Reviewer | Proposal A | Proposal B |
+|---|---|---|
+| DC | Adopt with changes: the .ipk owns only a launcher stub; Gradle owns the app files | Adopt with changes: stop the deploy only for unresolved hard-stop values |
+| CD | Adopt, provided the service reports exactly what it runs (`/version`) | Adopt as proposed: never stop the deploy, but log and show what is pending |
+| ZO | Reject the split: Gradle owns everything; an optional stub .ipk for the tile | Adopt with changes: warn, stop only for hard stops, drop the interactive prompt, no queue |
+| CX | Adopt with changes: every deploy checks the package and repairs it | Adopt with changes: warn and carry on; stop only for a hard-stop difference not yet acknowledged |
+| IR | Blocker as written. Adopt with changes: stub launcher .ipk installed by a separate task, never inside `deploy` | Adopt: never stop, even for hard stops; print hard-stop diffs and never merge them automatically |
+| ST | Reject the split: one owner, either an .ipk reinstalled when its hash changes or a Gradle unit with no .ipk | Adopt with changes: warn; stop only for unconfirmed hard-stop values; the prompt is optional and the same as the later command |
+
+**Proposal A in short:** five of six (all but CD) say the split ownership, as written, breaks. The fix most of them name is a stable launcher stub, an idea DC, ZO and IR reached independently. ST rejects any split.
+
+**Proposal B in short:** all six accept "copy, summarise, carry on" as the base. They split 4 to 2 on stopping for hard-stop values: DC, ZO, CX and ST want a stop, in different forms; CD and IR do not.
+
+---
+
+### Q1. Proposal A: install and update the service
+
+**The problem (DC, ZO, CX, IR, ST).** If opkg owns files that Gradle later overwrites, opkg's recorded version and file list no longer match what is on disk.
+- An OS update or a reinstall from the tile quietly restores old code.
+- An uninstall from the tile runs `prerm`, which stops and disables the unit and deletes files that Gradle expects to be there.
+- IR adds that the example `postinst` sleeps about 3 s plus whatever opkg itself takes.
+- ZO calls this the old app's stale-build failure again.
+- CD alone sees it as acceptable, provided `/version` reports the opkg version, the file hash and a mismatch flag.
+
+**Options:**
+
+| Option | Backed by | Strongest argument | Strongest counter |
+|---|---|---|---|
+| **Launcher stub.** The .ipk installs only a unit file, an icon and a stub that runs `/home/systemcore/fm-app/current/`. Gradle owns `fm-app/`, which opkg never lists. | DC, IR; ZO as the way to keep a tile | The stub's content never changes, so its recorded version can't go stale. A reinstall can't roll the app back, and an uninstall removes only the tile. | Still two installers, plus a one-off install step per robot. The tile's link to the app is unconfirmed (DC, IR). |
+| **Gradle only.** A systemd unit installed by the deploy's `CommandArtifact`; no .ipk. | ZO (simplest), ST (one of its two options); DC and IR as the counter | One owner, nothing to go stale. | No tile, which loses the main entry point (ST). No OS-native lifecycle. Depends on the deploy user being able to install a unit; if it can't, a stub .ipk becomes mandatory (ZO). |
+| **.ipk only.** The deploy builds the .ipk and runs `opkg install` when the content hash changes. | ST (the other option) | One owner, and the tile is kept. | Each change costs a robot program restart. `opkg` permission is unknown. ST counters that the deploy already restarts the program. |
+| **Proposal A plus check-and-repair on every deploy.** If the package is missing or its version differs, the deploy runs the install; if `opkg` is not permitted, it prints one line and does not fail. | CX; CD broadly accepts A as written | No one-off install to forget, and an uninstall from the tile gets reversed. | Every deploy depends on `opkg` permission that hasn't been checked, and an install stops the robot program. |
+
+**Where reviewers disagree:** whether a normal deploy may run `opkg install`.
+- **Never (IR, ZO, DC):** IR wants a separate task, for example `installAppPackage`, gated on a `SHIM_VERSION`. The deploy only detects a missing unit (`systemctl cat`) and prints how to fix it.
+- **Only when the hash changes (ST).**
+- **As a repair step when the package is missing or differs (CX).**
+
+**Detecting a change, and agreed details** (DC, CD, ZO, IR, ST, CX):
+- Hash the app tree at build time and compare it with a hash or manifest file on the robot in one SSH call. Upload and restart only on a mismatch.
+- Use hashes, not mtimes, because Windows checkouts and Gradle rebuilds change mtimes (DC, ST).
+- Use SHA-256 (DC, IR).
+
+**Version check** (all six):
+- The service reports its manifest hash and git SHA. The robot code publishes its build SHA to NT. On a mismatch the app shows a banner ("app from build X, robot code from build Y").
+- The mismatch is a warning, not a lockout, because the app must still work after a crash or a partial deploy (DC, ST).
+- IR: an old service with new robot code degrades to read-only. The service re-reads `deploy/app-manifest.json` on each request. Keep `previous/` next to `current/` with a symlink so a bad update can be rolled back without a redeploy.
+- CD: `/version` also reports the dirty flag and the opkg version.
+
+**User-level restart (DC):** a `systemctl --user` unit or a narrow sudoers rule, so the deploy can restart the service.
+
+**Facts to check** (all six say a bench check gates the design):
+- Whether the `systemcore` user can run `opkg install` (`sudo -n opkg`, or the API on port 4803).
+- Whether it can install or restart a system or user systemd unit.
+- Whether the tile links to `X-Port` (`X-Has-UI`).
+- What an OS update does to `/home/systemcore/fm-app` and to units.
+
+### Q2. Proposal B: pull back to git on deploy
+
+**Stopping the deploy:**
+
+| Option | Backed by | Strongest argument | Strongest counter |
+|---|---|---|---|
+| Stop for every difference | No one (DC and ST give it as the counter) | The only option that forces a decision. Under VS Code tasks it fails clearly, where a warning goes unread (DC, CX, ST). | Blocks every VS Code and AI deploy, because those can't prompt (CD, IR). |
+| Warn; stop only for hard stops | DC (unresolved hard stops, with flags `-PacceptRobotHardStops` / `-PdiscardRobotHardStops`), ZO (unless `-PacceptRobotParams` or `pullTuning`), CX (only a difference not yet acknowledged; acknowledging is a flag or a website click), ST (only a hard-stop local value with no matching hardware stamp) | Without it, stale local hard-stop values can override new git values at the next boot (DC). | Still blocks AI and VS Code deploys in that case (CD). |
+| Never stop. Hard-stop diffs are printed as old → new with the failure mode | CD, IR | Nothing is lost: robot-local values survive deploys and keep winning on the robot. | A warning scrolls past. CD's mitigation is a pending count on the app's front page and in the log. |
+
+**Interactive prompt:**
+- **Drop it (ZO):** it doesn't work under VS Code tasks.
+- **Keep it optional, but as the same code path as the later command, e.g. `pullTuning --choose` (ST).**
+- **Never prompt without a console (CX).**
+- DC, CD and IR don't address it directly.
+
+**Where the copy is saved.** All six agree it must be in a gitignored path or outside the repo, because `eventDeploy` runs `git add -A`. ST and IR want a test that checks the path is ignored. Reviewers disagree on the folder:
+- **Under `build/` (CD, ZO, CX, ST).**
+- **Not `build/`, because `clean` wipes it (DC, IR).** DC suggests `.robot-params/<robot>/`; IR suggests `tuning-pulls/<robot>/<timestamp>/` plus a `latest.json`.
+
+They also disagree on whether copies build up:
+- **One timestamped copy per deploy, kept (DC, CD, CX, IR, ST).**
+- **One copy, overwritten each time, with no queue or state (ZO).**
+
+**One machine-readable record (DC, CD, ST, IR).** DC suggests `pending.json`; CD lists the fields: path, git value, robot value, base, group, hard-stop flag, save time, robot, whether the stamp matches. Gradle, the website and AI all read it, and nobody parses console text. CD also wants each deploy's summary kept, so "what did the robot have before this deploy?" can be answered later.
+
+**If nobody chooses** (all six agree): the robot-local values keep winning on the robot, so nothing is lost. Each deploy repeats the summary. DC and ST add each entry's age ("3 deploys, 6 days unresolved"). Never clear values nobody chose. CD wants the robot to log, as inputs, which layer won for each param and a count of overrides, with the count shown on the app's front page. CX wants one fixed line until someone settles it, for example "3 robot values not in git (1 hard-stop). Run `./gradlew reviewParams`", with the same line on the website.
+
+**Hard stops** (all six agree): never merged automatically. Write a fragment ready for the PR with old value, new value and failure mode; ST adds the hardware stamp. DC wants the failure-mode text to come from the param's declaration, so each hard-stop param needs that string. CD and ZO would leave a blank placeholder for it instead.
+
+**Clearing robot-local values once git matches** (all six agree it must happen, exact matches only; IR and ST say never by tolerance or age). Reviewers disagree on who clears:
+- **The robot, at boot (DC).**
+- **The next deploy, while the robot program is stopped (CD, CX, IR, ST).** CD renames cleared entries to `.merged` and logs it, following ParamStore's existing rename convention.
+- **`SaveParams` prunes equal entries on the next save (ZO).**
+
+**event\* branches** (blocker for DC, CD, IR, ST):
+- DC notes that `eventDeploy`'s `git add -A` runs before the deploy (`createVersionFile.dependsOn(eventDeploy)`, build.gradle about lines 203-233). So any tracked file written during a deploy ends up, unreviewed, in the next auto-commit.
+- **Agreed rule:** no deploy writes tracked files. Only an explicit merge command writes `src/main/deploy/params/` (DC, IR).
+- ZO: don't auto-pull on event branches.
+- IR: run the pull after `eventDeploy`'s commit, or write outside the tree.
+
+**ST requirements:** every deploy-time step has a timeout, and the deploy carries on if the robot can't be reached for the pull. DC adds that a hashing or SSH failure in the app step should warn, never fail the robot deploy.
+
+**Facts to check:** the exact task order of `eventDeploy`, `createVersionFile` and the deploy; whether `.gitignore` covers the chosen folder; how long one SSH pull takes.
+
+### Q3. Conflicts when git changed after a save
+
+| Option | Backed by | Strongest argument | Strongest counter |
+|---|---|---|---|
+| Three-way merge against a recorded base. Take the robot value if only the robot changed; drop the robot value if only git changed; show both if both changed. | DC, CD, CX, IR, ST | Without a base, "git changed" and "robot changed" look the same, and every git edit looks like a conflict (IR, ST). | A file-format field every tool must keep stable (ST, CX). |
+| Show both values and let a person choose; record only the git SHA | ZO | Params are scalars, so there's nothing to merge, only "which number". | Without a base, an unchanged robot value can wrongly look like a deliberate override of a newer git change (ZO's own counter). |
+
+**Where reviewers disagree on the base:**
+- **The git value at save time, per key (DC, CX, ST).**
+- **The deployed git SHA from BuildConstants, plus the branch (IR).**
+- **Both, plus the dirty flag (CD).** CD's reason: a base taken from a dirty working tree is misleading.
+
+**Other conflict details:**
+- An entry with no base (a legacy file) counts as a conflict (DC).
+- Never take a side automatically for a hard-stop group (IR).
+- IR accepts "show both" if the base is still recorded, for later use.
+
+**Reviewers disagree on how Proposal B affects conflicts:**
+- **Rarer or cheaper:** values come back, and bases are refreshed, on every deploy (DC, CD, ZO, IR). IR adds that B doesn't remove conflicts, because a laptop on another branch deploys too.
+- **More common:** copies wait longer before anyone chooses (CX).
+- **Matters more:** pulls happen often, so without a base every git edit shows up as a conflict (ST).
+
+### Q4. Show the robot-versus-git difference on the website?
+
+**All six say yes, read-only.** It offers "copy patch" and "copy AI prompt" buttons; ZO adds a copyable `./gradlew pullTuning --only ...` command. The website never writes to git, because the robot has no repo or credentials.
+
+**Requirements raised:**
+- One shared JSON format and one decision file, so Gradle and the website can't disagree (DC, CD, CX, IR). Version the format (IR).
+- ST: one diff implementation shared by Gradle and the service, or the two will drift. The service has no git checkout, so label its git side "as deployed".
+- DC: hard-stop rows show the failure mode and need a click to confirm.
+- CX: the AI prompt names the values, the base and the hard-stop rule.
+
+**Counter:** two places to settle one decision (CD, CX). ZO notes students without laptop git skills are blocked without a downloadable patch, which is why most reviewers include the patch.
+
+### Q5. Params while the robot program has crashed
+
+**All six recommend a read-only diff plus "disable local file":** rename the file to `.disabled`; IR suggests `<group>.json.disabled-<time>`.
+- **Argument:** a bad local value (a swerve offset, a soft limit) is the likely cause of a crash at boot. The rename is reversible and needs no SSH (DC, ZO, CX, IR).
+- **Counter (all six name it):** the rename writes robot config outside the robot program, which skips AdvantageKit's input logging. ZO notes that a read-only view is purer, and SSH already exists for emergencies.
+
+**Mitigations:**
+- The service logs the rename (DC, CD, IR, ST).
+- The robot program logs at boot which local files are present and which have been disabled (CD, CX, IR, ST).
+- A page-click confirmation that names the file and says the change takes effect at the next start (CX, IR, ST).
+- Scope limited to robot-local params files (CX).
+- No editing of values while the program is down (DC, ST).
+
+---
+
+### Other issues raised
+
+- **Which layer won (CD blocker):** log, as an input, which layer supplied each param, plus a count of robot-local overrides, so a stale override can be told apart from a git value.
+- **Service observability (CD):** journald logging, plus `/health` reporting uptime, restarts, CPU and RSS.
+- **CPU (DC, CD, ZO):** still no baseline. Measure loop timing with the service idle and during a log download. Set `Nice=10` and `CPUQuota`.
+- **Python drift (DC):** system Python and its pip packages change with OS updates. Use only the standard library, or a pinned venv in the app tree.
+- **TuningMode transitions (CD):** log on and off changes, with the reason (website request, FMS attach, boot), as inputs.
+- **Log download integrity (CD):** report file size and hash after the download, so a truncated transfer is caught.
+- **No param logic in the service (ZO, ST):** reuse the ParamStore JSON layout and `/Tuning/`. The service only lists and reads files. No copies of robot facts.
+- **One versioned JSON schema (ST, IR)** for robot-local params, the pulled copy and the diff, with tests in `tools/`.
+- **Terms a newcomer will hit (CX):** define hard-stop group and hardware stamp; say which component records the version (the opkg status database); name the "choose later" command and how long a copy stays valid; explain how the website tuning button relates to `TUNING_MODE`, which a test forces off on main.
+
+### Implementation details still undecided
+
+- The stub's path, its `SHIM_VERSION` and the format of the API schema version (IR).
+- The manifest hash scope and file name (`.hash`, `manifest.json`, `version.json` and `app-manifest.json` are all proposed).
+- The name of the separate install task and whether the deploy ever calls it (IR: `installAppPackage`).
+- The folder and name of the pulled copy, how long copies are kept, and whether copies accumulate or one is overwritten.
+- The name of the decision file (`pending.json`) and its fields.
+- The base field name and content in robot-local files (per-key value, git SHA, branch, dirty flag).
+- Who clears matching robot-local values (the robot at boot, the deploy, or `SaveParams`), and the name for a cleared file (`.merged` or deletion).
+- The names of the hard-stop override flags (`-PacceptRobotHardStops`, `-PdiscardRobotHardStops`, `-PacceptRobotParams`) and how an acknowledgement is stored.
+- The command names (`pullTuning`, `pullTuning --choose`, `pullTuning --only`, `reviewParams`).
+- Where the failure-mode text comes from: the param declaration or a blank placeholder.
+- Where the new tasks sit relative to `createVersionFile` and `eventDeploy`.
+- The rename suffix for a disabled file and the name of the log the robot reads at boot.
+
 ## Goals vs. Non-Goals
 
 * **In-Scope Goals:**

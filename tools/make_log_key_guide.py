@@ -42,6 +42,8 @@ ADVANTAGEKIT = [
     ("/Timestamp", "us", "The cycle's robot time (AdvantageKit)"),
     ("/NetworkInputs/*", "", "Values read from the dashboard over NetworkTables (LoggedNetwork*), recorded so replay sees what the robot saw"),
     ("/Params/*", "", "Tuned values from src/main/deploy/params/*.json and their dashboard overrides, by group and name (Params)"),
+    ("/RealOutputs/Scheduler/*", "seconds", "Code timings (Telemetry.time/timeEnd), once a second: the key is the worst span of that second, <key>Mean the mean. RobotPeriodic is the whole loop; Periodic/<Subsystem> each subsystem"),
+    ("/RealOutputs/Summary/*", "", "The match summary (MatchSummary), once a second: battery, brownouts, loop, DS drops, CAN/<bus>/Drops|DownSeconds|BusOffs, Devices/*, Auto/*, Alerts/*, PeakTempC/<device>; see docs/match-summary.md"),
 ]
 
 

@@ -45,6 +45,16 @@
    "key": "/Params/*",
    "unit": "",
    "doc": "Tuned values from src/main/deploy/params/*.json and their dashboard overrides, by group and name (Params)"
+  },
+  {
+   "key": "/RealOutputs/Scheduler/*",
+   "unit": "seconds",
+   "doc": "Code timings (Telemetry.time/timeEnd), once a second: the key is the worst span of that second, <key>Mean the mean. RobotPeriodic is the whole loop; Periodic/<Subsystem> each subsystem"
+  },
+  {
+   "key": "/RealOutputs/Summary/*",
+   "unit": "",
+   "doc": "The match summary (MatchSummary), once a second: battery, brownouts, loop, DS drops, CAN/<bus>/Drops|DownSeconds|BusOffs, Devices/*, Auto/*, Alerts/*, PeakTempC/<device>; see docs/match-summary.md"
   }
  ],
  "keys": [

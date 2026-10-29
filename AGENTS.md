@@ -56,6 +56,8 @@ docs/pose-sources.md for the localization testbed.
   its source file (`docs/log-keys.md` is the same list). Read it before guessing at a key. After
   adding or renaming a logged key, run `python tools/make_log_key_guide.py` (CI checks it), and
   put a one-line comment above the call or field saying what the value means.
+- The log tools have tests: `python -m unittest discover -s tools -p "test_*.py"`. A change to a
+  tool, or a renamed key a tool reads, updates `tools/test_log_tools.py` too.
 - Logs: `tools/wpilog_summary.py`, `tools/shot_log.py`, `tools/replay_compare.py`, the
   `spectrum-logs` MCP (robotlog.spectrum3847.org) and the `frc-log-triage` skill in
   Spectrum-AI-Tools.

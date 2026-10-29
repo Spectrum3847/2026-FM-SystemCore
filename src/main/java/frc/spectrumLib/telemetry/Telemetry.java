@@ -318,9 +318,15 @@ public class Telemetry {
         epochStartNanos.computeIfAbsent(key, k -> new long[1])[0] = System.nanoTime();
     }
 
+    /** Per timer key: sum of seconds, spans, worst span, window start (ns), over this second. */
+    private static final Map<String, double[]> timerWindows = new HashMap<>();
+
+    private static final Map<String, String> timerMeanKeys = new HashMap<>();
+
     /**
-     * Ends a timed span and logs its length in seconds, so existing analysis of the {@code
-     * Scheduler/*} keys keeps working.
+     * Ends a timed span. Once a second it logs the worst span of that second under {@code key} and
+     * the mean under {@code key + "Mean"}, in seconds: every loop was ~15 values a loop, 7% of a
+     * log, and the worst loop is what an overrun investigation needs.
      *
      * @param key the key passed to {@link #time(String)}
      */
@@ -329,8 +335,21 @@ public class Telemetry {
         if (start == null || start[0] == 0) {
             return;
         }
-        log(key, (System.nanoTime() - start[0]) / 1e9, "seconds");
+        long now = System.nanoTime();
+        double seconds = (now - start[0]) / 1e9;
         start[0] = 0;
+        double[] w = timerWindows.computeIfAbsent(key, k -> new double[] {0, 0, 0, now});
+        w[0] += seconds;
+        w[1]++;
+        w[2] = Math.max(w[2], seconds);
+        if (now - w[3] >= 1_000_000_000L) {
+            log(key, w[2], "seconds");
+            log(timerMeanKeys.computeIfAbsent(key, k -> k + "Mean"), w[0] / w[1], "seconds");
+            w[0] = 0;
+            w[1] = 0;
+            w[2] = 0;
+            w[3] = now;
+        }
     }
 
     // ── Events ───────────────────────────────────────────────────────────────

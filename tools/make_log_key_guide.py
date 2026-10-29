@@ -205,7 +205,6 @@ def input_classes():
                     continue
                 field = re.findall(r"\w+", args[1])
                 field = field[-1] if field else ""
-                n = line_of(text, body_start + pm.start())
                 keys.append({
                     "key": subs.get(pm.group(1), "") + render(args[0]),
                     "doc": docs.get(field, ""),
@@ -282,7 +281,7 @@ def markdown(guide):
         "Inputs (I) are recorded readings that replay feeds back as-is; outputs are computed and "
         "replay recomputes them. `<name>` is filled in at runtime.",
         "",
-        "## Logged by AdvantageKit",
+        "## Logged by AdvantageKit and the framework",
         "",
         "| Key | Meaning |",
         "|---|---|",

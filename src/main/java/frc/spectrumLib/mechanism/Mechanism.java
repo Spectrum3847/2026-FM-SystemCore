@@ -203,6 +203,9 @@ public abstract class Mechanism implements Subsystem {
     private BaseStatusSignal statorCurrentSignal;
     private BaseStatusSignal supplyCurrentSignal;
     private BaseStatusSignal tempSignal;
+    private BaseStatusSignal faultSignal;
+    private BaseStatusSignal stickyFaultSignal;
+    private BaseStatusSignal[] followerStickyFaultSignals = new BaseStatusSignal[0];
     private BaseStatusSignal[] followerSupplySignals = new BaseStatusSignal[0];
 
     /** Every signal above, so one refreshAll covers the loop. Empty when unattached. */
@@ -303,6 +306,7 @@ public abstract class Mechanism implements Subsystem {
 
             followerMotors = new TalonFX[config.followerConfigs.length];
             followerSupplySignals = new BaseStatusSignal[config.followerConfigs.length];
+            followerStickyFaultSignals = new BaseStatusSignal[config.followerConfigs.length];
             followerCurrentKeys = new String[config.followerConfigs.length];
             for (int i = 0; i < config.followerConfigs.length; i++) {
                 followerMotors[i] =
@@ -312,6 +316,7 @@ public abstract class Mechanism implements Subsystem {
                                 config.followerConfigs[i].opposeLeader);
                 configureStatusSignals(followerMotors[i], SignalRole.FOLLOWER, false);
                 followerSupplySignals[i] = followerMotors[i].getSupplyCurrent(false);
+                followerStickyFaultSignals[i] = followerMotors[i].getStickyFaultField(false);
                 followerCurrentKeys[i] =
                         "Followers/" + config.followerConfigs[i].getName() + "/SupplyCurrent";
             }
@@ -326,15 +331,20 @@ public abstract class Mechanism implements Subsystem {
             statorCurrentSignal = motor.getStatorCurrent(false);
             supplyCurrentSignal = motor.getSupplyCurrent(false);
             tempSignal = motor.getDeviceTemp(false);
-            loopSignals = new BaseStatusSignal[6 + followerSupplySignals.length];
+            faultSignal = motor.getFaultField(false);
+            stickyFaultSignal = motor.getStickyFaultField(false);
+            int n = followerSupplySignals.length;
+            loopSignals = new BaseStatusSignal[8 + 2 * n];
             loopSignals[0] = positionSignal;
             loopSignals[1] = velocitySignal;
             loopSignals[2] = voltageSignal;
             loopSignals[3] = statorCurrentSignal;
             loopSignals[4] = supplyCurrentSignal;
             loopSignals[5] = tempSignal;
-            System.arraycopy(
-                    followerSupplySignals, 0, loopSignals, 6, followerSupplySignals.length);
+            loopSignals[6] = faultSignal;
+            loopSignals[7] = stickyFaultSignal;
+            System.arraycopy(followerSupplySignals, 0, loopSignals, 8, n);
+            System.arraycopy(followerStickyFaultSignals, 0, loopSignals, 8 + n, n);
 
             inputs.followerSupplyCurrentAmps = new double[followerSupplySignals.length];
             inputs.followerConnected = new boolean[followerSupplySignals.length];
@@ -437,6 +447,9 @@ public abstract class Mechanism implements Subsystem {
         BaseStatusSignal.setUpdateFrequencyForAll(
                 DIAGNOSTIC_SIGNAL_HZ, talon.getStatorCurrent(), talon.getSupplyCurrent());
         talon.getDeviceTemp().setUpdateFrequency(TEMPERATURE_SIGNAL_HZ);
+        // Sticky faults latch between samples (cleared at boot), so 4 Hz misses nothing.
+        BaseStatusSignal.setUpdateFrequencyForAll(
+                TEMPERATURE_SIGNAL_HZ, talon.getFaultField(), talon.getStickyFaultField());
         // A long run of per-signal config calls, and only ever an optimisation. On a dead
         // bus it is pure boot latency, so it is the first thing dropped once the budget is
         // spent.
@@ -907,6 +920,8 @@ public abstract class Mechanism implements Subsystem {
         inputs.statorCurrentAmps = statorCurrentSignal.getValueAsDouble();
         inputs.supplyCurrentAmps = supplyCurrentSignal.getValueAsDouble();
         inputs.tempCelsius = tempSignal.getValueAsDouble();
+        inputs.faultField = (long) faultSignal.getValueAsDouble();
+        inputs.stickyFaultField = (long) stickyFaultSignal.getValueAsDouble();
         // New arrays every loop, never written in place. AdvantageKit holds a reference to an
         // input array and serializes it after this cycle, so reusing one logged whatever the next
         // loop wrote into it. The log then disagreed with what the code used, and replay diverged.
@@ -916,6 +931,11 @@ public abstract class Mechanism implements Subsystem {
             followerAmps[i] = followerSupplySignals[i].getValueAsDouble();
             followerOk[i] = followerSupplySignals[i].getStatus().isOK();
         }
+        long[] followerSticky = new long[followerStickyFaultSignals.length];
+        for (int i = 0; i < followerSticky.length; i++) {
+            followerSticky[i] = (long) followerStickyFaultSignals[i].getValueAsDouble();
+        }
+        inputs.followerStickyFaultField = followerSticky;
         inputs.followerSupplyCurrentAmps = followerAmps;
         inputs.followerConnected = followerOk;
         // Read every loop: Phoenix reports each reset once, to the first call after it.

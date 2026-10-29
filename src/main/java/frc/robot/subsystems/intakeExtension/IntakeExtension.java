@@ -272,11 +272,14 @@ public class IntakeExtension extends Mechanism {
         @Override
         public void periodic() {
             logBatteryUsage();
+            // The command requiring the right extension axis, if any.
             Telemetry.log("IntakeExtensionRight/CurrentCommand", getCurrentCommandName());
             // Voltage, currents, temperature and connection at 10 Hz (offseason); the
             // same signals are also recorded every loop as inputs under Mechanisms/.
             logDiagnostics("IntakeExtensionRight");
+            // Right axis position, mechanism rotations.
             Telemetry.log("IntakeExtensionRight/Position", getPositionRotations(), "rotations");
+            // Right axis speed, mechanism RPM.
             Telemetry.log("IntakeExtensionRight/RPM", getVelocityRPM(), "RPM");
         }
     }
@@ -599,17 +602,26 @@ public class IntakeExtension extends Mechanism {
         }
         applyStates();
         logBatteryUsage();
+        // What SuperStructure asked of the intake extension.
         Telemetry.log("IntakeExtension/WantedState", wantedState.toString());
+        // The state the extension is actually in, e.g. HOMING after a reboot lost its position.
         Telemetry.log("IntakeExtension/SystemState", systemState.toString());
+        // The command requiring the left extension axis, if any.
         Telemetry.log("IntakeExtension/CurrentCommand", getCurrentCommandName());
         // Voltage, currents, temperature and connection at 10 Hz (offseason); the
         // same signals are also recorded every loop as inputs under Mechanisms/.
         logDiagnostics("IntakeExtension");
+        // Left axis position, mechanism rotations.
         Telemetry.log("IntakeExtension/Position", getPositionRotations(), "rotations");
+        // Left axis speed, mechanism RPM.
         Telemetry.log("IntakeExtension/RPM", getVelocityRPM(), "RPM");
+        // While homing: the left side has stalled at the out stop and been re-zeroed.
         Telemetry.log("IntakeExtension/LeftHomed", leftHomed);
+        // While homing: the right side has stalled at the out stop and been re-zeroed.
         Telemetry.log("IntakeExtension/RightHomed", rightHomed);
+        // Times a full extend took the stall point as the out stop (the intake booted extended).
         Telemetry.log("IntakeExtension/OutPointRelearns", fullExtend.relearns());
+        // Full extend: DRIVING out, or HOLDING once both sides are still.
         Telemetry.log("IntakeExtension/ExtendPhase", fullExtend.phase().toString());
 
         previousSystemState = systemState;

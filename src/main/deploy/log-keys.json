@@ -668,90 +668,6 @@
    "input": false
   },
   {
-   "key": "/RealOutputs/<p>OnboardImu/GravityZShare",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<p>OnboardImu/Orientation",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<p>OnboardImu/YawGain",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<p>OnboardImu/YawSense",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<p>Pigeon/Forward",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<p>Pigeon/ForwardConsistency",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<p>Pigeon/ForwardErrorDeg",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<p>Pigeon/Level",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<p>Pigeon/RestPitchDeg",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<p>Pigeon/RestRollDeg",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<p>Pigeon/YawGain",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
-   "key": "/RealOutputs/<p>Pigeon/YawSense",
-   "unit": "",
-   "doc": "",
-   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
-   "input": false
-  },
-  {
    "key": "/RealOutputs/<p>Pose",
    "unit": "",
    "doc": "",
@@ -1349,70 +1265,70 @@
   {
    "key": "/RealOutputs/Hood/CurrentCommand",
    "unit": "",
-   "doc": "",
+   "doc": "The command requiring the hood, if any.",
    "source": "src/main/java/frc/robot/subsystems/hood/Hood.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Hood/GoalClamped",
    "unit": "",
-   "doc": "",
+   "doc": "The request was past a soft limit, so the hood goes to the limit instead.",
    "source": "src/main/java/frc/robot/subsystems/hood/Hood.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Hood/Homing/AssumedZeroedForReplay",
    "unit": "",
-   "doc": "",
+   "doc": "Replaying a log from before hood homing existed, so the hood is taken as zeroed.",
    "source": "src/main/java/frc/robot/subsystems/hood/Hood.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Hood/HomingState",
    "unit": "",
-   "doc": "",
+   "doc": "NotZeroed, Homing, TimedOut or Zeroed.",
    "source": "src/main/java/frc/robot/subsystems/hood/Hood.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Hood/PositionDegrees",
    "unit": "degrees",
-   "doc": "",
+   "doc": "Hood angle.",
    "source": "src/main/java/frc/robot/subsystems/hood/Hood.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Hood/RequestedDegrees",
    "unit": "degrees",
-   "doc": "",
+   "doc": "Hood angle the current state asked for, before clamping to the soft limits.",
    "source": "src/main/java/frc/robot/subsystems/hood/Hood.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Hood/RPM",
    "unit": "RPM",
-   "doc": "",
+   "doc": "Hood speed, mechanism RPM.",
    "source": "src/main/java/frc/robot/subsystems/hood/Hood.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Hood/SystemState",
    "unit": "",
-   "doc": "",
+   "doc": "The state the hood is actually in, after its own transitions.",
    "source": "src/main/java/frc/robot/subsystems/hood/Hood.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Hood/WantedState",
    "unit": "",
-   "doc": "",
+   "doc": "What SuperStructure asked of the hood.",
    "source": "src/main/java/frc/robot/subsystems/hood/Hood.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Hood/Zeroed",
    "unit": "",
-   "doc": "",
+   "doc": "The hood has found its bottom stop since boot, so its angle is real.",
    "source": "src/main/java/frc/robot/subsystems/hood/Hood.java",
    "input": false
   },
@@ -1482,84 +1398,84 @@
   {
    "key": "/RealOutputs/IntakeExtension/CurrentCommand",
    "unit": "",
-   "doc": "",
+   "doc": "The command requiring the left extension axis, if any.",
    "source": "src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IntakeExtension/ExtendPhase",
    "unit": "",
-   "doc": "",
+   "doc": "Full extend: DRIVING out, or HOLDING once both sides are still.",
    "source": "src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IntakeExtension/LeftHomed",
    "unit": "",
-   "doc": "",
+   "doc": "While homing: the left side has stalled at the out stop and been re-zeroed.",
    "source": "src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IntakeExtension/OutPointRelearns",
    "unit": "",
-   "doc": "",
+   "doc": "Times a full extend took the stall point as the out stop (the intake booted extended).",
    "source": "src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IntakeExtension/Position",
    "unit": "rotations",
-   "doc": "",
+   "doc": "Left axis position, mechanism rotations.",
    "source": "src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IntakeExtension/RightHomed",
    "unit": "",
-   "doc": "",
+   "doc": "While homing: the right side has stalled at the out stop and been re-zeroed.",
    "source": "src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IntakeExtension/RPM",
    "unit": "RPM",
-   "doc": "",
+   "doc": "Left axis speed, mechanism RPM.",
    "source": "src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IntakeExtension/SystemState",
    "unit": "",
-   "doc": "",
+   "doc": "The state the extension is actually in, e.g. HOMING after a reboot lost its position.",
    "source": "src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IntakeExtension/WantedState",
    "unit": "",
-   "doc": "",
+   "doc": "What SuperStructure asked of the intake extension.",
    "source": "src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IntakeExtensionRight/CurrentCommand",
    "unit": "",
-   "doc": "",
+   "doc": "The command requiring the right extension axis, if any.",
    "source": "src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IntakeExtensionRight/Position",
    "unit": "rotations",
-   "doc": "",
+   "doc": "Right axis position, mechanism rotations.",
    "source": "src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java",
    "input": false
   },
   {
    "key": "/RealOutputs/IntakeExtensionRight/RPM",
    "unit": "RPM",
-   "doc": "",
+   "doc": "Right axis speed, mechanism RPM.",
    "source": "src/main/java/frc/robot/subsystems/intakeExtension/IntakeExtension.java",
    "input": false
   },
@@ -1615,7 +1531,7 @@
   {
    "key": "/RealOutputs/Localization/EKF/FeedMicros",
    "unit": "",
-   "doc": "",
+   "doc": "Time to feed this loop's observations to the comparison EKF.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
@@ -1634,16 +1550,100 @@
    "input": false
   },
   {
+   "key": "/RealOutputs/Localization/MountCheck/OnboardImu/GravityZShare",
+   "unit": "",
+   "doc": "Mount check: share of gravity on the onboard IMU's Z axis at rest; about 1 lying flat.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/MountCheck/OnboardImu/Orientation",
+   "unit": "",
+   "doc": "Mount check: gravity is on the axis the onboard IMU's mount setting implies.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/MountCheck/OnboardImu/YawGain",
+   "unit": "",
+   "doc": "Mount check: onboard IMU turn rate over the wheels' turn rate.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/MountCheck/OnboardImu/YawSense",
+   "unit": "",
+   "doc": "Mount check: the onboard IMU's heading turns the way the wheels turn the robot.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/MountCheck/Pigeon/Forward",
+   "unit": "",
+   "doc": "Mount check: the Pigeon's acceleration points where the wheels accelerate.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/MountCheck/Pigeon/ForwardConsistency",
+   "unit": "",
+   "doc": "Mount check: 1 when every sample put the Pigeon at the same angle from the wheels, near 0 if random.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/MountCheck/Pigeon/ForwardErrorDeg",
+   "unit": "",
+   "doc": "Mount check: how far the Pigeon's X axis sits from the robot's forward, counterclockwise.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/MountCheck/Pigeon/Level",
+   "unit": "",
+   "doc": "Mount check: Pigeon pitch and roll near 0 at rest: OK, WRONG or UNKNOWN (not enough driving yet).",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/MountCheck/Pigeon/RestPitchDeg",
+   "unit": "",
+   "doc": "Mount check: mean Pigeon pitch over the most level rest.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/MountCheck/Pigeon/RestRollDeg",
+   "unit": "",
+   "doc": "Mount check: mean Pigeon roll over the most level rest.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/MountCheck/Pigeon/YawGain",
+   "unit": "",
+   "doc": "Mount check: Pigeon turn rate over the wheels' turn rate; about 1, lower while wheels scrub.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/MountCheck/Pigeon/YawSense",
+   "unit": "",
+   "doc": "Mount check: the Pigeon's heading turns the way the wheels turn the robot.",
+   "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
+   "input": false
+  },
+  {
    "key": "/RealOutputs/Localization/Odometry/HeadingSource",
    "unit": "",
-   "doc": "",
+   "doc": "Where odometry's heading came from: PRIMARY (Pigeon), BACKUP (onboard IMU), WHEELS, or NONE.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Localization/Odometry/ModulesUsed",
    "unit": "",
-   "doc": "",
+   "doc": "Modules odometry trusted this loop: connected, not reading a dead 0, within 1.5x top speed.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
@@ -1664,14 +1664,14 @@
   {
    "key": "/RealOutputs/Localization/OnboardImu/ErrorVsPigeonDeg",
    "unit": "",
-   "doc": "",
+   "doc": "Onboard IMU shadow heading minus the Pigeon's, while the Pigeon is in use.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Localization/OnboardImu/ShadowHeadingDeg",
    "unit": "",
-   "doc": "",
+   "doc": "The heading the onboard IMU would give, tracked alongside in case the Pigeon drops.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
@@ -1769,21 +1769,21 @@
   {
    "key": "/RealOutputs/PathPlanner/ActivePath",
    "unit": "",
-   "doc": "",
+   "doc": "The path PathPlanner is following, as poses.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/PathPlanner/CurrentPose",
    "unit": "",
-   "doc": "",
+   "doc": "The pose PathPlanner is following from.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/PathPlanner/TargetPose",
    "unit": "",
-   "doc": "",
+   "doc": "Where PathPlanner wants the robot now on the active path.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
@@ -2497,63 +2497,63 @@
   {
    "key": "/RealOutputs/Swerve/Aim/HeadingErrorDeg",
    "unit": "degrees",
-   "doc": "",
+   "doc": "Robot heading minus the aim heading, while aiming.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/Aim/TargetRateFeedforward",
    "unit": "deg/s",
-   "doc": "",
+   "doc": "Heading rate fed forward while aiming, so the robot keeps up with a moving aim point.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/CurrentCommand",
    "unit": "",
-   "doc": "",
+   "doc": "The command requiring the drivetrain, if any.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/Currents/DriveStatorCurrent",
    "unit": "",
-   "doc": "",
+   "doc": "All four drive motors' stator current, summed, at 10 Hz. Per module under Swerve/Currents/<module>/.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/Currents/DriveSupplyCurrent",
    "unit": "",
-   "doc": "",
+   "doc": "All four drive motors' battery current, summed, at 10 Hz.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/Currents/SteerStatorCurrent",
    "unit": "",
-   "doc": "",
+   "doc": "All four steer motors' stator current, summed, at 10 Hz.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/Currents/SteerSupplyCurrent",
    "unit": "",
-   "doc": "",
+   "doc": "All four steer motors' battery current, summed, at 10 Hz.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/GyroRebooted",
    "unit": "",
-   "doc": "",
+   "doc": "The Pigeon rebooted this loop.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/ModuleRebooted",
    "unit": "",
-   "doc": "",
+   "doc": "Per module, a drive or steer motor rebooted this loop.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
@@ -2567,70 +2567,70 @@
   {
    "key": "/RealOutputs/Swerve/RotationVelocityCoefficient",
    "unit": "",
-   "doc": "",
+   "doc": "Scale on the pilot's rotation.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/SystemState",
    "unit": "",
-   "doc": "",
+   "doc": "The state the drivetrain is actually in, after its own transitions.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/TeleopVelocityCoefficient",
    "unit": "",
-   "doc": "",
+   "doc": "Scale on the pilot's translation: lower while aiming or shooting.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/Tilt/BumpedRecently",
    "unit": "",
-   "doc": "",
+   "doc": "An impact happened recently (logged for review; nothing gates on it yet).",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/Tilt/ImpactG",
    "unit": "",
-   "doc": "",
+   "doc": "How far total acceleration is from 1 g: near 0 standing or driving smoothly, a spike on a hit or bump.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/Tilt/OdometryScale",
    "unit": "",
-   "doc": "",
+   "doc": "How much wheel travel odometry counts: 1 level, falling to 0 as tilt grows (wheels slip on bumps).",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/Tilt/TiltDegrees",
    "unit": "degrees",
-   "doc": "",
+   "doc": "Angle between the robot's up axis and vertical, from Pigeon pitch and roll.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/Tilt/Tilted",
    "unit": "",
-   "doc": "",
+   "doc": "Tilted past the gating limit; vision that assumes a level robot is held off.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/Tilt/TiltRateDegPerSec",
    "unit": "degrees per second",
-   "doc": "",
+   "doc": "How fast the tilt is changing.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/WantedState",
    "unit": "",
-   "doc": "",
+   "doc": "What SuperStructure asked of the drivetrain.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
@@ -2770,35 +2770,35 @@
   {
    "key": "/RealOutputs/Vision/AimBackMT2Only",
    "unit": "",
-   "doc": "",
+   "doc": "While aiming, only LL-Back's MT2 multi-tag frames update the pose (the side cameras pulled it 15-35 cm off at TXMAN1).",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/BackHeadingCorrections",
    "unit": "",
-   "doc": "",
+   "doc": "Times LL-Back held off the fused heading long enough to re-seed it (and re-origin the Quest), since boot.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/BackHeadingErrorDeg",
    "unit": "",
-   "doc": "",
+   "doc": "LL-Back MT1 multi-tag heading minus the fused heading at its capture time.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/ChassisSource",
    "unit": "",
-   "doc": "",
+   "doc": "Limelight pose used for the chassis: MT1, or MT2 once the seed is confirmed and MT2 is switched on.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/EnabledSeedCount",
    "unit": "",
-   "doc": "",
+   "doc": "Seeds that happened while enabled because nothing seeded the pose before enable.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
@@ -2812,14 +2812,14 @@
   {
    "key": "/RealOutputs/Vision/GrossHeadingCorrections",
    "unit": "",
-   "doc": "",
+   "doc": "Times a still robot's heading was re-seeded from vision for being far off, since boot.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/GrossHeadingErrorDeg",
    "unit": "",
-   "doc": "",
+   "doc": "Best MT1 multi-tag heading minus the fused heading, judged while the robot is still.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
@@ -2868,49 +2868,49 @@
   {
    "key": "/RealOutputs/Vision/MultiTagSeedCount",
    "unit": "",
-   "doc": "",
+   "doc": "Pose seeds from a multi-tag frame, since boot.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/PoseHeadingSeeded",
    "unit": "",
-   "doc": "",
+   "doc": "Vision has set the pose and heading since boot.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/PoseSeedConfirmed",
    "unit": "",
-   "doc": "",
+   "doc": "The seed held: 50 multi-tag frames in a row agreed on the heading.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/Quest/Connected",
    "unit": "",
-   "doc": "",
+   "doc": "The QuestNav is talking. Each camera has its own Vision/<camera>/Connected.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/SecondsSinceFusedEstimate",
    "unit": "",
-   "doc": "",
+   "doc": "Time since vision last updated the fused pose; capped at 999.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/SeedConfirmBreak",
    "unit": "",
-   "doc": "",
+   "doc": "Why the seed-confirm run last restarted: disagrees with the fused heading, or heading spread.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Vision/SeedConfirmProgress",
    "unit": "",
-   "doc": "",
+   "doc": "Frames in the current seed-confirm run, of 50.",
    "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
    "input": false
   },

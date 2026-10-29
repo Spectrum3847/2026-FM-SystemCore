@@ -93,7 +93,7 @@ public class Launcher extends Mechanism {
         SET_SHOT,
     }
 
-    private WantedState wantedState = WantedState.OFF;
+    @Getter private WantedState wantedState = WantedState.OFF;
     private SystemState systemState = SystemState.OFF;
 
     public void setWantedState(WantedState state) {

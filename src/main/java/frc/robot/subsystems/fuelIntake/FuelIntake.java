@@ -72,7 +72,7 @@ public class FuelIntake extends Mechanism {
         SLOW_INTAKE,
     }
 
-    private WantedState wantedState = WantedState.NEUTRAL;
+    @Getter private WantedState wantedState = WantedState.NEUTRAL;
     private SystemState systemState = SystemState.NEUTRAL;
 
     public void setWantedState(WantedState state) {

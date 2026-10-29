@@ -58,6 +58,13 @@ public class OrinCameraInputs implements LoggableInputs {
     public long healthDecodeFailures = -1;
     public long healthRecoveries = -1;
 
+    /** streaming, stalled, recovering, disconnected, gave-up, paused or starting (patch 81). */
+    public long healthHeartbeat = -1;
+
+    public String healthState = "";
+    public long healthLastFrameAgeMs = -1;
+    public String healthProblem = "";
+
     // -- /photonvision/<camera>/mount/ (section 9b) --
 
     public double mountHeightM = Double.NaN;
@@ -99,6 +106,10 @@ public class OrinCameraInputs implements LoggableInputs {
         table.put("Health/Frames", healthFrames);
         table.put("Health/DecodeFailures", healthDecodeFailures);
         table.put("Health/Recoveries", healthRecoveries);
+        table.put("Health/Heartbeat", healthHeartbeat);
+        table.put("Health/State", healthState);
+        table.put("Health/LastFrameAgeMs", healthLastFrameAgeMs);
+        table.put("Health/Problem", healthProblem);
         table.put("Mount/HeightM", mountHeightM);
         table.put("Mount/PitchDeg", mountPitchDeg);
         table.put("Mount/RollDeg", mountRollDeg);
@@ -131,6 +142,11 @@ public class OrinCameraInputs implements LoggableInputs {
         healthFrames = table.get("Health/Frames", healthFrames);
         healthDecodeFailures = table.get("Health/DecodeFailures", healthDecodeFailures);
         healthRecoveries = table.get("Health/Recoveries", healthRecoveries);
+        // Logs from before patch 81 have none: not reported.
+        healthHeartbeat = table.get("Health/Heartbeat", -1);
+        healthState = table.get("Health/State", "");
+        healthLastFrameAgeMs = table.get("Health/LastFrameAgeMs", -1);
+        healthProblem = table.get("Health/Problem", "");
         mountHeightM = table.get("Mount/HeightM", mountHeightM);
         mountPitchDeg = table.get("Mount/PitchDeg", mountPitchDeg);
         mountRollDeg = table.get("Mount/RollDeg", mountRollDeg);

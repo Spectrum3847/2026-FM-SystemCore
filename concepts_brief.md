@@ -153,14 +153,14 @@ From Limelight's public SystemCore OS repo ([systemcore-os-public](https://githu
 * Add-on packages are `.ipk` files with a systemd unit and a control file (`X-Port`, `X-Has-UI`,
   `X-Auto-Start`, `X-Icon-Path`, also `X-Https`, `X-Services`). The web UI shows packages as tiles.
   The image ships `opkg-utils`.
-* Installing a package stops the robot program and restarts it after. Not yet seen on our robot.
+* Installing a package stops the robot program and restarts it after.
 * SystemCore's web UI already has per-service log download, a support bundle with optional robot
   logs, CAN utilisation, a cameras portal, ports and firewall views, storage use and a live robot
   program log.
 * Ports (third-party teardown): 4800 web UI, 4803 package manager, 4900 VS Code server, 4901 web
   terminal, 5800 CAN sniffer, 5812 NT4. Our robot differs on 4800 and 5800 (below).
 
-From 8515's SystemCore (2026-10-29, OS `6eab208`, read only, nothing installed):
+From 8515's SystemCore (2026-10-29, OS `6eab208`):
 
 * Installed packages: `Blocks` 0.2.2, `elastic_dashboard` 2027.0.0-alpha8, `canivore-usb` and
   `canivore-usb-kernel`. `opkg` and `opkg-build` are in `/bin`. Package metadata lives in
@@ -182,6 +182,17 @@ From 8515's SystemCore (2026-10-29, OS `6eab208`, read only, nothing installed):
   `/packages/upload_async` with `/packages/install_status/<id>`). The `systemcore` user (the one
   GradleRIO deploys as) has passwordless sudo, so a deploy can also run `sudo opkg install` over
   SSH.
+* A Gradle deploy can install a package (tested 2026-10-29, branch
+  `robot-app/ipk-install-test`). Gradle builds the `.ipk` itself (an ar archive of `debian-binary`,
+  `control.tar.gz`, `data.tar.gz`; no tools needed on the laptop). A `FileArtifact` copies it and
+  runs `sudo opkg install --force-reinstall` after the copy. The test package `robot-app` holds only
+  a systemd unit (Python's `http.server` as `systemcore`, serving `/home/systemcore/deploy` on 5808)
+  and an SVG icon, so Gradle keeps owning the files it serves. Install took 3 s and the service came
+  up. The package manager's list
+  (`http://<robot>:4803/api/packages/launcher`) showed it with its icon, and its tile in the web UI
+  opened `http://10.85.15.2:5808/`. Remove it with `sudo opkg remove robot-app`.
+* Whether installing a package restarts the robot program is still unseen: GradleRIO stops the
+  robot program before any artifact runs, so the Gradle test can't show it.
 * Port 5800 is SystemCore's `visionserver`, as are 5802 and 5805-5807. The robot program's Java
   listens only on 5810 (NetworkTables). Ports in use from 5800 to 5837: 5800-5803, 5805-5807, 5810,
   5812, 5815-5817, 5819, 5820, 5822, 5825-5827, 5832, 5835-5837.

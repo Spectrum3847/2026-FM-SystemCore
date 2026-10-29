@@ -2239,7 +2239,7 @@
         "layouts": [],
         "containers": [
           {
-            "title": "Loop Time (s, budget 0.010)",
+            "title": "Worst loop each second (s, budget 0.010)",
             "x": 0,
             "y": 0,
             "width": 896,

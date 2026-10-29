@@ -111,7 +111,7 @@ public class Jetson {
     private final Alert rewindDropping =
             new Alert("Rewind is dropping frames while recording", Level.MEDIUM);
     private final Alert rebooted = new Alert("", Level.MEDIUM);
-    private double lastUptime = Double.NaN;
+    private String lastBootId = "";
     private final Alert rewindNotRecording =
             new Alert("Rewind should be recording this match but isn't", Level.MEDIUM);
 
@@ -188,6 +188,11 @@ public class Jetson {
         for (Camera c : cameras) {
             checks.add(new CameraCheck(c));
         }
+    }
+
+    /** Whether the reboot alert is up. */
+    boolean rebooted() {
+        return rebooted.get();
     }
 
     /** Whether the Jetson should answer: installed, on a real robot or a replay of one. */
@@ -374,16 +379,18 @@ public class Jetson {
         frc.spectrumLib.telemetry.Telemetry.logDash("Vision/Jetson/Connected", !down);
         boolean up = isExpected() && !down;
 
-        // Uptime dropping means the Jetson rebooted (power or watchdog); its own log survives power
-        // cuts, so look up why after the match. Stays up until the next enable.
-        if (!Double.isNaN(lastUptime) && inputs.uptimeSeconds < lastUptime - 1.0) {
-            rebooted.setText(
-                    String.format(
-                            "Jetson rebooted at robot time %.0f s: check its log and power", now));
-            rebooted.set(isExpected());
-        }
-        if (!Double.isNaN(inputs.uptimeSeconds)) {
-            lastUptime = inputs.uptimeSeconds;
+        // A new boot ID means the Jetson rebooted (power or watchdog); a reconnect keeps it. Its
+        // own
+        // log survives power cuts, so look up why after the match. Stays up until the next enable.
+        if (!inputs.bootId.isEmpty()) {
+            if (!lastBootId.isEmpty() && !inputs.bootId.equals(lastBootId)) {
+                rebooted.setText(
+                        String.format(
+                                "Jetson rebooted at robot time %.0f s: check its log and power",
+                                now));
+                rebooted.set(isExpected());
+            }
+            lastBootId = inputs.bootId;
         }
 
         show(

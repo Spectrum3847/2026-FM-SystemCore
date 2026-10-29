@@ -1,22 +1,16 @@
 package frc.robot.subsystems.vision;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 import org.wpilib.networktables.BooleanPublisher;
 import org.wpilib.networktables.BooleanSubscriber;
 import org.wpilib.networktables.GenericSubscriber;
 import org.wpilib.networktables.IntegerArrayPublisher;
 import org.wpilib.networktables.IntegerArraySubscriber;
 import org.wpilib.networktables.IntegerPublisher;
-import org.wpilib.networktables.MultiSubscriber;
 import org.wpilib.networktables.NetworkTable;
 import org.wpilib.networktables.NetworkTableInstance;
 import org.wpilib.networktables.NetworkTableValue;
 import org.wpilib.networktables.StringPublisher;
 import org.wpilib.networktables.StringSubscriber;
-import org.wpilib.networktables.Topic;
 
 /**
  * The Jetson's NetworkTables topics under {@code /photonvision} (SpectrumJetson docs/TECHNICAL.md
@@ -24,16 +18,6 @@ import org.wpilib.networktables.Topic;
  * some as integer.
  */
 public class JetsonNTIO implements JetsonIO {
-    /**
-     * PhotonVision's metrics protobuf is published as {@code <prefix><hostname>}. It builds the
-     * name as {@code getSubTable("/metrics")} under {@code /photonvision}, hence the double slash;
-     * the single-slash form is watched too in case that changes. Any host is read, since the
-     * Jetson's hostname has changed between images.
-     */
-    private static final String[] METRICS_PREFIXES = {
-        "/photonvision//metrics/", "/photonvision/metrics/"
-    };
-
     /** 2026-01-01 UTC: before this the robot's clock has not been set by the Driver Station. */
     private static final long CLOCK_VALID_AFTER_MS = 1_767_225_600_000L;
 
@@ -58,6 +42,33 @@ public class JetsonNTIO implements JetsonIO {
     private final GenericSubscriber overCurrentEvents;
     private final StringSubscriber settingsJson;
     private final IntegerArraySubscriber excludedTagsActive;
+    private final GenericSubscriber inputVoltageVSub;
+    private final GenericSubscriber inputVoltageMinVSub;
+    private final GenericSubscriber inputVoltageLowestVSub;
+    private final GenericSubscriber usbEventsSub;
+    private final StringSubscriber lastUsbEventSub;
+    private final StringSubscriber ethInterfaceSub;
+    private final BooleanSubscriber ethLinkUpSub;
+    private final GenericSubscriber ethSpeedMbpsSub;
+    private final GenericSubscriber ethCarrierChangesSub;
+    private final GenericSubscriber ntDisconnectsSub;
+    private final StringSubscriber bootIdSub;
+    private final GenericSubscriber uptimeSecondsSub;
+    private final StringSubscriber clockSourceSub;
+    private final GenericSubscriber clockLastJumpSecondsSub;
+    private final GenericSubscriber cpuUtilPctSub;
+    private final GenericSubscriber ramUsedPctSub;
+    private final GenericSubscriber ssdTempCSub;
+    private final GenericSubscriber fsErrorsSub;
+    private final BooleanSubscriber settingsReadOnlySub;
+    private final BooleanSubscriber scratchReadOnlySub;
+    private final GenericSubscriber usbBandwidthUsedBytesSub;
+    private final GenericSubscriber usbBandwidthBudgetBytesSub;
+    private final GenericSubscriber ssdMediaErrorsSub;
+    private final GenericSubscriber ssdUnsafeShutdownsSub;
+    private final GenericSubscriber ssdPercentUsedSub;
+    private final GenericSubscriber ssdCriticalWarningSub;
+    private final GenericSubscriber ssdAvailableSparePctSub;
 
     private final BooleanSubscriber recording;
     private final StringSubscriber session;
@@ -70,14 +81,6 @@ public class JetsonNTIO implements JetsonIO {
     private final StringSubscriber fieldMapError;
 
     private final NetworkTableInstance nt = NetworkTableInstance.getDefault();
-
-    /** Keeps the server announcing metrics topics under any host, so they can be found. */
-    @SuppressWarnings("unused")
-    private final MultiSubscriber metricsAnyHost = new MultiSubscriber(nt, METRICS_PREFIXES);
-
-    private final List<GenericSubscriber> metrics = new ArrayList<>();
-    private final Set<String> metricsTopics = new HashSet<>();
-    private long nextMetricsScanNanos = 0;
 
     private final BooleanPublisher record;
     private final StringPublisher label;
@@ -107,6 +110,33 @@ public class JetsonNTIO implements JetsonIO {
         throttle = jetson.getStringTopic("throttle").subscribe("");
         overCurrentEvents = number(jetson, "overCurrentEvents");
         settingsJson = jetson.getStringTopic("settingsJson").subscribe("");
+        inputVoltageVSub = number(jetson, "inputVoltageV");
+        inputVoltageMinVSub = number(jetson, "inputVoltageMinV");
+        inputVoltageLowestVSub = number(jetson, "inputVoltageLowestV");
+        usbEventsSub = number(jetson, "usbEvents");
+        lastUsbEventSub = jetson.getStringTopic("lastUsbEvent").subscribe("");
+        ethInterfaceSub = jetson.getStringTopic("ethInterface").subscribe("");
+        ethLinkUpSub = jetson.getBooleanTopic("ethLinkUp").subscribe(false);
+        ethSpeedMbpsSub = number(jetson, "ethSpeedMbps");
+        ethCarrierChangesSub = number(jetson, "ethCarrierChanges");
+        ntDisconnectsSub = number(jetson, "ntDisconnects");
+        bootIdSub = jetson.getStringTopic("bootId").subscribe("");
+        uptimeSecondsSub = number(jetson, "uptimeSeconds");
+        clockSourceSub = jetson.getStringTopic("clockSource").subscribe("");
+        clockLastJumpSecondsSub = number(jetson, "clockLastJumpSeconds");
+        cpuUtilPctSub = number(jetson, "cpuUtilPct");
+        ramUsedPctSub = number(jetson, "ramUsedPct");
+        ssdTempCSub = number(jetson, "ssdTempC");
+        fsErrorsSub = number(jetson, "fsErrors");
+        settingsReadOnlySub = jetson.getBooleanTopic("settingsReadOnly").subscribe(false);
+        scratchReadOnlySub = jetson.getBooleanTopic("scratchReadOnly").subscribe(false);
+        usbBandwidthUsedBytesSub = number(jetson, "usbBandwidthUsedBytes");
+        usbBandwidthBudgetBytesSub = number(jetson, "usbBandwidthBudgetBytes");
+        ssdMediaErrorsSub = number(jetson, "ssdMediaErrors");
+        ssdUnsafeShutdownsSub = number(jetson, "ssdUnsafeShutdowns");
+        ssdPercentUsedSub = number(jetson, "ssdPercentUsed");
+        ssdCriticalWarningSub = number(jetson, "ssdCriticalWarning");
+        ssdAvailableSparePctSub = number(jetson, "ssdAvailableSparePct");
         excludedTagsActive = pv.getIntegerArrayTopic("excludedTagsActive").subscribe(new long[0]);
         NetworkTable jetsonMap = jetson.getSubTable("FieldMap");
         fieldMapHash = jetsonMap.getStringTopic("Hash").subscribe("");
@@ -170,7 +200,33 @@ public class JetsonNTIO implements JetsonIO {
         inputs.overCurrentEvents = (long) read(overCurrentEvents, -1);
         inputs.settingsJson = settingsJson.get();
         inputs.excludedTagsActive = excludedTagsActive.get();
-        readMetrics(inputs);
+        inputs.inputVoltageV = read(inputVoltageVSub, Double.NaN);
+        inputs.inputVoltageMinV = read(inputVoltageMinVSub, Double.NaN);
+        inputs.inputVoltageLowestV = read(inputVoltageLowestVSub, Double.NaN);
+        inputs.usbEvents = (long) read(usbEventsSub, -1);
+        inputs.lastUsbEvent = lastUsbEventSub.get();
+        inputs.ethInterface = ethInterfaceSub.get();
+        inputs.ethLinkUp = ethLinkUpSub.get();
+        inputs.ethSpeedMbps = (long) read(ethSpeedMbpsSub, -1);
+        inputs.ethCarrierChanges = (long) read(ethCarrierChangesSub, -1);
+        inputs.ntDisconnects = (long) read(ntDisconnectsSub, -1);
+        inputs.bootId = bootIdSub.get();
+        inputs.uptimeSeconds = read(uptimeSecondsSub, Double.NaN);
+        inputs.clockSource = clockSourceSub.get();
+        inputs.clockLastJumpSeconds = read(clockLastJumpSecondsSub, Double.NaN);
+        inputs.cpuUtilPct = read(cpuUtilPctSub, Double.NaN);
+        inputs.ramUsedPct = read(ramUsedPctSub, Double.NaN);
+        inputs.ssdTempC = read(ssdTempCSub, Double.NaN);
+        inputs.fsErrors = (long) read(fsErrorsSub, -1);
+        inputs.settingsReadOnly = settingsReadOnlySub.get();
+        inputs.scratchReadOnly = scratchReadOnlySub.get();
+        inputs.usbBandwidthUsedBytes = (long) read(usbBandwidthUsedBytesSub, -1);
+        inputs.usbBandwidthBudgetBytes = (long) read(usbBandwidthBudgetBytesSub, -1);
+        inputs.ssdMediaErrors = (long) read(ssdMediaErrorsSub, -1);
+        inputs.ssdUnsafeShutdowns = (long) read(ssdUnsafeShutdownsSub, -1);
+        inputs.ssdPercentUsed = (long) read(ssdPercentUsedSub, -1);
+        inputs.ssdCriticalWarning = (long) read(ssdCriticalWarningSub, -1);
+        inputs.ssdAvailableSparePct = (long) read(ssdAvailableSparePctSub, -1);
         inputs.rewindRecording = recording.get();
         inputs.rewindSession = session.get();
         inputs.rewindFreeGB = read(freeGB, Double.NaN);
@@ -179,39 +235,6 @@ public class JetsonNTIO implements JetsonIO {
         inputs.fieldMapName = fieldMapName.get();
         inputs.fieldMapLoadedAt = read(fieldMapLoadedAt, Double.NaN);
         inputs.fieldMapError = fieldMapError.get();
-    }
-
-    private long lastMetricsTime = 0;
-
-    /** Parses the newest metrics message, if one arrived since the last loop. */
-    private void readMetrics(JetsonInputs inputs) {
-        long now = System.nanoTime();
-        if (now >= nextMetricsScanNanos) {
-            nextMetricsScanNanos = now + 1_000_000_000L;
-            for (String prefix : METRICS_PREFIXES) {
-                for (Topic topic : nt.getTopics(prefix)) {
-                    if (metricsTopics.add(topic.getName())) {
-                        metrics.add(topic.genericSubscribe());
-                    }
-                }
-            }
-        }
-        for (GenericSubscriber sub : metrics) {
-            NetworkTableValue v = sub.get();
-            if (!v.isRaw() || v.getTime() == lastMetricsTime) {
-                continue;
-            }
-            lastMetricsTime = v.getTime();
-            try {
-                var m = org.photonvision.proto.Photon.ProtobufDeviceMetrics.parseFrom(v.getRaw());
-                inputs.uptimeSeconds = m.getUptime();
-                inputs.cpuUtilPct = m.getCpuUtil();
-                inputs.ramUtilPct = m.getRamUtil();
-                inputs.diskUsableSpace = m.getDiskUsableSpace();
-            } catch (Exception e) {
-                // A malformed message: keep the last values.
-            }
-        }
     }
 
     @Override

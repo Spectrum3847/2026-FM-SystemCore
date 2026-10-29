@@ -589,20 +589,22 @@ public class SuperStructure extends SubsystemBase {
                             intakeExtension.setBrakeMode(false);
                             hood.setBrakeMode(false);
                         })
-                .ignoringDisable(true);
+                .ignoringDisable(true)
+                .withName("SuperStructure.coastMechanisms");
     }
 
     /** Releases every mechanism held by its tracking stop; one still stuck stops again. */
     public Command clearTrackingStops() {
         return Commands.runOnce(
-                () -> {
-                    hood.clearTrackingStop();
-                    launcher.clearTrackingStop();
-                    indexerTower.clearTrackingStop();
-                    indexerBed.clearTrackingStop();
-                    intakeExtension.clearTrackingStop();
-                    fuelIntake.clearTrackingStop();
-                });
+                        () -> {
+                            hood.clearTrackingStop();
+                            launcher.clearTrackingStop();
+                            indexerTower.clearTrackingStop();
+                            indexerBed.clearTrackingStop();
+                            intakeExtension.clearTrackingStop();
+                            fuelIntake.clearTrackingStop();
+                        })
+                .withName("SuperStructure.clearTrackingStops");
     }
 
     public Command brakeMechanisms() {
@@ -611,7 +613,8 @@ public class SuperStructure extends SubsystemBase {
                             intakeExtension.setBrakeMode(true);
                             hood.setBrakeMode(true);
                         })
-                .ignoringDisable(true);
+                .ignoringDisable(true)
+                .withName("SuperStructure.brakeMechanisms");
     }
 
     // Allocation-free boolean checks. Use these in per-loop code (e.g. ShotCalculator).
@@ -653,7 +656,8 @@ public class SuperStructure extends SubsystemBase {
     }
 
     public Command setStateCommand(WantedSuperState state) {
-        return new InstantCommand(() -> setWantedSuperState(state));
+        return new InstantCommand(() -> setWantedSuperState(state))
+                .withName("SuperStructure.setState." + state);
     }
 
     /**

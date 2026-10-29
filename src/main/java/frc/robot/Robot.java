@@ -607,16 +607,19 @@ public class Robot extends SpectrumRobot {
         // LT alone intakes fuel. Does nothing if RT is already held (RT+LT is handled below).
         pilot.LT.onTrue(
                 Commands.either(
-                        superStructure.setStateCommand(WantedSuperState.INTAKE_FUEL),
-                        Commands.none(),
-                        pilot.RT.negate()));
+                                superStructure.setStateCommand(WantedSuperState.INTAKE_FUEL),
+                                Commands.none(),
+                                pilot.RT.negate())
+                        .withName("Pilot.LTAlone"));
 
         // RT alone launches. Does nothing if LT is already held (RT+LT is handled below).
         pilot.RT.onTrue(
                 Commands.either(
-                        superStructure.setStateCommand(WantedSuperState.LAUNCH_WITH_SQUEEZE),
-                        Commands.none(),
-                        pilot.LT.negate()));
+                                superStructure.setStateCommand(
+                                        WantedSuperState.LAUNCH_WITH_SQUEEZE),
+                                Commands.none(),
+                                pilot.LT.negate())
+                        .withName("Pilot.RTAlone"));
 
         // RT and LT both held: launch, intake stays extended (LAUNCH_WITHOUT_SQUEEZE).
         pilot.RT
@@ -679,7 +682,8 @@ public class Robot extends SpectrumRobot {
                         Commands.parallel(
                                         intakeExtension.resetCurrentPositionToMaxCommand(),
                                         operator.rumbleCommand(1, 0.5))
-                                .ignoringDisable(true));
+                                .ignoringDisable(true)
+                                .withName("IntakeExtension.resetToMax"));
 
         operator.selectButton.onTrue(superStructure.setStateCommand(WantedSuperState.FORCE_HOME));
         operator.selectButton.onFalse(superStructure.setStateCommand(WantedSuperState.IDLE));
@@ -696,9 +700,14 @@ public class Robot extends SpectrumRobot {
         operator.dPadLeft.onTrue(ShotCalculator.increaseDriveAngleOffset());
 
         // Reset hub shift timer when enabling
-        Util.teleop.onTrue(Commands.runOnce(ShiftHelpers::initialize));
-        Util.autoMode.onTrue(Commands.runOnce(ShiftHelpers::initialize));
-        Util.disabled.onTrue(Commands.runOnce(ShiftHelpers::initialize).ignoringDisable(true));
+        Util.teleop.onTrue(
+                Commands.runOnce(ShiftHelpers::initialize).withName("ShiftHelpers.initialize"));
+        Util.autoMode.onTrue(
+                Commands.runOnce(ShiftHelpers::initialize).withName("ShiftHelpers.initialize"));
+        Util.disabled.onTrue(
+                Commands.runOnce(ShiftHelpers::initialize)
+                        .ignoringDisable(true)
+                        .withName("ShiftHelpers.initialize"));
 
         // Auton Triggers
         Auton.autonIntake.onTrue(
@@ -707,9 +716,11 @@ public class Robot extends SpectrumRobot {
                 superStructure.setStateCommand(WantedSuperState.AUTON_TRACK_TARGET));
         Auton.autonUnjam.onTrue(
                 Commands.sequence(
-                        superStructure.setStateCommand(WantedSuperState.UNJAM),
-                        Commands.waitSeconds(1),
-                        superStructure.setStateCommand(WantedSuperState.LAUNCH_WITH_SQUEEZE)));
+                                superStructure.setStateCommand(WantedSuperState.UNJAM),
+                                Commands.waitSeconds(1),
+                                superStructure.setStateCommand(
+                                        WantedSuperState.LAUNCH_WITH_SQUEEZE))
+                        .withName("Auton.unjamThenLaunch"));
         Auton.autonClearState.onTrue(superStructure.setStateCommand(WantedSuperState.IDLE));
     }
 
@@ -889,7 +900,8 @@ public class Robot extends SpectrumRobot {
                                                 Telemetry.log("Initialized", true);
                                                 autonWarmedUp = true;
                                             }))
-                            .ignoringDisable(true);
+                            .ignoringDisable(true)
+                            .withName("Auton.warmUpPathFollowing");
             CommandScheduler.getInstance().schedule(autonStartCommand);
         }
 
@@ -986,7 +998,8 @@ public class Robot extends SpectrumRobot {
                                                                 PrintPriority.HIGH);
                                                         Telemetry.log("Auton Warmed Up", true);
                                                     }))
-                                    .ignoringDisable(true);
+                                    .ignoringDisable(true)
+                                    .withName("Auton.warmUpStartPath");
                     CommandScheduler.getInstance().schedule(warmUpPath);
                 } else {
                     Telemetry.print("Warning: No paths loaded for auto: " + baseAutoName);

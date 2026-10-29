@@ -96,12 +96,18 @@ Every PR runs, in parallel:
 | `replay` | the PR moving the fused pose (5 cm, 2°) or the shot gate's verdicts (10 loops) in any replay fixture, against the base branch replaying the same fixtures ([tools/replay_regression.py](tools/replay_regression.py)) |
 | `app` | the robot app's tests |
 
-Sim logs and replay logs are uploaded as artifacts. To check a sim run locally:
+Sim logs and replay logs are uploaded as artifacts.
+
+To check locally in one command, use [tools/check.py](tools/check.py). It builds once, then runs the
+tests, scripted sims and replays in parallel, and prints one PASS/FAIL summary (full output in
+`build/check/`):
 
 ```bash
-FM_SIM_SCRIPT=drive ./gradlew simulateJava -PnoSimGui | tee console.txt
-python tools/ci_assert.py logs/akit_XXXX.wpilog console.txt
+python tools/check.py --quick --log robotlogs/X.wpilog   # ~80 s: unit tests, drive sim, a replay
+python tools/check.py --sims drive,shoot,auto            # ~2.5 min: everything CI's build and sims run
 ```
+
+Loop overruns only warn there, since the jobs share the laptop's CPU; CI judges loop timing.
 
 When a PR is meant to change the replay (a gate, a std-dev tier), add the `replay-change-expected`
 label.

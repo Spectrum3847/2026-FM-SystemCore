@@ -66,7 +66,7 @@ public class IndexerTower extends Mechanism {
         UNJAM,
     }
 
-    private WantedState wantedState = WantedState.OFF;
+    @Getter private WantedState wantedState = WantedState.OFF;
     private SystemState systemState = SystemState.OFF;
 
     public void setWantedState(WantedState state) {

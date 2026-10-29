@@ -354,7 +354,7 @@ public class IntakeExtension extends Mechanism {
         HOMING,
     }
 
-    private WantedState wantedState = WantedState.STOPPED;
+    @Getter private WantedState wantedState = WantedState.STOPPED;
     private SystemState systemState = SystemState.STOPPED;
     private SystemState previousSystemState = SystemState.STOPPED;
     private boolean sentOutByIntakeState = false;

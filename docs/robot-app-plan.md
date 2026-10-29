@@ -262,7 +262,7 @@ Steps 1–5 are realistic before the October event; 6 and 7 can wait. Build on `
 
 - [x] **1. Trial run.** Swerve Align is plain files in `src/main/deploy/app/`, served by the existing `WebServer`. Its NT prefix is still a constant in the page; the manifest replaces it in step 2. Port 5800 and phone access still need the bench.
 - [ ] **2. Manifest.** Build it from `Mechanism`, `SwerveAlignment`, `VisionConfig` and `LogStorage`. Publish on NT and log it once at startup.
-- [ ] **3. Tuning JSON.** `swerve.json`, `soft-limits.json`, `cameras.json`; the loader with overrides and the bad-file alert; NT commands; the effective tuning logged as an input. Turn on `pushLimelightMounts`.
+- [ ] **3. Tuning JSON.** `swerve.json`, `soft-limits.json`, `cameras.json`; the loader with overrides and the bad-file alert; NT commands; the effective tuning logged as an input. Turn on `pushLimelightMounts`. Each command the app sends, and whether the robot accepted it, is logged as an input too, so replay applies the same changes at the same loop and the log shows who changed what.
 - [ ] **4. Laptop tasks.** `pullTuning` and the deploy check.
 - [ ] **5. Pit pages.** Soft Limits, Cameras (port), and Logs with downloads. Cameras is ported; Logs opens a file from the laptop but cannot list the robot's log folder yet.
 - [x] **6. Log pages.** Port Power and CAN, with SystemCore's native buses.

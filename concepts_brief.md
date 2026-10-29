@@ -10,7 +10,7 @@
 
 The Robot App is a web app for one specific robot, kept in the same repo as that robot's code. It is
 for the team's 2027 robot on SystemCore and will be built once that robot exists. Students and
-programmers use it to learn how to use the robot, tune it, diagnose problems and get files off it.
+programmers use it to see the robot's controls, tune it, diagnose problems and get files off it.
 It is meant to be the one place they start, and AI sessions directed by a person can use it too.
 
 ## Requirements, in the team's words
@@ -41,13 +41,15 @@ the question is given in brackets.
 
 * "Pit students and programmers mostly, mostly laptop but phone is very helpful. Being able to see
   live things during practice or tuning, etc."
-* It is for the pit and also for practice, tuning, learning how to use the robot, and diagnostics.
+* It is used in the pit and during practice and tuning, and for diagnostics.
 * "AI will maintain it."
 
 ### What it does
 
 * "Displays the controllers and buttons layouts, other information about the code and the system
-  and how to use it."
+  and how to use it." Clarified: "it shows the controller displays, and can explain how to tune
+  certain things ... It should help explain how to use its tools, tool tips, guides, etc. but not
+  like tutorials or quizzes, etc."
 * "Tuning help for things like swerve module angle, gyro scalar tuning, other diagnostic and tuning."
 * Guided procedures: "the webpage for setting swerve positions ... can read wheel values so it can
   say ... the user needs to spin each wheel and direct the user to point each one forward, etc. Same

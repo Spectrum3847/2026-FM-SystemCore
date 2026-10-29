@@ -86,19 +86,27 @@ public class ShotCalculator {
     public static double DRIVE_ANGLE_OFFSET = STARTING_DRIVE_ANGLE_OFFSET;
 
     public static Command increaseHoodAngleOffset() {
-        return Commands.runOnce(() -> HOOD_ANGLE_OFFSET += 0.1).ignoringDisable(true);
+        return Commands.runOnce(() -> HOOD_ANGLE_OFFSET += 0.1)
+                .ignoringDisable(true)
+                .withName("ShotCalculator.increaseHoodAngleOffset");
     }
 
     public static Command decreaseHoodAngleOffset() {
-        return Commands.runOnce(() -> HOOD_ANGLE_OFFSET -= 0.1).ignoringDisable(true);
+        return Commands.runOnce(() -> HOOD_ANGLE_OFFSET -= 0.1)
+                .ignoringDisable(true)
+                .withName("ShotCalculator.decreaseHoodAngleOffset");
     }
 
     public static Command increaseDriveAngleOffset() {
-        return Commands.runOnce(() -> DRIVE_ANGLE_OFFSET += 1).ignoringDisable(true);
+        return Commands.runOnce(() -> DRIVE_ANGLE_OFFSET += 1)
+                .ignoringDisable(true)
+                .withName("ShotCalculator.increaseDriveAngleOffset");
     }
 
     public static Command decreaseDriveAngleOffset() {
-        return Commands.runOnce(() -> DRIVE_ANGLE_OFFSET -= 1).ignoringDisable(true);
+        return Commands.runOnce(() -> DRIVE_ANGLE_OFFSET -= 1)
+                .ignoringDisable(true)
+                .withName("ShotCalculator.decreaseDriveAngleOffset");
     }
 
     // =========================================================================

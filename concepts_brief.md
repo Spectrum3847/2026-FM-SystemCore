@@ -137,7 +137,246 @@ From `src/main/java/frc/spectrumLib/params/`, `spectrumLib/README.md` and `READM
 
 The brainstorm ran seven review rounds of six independent reviewers each. The final round below re-checked everything against the full picture; earlier rounds follow it and are kept for reference. Where they conflict, the team's decisions above and then the final round are current.
 
-### Final round: current position
+### Round 8: review of the finished brief (as the Robot App)
+
+Six new reviews of the restructured brief, told the earlier rounds used the wrong name and a pit-only view. Options are not chosen; the team decides.
+
+Reviewers: Design Critic (DC), Codebase Details (CD), Zoom Out (ZO), Comprehension/UX (CX), Implementation Readiness (IR), Structural (ST). All six completed.
+
+The brief was concept8.md, which reviews concepts_brief.md as it now stands under its correct name, the Robot App. Earlier rounds used "pit app", a name the team never used. This document lays out the reviewers' positions and does not choose answers. The team decides.
+
+---
+
+#### 1. Safety points (stated plainly)
+
+##### 1.1 Decision 5's no-timer premise holds only at events
+
+**Raised by:** CD (safety, major), CX (safety, stated plainly), ST (safety-adjacent), DC (major, not a blocker). ZO raises it as a nit and calls it acceptable.
+
+**The problem.** Decision 5 justifies no timer because "the robot network is secured at events and the robot is only powered while people work on it". That premise doesn't hold for:
+- school practice fields, scrimmages, off-season events and demos with shared radios;
+- a robot left powered between drills;
+- a practice field with no FMS, where tuning mode stays on all day.
+
+On such a network, anyone can arm tuning, and anyone (or any agent) can click a hard-stop confirm, which decision 13 already accepts. All of them note that params still apply only while disabled, so this is not a motion hazard. The risk is values changed between runs without the driver noticing.
+
+**Proposed guards** (none re-argues the decision):
+- Show "tuning ON" on the driver dashboard, and log every arm and disarm as an input (DC, CD).
+- Arming requires a Driver Station connection, or arming turns off at the next enable (CX).
+- Revisit the no-timer rationale for practice fields (ST).
+- Say explicitly that the tuning mode staying on all day without an FMS is acceptable because params apply only while disabled (ZO).
+
+##### 1.2 S1 (a page click is not proof of a person): still open in practice
+
+- Decision 13 accepts the unauthenticated page click.
+- ZO and ST find no safety problem beyond what decision 13 already accepts.
+- IR restates it plainly: an unauthenticated API, plus AI sessions using the same API, lets an agent complete a hard-stop change alone, which goes against AGENTS.md.
+  - IR's minimum fix: the API refuses hard-stop writes from any client not marked as a browser page. IR calls this weak but explicit.
+  - IR's better fix: the robot accepts a confirm only from a page session it has displayed a code to.
+- CX ties it to 1.1: the premise that keeps the click acceptable holds only at events. CX also notes that decision 10's rename is "confirmed by a person" through the same click, and the brief should say decision 13's acceptance covers it.
+
+##### 1.3 Brake/coast in hand-move procedures (DC, major, safety-adjacent)
+
+- Decision 11's soft-limit step has students move mechanisms by hand while disabled, which usually needs coast mode.
+- Brake/coast is on the AGENTS.md hard-stop list.
+- The brief doesn't say who switches it or how brake is restored. It also doesn't address an arm or elevator falling under gravity when it goes to coast.
+- **DC's proposal:**
+  - A procedure never changes neutral mode without the hard-stop confirmation.
+  - The robot restores brake when leaving the procedure, or on a disconnect.
+
+##### 1.4 Practice means the robot is enabled with browsers connected
+
+- During practice, a drive coach's phone, a programmer's laptop and an AI session can all subscribe to NT while the robot runs (DC, ZO, ST).
+- **Bench check 4 should measure the enabled case:** loop time with 3-4 NT clients connected and the robot enabled (DC, ZO, ST).
+- **Throttle log download while enabled** (DC).
+- **A stated rule that the app is read-only while enabled,** and that every write path is disabled-only (ZO, ST).
+
+---
+
+#### 2. Fact check: AGENTS.md "Robot app" section
+
+**What reviewers claimed:** DC, ZO, CX, IR and ST all say the section still contains "never a list", "pit web app", "no CAN IDs" and port 5800. DC, ZO, IR and ST call this a blocker or major issue.
+
+**What the section actually says** (read directly): it was rewritten.
+- It now describes the Robot App, built for this robot, in this repo and build.
+- It says pages are hand-made for this robot's mechanisms.
+- It says keys, params and button bindings come from lists generated from the Java, never typed by hand.
+- It contains neither "never a list" nor "pit web app".
+
+**What is still there:**
+- **"No Java file paths or CAN IDs in `app/`."**
+  - This is consistent with decision 12 (hand-made pages) and decision 17 (generated module), as far as hand-typed values go.
+  - It conflicts only if the generated module places CAN IDs into `app/`. That would happen if Open item 3's network page, or the CAN page "with FM's mapping", lists devices with their CAN IDs from the generated list. The design needs to say whether generated CAN IDs are allowed in `app/` and reword the rule if so.
+- **Today's address, `http://robot.local:5800/app/`.**
+  - It is described accurately as today's address, and the section notes the move to its own service.
+  - Bench check 3 says 5800 is SystemCore's CAN sniffer, so the section needs the new port once it is chosen.
+
+**Likely source of the error:** the brief's review history includes the round 7 "Document fixes" list (concepts_brief.md around line 389). That list quotes the old AGENTS.md wording, and the reviewers appear to have taken the stale text from there rather than from AGENTS.md.
+
+**Related, and accurate:** `docs/robot-app-plan.md` is still an older parallel plan.
+- It says "pit web app", has a `pullTuning` step and "Pit pages", and says pages read "CAN IDs and NT keys from a manifest" (CD, ZO).
+- AGENTS.md links to it.
+- CD (calling it a blocker for the design doc) and ZO want it marked superseded, with a pointer at the top.
+
+---
+
+#### 3. Where the "pit app" framing skewed the brief, and what is missing
+
+**Overview and decision 2 are pit-only (all six).** They say "pit students and programmers" and "for each pit job". Proposals:
+- Rewrite the Overview around four uses: pit, practice/tuning, learning, diagnostics (DC, IR, CD).
+- Or rewrite it around jobs (learn, tune, diagnose, fix), each with its users and setting: pit, practice field, shop, home (ZO, CX).
+- Name the audiences: pit crew, drivers and drive coach, programmers, new members, mentors, AI maintainers (CD, CX, ST).
+- Change "pit job" to "robot job" in the Overview, decision 2 and Verified facts (ST, IR). Define the job contexts once in the Glossary (ST).
+- Key the routing table by job, with a "when" or context column (DC, ST). Organise the home page by task, not place (CX).
+- **Counter:** the pit is where time pressure makes the app matter most, so it should still rank first (ZO, CX). Widening scope before the robot exists is a risk (DC), but the change is only wording (IR, ST).
+
+**Use away from the robot is missing (all six; major).** The SystemCore is the only host, so the controls guide, the how-it-works pages and log review need a powered robot. Proposals:
+- **How to serve the pages offline:** the same `app/` files run read-only from a checkout or a local static serve (CD, ZO, CX, IR), or CI publishes a static build per commit (DC, CD, ZO, CX). ST wants this as a new Open item.
+- **What works offline:** log pages open a downloaded `.wpilog` using the existing `wpilog.js`, `log-model.js` and `log-loader.js`. Live panels are marked unavailable.
+- **Development loop:** run the app against `simulateJava`, which also gives each page a development loop (DC).
+- **Counter (all six):** a second hosting place can go stale, the old app's failure. Mitigation: stamp every page with the git SHA and compare it with `/RealMetadata/GitSHA` on the robot (CD). Offline mode stays read-only, because two run modes double the testing (IR).
+
+**Learning and documentation content is missing (CD, ZO, CX, IR, ST; major).** "How to use the robot" is one bullet. Proposals:
+- **What to cover:** how each mechanism works, its states and auto sequences, interlocks (the `ShotGate` timeout, the operator Y bypass), what each alert or fault means, what a log key means, and links to source.
+- **Page family:** a "How it works" page per mechanism. Values (bindings, timeouts, keys) come from decision 17's module and `LogKeyGuide`; prose is hand-written. Hand-written descriptions per binding sit next to the binding in Java (ZO).
+- **Ownership (IR):** the content needs a home (Markdown or HTML next to each page), a reviewer, and a drift check.
+- **Counter:** prose goes stale (CD, CX, ST), and generated text reads badly or doesn't teach (ZO, CX).
+
+**Practice-time diagnostics are missing (CD, CX major; IR nit).** Proposed:
+- a between-runs or last-enable summary from the newest wpilog: faults, disconnects, brownouts, current at limit, loop overruns, shot log;
+- reuse of the `Summary/*` keys, `tools/wpilog_summary.py` logic or `log-loader.js`, and `PreMatchChecks`/`MatchSummary` for status (ZO);
+- driver notes tied to a log (CD);
+- a phone layout readable with gloves and in pit lighting (CD: a nit now, required in the design).
+
+**Counter:** AdvantageScope covers this, and Out of scope leaves log analysis to it. Several reviewers answer that a 30-second triage between runs is not analysis, so the brief should say where the line falls (CD, CX).
+
+**Review history carries the old name (DC, CD, ZO, CX, IR, ST).** Add one note at the top: "earlier rounds used the name *pit app* and assumed pit-only use; read as the Robot App". IR and ZO add that the earlier verdicts (linking generic OS features, the network page) still hold for practice use.
+
+---
+
+#### 4. The five Open items
+
+##### Open 1. File transfer
+
+**All six: read-only downloads in v1, no uploads.** The allowlist covers logs, the program log, the robot-local params and the params diff. The only write is decision 10's rename.
+- **Counter:** quick edits need SSH or a redeploy (DC, CX, ST). Camera configs and CAD assets need upload, but those already ship by deploy (CD). An upload would create a second writer (IR).
+
+##### Open 2. Login
+
+**All six: no login in v1.** Reviewers differ on what to add:
+- **Client ID** on every request or write, logged as an input (DC, CX, IR). ST suggests the client IP. It proves nothing but leaves a trail in replay.
+- **An origin or token check on write routes** against cross-site requests from other web pages (CD). Cheap, but no proof of a person.
+- **A shared PIN** against casual clicks from other teams on shared practice networks. ZO raises it as the counter; CX says revisit given 1.1.
+- Restrict the app to the robot network (IR).
+- **Counter (CX, IR):** without login or a physical confirm, decision 13's confirm proves nothing. Login alone doesn't fix that.
+
+##### Open 3. Network page
+
+**All six: list devices from the build-time generated module (decision 17). No discovery.** mDNS, ARP and latency history are dropped (ZO).
+- **CAN devices:** the truth is the robot's logged `connected` inputs, marked "needs robot program" (DC, CD).
+- **IP devices:** one HTTP or ping reachability probe from the service, paused while enabled (DC). Show the probe result and the `connected` input side by side when they disagree (CD), and label which source each comes from (DC).
+- **Devices the code doesn't declare** (radio, switch, coprocessors) need a small entry. Generate it in the same file (DC, ZO), or keep it as a short hand-written file (CX, IR).
+- **Counter:** the hand-written file is the copy of robot facts reviewers warned about (CX). IR says AGENTS.md forbids it; see section 2: the rewritten section forbids hand-typed keys, params and bindings, and CAN IDs in `app/`.
+
+##### Open 4. Carry-over
+
+**All six largely agree:**
+- **What carries over:** the service, `lib/` or `app/core`, the generator and the procedure/CaptureGate Java. Pages and assets are rewritten.
+- **Owner:** the programming or software lead.
+- **Trigger:** kickoff, or when the next robot's repo is created (ST). Extract when a second robot is live.
+- **Tracking:** a `VERSION` file and a changelog.
+- CD would decide at the second robot and name an owner now.
+- **Counter (all six):** copies drift. That is accepted under a once-a-year cadence.
+
+##### Open 5. JVM limits
+
+**All six: starting caps now, final values from bench check 4.**
+- **Heap starting value:** `-Xmx96m` (DC, ZO, CX, IR); 128-256 MB (CD); 256 MB (ST).
+- **Other flags:** `-XX:+UseSerialGC`, plus `-XX:TieredStopAtLevel=1` (DC).
+- **Systemd:** `Nice`, `CPUQuota` (DC: 10%) and `MemoryMax`.
+- **What to measure against:** `FullCycleMS`, or `Scheduler/RobotPeriodic` (CD).
+- **Where the caps live (IR):** in the Gradle-owned folder, not the frozen launcher, so they can change. IR would merge this item into bench check 4.
+- **Counters:**
+  - ZO would set none before measuring, then concedes conservative defaults rather than shipping uncapped.
+  - A small heap can fail during a large log download, so stream it (CX, DC).
+  - Guessed numbers should be marked provisional (CD, ST).
+
+---
+
+#### 5. The nine reviewer recommendations
+
+| # | Recommendation | Adopt | Adopt with changes | Change | Drop |
+|---|---|---|---|---|---|
+| 1 | Plain JS, `@ts-check`, generated module | DC, CD, ZO, CX, IR, ST | | | |
+| 2 | Direct NT from the browser | CD, ZO, CX, IR, ST | DC (conditional on the enabled-with-clients measurement) | | |
+| 3 | Replace robot-specific jobs, link generic OS features | DC, CD, ZO, CX, IR, ST | | | |
+| 4 | Capture gate on the robot, logged | DC, CD, ZO, CX, IR, ST | | | |
+| 5 | Controls guide generated from bindings | DC | CD, ZO, CX, IR (widen it to learning pages); ST (merge it into decision 17) | | |
+| 6 | Shared part in this repo (and spectrumLib), extracted later | CD, ZO | CX, IR | DC, ST | |
+| 7 | Remove `WebServer.start` after running side by side | DC, CD, ZO, CX, ST | IR | | |
+| 8 | Log download and status first | | DC (add the generator), IR (add the controls guide) | CD, ZO, CX, ST | |
+| 9 | Old/new value and failure mode, text from the declaration | DC, CD, ZO, CX, IR, ST | | | |
+
+**No reviewer drops any recommendation.**
+
+**Changes asked for:**
+- **Rec 1.** Restate "no build step" as "no laptop JS toolchain"; generation is allowed (CX). Pages must also load offline (CD).
+- **Rec 2.**
+  - Store the last update time per topic (CD).
+  - With no robot, pages fall back to log files (CX).
+  - The service must serve the crash view itself, since there is no NT while the program is down (IR, ZO).
+  - Bench check 4 should add an NT client count (ST).
+- **Rec 3.** Keep all deep links in one routing table, since links into an alpha OS UI break (ZO, IR). Rename "jobs" per section 3 (ST). The counter: students still see two UIs (CX).
+- **Rec 4.** Build it on `spectrumLib/checks/Check.java` (ZO). Use reason enums mapped to text in the generated module (DC). Make the thresholds params, so a gate bug or a threshold tweak doesn't need a redeploy (DC, ZO, IR).
+- **Rec 5.** The same generated table should feed the controls guide, the procedure prompts and the learning pages, with hand-written "why" text (CD, ZO, CX, IR). ST says it is now just part of decision 17 and should be merged into it. DC: whether `Gamepad` can enumerate its bindings is unverified, so make that a bench or code check.
+- **Rec 6.**
+  - **Conflict with decision 16 (DC).** spectrumLib imports WPILib and Phoenix. If the service source set depends on spectrumLib, it breaks decision 16. DC proposes splitting it: the robot-side procedure/capture code goes in spectrumLib, and the pure shared module (schema, keys, stamp rule) goes in its own source set with a build check.
+  - **Event branches (IR).** Decision 19 relies on a "bug fix" reading of AGENTS.md that an agent on an event branch won't share. Either amend AGENTS.md or keep the Java out of spectrumLib during the season.
+  - **Wording (CX, CD).** Reconcile the wording with decision 19.
+  - **Duplication (ST).** It duplicates Open item 4; keep one.
+- **Rec 7.**
+  - Do the cutover off `event*` branches (DC).
+  - Move the port too: 5800 is the CAN sniffer, and `LimelightHelpers` forwards 5800-5809 (ZO, IR, CD).
+  - IR wants a redirect or stub at the old URL during the side-by-side period, an updated QR code or bookmark, and a guarantee that the old WebServer and the new service never bind the same port.
+- **Rec 8.** All six want the first batch widened:
+  - Add the controls guide: CD, ZO, CX, IR, ST. It is the cheapest learning win, works away from the robot and needs no motion.
+  - Add the generator, since the other pages depend on it: DC.
+  - Counters: the controls guide needs bindings, which may not exist until the robot does (ZO), and the generator must come first (CX).
+- **Rec 9.** Make failure-mode text a required field of hard-stop params, and fail the build without it (IR, ZO). The counter is boilerplate, but it applies only to hard-stop groups.
+
+---
+
+#### 6. Errors, inconsistencies and gaps in the brief
+
+**Stale or wrong content:**
+- **The round 7 "Document fixes" list is stale** (DC, CX, ST). It cites "Goals", open items 1/7/9/11, an empty Out of scope section and "Key Decisions rec 5", none of which exist now. Several items are already done: the Overview framing, the Glossary, Out of scope, and the decision 1 wording. Mark each item done or open, or delete the list. It is also the likely source of the AGENTS.md misreading (section 2).
+- **History 3.3 vs decision 18** (ST). Decision 18 settles the 3-3 split on test selection. Mark 3.3 as superseded. Also say whether "the website starts its own guided session" sends a logged selection to the robot (the CD/CX/IR model) or stays on the page.
+- **Wrong cross-references** (ST). Line 175 attributes "deploys only warn" to decision 8; it is decision 7. Line 157 cites decision 5 for "unauthenticated", but decision 5 is about tuning mode. Open 2 should also point to S1.
+- **Decision 3 is incomplete** (CD). The app also has `logs` and `swerve-align` pages. Say whether they are rebuilt; swerve-align becomes decision 11's offsets procedure.
+- **Decision 15 wording** (CD). `nt4.js` already receives `serverTimeUs` (line 329). The fix is to *store* it per topic, not to obtain it.
+- **Status** (CX). It says "brainstorm complete", but Open items and bench checks still gate the design. Suggested wording: "brainstorm complete; design gated on bench checks 1-3 and 5".
+
+**Decisions that need more detail:**
+- **Decisions 8 and 14 need a recorded base** (DC, ZO, CX, IR, ST). "Differs from git" is true for every saved override, so decision 14's banner would never clear. The condition must be "git changed after the save", which needs at least the git SHA at save time, or a per-key base. ZO, which argued for "SHA only" in round 7, now says adopt IR's per-key base. CX and ST want this as an Open item. IR adds a read rule for files without the field: treat them as "stale unknown" with a warning, never trusted silently and never deleted.
+- **Decision 10 vs Alternatives** (IR). Renaming while the program is down means the service writes to the params folder, yet "the robot program is the only writer" is listed among the rejected alternatives. The design should state that the rename into a quarantine name is the single write the service is allowed, logged as an input by the robot at the next boot.
+- **The launcher contract is frozen before the bench checks** (IR). Fix the interface now: it runs `current/run` and reads its environment from the Gradle folder. Then the JVM flags, the JDK path and the port stay in Gradle. Rollback depends on a reproducible jar.
+- **TUNING_MODE vs CI** (CD). `Constants.TUNING_MODE` is still read at Robot.java:173 and :537, and a test fails PRs that leave it on. The design must remove the constant, keep the `TuningMode` metadata as a logged input, and retire or replace the test, or decision 5 conflicts with CI.
+- **eventDeploy** (CD). It auto-commits everything on `event*` branches. Confirm the pulled-values folder is gitignored.
+- **Decision 1's 10-15 s budget** is unmeasured. State that it is a target and add a bench check that measures deploy time (CD, CX).
+- **Device config** (ZO). Decision 2's "replaces other tools where it can" sits next to Out of scope's "full device configuration". Say plainly that device config is read-only.
+- **Concurrent users** (DC). A coach and a programmer may run a procedure at the same time, so there should be one owner per procedure (from round 6). Make it a decision.
+- **Versions shown to users** (CD). Every page shows the deployed SHA and whether the robot program matches the service.
+
+**Structure:**
+- **Review history size** (ZO, IR, ST). It is about 85% of the brief (about 1000 of 1174 lines). Add one current-position table (question, status, source) and move rounds 2-6 to an appendix file, so the design author reads only the current state.
+- **Mixed content in Decisions** (ST). Some decisions contain pending checks (6) or open questions (12). Move those to Bench checks and Open.
+- **Heading levels** (ST). Fix the history's heading nesting.
+- **Dates and owners** (ST). Date "Verified facts" and "Params system", and give bench checks an owner and a date column.
+- **Bench check list** (ZO). Keep the bench checks in the existing `docs/bench-checks.md` rather than a second list.
+- **Glossary gaps** (DC, CX, IR, ST). Missing: capture, LogKeyGuide, generated module, Robot App, the job contexts, `CaptureGate`, `Seq`, drift check, EGM and `egm-draft`, spectrumLib, Elastic, Tuner X, CANivore, `robot_top.sh`, `FullCycleMS` and opkg.
+- **Overview gap** (CX). It never says what "replaces" means for drivers and learners.
+
+### Round 7: final check (ran under the old name "pit app")
 
 Six reviews that re-examined every earlier conclusion against all team decisions and the robot-specific framing. Where this conflicts with the rounds below, this section is current. Options are not chosen; the team decides.
 
@@ -385,6 +624,8 @@ All earlier reviewers said "link". The team decided the app replaces tools where
 ---
 
 ### 4. Document fixes the reviewers asked for
+
+*Applied after round 7: AGENTS.md's "Robot app" section was rewritten, and the brief was restructured. The list below quotes the old wording and refers to sections that no longer exist.*
 
 - **AGENTS.md "Robot app" section** (DC blocker; ST major). It says "find mechanisms, buses and cameras from the log or NT, never a list" and "no CAN IDs in app/", and it still names port 5800. This contradicts decision 12, and AI maintainers will refuse to build hand-made pages or will fight them. Rewrite it to allow generated lists and forbid hand-typed values.
 - **Overview** (CX). Put the robot-specific framing in the first paragraph. Today a newcomer reads it as a generic app until decision 12.

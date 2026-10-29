@@ -374,6 +374,7 @@ public class Robot extends SpectrumRobot {
         for (PoseSource s : vision.getAllSources()) {
             matchSummary.addVisionSource(s.getName(), s::getAcceptedCount, s::getRejectedCount);
         }
+        matchSummary.addCanBuses(() -> canBusInputs.buses);
         auton.onAutoEnded(e -> matchSummary.autoEnded(e.reason().name(), e.seconds()));
     }
 

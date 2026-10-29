@@ -36,13 +36,20 @@ public class MotorInputs implements LoggableInputs, Cloneable {
 
     /**
      * Phoenix's fault bitfields ({@code getFaultField}, {@code getStickyFaultField}): active now,
-     * and latched since boot (sticky faults are cleared when the motor is created). Nonzero means
-     * check Tuner X or CTRE's fault-field bit list for which fault.
+     * and latched since boot (sticky faults are cleared when the motor is created). The bit order
+     * is undocumented: Tuner X decodes it. {@link #troubleFaults} names the ones that matter.
      */
     public long faultField = 0;
 
     public long stickyFaultField = 0;
     public long[] followerStickyFaultField = new long[0];
+
+    /**
+     * The leader's sticky faults that mean something went wrong (hardware, temperature, voltage,
+     * boot during enable), by name, e.g. {@code Undervoltage}. Never current or position limits.
+     */
+    public String[] troubleFaults = new String[0];
+
     public double[] followerSupplyCurrentAmps = new double[0];
     public boolean[] followerConnected = new boolean[0];
     public boolean[] followerResetOccurred = new boolean[0];
@@ -61,6 +68,7 @@ public class MotorInputs implements LoggableInputs, Cloneable {
         table.put("FaultField", faultField);
         table.put("StickyFaultField", stickyFaultField);
         table.put("FollowerStickyFaultField", followerStickyFaultField);
+        table.put("TroubleFaults", troubleFaults);
         table.put("FollowerSupplyCurrentAmps", followerSupplyCurrentAmps);
         table.put("FollowerConnected", followerConnected);
         table.put("FollowerResetOccurred", followerResetOccurred);
@@ -84,6 +92,7 @@ public class MotorInputs implements LoggableInputs, Cloneable {
         faultField = table.get("FaultField", 0L);
         stickyFaultField = table.get("StickyFaultField", 0L);
         followerStickyFaultField = table.get("FollowerStickyFaultField", new long[0]);
+        troubleFaults = table.get("TroubleFaults", new String[0]);
         followerSupplyCurrentAmps =
                 table.get("FollowerSupplyCurrentAmps", followerSupplyCurrentAmps);
         followerConnected = table.get("FollowerConnected", followerConnected);

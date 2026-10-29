@@ -138,7 +138,7 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/<prefix>/Active` |  |  |  | src/main/java/frc/spectrumLib/checks/PreMatchChecks.java |
 | `/RealOutputs/<prefix>/AvgTagDistances` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/RealOutputs/<prefix>/BusOffCount` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/<prefix>/BusUtilization` |  | % |  | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/<prefix>/BusUtilization` |  | percent |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/<prefix>/Connected` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/RealOutputs/<prefix>/Go` |  |  |  | src/main/java/frc/spectrumLib/checks/PreMatchChecks.java |
 | `/RealOutputs/<prefix>/MaxAmbiguities` |  |  |  | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
@@ -182,7 +182,7 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/<statorCurrentKey>` |  | amps |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
 | `/RealOutputs/<steerVelocityKey>` |  |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
 | `/RealOutputs/<supplyCurrentKey>` |  | amps |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
-| `/RealOutputs/<tempKey>` |  | deg_C |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
+| `/RealOutputs/<tempKey>` |  | celsius |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
 | `/RealOutputs/<tIMESTAMP_KEY>` |  |  | Lets the web app tell "the numbers are not moving" apart from "the robot went away". | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
 | `/RealOutputs/<trackingErrorKey>` |  |  |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
 | `/RealOutputs/<trackingFaultKey>` |  |  |  | src/main/java/frc/spectrumLib/mechanism/Mechanism.java |
@@ -200,14 +200,14 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Auton/EndReason` |  |  |  | src/main/java/frc/robot/auton/AutoEnd.java |
 | `/RealOutputs/Auton/RunningAuto` |  |  |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/Auton/SelectedAuto` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/Auton/StartHeadingErrorDeg` |  | deg |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/Auton/StartPoseErrorMeters` |  | m |  | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Auton/StartHeadingErrorDeg` |  | degrees |  | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Auton/StartPoseErrorMeters` |  | meters |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/BatteryLogger/BatteryVoltage` |  | volts |  | src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java |
 | `/RealOutputs/BatteryLogger/Current` |  | amps |  | src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java |
-| `/RealOutputs/BatteryLogger/Energy` |  | wh |  | src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java |
+| `/RealOutputs/BatteryLogger/Energy` |  | watt hours |  | src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java |
 | `/RealOutputs/BatteryLogger/Power` |  | watts |  | src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java |
 | `/RealOutputs/CANConfig/BudgetExhausted` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/CANConfig/BudgetSpentSeconds` |  |  |  | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/CANConfig/BudgetSpentSeconds` |  | seconds |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/CANConfig/FailedCalls` |  |  |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/Commands/Events` |  |  | Empty on quiet loops so each event appears once, in the loop it happened. | src/main/java/frc/spectrumLib/telemetry/CommandLog.java |
 | `/RealOutputs/Commands/Running` |  |  |  | src/main/java/frc/spectrumLib/telemetry/CommandLog.java |
@@ -315,7 +315,7 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/ShotCalc/YawOffsetDeg` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
 | `/RealOutputs/ShotLog/ActualHoodDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/ShotLog/ActualRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/AimToleranceDeg` |  | deg |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/ShotLog/AimToleranceDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/ShotLog/AimTrimDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/ShotLog/Alliance` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/ShotLog/Bypassed` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
@@ -326,7 +326,7 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/ShotLog/End/MinRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/ShotLog/FeedReason` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/ShotLog/FeedShot` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/ShotLog/HeadingErrorDeg` |  | deg | Fused heading minus the aim target, while the drivetrain aims; NaN for a set shot. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/ShotLog/HeadingErrorDeg` |  | degrees | Fused heading minus the aim target, while the drivetrain aims; NaN for a set shot. | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/ShotLog/HoodTrimDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/ShotLog/Index` |  |  | The one key on the dashboard: bursts counting up is how you know rows are being written. | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/ShotLog/InRange` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
@@ -361,9 +361,9 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Summary/Auto/Ended` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/Summary/Auto/Routine` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/Summary/Auto/Seconds` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Battery/MinVolts` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Battery/SecondsUnder7V` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Battery/SecondsUnder8V` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Battery/MinVolts` |  | volts |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Battery/SecondsUnder7V` |  | seconds |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Battery/SecondsUnder8V` |  | seconds |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/Summary/Brownouts` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/Summary/Devices/Drops` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/Summary/Devices/Faulted` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
@@ -391,21 +391,21 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Swerve/Tilt/BumpedRecently` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/Tilt/ImpactG` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/Tilt/OdometryScale` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/Swerve/Tilt/TiltDegrees` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
+| `/RealOutputs/Swerve/Tilt/TiltDegrees` |  | degrees |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/Tilt/Tilted` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/Swerve/Tilt/TiltRateDegPerSec` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
+| `/RealOutputs/Swerve/Tilt/TiltRateDegPerSec` |  | degrees per second |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/WantedState` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/System/CpuPercent` |  | % |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/CpuPercent` |  | percent |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
 | `/RealOutputs/System/Gc/CollectionsPerSecond` |  |  |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/Gc/MsPerSecond` |  | ms |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/Gc/MsPerSecond` |  | milliseconds |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
 | `/RealOutputs/System/HeapUsedMB` |  | MB |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/Loop/MaxPeriodMs` |  | ms |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/Loop/MeanPeriodMs` |  | ms |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/Loop/OverrunPercent` |  | % |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/MainThreadPercent` |  | % |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/Loop/MaxPeriodMs` |  | milliseconds |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/Loop/MeanPeriodMs` |  | milliseconds |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/Loop/OverrunPercent` |  | percent |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/MainThreadPercent` |  | percent |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
 | `/RealOutputs/System/MainThreadPriority` |  |  | An output, not metadata: AdvantageKit ignores recordMetadata after Logger.start(). | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/System/MemAvailableMB` |  | MB |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
-| `/RealOutputs/System/ProcessPercent` |  | % |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
+| `/RealOutputs/System/ProcessPercent` |  | percent |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
 | `/RealOutputs/System/Storage/FreeMB` |  |  |  | src/main/java/frc/spectrumLib/telemetry/LogStorage.java |
 | `/RealOutputs/System/Storage/LogsMB` |  |  |  | src/main/java/frc/spectrumLib/telemetry/LogStorage.java |
 | `/RealOutputs/System/ThreadCount` |  |  |  | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |

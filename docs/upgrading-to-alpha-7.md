@@ -1,8 +1,15 @@
 # Moving to WPILib 2027 alpha-7
 
-This repo is on alpha-6 on purpose: as of 2026-09-22, PathPlannerLib and PhotonLib have no
-alpha-7 builds, and alpha-7 rejects every older vendordep. AdvantageKit (`27.0.0-alpha-5`) and
-Phoenix 6 (`26.70.0-alpha-2`) do support alpha-7.
+This repo is on alpha-6 on purpose: alpha-7 rejects every older vendordep, and as of 2026-10-29
+PhotonLib has no alpha-7 build (latest `v2027.0.0-alpha-2`, for alpha-6). PathPlannerLib
+(`2027.0.0-alpha-4.1`), AdvantageKit (`27.0.0-alpha-7`) and Phoenix 6 (`26.70.0-alpha-2`) do.
+
+Staying on alpha-6 costs one thing on FM's newer SystemCore image: the image publishes
+`/diagnostics/canbusinfo` as `struct:CanBusInfoEntry[]`, alpha-6's `RobotController.getCANStatus()`
+(called by AdvantageKit every loop) wants `double[]`, so NT disables that subscription at boot with
+a type-mismatch warning. AdvantageKit's `SystemStats/Network/CAN*/Available` and `InterfaceUp` then
+read false on a working bus. Nothing here reads them; our CAN health comes from Phoenix
+(`CAN/<bus>/*`).
 
 When the vendors catch up:
 

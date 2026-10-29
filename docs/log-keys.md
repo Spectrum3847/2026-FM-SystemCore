@@ -216,7 +216,7 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/DSUpload/FilesReceived` |  |  |  | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
 | `/RealOutputs/DSUpload/LastError` |  |  |  | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
 | `/RealOutputs/DSUpload/LastFile` |  |  |  | src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java |
-| `/RealOutputs/Events` |  |  |  | src/main/java/frc/robot/Robot.java |
+| `/RealOutputs/Events` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
 | `/RealOutputs/FuelIntake/CurrentCommand` |  |  |  | src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java |
 | `/RealOutputs/FuelIntake/RPM` |  | RPM |  | src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java |
 | `/RealOutputs/FuelIntake/SystemState` |  |  |  | src/main/java/frc/robot/subsystems/fuelIntake/FuelIntake.java |

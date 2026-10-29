@@ -102,6 +102,7 @@ Candidates to replace or partly replace: WinSCP (log download and file view), th
 5. Build log download and the status page first; they are the clearest pain today.
 6. The app is the single starting point: a "How do I…" guide for every pit job, and its own pages for the common case of each tool.
 7. The service is a second small Java program in the same Gradle build.
+8. The existing Power, CAN and Cameras pages are rebuilt, not kept as they are: each covers the common pit case, gets robot facts from the robot, and says when to switch to AdvantageScope, Tuner X or the camera's own page. The current code is a reference, not a base.
 
 **Check on the bench before `/egm-draft`:**
 1. CPU use with vision running, and with the service idle and serving a download.
@@ -112,5 +113,4 @@ Candidates to replace or partly replace: WinSCP (log download and file view), th
 6. Does killing the robot program leave the service up?
 
 **Undecided:**
-- Which of the existing `power`, `can` and `cameras` pages to keep as they are, and which to rebuild around the "common case" rule.
 - Whether the API needs any login beyond "confirm comes from a page click".

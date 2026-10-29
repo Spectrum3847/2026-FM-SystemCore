@@ -35,12 +35,11 @@ In [`frc.robot.subsystems.vision`](../src/main/java/frc/robot/subsystems/vision)
 
 | Class | Job |
 |---|---|
-| `Vision` | Builds every source, runs them each loop, applies the fusion policy, seeds the pose while disabled, runs the gross-heading safety net, pushes heading to the Limelights, re-origins the Quest. |
-| `VisionGates` | The AprilTag gate chain and the Limelight / Photon / Quest trust models, with the 2026 rationale. |
+| `Vision` | Builds every source, runs them each loop, applies the fusion policy, seeds the pose while disabled, runs the gross-heading safety net, pushes heading to the Limelights. |
+| `VisionGates` | The AprilTag gate chain and the Limelight / Photon trust models, with the 2026 rationale. |
 | `LimelightIO` | One Limelight's MegaTag1 **or** MegaTag2. Each Limelight is two sources. |
 | `PhotonIO` | One PhotonVision camera (multi-tag solve if present, else best single tag). |
-| `QuestNavIO` + `QuestNavProtocol` | QuestNav over NT4 raw protobuf (QuestNavLib has no 2027 build). |
-| `SimVision` | PhotonLib `VisionSystemSim` for every AprilTag camera, Limelight emulation on top of it, and a drifting simulated Quest. |
+| `SimVision` | PhotonLib `VisionSystemSim` for every AprilTag camera, Limelight emulation on top of it. |
 
 ## Every loop
 
@@ -116,16 +115,6 @@ AprilTag sources (Limelight MT1/MT2, SystemCore cameras, Orin), from 2026 `main`
 | Height | \|z\| > 0.75 m | the robot cannot leave the floor |
 | Stale Estimate | older than 1.0 s | the estimator silently drops these otherwise |
 
-QuestNav is a VIO source, so its failure modes are different:
-
-| Gate | Why |
-|---|---|
-| Not Tracking | the headset says it lost tracking |
-| Not Reset | no pose reset sent yet: its frame is arbitrary |
-| Recent Reset | frames within 0.5 s of a reset may predate it |
-| Stale Estimate | older than 0.25 s (it runs at ~100 Hz) |
-| Out of Field | |
-| Jump vs Odometry | its motion between frames differs from the wheels' by > 0.25 m: re-localisation or re-origin |
 
 ## Fusion policy
 
@@ -139,15 +128,13 @@ QuestNav is a VIO source, so its failure modes are different:
   LL-Back correction: in the Limelight window, when the median LL-Back MT1 multi-tag heading error
   over at least 0.25 s and 3 frames is ≥ 2°, the heading is re-seeded. It has no stillness
   requirement and only moves the fused tracks, not the tag EKF.
-- Orin, SystemCore cameras and Quest fuse whenever enabled and the robot is enabled; they start
+- Orin and SystemCore cameras fuse whenever enabled and the robot is enabled; they start
   disabled.
-- The Quest is re-origined onto the fused pose when the seed is confirmed, after a gross-heading or
-  LL-Back correction, and on the operator's LB+X.
 
 ## Simulation results
 
 Scripted drive (`FM_SIM_SCRIPT=drive`), 2026-09-22, placeholder camera mounts for the Orin, the
-SystemCore cameras and the Quest. The sim feeds the robot odometry with 2% wheel-radius error and
+SystemCore cameras and the Quest (since removed: FM is not pursuing the Quest). The sim feeds the robot odometry with 2% wheel-radius error and
 0.05°/s gyro drift; "error" is against the sim's true pose. Frame error is the median per accepted
 frame; shadow error is the mean over the run.
 
@@ -170,8 +157,6 @@ Things this already shows, to check on the real robot:
 
 - MegaTag2's shadows are a little worse than MegaTag1's in sim, because MT2 inherits the gyro drift
   through the heading the robot pushes. Real Pigeon drift is smaller than the sim's.
-- The simulated Quest is only as good as its drift model (1 cm/√s random walk). Its real behaviour
-  is what the Quest is on the robot to measure.
 - PhotonLib's simulated per-tag ambiguity runs high (0.4–0.9 stationary), so "High Ambiguity" is
   overrepresented in sim. Do not tune that gate from sim.
 

@@ -7,7 +7,6 @@ import frc.robot.RuntimeInputs;
 import frc.robot.auton.Auton;
 import frc.robot.subsystems.swerve.Swerve;
 import frc.spectrumLib.checks.CameraHeadingCheck;
-import frc.spectrumLib.localization.Gate;
 import frc.spectrumLib.localization.GateContext;
 import frc.spectrumLib.localization.PoseFusion;
 import frc.spectrumLib.localization.PoseObservation;
@@ -53,8 +52,8 @@ import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 import org.wpilib.vision.apriltag.AprilTagFields;
 
 /**
- * FM's multi-source localization testbed: up to three Limelights, three Orin/PhotonVision cameras
- * and a QuestNav, each gated on its own and each logged well enough to compare after the fact.
+ * FM's multi-source localization testbed: up to three Limelights and three Orin/PhotonVision
+ * cameras, each gated on its own and each logged well enough to compare after the fact.
  *
  * <h2>Every loop</h2>
  *
@@ -79,7 +78,7 @@ import org.wpilib.vision.apriltag.AprilTagFields;
  *       weights each by its std-devs).
  *   <li>MegaTag1 until the disabled seed is confirmed, MegaTag2 after (offseason, switchable at
  *       {@code Vision/ChassisUseMT2}).
- *   <li>The Orin and QuestNav fuse whenever enabled and the robot is enabled. Both start
+ *   <li>The Orin cameras fuse whenever enabled and the robot is enabled. They start
  *       <b>disabled</b>: they are logged and shadowed, but do not move the robot pose until someone
  *       flips {@code /Localization/Sources/<name>/Enabled} on the dashboard.
  * </ul>
@@ -192,24 +191,6 @@ public class Vision implements Subsystem {
         /** Whether the Jetson is on the robot; its alerts are off without it. */
         @Getter final boolean jetsonInstalled = true;
 
-        // -- QuestNav (CALIBRATE: placeholder until mounted) --------------------
-
-        @Getter
-        final Transform3d robotToQuest =
-                new Transform3d(new Translation3d(0.0, 0.0, 0.40), Rotation3d.kZero);
-
-        /** Frames arriving within this long of a pose reset may predate it. */
-        @Getter final double questResetSettleSeconds = 0.5;
-
-        /** Quest frames older than this are stale (it runs at ~100 Hz). */
-        @Getter final double questMaxAgeSeconds = 0.25;
-
-        /**
-         * A Quest frame whose motion since the previous frame differs from wheel odometry's by more
-         * than this is a tracking jump (re-localisation, re-origin) rather than motion.
-         */
-        @Getter final double questMaxJumpMeters = 0.25;
-
         // -- Seeding (offseason) ------------------------------------------------
 
         /** Translation std-dev while seeding, metres. From the 2026 {@code forceIntegrateXY}. */
@@ -307,12 +288,10 @@ public class Vision implements Subsystem {
 
     @Getter private Jetson jetson;
     private double autoStartSeconds = Double.NaN;
-    @Getter private PoseSource questSource;
     @Getter private final List<PoseSource> allSources = new ArrayList<>();
     private PoseSource backMt1;
     private PoseSource backMt2;
 
-    private QuestNavControl questControl = QuestNavControl.NONE;
     private SimVision simVision;
     private final List<SimVision.LimelightSimCamera> simLimelights = new ArrayList<>();
 
@@ -345,8 +324,6 @@ public class Vision implements Subsystem {
             org.wpilib.math.filter.Debouncer debounce) {}
 
     private final List<CameraAlert> cameraAlerts = new ArrayList<>();
-
-    private final Alert questBatteryAlert = new Alert("", Level.MEDIUM);
 
     private final Alert notSeededAlert =
             new Alert(
@@ -463,29 +440,12 @@ public class Vision implements Subsystem {
             jetson.publishFieldMap(tagField.name(), tagLayoutHash, FieldMapJson.of(tagLayout));
         }
 
-        // QuestNav.
-        PoseSourceIO questIo;
-        if (replay) {
-            questIo = PoseSourceIO.NONE;
-        } else if (sim) {
-            var q = new SimVision.QuestSimIO(swerve::getSimTruthPose);
-            questControl = q;
-            questIo = q;
-        } else {
-            var q = new QuestNavIO(config.robotToQuest);
-            questControl = q;
-            questIo = q;
-        }
-        questSource =
-                new PoseSource("Quest", questIo, questGates(), VisionGates.QUEST_MODEL, false);
-
         allSources.addAll(mt1Sources);
         allSources.addAll(mt2Sources);
         allSources.addAll(scMt1Sources);
         allSources.addAll(scMt2Sources);
         allSources.addAll(orinSources);
         allSources.addAll(orinGyroSources); // after orinSources: they read this loop's results
-        allSources.add(questSource);
         for (PoseSource s : allSources) {
             fusion.register(s);
         }
@@ -496,7 +456,6 @@ public class Vision implements Subsystem {
             addCameraAlert(List.of(scMt1Sources.get(i), scMt2Sources.get(i)), false);
         }
         // (The Orin cameras' alerts are in Jetson.)
-        addCameraAlert(List.of(questSource), false);
 
         if (!replay) {
             for (Limelight ll : limelights) {
@@ -606,60 +565,6 @@ public class Vision implements Subsystem {
     }
 
     // =========================================================================
-    // QuestNav gates (VIO failure modes, not AprilTag ones)
-    // =========================================================================
-
-    private Pose2d lastQuestPose = null;
-    private Pose2d lastQuestOdometry = null;
-
-    private List<Gate> questGates() {
-        return List.of(
-                Gate.rejectIf("Not Tracking Rejection", (o, c) -> !o.tracking()),
-                Gate.rejectIf(
-                        "Not Reset Rejection",
-                        (o, c) -> Double.isNaN(questHealth(QuestNavIO.H_LAST_RESET_TIME))),
-                Gate.rejectIf(
-                        "Recent Reset Rejection",
-                        (o, c) ->
-                                o.timestampSeconds() - questHealth(QuestNavIO.H_LAST_RESET_TIME)
-                                        < config.questResetSettleSeconds),
-                Gate.rejectIf(
-                        "Stale Estimate Rejection",
-                        (o, c) ->
-                                c.nowSeconds() - o.timestampSeconds() > config.questMaxAgeSeconds),
-                VisionGates.FUTURE_TIMESTAMP_GATE,
-                Gate.rejectIf(
-                        "Out of Field Rejection",
-                        (o, c) -> frc.rebuilt.FieldHelpers.poseOutOfField(o.pose2d())),
-                this::questJumpGate);
-    }
-
-    /**
-     * Compares the Quest's motion since its last frame with wheel odometry's over the same loop. A
-     * VIO source that re-localises or re-origins jumps; the wheels never do.
-     */
-    private String questJumpGate(PoseObservation o, GateContext c) {
-        Pose2d quest = o.pose2d();
-        Pose2d odom = c.odometryPose();
-        String result = null;
-        if (lastQuestPose != null && lastQuestOdometry != null) {
-            double questMove = quest.getTranslation().getDistance(lastQuestPose.getTranslation());
-            double odomMove = odom.getTranslation().getDistance(lastQuestOdometry.getTranslation());
-            if (Math.abs(questMove - odomMove) > config.questMaxJumpMeters) {
-                result = "Jump vs Odometry Rejection";
-            }
-        }
-        lastQuestPose = quest;
-        lastQuestOdometry = odom;
-        return result;
-    }
-
-    private double questHealth(int index) {
-        double[] h = questSource.getInputs().health;
-        return index < h.length ? h[index] : Double.NaN;
-    }
-
-    // =========================================================================
     // Periodic
     // =========================================================================
 
@@ -754,19 +659,17 @@ public class Vision implements Subsystem {
         for (PoseSource s : orinGyroSources) {
             applyWithPolicy(s, !disabled && !backOnly);
         }
-        applyWithPolicy(questSource, !disabled && !backOnly);
 
         if (!disabled) {
             checkGrossHeadingError(context);
         }
         feedTagEkf();
 
-        // 4. Keep the Limelights and the Quest aligned with the fused pose.
+        // 4. Keep the Limelights aligned with the fused pose.
         if (Constants.currentMode != Constants.Mode.REPLAY) {
             sendCameraSettings(now);
         }
         pushHeadingToLimelights();
-        resetQuestAfterSeed();
         jetson.periodic(
                 context.linearSpeed() < 0.05 && Math.abs(context.robotVelocity().omega) < 0.05);
 
@@ -879,10 +782,8 @@ public class Vision implements Subsystem {
                 config.seedXyStdDev,
                 Units.degreesToRadians(config.seedThetaStdDevDeg));
         backHeadingCorrections++;
-        // Times LL-Back held off the fused heading long enough to re-seed it (and re-origin the
-        // Quest), since boot.
+        // Times LL-Back held off the fused heading long enough to re-seed it, since boot.
         Logger.recordOutput("Vision/BackHeadingCorrections", backHeadingCorrections);
-        resetQuestToRobotPose();
     }
 
     private List<PoseSource.Result> tightMultiTag(List<PoseSource.Result> results) {
@@ -1138,7 +1039,6 @@ public class Vision implements Subsystem {
             poseHeadingSeeded = true;
             enabledSeedCount++;
             multiTagSeedCount++;
-            resetQuestToRobotPose();
             Telemetry.print(
                     String.format(
                             "Vision: pose seeded WHILE ENABLED from %s (%d tags); nothing had"
@@ -1243,7 +1143,6 @@ public class Vision implements Subsystem {
                     Units.degreesToRadians(config.seedThetaStdDevDeg));
             grossHeadingCorrections++;
             grossHeadingSince = Double.NaN;
-            resetQuestToRobotPose();
             Telemetry.print(
                     String.format(
                             "Vision: gross heading correction of %.1f deg from %s",
@@ -1300,29 +1199,6 @@ public class Vision implements Subsystem {
         }
     }
 
-    /** Whether the seed was confirmed as of last loop, to catch the moment it becomes confirmed. */
-    private boolean wasSeedConfirmed = false;
-
-    /**
-     * Re-origins the Quest onto the fused pose whenever the fused pose has just been set by vision:
-     * the moment the disabled seed is confirmed, and after a gross heading correction. A Quest
-     * re-origined before the seed would carry the robot's pre-seed guess forever. Explicit resets
-     * (auto start, reorient, the operator's LB+X) call {@link #resetQuestToRobotPose()}.
-     */
-    private void resetQuestAfterSeed() {
-        if (poseSeedConfirmed && !wasSeedConfirmed) {
-            resetQuestToRobotPose();
-        }
-        wasSeedConfirmed = poseSeedConfirmed;
-    }
-
-    /** Sends the Quest the current fused pose. */
-    public void resetQuestToRobotPose() {
-        questControl.resetPose(fusion.getPose());
-        lastQuestPose = null;
-        Telemetry.print("Vision: QuestNav re-origined to the robot pose");
-    }
-
     private void addCameraAlert(List<PoseSource> sources, boolean always) {
         String camera = sources.get(0).getName().split("/")[0];
         cameraAlerts.add(
@@ -1334,7 +1210,7 @@ public class Vision implements Subsystem {
                         new org.wpilib.math.filter.Debouncer(2.0)));
     }
 
-    /** Disconnected-camera and Quest battery alerts, from logged inputs. */
+    /** Disconnected-camera alerts, from logged inputs. */
     private void updateDeviceAlerts() {
         for (CameraAlert c : cameraAlerts) {
             boolean connected = false;
@@ -1345,13 +1221,6 @@ public class Vision implements Subsystem {
             }
             c.alert().set(c.debounce().calculate(wanted && !connected));
         }
-        double[] health = questSource.getInputs().health;
-        double battery = health.length > 2 ? health[2] : -1;
-        questBatteryAlert.setText(String.format("Quest battery low: %.0f%%", battery));
-        questBatteryAlert.set(
-                questSource.isConnected()
-                        && battery >= 0
-                        && battery < CameraParams.QUEST_LOW_BATTERY_PERCENT.get());
     }
 
     private void logStatus(boolean disabled, boolean useMt2) {
@@ -1388,8 +1257,6 @@ public class Vision implements Subsystem {
                 // Per Orin camera: the camera is talking.
                 Telemetry.logDash("Vision/" + s.getName() + "/Connected", s.isConnected());
             }
-            // The QuestNav is talking. Each camera has its own Vision/<camera>/Connected.
-            Telemetry.logDash("Vision/Quest/Connected", questSource.isConnected());
         }
         // (Each source's Connected flag is already a logged input.)
         if (!Telemetry.slowLogThisLoop()) {
@@ -1471,13 +1338,6 @@ public class Vision implements Subsystem {
                         () -> limelights.forEach(Limelight::blinkLEDs),
                         () -> limelights.forEach(ll -> ll.setLEDMode(false)))
                 .withName("Vision.blinkLimelights");
-    }
-
-    /** Re-origins the QuestNav onto the current robot pose. */
-    public Command resetQuestCommand() {
-        return runOnce(this::resetQuestToRobotPose)
-                .ignoringDisable(true)
-                .withName("Vision.resetQuest");
     }
 
     /** A {@link BooleanSupplier} for whether the pose seed is confirmed. */

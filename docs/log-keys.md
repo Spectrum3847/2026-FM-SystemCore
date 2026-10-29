@@ -36,12 +36,12 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/Localization/Sources/<name>/AvgTagDistances` | I |  | Mean camera-to-tag distance per observation. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/Connected` | I |  | Whether the device is talking at all (NT heartbeat, frames arriving). | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/Fiducials` | I |  | Per-tag data of this loop's frame, FIDUCIAL_STRIDE values per tag: id, horizontal and vertical angle from the principal point (deg, positive right and up), camera-to-tag distance (m), ambiguity. Limelight MegaTag1 only; empty otherwise. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/Localization/Sources/<name>/Health` | I |  | Source-specific health numbers, e.g. QuestNav battery, Limelight fps. Keys fixed per IO. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/Localization/Sources/<name>/Health` | I |  | Source-specific health numbers, e.g. a Limelight's latency. Keys fixed per IO. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/Kind` | I |  | Kind ordinal of this source's observations; -1 before the first. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/MaxAmbiguities` | I |  | Largest single-tag ambiguity in each solve, 0 to 1; high means the pose may be flipped. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/Poses` | I |  | Each observation's robot pose, before any gate. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/StdDevScales` | I |  | Per-observation PoseObservation#stdDevScale; logged only when some entry isn't 1. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
-| `/Localization/Sources/<name>/TagCounts` | I |  | Tags in each observation's solve; -1 for a source with no tags (the Quest). | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
+| `/Localization/Sources/<name>/TagCounts` | I |  | Tags in each observation's solve; -1 for a source with no tags (a VIO tracker). | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/TagIds` | I |  | Every tag id seen this loop, for display. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/TargetSizes` | I |  | Limelight target area as a percentage of the image, per observation. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
 | `/Localization/Sources/<name>/Timestamps` | I |  | Capture time of each observation this loop, robot time. | src/main/java/frc/spectrumLib/localization/PoseSourceInputs.java |
@@ -402,7 +402,7 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Vision/<name>/Connected` |  |  | Per Orin camera: the camera is talking. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/<x>/Connected` |  |  | Per Limelight: the camera is talking, for the Pre-Match tab. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/AimBackMT2Only` |  |  | While aiming, only LL-Back's MT2 multi-tag frames update the pose (the side cameras pulled it 15-35 cm off at TXMAN1). | src/main/java/frc/robot/subsystems/vision/Vision.java |
-| `/RealOutputs/Vision/BackHeadingCorrections` |  |  | Times LL-Back held off the fused heading long enough to re-seed it (and re-origin the Quest), since boot. | src/main/java/frc/robot/subsystems/vision/Vision.java |
+| `/RealOutputs/Vision/BackHeadingCorrections` |  |  | Times LL-Back held off the fused heading long enough to re-seed it, since boot. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/BackHeadingErrorDeg` |  |  | LL-Back MT1 multi-tag heading minus the fused heading at its capture time. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/ChassisSource` |  |  | Limelight pose used for the chassis: MT1, or MT2 once the seed is confirmed and MT2 is switched on. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/EnabledSeedCount` |  |  | Seeds that happened while enabled because nothing seeded the pose before enable. | src/main/java/frc/robot/subsystems/vision/Vision.java |
@@ -427,7 +427,6 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Vision/Orin/<cameraName>/ResultsPerSecond` |  |  | PhotonVision results per second from this camera. | src/main/java/frc/robot/subsystems/vision/OrinPoseSourceIO.java |
 | `/RealOutputs/Vision/PoseHeadingSeeded` |  |  | Vision has set the pose and heading since boot. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/PoseSeedConfirmed` |  |  | The seed held: 50 multi-tag frames in a row agreed on the heading. | src/main/java/frc/robot/subsystems/vision/Vision.java |
-| `/RealOutputs/Vision/Quest/Connected` |  |  | The QuestNav is talking. Each camera has its own Vision/<camera>/Connected. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/SecondsSinceFusedEstimate` |  |  | Time since vision last updated the fused pose; capped at 999. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/SeedConfirmBreak` |  |  | Why the seed-confirm run last restarted: disagrees with the fused heading, or heading spread. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/SeedConfirmProgress` |  |  | Frames in the current seed-confirm run, of 50. | src/main/java/frc/robot/subsystems/vision/Vision.java |
@@ -436,7 +435,6 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/Runtime/Simulation` | I |  | Whether the recorded run was the desktop simulator (false on a robot). | src/main/java/frc/robot/RuntimeInputs.java |
 | `/SimScript/PlacePose` | I |  | Sim script: where it was placed. | src/main/java/frc/robot/SimScript.java |
 | `/SimScript/PlaceRobot` | I |  | Sim script: the robot was placed at PlacePose this loop. | src/main/java/frc/robot/SimScript.java |
-| `/SimScript/ResetQuest` | I |  | Sim script: the Quest was re-origined this loop. | src/main/java/frc/robot/SimScript.java |
 | `/SummaryInputs/Brownout/BrownedOutValid` | I |  | The brownout flag API works on this controller, so the flag counts too. | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/SummaryInputs/Brownout/FaultCount` | I |  | The controller's brownout fault count, or -1 where there is none. | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/Swerve/AccelXG` | I |  | Pigeon acceleration along its own axes, g (gravity included). All 0 when not read. | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |

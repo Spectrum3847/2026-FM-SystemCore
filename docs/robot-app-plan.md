@@ -28,7 +28,7 @@ Everything that broke was a fact about the robot that the app kept its own copy 
 | The app's own copy | Where it broke on FM-SystemCore |
 | --- | --- |
 | roboRIO addresses, the `lvuser` account, `/home/lvuser/logs` | SystemCore uses `robot.local`, the `systemcore` user, and `/U/logs` or `/home/systemcore/logs` |
-| A rewrite of `configEncoderOffsets(...)` in `OM2026.java` and of the `LimelightConfig` chains in `Vision.java` | FM uses `FM2026.java`, and `VisionConfig` has different fields (`systemCoreCameras`, `orinRobotToCamera`, `robotToQuest`) |
+| A rewrite of `configEncoderOffsets(...)` in `OM2026.java` and of the `LimelightConfig` chains in `Vision.java` | FM uses `FM2026.java`, and `VisionConfig` has different fields (`systemCoreCameras`, `orinRobotToCamera`) |
 | NT key names under `/Robot/Swerve/Align/` (the old DogLog logging library) | AdvantageKit publishes under `/AdvantageKit/RealOutputs/…`, and `DashboardReceiver` only sends dashboard keys to NT |
 | `robot-profile.json` (CAN IDs, current limits) and `controls.json`, mirrored by hand from Java | The drift check reads Java with a custom parser and only shows a warning banner |
 | Lived in one repo's `tools/` folder | Wasn't brought over; FM's README lists it as a known gap, and `SwerveAlignment.java` still points at a `tools/swerve-align` that doesn't exist |
@@ -98,7 +98,7 @@ Only the numbers the app writes move out of Java, into `src/main/deploy/params/`
 | --- | --- |
 | `swerve.json` | `swerve.configEncoderOffsets(...)` in `FM2026.java` |
 | `soft-limits.json` | e.g. `minRotations` / `maxRotations` in `Hood.java` |
-| `cameras.json` | `systemCoreCameras`, `orinRobotToCamera`, `robotToQuest` and the Limelight mounts in `VisionConfig` |
+| `cameras.json` | `systemCoreCameras`, `orinRobotToCamera` and the Limelight mounts in `VisionConfig` |
 
 Everything else stays in Java. The Java rewriters (`swerve-config.js`, `vision-config.js`) and their Spotless workarounds are deleted.
 

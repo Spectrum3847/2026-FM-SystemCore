@@ -1860,119 +1860,119 @@
   {
    "key": "/RealOutputs/Shooting/Calc/DistanceMeters",
    "unit": "meters",
-   "doc": "",
+   "doc": "Shoot-on-move virtual distance the model was evaluated at.",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/DistanceNoLookahead",
    "unit": "meters",
-   "doc": "",
+   "doc": "Real distance from the launcher to the target now; validity is judged on this.",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/DriveAngleDeg",
    "unit": "degrees",
-   "doc": "",
+   "doc": "Heading the robot should face to shoot, with the move compensation and the operator's trim.",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/DriveAngleOffsetDegrees",
    "unit": "degrees",
-   "doc": "",
+   "doc": "The operator's drive-angle trim (d-pad left/right).",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/ExitSpeedMs",
    "unit": "m/s",
-   "doc": "",
+   "doc": "Ball exit speed the model asks for.",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/FeedShot",
    "unit": "",
-   "doc": "",
+   "doc": "A feed (passing) shot, not a hub shot.",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/FlywheelSpeedRPM",
    "unit": "RPM",
-   "doc": "",
+   "doc": "Flywheel target.",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/HoodAngleDeg",
    "unit": "degrees",
-   "doc": "",
+   "doc": "Hood target, with the operator's trim (never below 9).",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/HoodAngleOffsetDegrees",
    "unit": "degrees",
-   "doc": "",
+   "doc": "The operator's hood trim (d-pad up/down).",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/HubPolyModel",
    "unit": "",
-   "doc": "",
+   "doc": "The fitted shot model in use.",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/LookaheadPose",
    "unit": "",
-   "doc": "",
+   "doc": "Where the launcher will be when the ball arrives, facing the drive angle.",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/RadialVelocityMs",
    "unit": "m/s",
-   "doc": "",
+   "doc": "Launcher velocity toward the target; positive is closing.",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/SetShot",
    "unit": "",
-   "doc": "",
+   "doc": "The set-shot spot the operator picked (Tower, LeftTrench, RightTrench).",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/TangentialVelocityMs",
    "unit": "m/s",
-   "doc": "",
+   "doc": "Launcher velocity across the line to the target.",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/Target",
    "unit": "",
-   "doc": "",
+   "doc": "Where the shot is aimed: the hub, or the feed target while in the feed zone.",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/TimeOfFlight",
    "unit": "seconds",
-   "doc": "",
+   "doc": "The model's ball flight time.",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Calc/YawOffsetDeg",
    "unit": "degrees",
-   "doc": "",
+   "doc": "Shoot-on-move aim offset from the straight-line bearing.",
    "source": "src/main/java/frc/rebuilt/ShotCalculator.java",
    "input": false
   },
@@ -2098,91 +2098,91 @@
   {
    "key": "/RealOutputs/Shooting/Log/ActualHoodDeg",
    "unit": "degrees",
-   "doc": "",
+   "doc": "Hood target (trim included) and measured.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/ActualRPM",
    "unit": "RPM",
-   "doc": "",
+   "doc": "Flywheel target and measured.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/AimToleranceDeg",
    "unit": "degrees",
-   "doc": "",
+   "doc": "Fused heading minus the aim target, and the gate's tolerance at this range. Empty for a set shot (the driver aims).",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/AimTrimDeg",
    "unit": "degrees",
-   "doc": "",
+   "doc": "The operator's live trims.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/Alliance",
    "unit": "",
-   "doc": "",
+   "doc": "Which alliance, Auto or Teleop, and which launch state.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/Bypassed",
    "unit": "",
-   "doc": "",
+   "doc": "For Override and Timeout, what was not ready (FlywheelNotReady, NotAimed, ...).",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/DistanceMeters",
    "unit": "meters",
-   "doc": "",
+   "doc": "Real distance to the target (a set shot: the spot's range). Bin on this.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/End/BurstSeconds",
    "unit": "seconds",
-   "doc": "",
+   "doc": "How long the feed stayed open.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/End/FlywheelDips",
    "unit": "",
-   "doc": "",
+   "doc": "Dips of the flywheel more than 150 RPM below target, re-armed within 75 RPM (3467's flywheel-drop idea): roughly, balls. CALIBRATE against video before trusting it; the sim's flywheel does not feel fuel.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/End/Index",
    "unit": "",
-   "doc": "",
+   "doc": "The row this ends.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/End/MinRPM",
    "unit": "RPM",
-   "doc": "",
+   "doc": "Lowest flywheel speed during the volley.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/FeedReason",
    "unit": "",
-   "doc": "",
+   "doc": "Why the feed opened: Ready (the gate), Override (operator Y) or Timeout (held 1 s).",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/FeedShot",
    "unit": "",
-   "doc": "",
+   "doc": "Feed (passing) shot or hub shot, and the fit it was evaluated on (HubModelStandstill for a set shot).",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
@@ -2196,7 +2196,7 @@
   {
    "key": "/RealOutputs/Shooting/Log/HoodTrimDeg",
    "unit": "degrees",
-   "doc": "",
+   "doc": "The operator's live trims.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
@@ -2210,140 +2210,140 @@
   {
    "key": "/RealOutputs/Shooting/Log/InRange",
    "unit": "",
-   "doc": "",
+   "doc": "Measured speed; the model's flight time; distance inside the fit.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/Kind",
    "unit": "",
-   "doc": "",
+   "doc": "Calculated or SetShot, and which spot (Tower, LeftTrench, RightTrench).",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/LookaheadDistanceMeters",
    "unit": "meters",
-   "doc": "",
+   "doc": "The shoot-on-move virtual distance the model was evaluated at.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/MatchTimeSeconds",
    "unit": "seconds",
-   "doc": "",
+   "doc": "Robot clock; match clock, for lining a row up with video.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/Mode",
    "unit": "",
-   "doc": "",
+   "doc": "Which alliance, Auto or Teleop, and which launch state.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/Model",
    "unit": "",
-   "doc": "",
+   "doc": "Feed (passing) shot or hub shot, and the fit it was evaluated on (HubModelStandstill for a set shot).",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/Pose",
    "unit": "",
-   "doc": "",
+   "doc": "Fused robot pose.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/PoseTrusted",
    "unit": "",
-   "doc": "",
+   "doc": "Whether the distance can be believed: vision under 3 s old, how old, and whether the disabled seed was confirmed.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/RadialVelocityMs",
    "unit": "m/s",
-   "doc": "",
+   "doc": "Launcher velocity toward and across the target; the model is a surface in distance and radial velocity. Empty for a set shot.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/RobotSpeedMs",
    "unit": "m/s",
-   "doc": "",
+   "doc": "Measured speed; the model's flight time; distance inside the fit.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/SecondsSinceFusedEstimate",
    "unit": "seconds",
-   "doc": "",
+   "doc": "Whether the distance can be believed: vision under 3 s old, how old, and whether the disabled seed was confirmed.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/SecondsWaited",
    "unit": "seconds",
-   "doc": "",
+   "doc": "From entering the launch state to this feed: what the gate cost.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/SeedConfirmed",
    "unit": "",
-   "doc": "",
+   "doc": "Whether the distance can be believed: vision under 3 s old, how old, and whether the disabled seed was confirmed.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/SetShot",
    "unit": "",
-   "doc": "",
+   "doc": "Calculated or SetShot, and which spot (Tower, LeftTrench, RightTrench).",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/SuperState",
    "unit": "",
-   "doc": "",
+   "doc": "Which alliance, Auto or Teleop, and which launch state.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/TangentialVelocityMs",
    "unit": "m/s",
-   "doc": "",
+   "doc": "Launcher velocity toward and across the target; the model is a surface in distance and radial velocity. Empty for a set shot.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/TimeOfFlightSeconds",
    "unit": "s",
-   "doc": "",
+   "doc": "Measured speed; the model's flight time; distance inside the fit.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/TimestampSeconds",
    "unit": "seconds",
-   "doc": "",
+   "doc": "Robot clock; match clock, for lining a row up with video.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/WantedHoodDeg",
    "unit": "degrees",
-   "doc": "",
+   "doc": "Hood target (trim included) and measured.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Log/WantedRPM",
    "unit": "RPM",
-   "doc": "",
+   "doc": "Flywheel target and measured.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },
@@ -2378,161 +2378,161 @@
   {
    "key": "/RealOutputs/Summary/Alerts/BeforeFirstEnableRaised",
    "unit": "",
-   "doc": "",
+   "doc": "errors and warnings raised before the first enable (boot, the queue), apart from pre-match checks",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Alerts/ErrorsRaised",
    "unit": "",
-   "doc": "",
+   "doc": "times an error or warning alert turned on once the robot had been enabled (seen once per loop, so an alert cleared and set again within a loop is not raised again); pre-match check alerts are not counted here",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Alerts/PreMatchChecksRaised",
    "unit": "",
-   "doc": "",
+   "doc": "alerts the pre-match checks raised (text starting Pre-match), counted only",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Alerts/Raised",
    "unit": "",
-   "doc": "",
+   "doc": "each distinct error and warning text counted above, as error x2: <text>",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Alerts/WarningsRaised",
    "unit": "",
-   "doc": "",
+   "doc": "times an error or warning alert turned on once the robot had been enabled (seen once per loop, so an alert cleared and set again within a loop is not raised again); pre-match check alerts are not counted here",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Auto/Ended",
    "unit": "",
-   "doc": "",
+   "doc": "the auto that ran, why it ended and how long it ran, as Auton/EndReason and Auton/EndElapsedSeconds logged them (FINISHED, END_OF_PERIOD, DISABLED_BY_FMS_EARLY, DS_DISCONNECTED, E_STOP, ...; see AutoEnd.Reason); empty while it runs",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Auto/Routine",
    "unit": "",
-   "doc": "",
+   "doc": "the auto that ran, why it ended and how long it ran, as Auton/EndReason and Auton/EndElapsedSeconds logged them (FINISHED, END_OF_PERIOD, DISABLED_BY_FMS_EARLY, DS_DISCONNECTED, E_STOP, ...; see AutoEnd.Reason); empty while it runs",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Auto/Seconds",
    "unit": "",
-   "doc": "",
+   "doc": "the auto that ran, why it ended and how long it ran, as Auton/EndReason and Auton/EndElapsedSeconds logged them (FINISHED, END_OF_PERIOD, DISABLED_BY_FMS_EARLY, DS_DISCONNECTED, E_STOP, ...; see AutoEnd.Reason); empty while it runs",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Battery/MinVolts",
    "unit": "volts",
-   "doc": "",
+   "doc": "lowest battery reading (readings at or below 1 V are no reading)",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Battery/SecondsUnder7V",
    "unit": "seconds",
-   "doc": "",
+   "doc": "time below each, summed per loop",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Battery/SecondsUnder8V",
    "unit": "seconds",
-   "doc": "",
+   "doc": "time below each, summed per loop",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Brownouts",
    "unit": "",
-   "doc": "",
+   "doc": "times the controller browned out in this log, or -1 where no source works (see Brownouts)",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Devices/Drops",
    "unit": "",
-   "doc": "",
+   "doc": "totals over every tracked CAN device",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Devices/Faulted",
    "unit": "",
-   "doc": "",
+   "doc": "mechanism motors that reported a trouble fault (MotorInputs.troubleFaults) while connected",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Devices/Reboots",
    "unit": "",
-   "doc": "",
+   "doc": "totals over every tracked CAN device",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/DS/Drops",
    "unit": "",
-   "doc": "",
+   "doc": "Driver Station drops after it first connected",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/DS/DropsWhileEnabled",
    "unit": "",
-   "doc": "",
+   "doc": "Driver Station drops after it first connected",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/DS/SecondsWithout",
    "unit": "",
-   "doc": "",
+   "doc": "Driver Station drops after it first connected",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/File",
    "unit": "",
-   "doc": "",
+   "doc": "the last file written, or the error",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Loop/EnabledLoops",
    "unit": "",
-   "doc": "",
+   "doc": "enabled loops only; an overrun is a loop over 1.25 periods",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Loop/LongestMs",
    "unit": "",
-   "doc": "",
+   "doc": "enabled loops only; an overrun is a loop over 1.25 periods",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Loop/Overruns",
    "unit": "",
-   "doc": "",
+   "doc": "enabled loops only; an overrun is a loop over 1.25 periods",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/MatchesEnded",
    "unit": "",
-   "doc": "",
+   "doc": "FMS teleop ends seen",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
@@ -3190,70 +3190,70 @@
   {
    "key": "/Vision/Jetson/BootId",
    "unit": "",
-   "doc": "",
+   "doc": "Changes on every Jetson reboot, not on a reconnect; the robot's reboot alert watches it.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/ClockLastJumpSeconds",
    "unit": "",
-   "doc": "",
+   "doc": "Size of the last clock correction.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/ClockSource",
    "unit": "",
-   "doc": "",
+   "doc": "Where the Jetson's clock came from: robot, internet (NTP), or unset (still the date restored at boot).",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/CpuGpuPowerW",
    "unit": "",
-   "doc": "",
+   "doc": "CPU, GPU and vision accelerator rail power (VDD_CPU_GPU_CV).",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/CpuTempC",
    "unit": "",
-   "doc": "",
+   "doc": "CPU thermal zone.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/CpuUtilPct",
    "unit": "",
-   "doc": "",
+   "doc": "CPU busy share over the last second.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/Eth/CarrierChanges",
    "unit": "",
-   "doc": "",
+   "doc": "Link state changes since boot; two make one drop, which means the cable or switch port.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/Eth/Interface",
    "unit": "",
-   "doc": "",
+   "doc": "The wired network interface's name.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/Eth/LinkUp",
    "unit": "",
-   "doc": "",
+   "doc": "The wired link is up.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/Eth/SpeedMbps",
    "unit": "",
-   "doc": "",
+   "doc": "Wired link speed.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
@@ -3267,7 +3267,7 @@
   {
    "key": "/Vision/Jetson/FanRpm",
    "unit": "",
-   "doc": "",
+   "doc": "Fan speed; 0 while the board is warm means the fan stopped.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
@@ -3295,28 +3295,28 @@
   {
    "key": "/Vision/Jetson/FieldMap/Name",
    "unit": "",
-   "doc": "",
+   "doc": "The robot's name for the field map the Jetson loaded, or photonvision-settings.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/FsErrors",
    "unit": "",
-   "doc": "",
+   "doc": "ext4 filesystem errors on the mounted partitions.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/GpuLoadPct",
    "unit": "",
-   "doc": "",
+   "doc": "GPU load, from the Jetson's GPU load file.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/GpuTempC",
    "unit": "",
-   "doc": "",
+   "doc": "GPU thermal zone.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
@@ -3330,189 +3330,189 @@
   {
    "key": "/Vision/Jetson/InputVoltageLowestV",
    "unit": "",
-   "doc": "",
+   "doc": "Lowest input voltage since PhotonVision started.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/InputVoltageMinV",
    "unit": "",
-   "doc": "",
+   "doc": "Lowest input voltage in the last second, sampled every 20 ms.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/InputVoltageV",
    "unit": "",
-   "doc": "-- /photonvision/jetson/, JetsonDiagnostics (SpectrumJetson patch 82) --",
+   "doc": "Board input voltage (INA3221 VDD_IN), latest.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/JpegChecksDiffer",
    "unit": "",
-   "doc": "",
+   "doc": "Hardware-vs-CPU decode checks that differed, since PhotonVision started.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/JpegChecksOk",
    "unit": "",
-   "doc": "",
+   "doc": "Hardware-vs-CPU decode checks that matched, since PhotonVision started.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/JpegDecoder",
    "unit": "",
-   "doc": "",
+   "doc": "Camera JPEG decoder in use: nvjpg (hardware) or libjpeg-turbo (CPU).",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/JpegHardwareOff",
    "unit": "",
-   "doc": "",
+   "doc": "The hardware decoder was switched off: a check differed from the CPU, or CUDA failed.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/LastUsbEvent",
    "unit": "",
-   "doc": "",
+   "doc": "The latest kernel USB trouble line.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/NtDisconnects",
    "unit": "",
-   "doc": "",
+   "doc": "NetworkTables disconnects PhotonVision has seen.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/OverCurrentEvents",
    "unit": "",
-   "doc": "",
+   "doc": "Over-current throttle events since the Jetson booted (power supply too weak).",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/PowerW",
    "unit": "",
-   "doc": "",
+   "doc": "Whole board's input power (INA3221 VDD_IN).",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/RamUsedPct",
    "unit": "",
-   "doc": "",
+   "doc": "RAM in use (total minus available).",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/Rewind/FramesDropped",
    "unit": "",
-   "doc": "",
+   "doc": "Frames Rewind couldn't save: bad JPEGs, write errors, a camera not in MJPEG mode.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/Rewind/FreeGB",
    "unit": "",
-   "doc": "",
+   "doc": "Free space on the Jetson's SSD.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/Rewind/Recording",
    "unit": "",
-   "doc": "-- /photonvision/rewind/ --",
+   "doc": "Rewind is recording the cameras right now.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/Rewind/Session",
    "unit": "",
-   "doc": "",
+   "doc": "The current Rewind recording's name.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/ScratchReadOnly",
    "unit": "",
-   "doc": "",
+   "doc": "The scratch partition is read-only; normal in quiet mode.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/SettingsJson",
    "unit": "",
-   "doc": "",
+   "doc": "PhotonVision version, SPECTRUM_* settings, excluded tags and field-layout fingerprint, as JSON.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/SettingsReadOnly",
    "unit": "",
-   "doc": "",
+   "doc": "The settings partition is read-only; it never should be.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/SocPowerW",
    "unit": "",
-   "doc": "",
+   "doc": "SoC rail power (VDD_SOC).",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/SocTempC",
    "unit": "",
-   "doc": "",
+   "doc": "Hottest of the SoC thermal zones.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/Ssd/AvailableSparePct",
    "unit": "",
-   "doc": "",
+   "doc": "SSD spare blocks left (SMART).",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/Ssd/CriticalWarning",
    "unit": "",
-   "doc": "",
+   "doc": "SSD critical-warning flags (SMART); nonzero needs a look.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/Ssd/MediaErrors",
    "unit": "",
-   "doc": "",
+   "doc": "SSD media errors (SMART), read every 5 min.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/Ssd/PercentUsed",
    "unit": "",
-   "doc": "",
+   "doc": "SSD wear, percent of its rated life used (SMART).",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/Ssd/TempC",
    "unit": "",
-   "doc": "",
+   "doc": "SSD temperature.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/Ssd/UnsafeShutdowns",
    "unit": "",
-   "doc": "",
+   "doc": "SSD unsafe shutdowns, e.g. power cut without a shutdown (SMART).",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
@@ -3526,7 +3526,7 @@
   {
    "key": "/Vision/Jetson/TjTempC",
    "unit": "",
-   "doc": "",
+   "doc": "Junction temperature, the hottest point on the chip; the Jetson throttles in the 80s.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
@@ -3540,21 +3540,21 @@
   {
    "key": "/Vision/Jetson/UsbBandwidthBudgetBytes",
    "unit": "",
-   "doc": "",
+   "doc": "USB 2.0 bandwidth available to the cameras.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/UsbBandwidthUsedBytes",
    "unit": "",
-   "doc": "",
+   "doc": "USB 2.0 bandwidth the cameras have reserved.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Jetson/UsbEvents",
    "unit": "",
-   "doc": "",
+   "doc": "Kernel USB trouble lines since start: disconnects, EMI disables, enumeration, over-current, bandwidth.",
    "source": "src/main/java/frc/robot/subsystems/vision/JetsonInputs.java",
    "input": true
   },
@@ -3589,154 +3589,154 @@
   {
    "key": "/Vision/Orin/<cameraName>/Health/DecodeFailures",
    "unit": "",
-   "doc": "",
+   "doc": "Frames the JPEG decoder rejected since start; rising means corrupt frames get through.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Health/Fps",
    "unit": "",
-   "doc": "-- /photonvision/<camera>/health/ (section 9a), NaN / -1 until first published --",
+   "doc": "Pipeline results per second; 0 after 2 s with none.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Health/Frames",
    "unit": "",
-   "doc": "",
+   "doc": "Frames processed since PhotonVision started.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Health/Heartbeat",
    "unit": "",
-   "doc": "streaming, stalled, recovering, disconnected, gave-up, paused or starting (patch 81).",
+   "doc": "Counts up each second from a timer that doesn't depend on results; stalled means the Jetson's health publisher stopped.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Health/LastFrameAgeMs",
    "unit": "",
-   "doc": "",
+   "doc": "Time since the last usable frame; -1 before the first.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Health/LatencyMs",
    "unit": "",
-   "doc": "",
+   "doc": "Average time from capture to result.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Health/PipelineMs",
    "unit": "",
-   "doc": "",
+   "doc": "Average pipeline time over the last second.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Health/PipelineMsMax",
    "unit": "",
-   "doc": "",
+   "doc": "Worst pipeline time over the last second.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Health/Problem",
    "unit": "",
-   "doc": "",
+   "doc": "What the watchdog found wrong, e.g. gone from USB port, no frames after 4 USB resets; stays until frames return.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Health/Recoveries",
    "unit": "",
-   "doc": "",
+   "doc": "Reconnects, USB resets and bandwidth retries the stuck-camera watchdog tried.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Health/State",
    "unit": "",
-   "doc": "",
+   "doc": "streaming, stalled (connected, no frame for 1 s), recovering, disconnected, gave-up, paused (disabled by robot code) or starting.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Mount/FieldXM",
    "unit": "",
-   "doc": "",
+   "doc": "Camera position on the field, x.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Mount/FieldYawDeg",
    "unit": "",
-   "doc": "",
+   "doc": "Camera heading on the field (circular mean).",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Mount/FieldYM",
    "unit": "",
-   "doc": "",
+   "doc": "Camera position on the field, y.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Mount/HeightM",
    "unit": "",
-   "doc": "-- /photonvision/<camera>/mount/ (section 9b) --",
+   "doc": "Camera height above the field, mean over the last 2 s of multi-tag frames.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Mount/HeightStdM",
    "unit": "",
-   "doc": "",
+   "doc": "Spread of the height over the window.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Mount/PitchDeg",
    "unit": "",
-   "doc": "",
+   "doc": "Camera pitch on the field, mean; positive points down (WPILib).",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Mount/PitchStdDeg",
    "unit": "",
-   "doc": "",
+   "doc": "Spread of the pitch over the window.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Mount/ReprojErrorPx",
    "unit": "",
-   "doc": "",
+   "doc": "Mean multi-tag reprojection error.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Mount/RollDeg",
    "unit": "",
-   "doc": "",
+   "doc": "Camera roll on the field, mean.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Mount/RollStdDeg",
    "unit": "",
-   "doc": "",
+   "doc": "Spread of the roll over the window.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },
   {
    "key": "/Vision/Orin/<cameraName>/Mount/Samples",
    "unit": "",
-   "doc": "",
+   "doc": "Multi-tag frames in the 2 s window; 0 means the other mount values are stale.",
    "source": "src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java",
    "input": true
   },

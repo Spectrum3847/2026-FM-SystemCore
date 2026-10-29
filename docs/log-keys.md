@@ -281,23 +281,23 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/PathPlanner/CurrentPose` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/PathPlanner/TargetPose` |  |  |  | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Prints` |  |  |  | src/main/java/frc/spectrumLib/telemetry/Telemetry.java |
-| `/RealOutputs/Shooting/Calc/DistanceMeters` |  | meters |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/DistanceNoLookahead` |  | meters |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/DriveAngleDeg` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/DriveAngleOffsetDegrees` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/ExitSpeedMs` |  | m/s |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/FeedShot` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/FlywheelSpeedRPM` |  | RPM |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/HoodAngleDeg` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/HoodAngleOffsetDegrees` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/HubPolyModel` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/LookaheadPose` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/RadialVelocityMs` |  | m/s |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/SetShot` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/TangentialVelocityMs` |  | m/s |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/Target` |  |  |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/TimeOfFlight` |  | seconds |  | src/main/java/frc/rebuilt/ShotCalculator.java |
-| `/RealOutputs/Shooting/Calc/YawOffsetDeg` |  | degrees |  | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/DistanceMeters` |  | meters | Shoot-on-move virtual distance the model was evaluated at. | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/DistanceNoLookahead` |  | meters | Real distance from the launcher to the target now; validity is judged on this. | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/DriveAngleDeg` |  | degrees | Heading the robot should face to shoot, with the move compensation and the operator's trim. | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/DriveAngleOffsetDegrees` |  | degrees | The operator's drive-angle trim (d-pad left/right). | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/ExitSpeedMs` |  | m/s | Ball exit speed the model asks for. | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/FeedShot` |  |  | A feed (passing) shot, not a hub shot. | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/FlywheelSpeedRPM` |  | RPM | Flywheel target. | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/HoodAngleDeg` |  | degrees | Hood target, with the operator's trim (never below 9). | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/HoodAngleOffsetDegrees` |  | degrees | The operator's hood trim (d-pad up/down). | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/HubPolyModel` |  |  | The fitted shot model in use. | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/LookaheadPose` |  |  | Where the launcher will be when the ball arrives, facing the drive angle. | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/RadialVelocityMs` |  | m/s | Launcher velocity toward the target; positive is closing. | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/SetShot` |  |  | The set-shot spot the operator picked (Tower, LeftTrench, RightTrench). | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/TangentialVelocityMs` |  | m/s | Launcher velocity across the line to the target. | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/Target` |  |  | Where the shot is aimed: the hub, or the feed target while in the feed zone. | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/TimeOfFlight` |  | seconds | The model's ball flight time. | src/main/java/frc/rebuilt/ShotCalculator.java |
+| `/RealOutputs/Shooting/Calc/YawOffsetDeg` |  | degrees | Shoot-on-move aim offset from the straight-line bearing. | src/main/java/frc/rebuilt/ShotCalculator.java |
 | `/RealOutputs/Shooting/Gate/AimToleranceDeg` |  | degrees | Largest heading error the gate accepts at this distance; NaN for a set shot. | src/main/java/frc/robot/subsystems/SuperStructure.java |
 | `/RealOutputs/Shooting/Gate/BlockedReason` |  |  | The first check holding the shot: None, NoShot, HoodNotZeroed, HoodNotReady, NotAimed, InvalidShot, Settling. | src/main/java/frc/robot/subsystems/SuperStructure.java |
 | `/RealOutputs/Shooting/Gate/CheckAim` |  |  | The drivetrain is aiming, so the heading check applies. | src/main/java/frc/robot/subsystems/SuperStructure.java |
@@ -315,69 +315,69 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Shooting/Gate/SecondsHeld` |  | seconds | How long this launch has been held so far; 0 while feeding. | src/main/java/frc/robot/subsystems/SuperStructure.java |
 | `/RealOutputs/Shooting/Gate/SetShotHeadingErrorDeg` |  | degrees | Informational only: how far the fused heading is from the spot's heading. The set shot exists for when that heading cannot be trusted, so it never gates. | src/main/java/frc/robot/subsystems/SuperStructure.java |
 | `/RealOutputs/Shooting/Gate/Volleys` |  |  | Volleys fed since boot (rows in Shooting/Log). | src/main/java/frc/robot/subsystems/SuperStructure.java |
-| `/RealOutputs/Shooting/Log/ActualHoodDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/ActualRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/AimToleranceDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/AimTrimDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/Alliance` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/Bypassed` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/DistanceMeters` |  | meters |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/End/BurstSeconds` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/End/FlywheelDips` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/End/Index` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/End/MinRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/FeedReason` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/FeedShot` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/ActualHoodDeg` |  | degrees | Hood target (trim included) and measured. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/ActualRPM` |  | RPM | Flywheel target and measured. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/AimToleranceDeg` |  | degrees | Fused heading minus the aim target, and the gate's tolerance at this range. Empty for a set shot (the driver aims). | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/AimTrimDeg` |  | degrees | The operator's live trims. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/Alliance` |  |  | Which alliance, Auto or Teleop, and which launch state. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/Bypassed` |  |  | For Override and Timeout, what was not ready (FlywheelNotReady, NotAimed, ...). | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/DistanceMeters` |  | meters | Real distance to the target (a set shot: the spot's range). Bin on this. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/End/BurstSeconds` |  | seconds | How long the feed stayed open. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/End/FlywheelDips` |  |  | Dips of the flywheel more than 150 RPM below target, re-armed within 75 RPM (3467's flywheel-drop idea): roughly, balls. CALIBRATE against video before trusting it; the sim's flywheel does not feel fuel. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/End/Index` |  |  | The row this ends. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/End/MinRPM` |  | RPM | Lowest flywheel speed during the volley. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/FeedReason` |  |  | Why the feed opened: Ready (the gate), Override (operator Y) or Timeout (held 1 s). | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/FeedShot` |  |  | Feed (passing) shot or hub shot, and the fit it was evaluated on (HubModelStandstill for a set shot). | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/Shooting/Log/HeadingErrorDeg` |  | degrees | Fused heading minus the aim target, while the drivetrain aims; NaN for a set shot. | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/HoodTrimDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/HoodTrimDeg` |  | degrees | The operator's live trims. | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/Shooting/Log/Index` |  |  | The one key on the dashboard: bursts counting up is how you know rows are being written. | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/InRange` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/Kind` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/LookaheadDistanceMeters` |  | meters |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/MatchTimeSeconds` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/Mode` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/Model` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/Pose` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/PoseTrusted` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/RadialVelocityMs` |  | m/s |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/RobotSpeedMs` |  | m/s |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/SecondsSinceFusedEstimate` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/SecondsWaited` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/SeedConfirmed` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/SetShot` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/SuperState` |  |  |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/TangentialVelocityMs` |  | m/s |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/TimeOfFlightSeconds` |  | s |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/TimestampSeconds` |  | seconds |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/WantedHoodDeg` |  | degrees |  | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/WantedRPM` |  | RPM |  | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/InRange` |  |  | Measured speed; the model's flight time; distance inside the fit. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/Kind` |  |  | Calculated or SetShot, and which spot (Tower, LeftTrench, RightTrench). | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/LookaheadDistanceMeters` |  | meters | The shoot-on-move virtual distance the model was evaluated at. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/MatchTimeSeconds` |  | seconds | Robot clock; match clock, for lining a row up with video. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/Mode` |  |  | Which alliance, Auto or Teleop, and which launch state. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/Model` |  |  | Feed (passing) shot or hub shot, and the fit it was evaluated on (HubModelStandstill for a set shot). | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/Pose` |  |  | Fused robot pose. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/PoseTrusted` |  |  | Whether the distance can be believed: vision under 3 s old, how old, and whether the disabled seed was confirmed. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/RadialVelocityMs` |  | m/s | Launcher velocity toward and across the target; the model is a surface in distance and radial velocity. Empty for a set shot. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/RobotSpeedMs` |  | m/s | Measured speed; the model's flight time; distance inside the fit. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/SecondsSinceFusedEstimate` |  | seconds | Whether the distance can be believed: vision under 3 s old, how old, and whether the disabled seed was confirmed. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/SecondsWaited` |  | seconds | From entering the launch state to this feed: what the gate cost. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/SeedConfirmed` |  |  | Whether the distance can be believed: vision under 3 s old, how old, and whether the disabled seed was confirmed. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/SetShot` |  |  | Calculated or SetShot, and which spot (Tower, LeftTrench, RightTrench). | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/SuperState` |  |  | Which alliance, Auto or Teleop, and which launch state. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/TangentialVelocityMs` |  | m/s | Launcher velocity toward and across the target; the model is a surface in distance and radial velocity. Empty for a set shot. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/TimeOfFlightSeconds` |  | s | Measured speed; the model's flight time; distance inside the fit. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/TimestampSeconds` |  | seconds | Robot clock; match clock, for lining a row up with video. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/WantedHoodDeg` |  | degrees | Hood target (trim included) and measured. | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/WantedRPM` |  | RPM | Flywheel target and measured. | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/Sim/Components` |  |  |  | src/main/java/frc/robot/RobotSim.java |
 | `/RealOutputs/Sim/Fuel` |  |  |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/Sim/Launched` |  |  |  | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/Sim/Scored` |  |  |  | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/Summary/Alerts/BeforeFirstEnableRaised` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Alerts/ErrorsRaised` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Alerts/PreMatchChecksRaised` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Alerts/Raised` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Alerts/WarningsRaised` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Auto/Ended` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Auto/Routine` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Auto/Seconds` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Battery/MinVolts` |  | volts |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Battery/SecondsUnder7V` |  | seconds |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Battery/SecondsUnder8V` |  | seconds |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Brownouts` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Devices/Drops` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Devices/Faulted` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Devices/Reboots` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/DS/Drops` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/DS/DropsWhileEnabled` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/DS/SecondsWithout` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/File` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Loop/EnabledLoops` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Loop/LongestMs` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/Loop/Overruns` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
-| `/RealOutputs/Summary/MatchesEnded` |  |  |  | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Alerts/BeforeFirstEnableRaised` |  |  | errors and warnings raised before the first enable (boot, the queue), apart from pre-match checks | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Alerts/ErrorsRaised` |  |  | times an error or warning alert turned on once the robot had been enabled (seen once per loop, so an alert cleared and set again within a loop is not raised again); pre-match check alerts are not counted here | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Alerts/PreMatchChecksRaised` |  |  | alerts the pre-match checks raised (text starting Pre-match), counted only | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Alerts/Raised` |  |  | each distinct error and warning text counted above, as error x2: <text> | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Alerts/WarningsRaised` |  |  | times an error or warning alert turned on once the robot had been enabled (seen once per loop, so an alert cleared and set again within a loop is not raised again); pre-match check alerts are not counted here | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Auto/Ended` |  |  | the auto that ran, why it ended and how long it ran, as Auton/EndReason and Auton/EndElapsedSeconds logged them (FINISHED, END_OF_PERIOD, DISABLED_BY_FMS_EARLY, DS_DISCONNECTED, E_STOP, ...; see AutoEnd.Reason); empty while it runs | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Auto/Routine` |  |  | the auto that ran, why it ended and how long it ran, as Auton/EndReason and Auton/EndElapsedSeconds logged them (FINISHED, END_OF_PERIOD, DISABLED_BY_FMS_EARLY, DS_DISCONNECTED, E_STOP, ...; see AutoEnd.Reason); empty while it runs | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Auto/Seconds` |  |  | the auto that ran, why it ended and how long it ran, as Auton/EndReason and Auton/EndElapsedSeconds logged them (FINISHED, END_OF_PERIOD, DISABLED_BY_FMS_EARLY, DS_DISCONNECTED, E_STOP, ...; see AutoEnd.Reason); empty while it runs | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Battery/MinVolts` |  | volts | lowest battery reading (readings at or below 1 V are no reading) | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Battery/SecondsUnder7V` |  | seconds | time below each, summed per loop | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Battery/SecondsUnder8V` |  | seconds | time below each, summed per loop | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Brownouts` |  |  | times the controller browned out in this log, or -1 where no source works (see Brownouts) | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Devices/Drops` |  |  | totals over every tracked CAN device | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Devices/Faulted` |  |  | mechanism motors that reported a trouble fault (MotorInputs.troubleFaults) while connected | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Devices/Reboots` |  |  | totals over every tracked CAN device | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/DS/Drops` |  |  | Driver Station drops after it first connected | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/DS/DropsWhileEnabled` |  |  | Driver Station drops after it first connected | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/DS/SecondsWithout` |  |  | Driver Station drops after it first connected | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/File` |  |  | the last file written, or the error | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Loop/EnabledLoops` |  |  | enabled loops only; an overrun is a loop over 1.25 periods | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Loop/LongestMs` |  |  | enabled loops only; an overrun is a loop over 1.25 periods | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/Loop/Overruns` |  |  | enabled loops only; an overrun is a loop over 1.25 periods | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
+| `/RealOutputs/Summary/MatchesEnded` |  |  | FMS teleop ends seen | src/main/java/frc/spectrumLib/telemetry/MatchSummary.java |
 | `/RealOutputs/SuperStructure/CurrentSuperState` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
 | `/RealOutputs/SuperStructure/IntakeSqueezeTimerElapsed` |  | seconds |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
 | `/RealOutputs/SuperStructure/WantedSuperState` |  |  |  | src/main/java/frc/robot/subsystems/SuperStructure.java |
@@ -471,85 +471,85 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/Swerve/SuccessfulDaqs` | I |  |  | src/main/java/frc/robot/subsystems/swerve/SwerveInputs.java |
 | `/Vision/FieldMap/Hash` | I |  |  | src/main/java/frc/robot/subsystems/vision/TagField.java |
 | `/Vision/FieldMap/Name` | I |  |  | src/main/java/frc/robot/subsystems/vision/TagField.java |
-| `/Vision/Jetson/BootId` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/ClockLastJumpSeconds` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/ClockSource` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/CpuGpuPowerW` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/CpuTempC` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/CpuUtilPct` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/Eth/CarrierChanges` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/Eth/Interface` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/Eth/LinkUp` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/Eth/SpeedMbps` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/BootId` | I |  | Changes on every Jetson reboot, not on a reconnect; the robot's reboot alert watches it. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/ClockLastJumpSeconds` | I |  | Size of the last clock correction. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/ClockSource` | I |  | Where the Jetson's clock came from: robot, internet (NTP), or unset (still the date restored at boot). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/CpuGpuPowerW` | I |  | CPU, GPU and vision accelerator rail power (VDD_CPU_GPU_CV). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/CpuTempC` | I |  | CPU thermal zone. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/CpuUtilPct` | I |  | CPU busy share over the last second. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/Eth/CarrierChanges` | I |  | Link state changes since boot; two make one drop, which means the cable or switch port. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/Eth/Interface` | I |  | The wired network interface's name. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/Eth/LinkUp` | I |  | The wired link is up. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/Eth/SpeedMbps` | I |  | Wired link speed. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Jetson/ExcludedTagsActive` | I |  | The Jetson's saved excluded tags plus the robot's (excludedTagsActive). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/FanRpm` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/FanRpm` | I |  | Fan speed; 0 while the board is warm means the fan stopped. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Jetson/FieldMap/Error` | I |  | Why the Jetson could not load the robot's map, or empty. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Jetson/FieldMap/Hash` | I |  | Canonical hash of the field map the Jetson loaded and solves with; empty until reported. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Jetson/FieldMap/LoadedAt` | I |  | When the Jetson loaded it, Jetson unix seconds. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/FieldMap/Name` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/FsErrors` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/GpuLoadPct` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/GpuTempC` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/FieldMap/Name` | I |  | The robot's name for the field map the Jetson loaded, or photonvision-settings. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/FsErrors` | I |  | ext4 filesystem errors on the mounted partitions. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/GpuLoadPct` | I |  | GPU load, from the Jetson's GPU load file. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/GpuTempC` | I |  | GPU thermal zone. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Jetson/Heartbeat` | I |  | +1 each second while PhotonVision runs. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/InputVoltageLowestV` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/InputVoltageMinV` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/InputVoltageV` | I |  | -- /photonvision/jetson/, JetsonDiagnostics (SpectrumJetson patch 82) -- | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/JpegChecksDiffer` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/JpegChecksOk` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/JpegDecoder` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/JpegHardwareOff` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/LastUsbEvent` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/NtDisconnects` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/OverCurrentEvents` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/PowerW` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/RamUsedPct` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/Rewind/FramesDropped` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/Rewind/FreeGB` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/Rewind/Recording` | I |  | -- /photonvision/rewind/ -- | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/Rewind/Session` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/ScratchReadOnly` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/SettingsJson` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/SettingsReadOnly` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/SocPowerW` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/SocTempC` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/Ssd/AvailableSparePct` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/Ssd/CriticalWarning` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/Ssd/MediaErrors` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/Ssd/PercentUsed` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/Ssd/TempC` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/Ssd/UnsafeShutdowns` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/InputVoltageLowestV` | I |  | Lowest input voltage since PhotonVision started. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/InputVoltageMinV` | I |  | Lowest input voltage in the last second, sampled every 20 ms. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/InputVoltageV` | I |  | Board input voltage (INA3221 VDD_IN), latest. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/JpegChecksDiffer` | I |  | Hardware-vs-CPU decode checks that differed, since PhotonVision started. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/JpegChecksOk` | I |  | Hardware-vs-CPU decode checks that matched, since PhotonVision started. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/JpegDecoder` | I |  | Camera JPEG decoder in use: nvjpg (hardware) or libjpeg-turbo (CPU). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/JpegHardwareOff` | I |  | The hardware decoder was switched off: a check differed from the CPU, or CUDA failed. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/LastUsbEvent` | I |  | The latest kernel USB trouble line. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/NtDisconnects` | I |  | NetworkTables disconnects PhotonVision has seen. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/OverCurrentEvents` | I |  | Over-current throttle events since the Jetson booted (power supply too weak). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/PowerW` | I |  | Whole board's input power (INA3221 VDD_IN). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/RamUsedPct` | I |  | RAM in use (total minus available). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/Rewind/FramesDropped` | I |  | Frames Rewind couldn't save: bad JPEGs, write errors, a camera not in MJPEG mode. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/Rewind/FreeGB` | I |  | Free space on the Jetson's SSD. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/Rewind/Recording` | I |  | Rewind is recording the cameras right now. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/Rewind/Session` | I |  | The current Rewind recording's name. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/ScratchReadOnly` | I |  | The scratch partition is read-only; normal in quiet mode. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/SettingsJson` | I |  | PhotonVision version, SPECTRUM_* settings, excluded tags and field-layout fingerprint, as JSON. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/SettingsReadOnly` | I |  | The settings partition is read-only; it never should be. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/SocPowerW` | I |  | SoC rail power (VDD_SOC). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/SocTempC` | I |  | Hottest of the SoC thermal zones. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/Ssd/AvailableSparePct` | I |  | SSD spare blocks left (SMART). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/Ssd/CriticalWarning` | I |  | SSD critical-warning flags (SMART); nonzero needs a look. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/Ssd/MediaErrors` | I |  | SSD media errors (SMART), read every 5 min. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/Ssd/PercentUsed` | I |  | SSD wear, percent of its rated life used (SMART). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/Ssd/TempC` | I |  | SSD temperature. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/Ssd/UnsafeShutdowns` | I |  | SSD unsafe shutdowns, e.g. power cut without a shutdown (SMART). | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Jetson/Throttle` | I |  | Why the Jetson is slowing itself down: None, OVER-CURRENT, HIGH TEMP (...), ... | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/TjTempC` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/TjTempC` | I |  | Junction temperature, the hottest point on the chip; the Jetson throttles in the 80s. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Jetson/UptimeSeconds` | I |  | The Jetson's /proc/uptime; bootId changes on a reboot. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/UsbBandwidthBudgetBytes` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/UsbBandwidthUsedBytes` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
-| `/Vision/Jetson/UsbEvents` | I |  |  | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/UsbBandwidthBudgetBytes` | I |  | USB 2.0 bandwidth available to the cameras. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/UsbBandwidthUsedBytes` | I |  | USB 2.0 bandwidth the cameras have reserved. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
+| `/Vision/Jetson/UsbEvents` | I |  | Kernel USB trouble lines since start: disconnects, EMI disables, enumeration, over-current, bandwidth. | src/main/java/frc/robot/subsystems/vision/JetsonInputs.java |
 | `/Vision/Orin/<cameraName>/CameraMatrix` | I |  | Camera matrix, row-major 3x3; empty until the camera has connected. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
 | `/Vision/Orin/<cameraName>/Connected` | I |  | PhotonLib's isConnected(): the camera's heartbeat is on NetworkTables. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
 | `/Vision/Orin/<cameraName>/DistCoeffs` | I |  | Distortion coefficients (the Jetson sends all 8); empty until connected. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
 | `/Vision/Orin/<cameraName>/Enabled` | I |  | PhotonLib's getEnabled(): false while turned off with setEnabled(false). | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Health/DecodeFailures` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Health/Fps` | I |  | -- /photonvision/<camera>/health/ (section 9a), NaN / -1 until first published -- | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Health/Frames` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Health/Heartbeat` | I |  | streaming, stalled, recovering, disconnected, gave-up, paused or starting (patch 81). | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Health/LastFrameAgeMs` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Health/LatencyMs` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Health/PipelineMs` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Health/PipelineMsMax` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Health/Problem` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Health/Recoveries` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Health/State` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Mount/FieldXM` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Mount/FieldYawDeg` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Mount/FieldYM` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Mount/HeightM` | I |  | -- /photonvision/<camera>/mount/ (section 9b) -- | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Mount/HeightStdM` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Mount/PitchDeg` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Mount/PitchStdDeg` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Mount/ReprojErrorPx` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Mount/RollDeg` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Mount/RollStdDeg` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
-| `/Vision/Orin/<cameraName>/Mount/Samples` | I |  |  | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Health/DecodeFailures` | I |  | Frames the JPEG decoder rejected since start; rising means corrupt frames get through. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Health/Fps` | I |  | Pipeline results per second; 0 after 2 s with none. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Health/Frames` | I |  | Frames processed since PhotonVision started. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Health/Heartbeat` | I |  | Counts up each second from a timer that doesn't depend on results; stalled means the Jetson's health publisher stopped. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Health/LastFrameAgeMs` | I |  | Time since the last usable frame; -1 before the first. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Health/LatencyMs` | I |  | Average time from capture to result. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Health/PipelineMs` | I |  | Average pipeline time over the last second. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Health/PipelineMsMax` | I |  | Worst pipeline time over the last second. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Health/Problem` | I |  | What the watchdog found wrong, e.g. gone from USB port, no frames after 4 USB resets; stays until frames return. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Health/Recoveries` | I |  | Reconnects, USB resets and bandwidth retries the stuck-camera watchdog tried. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Health/State` | I |  | streaming, stalled (connected, no frame for 1 s), recovering, disconnected, gave-up, paused (disabled by robot code) or starting. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Mount/FieldXM` | I |  | Camera position on the field, x. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Mount/FieldYawDeg` | I |  | Camera heading on the field (circular mean). | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Mount/FieldYM` | I |  | Camera position on the field, y. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Mount/HeightM` | I |  | Camera height above the field, mean over the last 2 s of multi-tag frames. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Mount/HeightStdM` | I |  | Spread of the height over the window. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Mount/PitchDeg` | I |  | Camera pitch on the field, mean; positive points down (WPILib). | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Mount/PitchStdDeg` | I |  | Spread of the pitch over the window. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Mount/ReprojErrorPx` | I |  | Mean multi-tag reprojection error. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Mount/RollDeg` | I |  | Camera roll on the field, mean. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Mount/RollStdDeg` | I |  | Spread of the roll over the window. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
+| `/Vision/Orin/<cameraName>/Mount/Samples` | I |  | Multi-tag frames in the 2 s window; 0 means the other mount values are stale. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
 | `/Vision/Orin/<cameraName>/PipelineIndex` | I |  | The pipeline the camera reports running. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
 | `/Vision/Orin/<cameraName>/ReadFailures` | I |  | Results PhotonLib failed to read this loop (PhotonVision #2528); they were dropped. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |
 | `/Vision/Orin/<cameraName>/ResultCount` | I |  | Results the camera sent this loop, including any not logged in results: while the robot is disabled only the newest result with targets is kept, at 10 Hz, to keep the log small (the Orin feeds neither the pose nor the seed while disabled). Frame rate and the no-frames alert use this count. | src/main/java/frc/robot/subsystems/vision/OrinCameraInputs.java |

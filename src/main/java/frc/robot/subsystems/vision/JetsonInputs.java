@@ -16,56 +16,143 @@ public class JetsonInputs implements LoggableInputs {
     /** +1 each second while PhotonVision runs. */
     public long heartbeat = -1;
 
+    /** GPU load, from the Jetson's GPU load file. */
     public double gpuLoadPct = Double.NaN;
+
+    /** CPU thermal zone. */
     public double cpuTempC = Double.NaN;
+
+    /** GPU thermal zone. */
     public double gpuTempC = Double.NaN;
+
+    /** Hottest of the SoC thermal zones. */
     public double socTempC = Double.NaN;
+
+    /** Junction temperature, the hottest point on the chip; the Jetson throttles in the 80s. */
     public double tjTempC = Double.NaN;
+
+    /** Fan speed; 0 while the board is warm means the fan stopped. */
     public double fanRpm = Double.NaN;
+
+    /** Whole board's input power (INA3221 VDD_IN). */
     public double powerW = Double.NaN;
+
+    /** CPU, GPU and vision accelerator rail power (VDD_CPU_GPU_CV). */
     public double cpuGpuPowerW = Double.NaN;
+
+    /** SoC rail power (VDD_SOC). */
     public double socPowerW = Double.NaN;
+
+    /** Camera JPEG decoder in use: nvjpg (hardware) or libjpeg-turbo (CPU). */
     public String jpegDecoder = "";
+
+    /** The hardware decoder was switched off: a check differed from the CPU, or CUDA failed. */
     public boolean jpegHardwareOff = false;
+
+    /** Hardware-vs-CPU decode checks that matched, since PhotonVision started. */
     public long jpegChecksOk = -1;
+
+    /** Hardware-vs-CPU decode checks that differed, since PhotonVision started. */
     public long jpegChecksDiffer = -1;
 
     /** Why the Jetson is slowing itself down: None, OVER-CURRENT, HIGH TEMP (...), ... */
     public String throttle = "";
 
+    /** Over-current throttle events since the Jetson booted (power supply too weak). */
     public long overCurrentEvents = -1;
+
+    /**
+     * PhotonVision version, SPECTRUM_* settings, excluded tags and field-layout fingerprint, as
+     * JSON.
+     */
     public String settingsJson = "";
 
     // -- /photonvision/jetson/, JetsonDiagnostics (SpectrumJetson patch 82) --
+    /** Board input voltage (INA3221 VDD_IN), latest. */
     public double inputVoltageV = Double.NaN;
+
+    /** Lowest input voltage in the last second, sampled every 20 ms. */
     public double inputVoltageMinV = Double.NaN;
+
+    /** Lowest input voltage since PhotonVision started. */
     public double inputVoltageLowestV = Double.NaN;
+
+    /**
+     * Kernel USB trouble lines since start: disconnects, EMI disables, enumeration, over-current,
+     * bandwidth.
+     */
     public long usbEvents = -1;
+
+    /** The latest kernel USB trouble line. */
     public String lastUsbEvent = "";
+
+    /** The wired network interface's name. */
     public String ethInterface = "";
+
+    /** The wired link is up. */
     public boolean ethLinkUp = false;
+
+    /** Wired link speed. */
     public long ethSpeedMbps = -1;
+
+    /** Link state changes since boot; two make one drop, which means the cable or switch port. */
     public long ethCarrierChanges = -1;
+
+    /** NetworkTables disconnects PhotonVision has seen. */
     public long ntDisconnects = -1;
+
+    /** Changes on every Jetson reboot, not on a reconnect; the robot's reboot alert watches it. */
     public String bootId = "";
 
     /** The Jetson's {@code /proc/uptime}; {@code bootId} changes on a reboot. */
     public double uptimeSeconds = Double.NaN;
 
+    /**
+     * Where the Jetson's clock came from: robot, internet (NTP), or unset (still the date restored
+     * at boot).
+     */
     public String clockSource = "";
+
+    /** Size of the last clock correction. */
     public double clockLastJumpSeconds = Double.NaN;
+
+    /** CPU busy share over the last second. */
     public double cpuUtilPct = Double.NaN;
+
+    /** RAM in use (total minus available). */
     public double ramUsedPct = Double.NaN;
+
+    /** SSD temperature. */
     public double ssdTempC = Double.NaN;
+
+    /** ext4 filesystem errors on the mounted partitions. */
     public long fsErrors = -1;
+
+    /** The settings partition is read-only; it never should be. */
     public boolean settingsReadOnly = false;
+
+    /** The scratch partition is read-only; normal in quiet mode. */
     public boolean scratchReadOnly = false;
+
+    /** USB 2.0 bandwidth the cameras have reserved. */
     public long usbBandwidthUsedBytes = -1;
+
+    /** USB 2.0 bandwidth available to the cameras. */
     public long usbBandwidthBudgetBytes = -1;
+
+    /** SSD media errors (SMART), read every 5 min. */
     public long ssdMediaErrors = -1;
+
+    /** SSD unsafe shutdowns, e.g. power cut without a shutdown (SMART). */
     public long ssdUnsafeShutdowns = -1;
+
+    /** SSD wear, percent of its rated life used (SMART). */
     public long ssdPercentUsed = -1;
+
+    /** SSD critical-warning flags (SMART); nonzero needs a look. */
     public long ssdCriticalWarning = -1;
+
+    /** SSD spare blocks left (SMART). */
     public long ssdAvailableSparePct = -1;
 
     // -- /photonvision/ --
@@ -73,15 +160,23 @@ public class JetsonInputs implements LoggableInputs {
     public long[] excludedTagsActive = NO_TAGS;
 
     // -- /photonvision/rewind/ --
+    /** Rewind is recording the cameras right now. */
     public boolean rewindRecording = false;
+
+    /** The current Rewind recording's name. */
     public String rewindSession = "";
+
+    /** Free space on the Jetson's SSD. */
     public double rewindFreeGB = Double.NaN;
+
+    /** Frames Rewind couldn't save: bad JPEGs, write errors, a camera not in MJPEG mode. */
     public long rewindFramesDropped = -1;
 
     // -- /photonvision/jetson/FieldMap/ --
     /** Canonical hash of the field map the Jetson loaded and solves with; empty until reported. */
     public String fieldMapHash = "";
 
+    /** The robot's name for the field map the Jetson loaded, or photonvision-settings. */
     public String fieldMapName = "";
 
     /** When the Jetson loaded it, Jetson unix seconds. */

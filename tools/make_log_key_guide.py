@@ -6,7 +6,8 @@
 
 Reads the Java source for every key the robot logs (Telemetry.log/logDash/logEvent,
 Logger.recordOutput, and the table.put calls in each LoggableInputs class with the
-processInputs prefix it is logged under), its unit, and the comment written next to it. The
+processInputs prefix it is logged under), its unit, and the comment written next to it (or,
+for keys a doc already explains, its row in DOC_TABLES). The
 robot records the JSON in every log's metadata as LogKeyGuide, so a person or an agent holding
 only a .wpilog can find what a key means.
 
@@ -118,7 +119,8 @@ def render(expr):
 def comment_above(lines, idx):
     """The // or /** */ comment directly above line idx, as one line of text."""
     out, j = [], idx - 1
-    while j >= 0 and lines[j].strip().startswith("//"):
+    # A "// -- section --" header names a group, not the line below it.
+    while j >= 0 and lines[j].strip().startswith("//") and not lines[j].strip().startswith("// --"):
         out.insert(0, lines[j].strip()[2:].strip())
         j -= 1
     if not out and j >= 0 and lines[j].strip().endswith("*/"):
@@ -246,6 +248,33 @@ def inputs(classes):
                 }
 
 
+# Docs whose "| `Key` | Meaning |" tables describe output keys; rows fill keys with no comment.
+DOC_TABLES = ["docs/shot-log.md", "docs/match-summary.md"]
+
+
+def doc_table_meanings():
+    """Meaning by output key, from DOC_TABLES. A heading like ## `Shooting/Log/*` sets the prefix
+    for bare names; later names in a cell are siblings of the first."""
+    meanings = {}
+    for rel in DOC_TABLES:
+        prefix = ""
+        for line in open(os.path.join(ROOT, rel), encoding="utf-8"):
+            h = re.match(r"^#+ .*`([\w/<>]+)/\*`", line)
+            if h:
+                prefix = h.group(1) + "/"
+                continue
+            if not line.startswith("| `"):
+                continue
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            names = re.findall(r"`([^`]+)`", cells[0])
+            meaning = re.sub(r"[`*]", "", cells[1]) if len(cells) > 1 else ""
+            first = names[0] if "/" in names[0] else prefix + names[0]
+            parent = first.rsplit("/", 1)[0] + "/" if "/" in first else prefix
+            for n in names:
+                meanings.setdefault("/RealOutputs/" + (n if "/" in n else parent + n), meaning)
+    return meanings
+
+
 def add(entries, e):
     """First place a key is logged, with the first comment found for it anywhere."""
     have = entries.setdefault(e["key"], e)
@@ -261,6 +290,9 @@ def build():
             add(entries, e)
     for e in inputs(input_classes()):
         add(entries, e)
+    for key, meaning in doc_table_meanings().items():
+        if key in entries and not entries[key]["doc"]:
+            entries[key]["doc"] = meaning
     keys = sorted(entries.values(), key=lambda e: e["key"].lower())
     for e in keys:
         e.setdefault("input", False)

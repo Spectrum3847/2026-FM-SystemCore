@@ -99,11 +99,31 @@ def _decode(typ, payload):
     return None
 
 
+# Keys renamed in 2026-10; logs from before carry the old names.
+OLD_NAMES = {
+    "Shooting/Gate/": "Shot/",
+    "Shooting/Calc/": "ShotCalc/",
+    "Shooting/Log/": "ShotLog/",
+    "MatchData/": "Match Data/",
+    "Scheduler/RobotPeriodic": "Scheduler/robotPeriodic",
+}
+
+
+def old_name(key):
+    for new, old in OLD_NAMES.items():
+        if key.startswith(new):
+            return old + key[len(new):]
+    return None
+
+
 def series(records, types, key):
-    for prefix in ("/RealOutputs/", "/ReplayOutputs/", "/", ""):
-        name = prefix + key if prefix else key
-        if name in records:
-            return [(t, decode(types[name], p)) for t, p in records[name]]
+    for k in (key, old_name(key)):
+        if k is None:
+            continue
+        for prefix in ("/RealOutputs/", "/ReplayOutputs/", "/", ""):
+            name = prefix + k if prefix else k
+            if name in records:
+                return [(t, decode(types[name], p)) for t, p in records[name]]
     return []
 
 
@@ -210,7 +230,7 @@ def match_summary(records, types):
 
 def shot_summary(records, types):
     """The shot gate: how each launch began feeding, and how long it was held first."""
-    reasons = series(records, types, "Shot/FeedReason")
+    reasons = series(records, types, "Shooting/Gate/FeedReason")
     if not reasons:
         return
     # Each launch is a run of FeedReason values between NotLaunching ones. Outputs are written
@@ -230,7 +250,7 @@ def shot_summary(records, types):
             first_feed = (t, r)
     if start is not None:
         launches.append((start, first_feed))
-    blocked = series(records, types, "Shot/BlockedReason")
+    blocked = series(records, types, "Shooting/Gate/BlockedReason")
     print(f"Shot gate: {len(launches)} launches")
     for s, feed in launches:
         end = feed[0] if feed else s + 1e9
@@ -244,7 +264,7 @@ def shot_summary(records, types):
                   + (f", held by {', '.join(why)}" if why else ""))
         else:
             print(f"  t={s:7.2f}s  never fed" + (f", held by {', '.join(why)}" if why else ""))
-    for key in ("Shot/LaunchingLoops", "Shot/HeldLoops", "Shot/Volleys"):
+    for key in ("Shooting/Gate/LaunchingLoops", "Shooting/Gate/HeldLoops", "Shooting/Gate/Volleys"):
         vals = series(records, types, key)
         if vals:
             print(f"  {key}: {vals[-1][1]}")
@@ -252,7 +272,7 @@ def shot_summary(records, types):
         vals = series(records, types, key)
         if vals:
             print(f"  {key}: {vals[-1][1]}")
-    rows = series(records, types, "ShotLog/Index")
+    rows = series(records, types, "Shooting/Log/Index")
     if rows:
         print(f"  Shot log: {len(rows)} volleys (python tools/shot_log.py <log> for the rows)")
 

@@ -64,57 +64,63 @@ public final class ShotLog {
         minRpm = shot.actualRpm();
 
         // The one key on the dashboard: bursts counting up is how you know rows are being written.
-        Telemetry.logDash("ShotLog/Index", index);
-        Telemetry.log("ShotLog/TimestampSeconds", shot.nowSeconds(), "seconds");
-        Telemetry.log("ShotLog/MatchTimeSeconds", shot.matchTimeSeconds(), "seconds");
-        Telemetry.log("ShotLog/Alliance", shot.alliance());
-        Telemetry.log("ShotLog/Mode", shot.autonomous() ? "Auto" : "Teleop");
-        Telemetry.log("ShotLog/SuperState", shot.superState());
-        Telemetry.log("ShotLog/FeedReason", shot.decision().reason().label);
-        Telemetry.log("ShotLog/Bypassed", shot.decision().blocker().label);
-        Telemetry.log("ShotLog/SecondsWaited", shot.secondsWaited(), "seconds");
+        Telemetry.logDash("Shooting/Log/Index", index);
+        Telemetry.log("Shooting/Log/TimestampSeconds", shot.nowSeconds(), "seconds");
+        Telemetry.log("Shooting/Log/MatchTimeSeconds", shot.matchTimeSeconds(), "seconds");
+        Telemetry.log("Shooting/Log/Alliance", shot.alliance());
+        Telemetry.log("Shooting/Log/Mode", shot.autonomous() ? "Auto" : "Teleop");
+        Telemetry.log("Shooting/Log/SuperState", shot.superState());
+        Telemetry.log("Shooting/Log/FeedReason", shot.decision().reason().label);
+        Telemetry.log("Shooting/Log/Bypassed", shot.decision().blocker().label);
+        Telemetry.log("Shooting/Log/SecondsWaited", shot.secondsWaited(), "seconds");
 
         boolean set = shot.setShot() != null;
         var p = shot.params();
-        Telemetry.log("ShotLog/Kind", set ? "SetShot" : "Calculated");
-        Telemetry.log("ShotLog/SetShot", set ? shot.setShot().label : "");
-        Telemetry.log("ShotLog/FeedShot", p != null && p.feedShot());
-        Telemetry.log("ShotLog/Model", p != null ? p.modelName() : "HubModelStandstill");
+        Telemetry.log("Shooting/Log/Kind", set ? "SetShot" : "Calculated");
+        Telemetry.log("Shooting/Log/SetShot", set ? shot.setShot().label : "");
+        Telemetry.log("Shooting/Log/FeedShot", p != null && p.feedShot());
+        Telemetry.log("Shooting/Log/Model", p != null ? p.modelName() : "HubModelStandstill");
         double distance =
                 set
                         ? shot.setShot().distanceMeters
                         : p != null ? p.distanceNoLookahead() : Double.NaN;
-        Telemetry.log("ShotLog/DistanceMeters", distance, "meters");
+        Telemetry.log("Shooting/Log/DistanceMeters", distance, "meters");
         Telemetry.log(
-                "ShotLog/LookaheadDistanceMeters", p != null ? p.distance() : distance, "meters");
+                "Shooting/Log/LookaheadDistanceMeters",
+                p != null ? p.distance() : distance,
+                "meters");
         Telemetry.log(
-                "ShotLog/RadialVelocityMs", p != null ? p.radialVelocity() : Double.NaN, "m/s");
+                "Shooting/Log/RadialVelocityMs",
+                p != null ? p.radialVelocity() : Double.NaN,
+                "m/s");
         Telemetry.log(
-                "ShotLog/TangentialVelocityMs",
+                "Shooting/Log/TangentialVelocityMs",
                 p != null ? p.tangentialVelocity() : Double.NaN,
                 "m/s");
-        Telemetry.log("ShotLog/RobotSpeedMs", shot.robotSpeedMs(), "m/s");
+        Telemetry.log("Shooting/Log/RobotSpeedMs", shot.robotSpeedMs(), "m/s");
         Telemetry.log(
-                "ShotLog/TimeOfFlightSeconds", p != null ? p.timeOfFlight() : Double.NaN, "s");
-        Telemetry.log("ShotLog/InRange", p != null ? p.isValid() : set);
+                "Shooting/Log/TimeOfFlightSeconds", p != null ? p.timeOfFlight() : Double.NaN, "s");
+        Telemetry.log("Shooting/Log/InRange", p != null ? p.isValid() : set);
 
-        Telemetry.log("ShotLog/WantedRPM", shot.wantedRpm(), "RPM");
-        Telemetry.log("ShotLog/ActualRPM", shot.actualRpm(), "RPM");
-        Telemetry.log("ShotLog/WantedHoodDeg", shot.wantedHoodDeg(), "degrees");
-        Telemetry.log("ShotLog/ActualHoodDeg", shot.actualHoodDeg(), "degrees");
+        Telemetry.log("Shooting/Log/WantedRPM", shot.wantedRpm(), "RPM");
+        Telemetry.log("Shooting/Log/ActualRPM", shot.actualRpm(), "RPM");
+        Telemetry.log("Shooting/Log/WantedHoodDeg", shot.wantedHoodDeg(), "degrees");
+        Telemetry.log("Shooting/Log/ActualHoodDeg", shot.actualHoodDeg(), "degrees");
         // Fused heading minus the aim target, while the drivetrain aims; NaN for a set shot.
-        Telemetry.log("ShotLog/HeadingErrorDeg", Math.toDegrees(shot.headingErrorRad()), "deg");
-        Telemetry.log("ShotLog/AimToleranceDeg", Math.toDegrees(shot.aimToleranceRad()), "deg");
-        Telemetry.log("ShotLog/HoodTrimDeg", ShotCalculator.HOOD_ANGLE_OFFSET, "degrees");
-        Telemetry.log("ShotLog/AimTrimDeg", ShotCalculator.DRIVE_ANGLE_OFFSET, "degrees");
-
-        Telemetry.log("ShotLog/PoseTrusted", shot.poseTrusted());
         Telemetry.log(
-                "ShotLog/SecondsSinceFusedEstimate",
+                "Shooting/Log/HeadingErrorDeg", Math.toDegrees(shot.headingErrorRad()), "deg");
+        Telemetry.log(
+                "Shooting/Log/AimToleranceDeg", Math.toDegrees(shot.aimToleranceRad()), "deg");
+        Telemetry.log("Shooting/Log/HoodTrimDeg", ShotCalculator.HOOD_ANGLE_OFFSET, "degrees");
+        Telemetry.log("Shooting/Log/AimTrimDeg", ShotCalculator.DRIVE_ANGLE_OFFSET, "degrees");
+
+        Telemetry.log("Shooting/Log/PoseTrusted", shot.poseTrusted());
+        Telemetry.log(
+                "Shooting/Log/SecondsSinceFusedEstimate",
                 Math.min(shot.secondsSinceFusedEstimate(), 999.0),
                 "seconds");
-        Telemetry.log("ShotLog/SeedConfirmed", shot.seedConfirmed());
-        Telemetry.log("ShotLog/Pose", shot.pose());
+        Telemetry.log("Shooting/Log/SeedConfirmed", shot.seedConfirmed());
+        Telemetry.log("Shooting/Log/Pose", shot.pose());
     }
 
     /** Called every loop while a volley is feeding. */
@@ -127,10 +133,10 @@ public final class ShotLog {
 
     /** Writes the end row for the volley that stopped feeding this loop. */
     public void end(double nowSeconds) {
-        Telemetry.log("ShotLog/End/Index", index);
-        Telemetry.log("ShotLog/End/BurstSeconds", nowSeconds - startSeconds, "seconds");
-        Telemetry.log("ShotLog/End/FlywheelDips", (long) dips.count());
-        Telemetry.log("ShotLog/End/MinRPM", minRpm, "RPM");
+        Telemetry.log("Shooting/Log/End/Index", index);
+        Telemetry.log("Shooting/Log/End/BurstSeconds", nowSeconds - startSeconds, "seconds");
+        Telemetry.log("Shooting/Log/End/FlywheelDips", (long) dips.count());
+        Telemetry.log("Shooting/Log/End/MinRPM", minRpm, "RPM");
     }
 
     /**

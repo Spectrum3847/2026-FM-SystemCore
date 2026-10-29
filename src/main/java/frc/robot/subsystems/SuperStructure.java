@@ -299,30 +299,31 @@ public class SuperStructure extends SubsystemBase {
         }
         feedingLastLoop = feeding;
 
-        Telemetry.logDash("Shot/Ready", shotDecision.ready());
-        Telemetry.logDash("Shot/BlockedReason", shotDecision.blocker().label);
-        Telemetry.logDash("Shot/Feeding", feeding);
-        Telemetry.logDash("Shot/FeedReason", shotDecision.reason().label);
-        Telemetry.logDash("Shot/Override", override);
-        Telemetry.log("Shot/SecondsHeld", shotDecision.secondsHeld(), "seconds");
-        Telemetry.log("Shot/FlywheelErrorRPM", launcher.getVelocityRPM() - shotTargetRpm, "RPM");
+        Telemetry.logDash("Shooting/Gate/Ready", shotDecision.ready());
+        Telemetry.logDash("Shooting/Gate/BlockedReason", shotDecision.blocker().label);
+        Telemetry.logDash("Shooting/Gate/Feeding", feeding);
+        Telemetry.logDash("Shooting/Gate/FeedReason", shotDecision.reason().label);
+        Telemetry.logDash("Shooting/Gate/Override", override);
+        Telemetry.log("Shooting/Gate/SecondsHeld", shotDecision.secondsHeld(), "seconds");
         Telemetry.log(
-                "Shot/HoodErrorDeg",
+                "Shooting/Gate/FlywheelErrorRPM", launcher.getVelocityRPM() - shotTargetRpm, "RPM");
+        Telemetry.log(
+                "Shooting/Gate/HoodErrorDeg",
                 hood.getPositionDegrees() - hood.getShotTargetDegrees(),
                 "degrees");
-        Telemetry.log("Shot/HeadingErrorDeg", Math.toDegrees(headingError), "degrees");
-        Telemetry.log("Shot/AimToleranceDeg", Math.toDegrees(aimTolerance), "degrees");
-        Telemetry.log("Shot/CheckAim", checkAim);
-        Telemetry.log("Shot/PoseTrusted", poseTrusted);
-        Telemetry.log("Shot/InRange", params != null && params.isValid());
-        Telemetry.log("Shot/LaunchingLoops", launchingLoops);
-        Telemetry.log("Shot/HeldLoops", heldLoops);
-        Telemetry.log("Shot/Volleys", shotLog.count());
+        Telemetry.log("Shooting/Gate/HeadingErrorDeg", Math.toDegrees(headingError), "degrees");
+        Telemetry.log("Shooting/Gate/AimToleranceDeg", Math.toDegrees(aimTolerance), "degrees");
+        Telemetry.log("Shooting/Gate/CheckAim", checkAim);
+        Telemetry.log("Shooting/Gate/PoseTrusted", poseTrusted);
+        Telemetry.log("Shooting/Gate/InRange", params != null && params.isValid());
+        Telemetry.log("Shooting/Gate/LaunchingLoops", launchingLoops);
+        Telemetry.log("Shooting/Gate/HeldLoops", heldLoops);
+        Telemetry.log("Shooting/Gate/Volleys", shotLog.count());
         if (setShot) {
             // Informational only: how far the fused heading is from the spot's heading. The set
             // shot exists for when that heading cannot be trusted, so it never gates.
             Telemetry.log(
-                    "Shot/SetShotHeadingErrorDeg",
+                    "Shooting/Gate/SetShotHeadingErrorDeg",
                     swerve.getRobotPose()
                             .getRotation()
                             .minus(ShotCalculator.getSelectedSetShot().pose().getRotation())

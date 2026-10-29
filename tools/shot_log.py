@@ -5,10 +5,10 @@ Usage:
     python tools/shot_log.py logs/akit_XXXX.wpilog [--replay] > shots.csv
 
 Each row is written by ShotLog (src/main/java/frc/robot/subsystems/ShotLog.java) on the loop the
-shot gate opened the feed, with an end row (ShotLog/End/*) when it closed. AdvantageKit writes a
+shot gate opened the feed, with an end row (Shooting/Log/End/*) when it closed. AdvantageKit writes a
 value only when it changes, so a key that did not change since the last shot has no record at
-this shot's time: every column is that key's last value at or before the row's ShotLog/Index
-record. End columns are joined on ShotLog/End/Index == ShotLog/Index. Schema: docs/shot-log.md.
+this shot's time: every column is that key's last value at or before the row's Shooting/Log/Index
+record. End columns are joined on Shooting/Log/End/Index == Shooting/Log/Index. Schema: docs/shot-log.md.
 
 --replay reads /ReplayOutputs/ (what the replayed code wrote) instead of /RealOutputs/.
 """
@@ -20,7 +20,7 @@ import sys
 
 from wpilog_summary import decode, read_wpilog
 
-# Column order; any other ShotLog/ key found in the log is appended after these.
+# Column order; any other Shooting/Log/ key found in the log is appended after these.
 COLUMNS = [
     "Index", "TimestampSeconds", "MatchTimeSeconds", "Alliance", "Mode", "SuperState", "Kind",
     "SetShot", "FeedShot", "Model", "FeedReason", "Bypassed", "SecondsWaited", "DistanceMeters",
@@ -52,11 +52,15 @@ def fmt(v):
 
 def main():
     path = sys.argv[1]
-    prefix = "/ReplayOutputs/ShotLog/" if "--replay" in sys.argv else "/RealOutputs/ShotLog/"
+    root = "/ReplayOutputs/" if "--replay" in sys.argv else "/RealOutputs/"
     records, types = read_wpilog(path)
-    keys = {n[len(prefix):]: n for n in records if n.startswith(prefix)}
+    # ShotLog/ before the 2026-10 rename.
+    for prefix in (root + "Shooting/Log/", root + "ShotLog/"):
+        keys = {n[len(prefix):]: n for n in records if n.startswith(prefix)}
+        if keys:
+            break
     if "Index" not in keys:
-        print("no ShotLog/Index in this log (no volley was fed, or it predates the shot log)",
+        print("no Shooting/Log/Index in this log (no volley was fed, or it predates the shot log)",
               file=sys.stderr)
         return
     data = {}

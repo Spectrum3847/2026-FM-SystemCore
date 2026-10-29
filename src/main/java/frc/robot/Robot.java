@@ -551,6 +551,16 @@ public class Robot extends SpectrumRobot {
                     default -> "Unknown";
                 });
 
+        // What each key means (tools/make_log_key_guide.py), so a log explains itself.
+        try {
+            Logger.recordMetadata(
+                    "LogKeyGuide",
+                    java.nio.file.Files.readString(
+                            Filesystem.getDeployDirectory().toPath().resolve("log-keys.json")));
+        } catch (IOException e) {
+            Logger.recordMetadata("LogKeyGuide", "");
+        }
+
         // Every receiver goes through RadioStatusRedactor.addFirst, so no log file or dashboard
         // ever gets the radio's Wi-Fi key hashes (replay too: older logs still carry them).
         switch (Constants.currentMode) {
@@ -752,7 +762,7 @@ public class Robot extends SpectrumRobot {
             hasBeenEnabled = true;
         }
         try {
-            Telemetry.time("Scheduler/robotPeriodic");
+            Telemetry.time("Scheduler/RobotPeriodic");
 
             // Start every loop with an empty shot-solution cache so the first mechanism to ask
             // computes it from this loop's pose.
@@ -773,10 +783,10 @@ public class Robot extends SpectrumRobot {
             Telemetry.timeEnd("Scheduler/CommandScheduler");
             CommandLog.periodic();
 
-            Telemetry.log("Match Data/MatchTime", MatchState.getMatchTime(), "seconds");
+            Telemetry.log("MatchData/MatchTime", MatchState.getMatchTime(), "seconds");
             var shift = ShiftHelpers.getOfficialShiftInfo();
-            Telemetry.log("Match Data/InShift", shift.active());
-            Telemetry.logDash("Match Data/TimeLeftInShift", shift.remainingTime(), "seconds");
+            Telemetry.log("MatchData/InShift", shift.active());
+            Telemetry.logDash("MatchData/TimeLeftInShift", shift.remainingTime(), "seconds");
 
             Telemetry.time("Scheduler/SystemLogging");
             batteryLogger.setBatteryVoltage(RuntimeInputs.batteryVoltage());
@@ -810,7 +820,7 @@ public class Robot extends SpectrumRobot {
                 field2d.setRobotPose(swerve.getRobotPose());
             }
 
-            Telemetry.timeEnd("Scheduler/robotPeriodic");
+            Telemetry.timeEnd("Scheduler/RobotPeriodic");
         } catch (Throwable t) {
             // intercept error and log it
             CrashTracker.logThrowableCrash(t);
@@ -869,7 +879,7 @@ public class Robot extends SpectrumRobot {
         lastCanStatusSeconds = now;
         canBusInputs.buses.forEach(this::logOneCanBus);
 
-        Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds());
+        Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds(), "seconds");
         Telemetry.log("CANConfig/FailedCalls", CanConfigBudget.getFailedCalls());
         Telemetry.logDash("CANConfig/BudgetExhausted", CanConfigBudget.exhausted());
 
@@ -885,7 +895,7 @@ public class Robot extends SpectrumRobot {
      * a bus whose status read itself failed, which looks exactly like a healthy idle bus.
      */
     private void logOneCanBus(String prefix, CanBusInputs.Bus bus) {
-        Telemetry.logDash(prefix + "/BusUtilization", bus.utilizationPct(), "%");
+        Telemetry.logDash(prefix + "/BusUtilization", bus.utilizationPct(), "percent");
         Telemetry.log(prefix + "/BusOffCount", bus.busOffCount());
         Telemetry.log(prefix + "/TxFullCount", bus.txFullCount());
         Telemetry.log(prefix + "/ReceiveErrorCounter", bus.receiveErrorCount());
@@ -1107,8 +1117,8 @@ public class Robot extends SpectrumRobot {
 
     /** The robot's distance from the selected auto's start, as the pre-match check measured it. */
     private void logStartPose() {
-        Telemetry.logDash("Auton/StartPoseErrorMeters", autoStart.getDistanceMeters(), "m");
-        Telemetry.logDash("Auton/StartHeadingErrorDeg", autoStart.getHeadingErrorDeg(), "deg");
+        Telemetry.logDash("Auton/StartPoseErrorMeters", autoStart.getDistanceMeters(), "meters");
+        Telemetry.logDash("Auton/StartHeadingErrorDeg", autoStart.getHeadingErrorDeg(), "degrees");
     }
 
     @Override

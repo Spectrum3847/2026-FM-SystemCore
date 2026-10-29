@@ -13,7 +13,7 @@ import math
 import sys
 
 from replay_compare import value_at
-from wpilog_summary import decode, read_wpilog
+from wpilog_summary import decode, old_name, read_wpilog
 
 MAX_POSE_DIFF_M = 0.05
 MAX_HEADING_DIFF_DEG = 2.0
@@ -21,12 +21,16 @@ MAX_HEADING_DIFF_DEG = 2.0
 MAX_VERDICT_LOOPS = 10
 
 POSE_KEYS = ["Localization/FusedPose"]
-VERDICT_KEYS = ["Shot/FeedReason", "Shot/BlockedReason"]
+VERDICT_KEYS = ["Shooting/Gate/FeedReason", "Shooting/Gate/BlockedReason"]
 
 
 def replayed(records, types, key):
-    name = "/ReplayOutputs/" + key
-    return [(t, decode(types[name], p)) for t, p in records.get(name, [])]
+    # The base branch may predate the 2026-10 rename.
+    for k in (key, old_name(key)):
+        name = "/ReplayOutputs/" + (k or "")
+        if k and name in records:
+            return [(t, decode(types[name], p)) for t, p in records[name]]
+    return []
 
 
 def loop_times(records):

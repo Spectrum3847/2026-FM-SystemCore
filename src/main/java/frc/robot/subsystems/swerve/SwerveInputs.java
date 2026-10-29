@@ -96,20 +96,20 @@ public class SwerveInputs implements LoggableInputs {
         table.put("GyroConnected", gyroConnected);
         table.put("GyroResetOccurred", gyroResetOccurred);
         table.put("GyroYawRateRadPerSec", gyroYawRateRadPerSec);
-        table.put("GyroPitchDegrees", gyroPitchDegrees);
-        table.put("GyroRollDegrees", gyroRollDegrees);
-        table.put("GyroPitchRateDegPerSec", gyroPitchRateDegPerSec);
-        table.put("GyroRollRateDegPerSec", gyroRollRateDegPerSec);
+        table.put("GyroPitchDegrees", gyroPitchDegrees, "degrees");
+        table.put("GyroRollDegrees", gyroRollDegrees, "degrees");
+        table.put("GyroPitchRateDegPerSec", gyroPitchRateDegPerSec, "degrees per second");
+        table.put("GyroRollRateDegPerSec", gyroRollRateDegPerSec, "degrees per second");
         table.put("AccelXG", accelXG);
         table.put("AccelYG", accelYG);
         table.put("AccelZG", accelZG);
         table.put("OnboardImu/Present", onboardImuPresent);
-        table.put("OnboardImu/YawRadians", onboardImuYawRadians);
+        table.put("OnboardImu/YawRadians", onboardImuYawRadians, "radians");
         table.put("OnboardImu/YawRateRadPerSec", onboardImuYawRateRadPerSec);
         table.put("OnboardImu/AccelX", onboardImuAccelX);
         table.put("OnboardImu/AccelY", onboardImuAccelY);
         table.put("OnboardImu/AccelZ", onboardImuAccelZ);
-        table.put("OdometryPeriodSeconds", odometryPeriodSeconds);
+        table.put("OdometryPeriodSeconds", odometryPeriodSeconds, "seconds");
         table.put("SuccessfulDaqs", successfulDaqs);
         table.put("FailedDaqs", failedDaqs);
     }

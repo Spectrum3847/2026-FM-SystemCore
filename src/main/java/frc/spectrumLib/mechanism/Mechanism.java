@@ -1405,13 +1405,13 @@ public abstract class Mechanism implements Subsystem {
             Telemetry.logDash(voltageKey, getVoltage(), "volts");
             Telemetry.logDash(statorCurrentKey, getStatorCurrent(), "amps");
             Telemetry.logDash(supplyCurrentKey, getSupplyCurrent(), "amps");
-            Telemetry.logDash(tempKey, getTemp(), "deg_C");
+            Telemetry.logDash(tempKey, getTemp(), "celsius");
             Telemetry.logDash(motorConnectedKey, isMotorConnected());
         } else {
             Telemetry.log(voltageKey, getVoltage(), "volts");
             Telemetry.log(statorCurrentKey, getStatorCurrent(), "amps");
             Telemetry.log(supplyCurrentKey, getSupplyCurrent(), "amps");
-            Telemetry.log(tempKey, getTemp(), "deg_C");
+            Telemetry.log(tempKey, getTemp(), "celsius");
             Telemetry.log(motorConnectedKey, isMotorConnected());
         }
     }

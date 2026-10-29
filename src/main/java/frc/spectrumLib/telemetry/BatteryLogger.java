@@ -193,7 +193,7 @@ public class BatteryLogger {
             if (logSlow) {
                 Telemetry.log("BatteryLogger/Power", totalPower, "watts");
                 Telemetry.logDashAlways(
-                        "BatteryLogger/Energy", joulesToWattHours(totalEnergy), "wh");
+                        "BatteryLogger/Energy", joulesToWattHours(totalEnergy), "watt hours");
             }
 
             for (var entry : subsystemCurrents.entrySet()) {
@@ -219,7 +219,7 @@ public class BatteryLogger {
                             energyLogKeys.computeIfAbsent(
                                     entry.getKey(), k -> "BatteryLogger/Energy/" + k),
                             joulesToWattHours(entry.getValue()[0]),
-                            "wh");
+                            "watt hours");
                 }
             }
 

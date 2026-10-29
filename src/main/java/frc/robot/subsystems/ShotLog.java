@@ -103,8 +103,8 @@ public final class ShotLog {
         Telemetry.log("ShotLog/WantedHoodDeg", shot.wantedHoodDeg(), "degrees");
         Telemetry.log("ShotLog/ActualHoodDeg", shot.actualHoodDeg(), "degrees");
         // Fused heading minus the aim target, while the drivetrain aims; NaN for a set shot.
-        Telemetry.log("ShotLog/HeadingErrorDeg", Math.toDegrees(shot.headingErrorRad()), "deg");
-        Telemetry.log("ShotLog/AimToleranceDeg", Math.toDegrees(shot.aimToleranceRad()), "deg");
+        Telemetry.log("ShotLog/HeadingErrorDeg", Math.toDegrees(shot.headingErrorRad()), "degrees");
+        Telemetry.log("ShotLog/AimToleranceDeg", Math.toDegrees(shot.aimToleranceRad()), "degrees");
         Telemetry.log("ShotLog/HoodTrimDeg", ShotCalculator.HOOD_ANGLE_OFFSET, "degrees");
         Telemetry.log("ShotLog/AimTrimDeg", ShotCalculator.DRIVE_ANGLE_OFFSET, "degrees");
 

@@ -862,7 +862,7 @@
   },
   {
    "key": "/RealOutputs/<prefix>/BusUtilization",
-   "unit": "%",
+   "unit": "percent",
    "doc": "",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
@@ -1170,7 +1170,7 @@
   },
   {
    "key": "/RealOutputs/<tempKey>",
-   "unit": "deg_C",
+   "unit": "celsius",
    "doc": "",
    "source": "src/main/java/frc/spectrumLib/mechanism/Mechanism.java",
    "input": false
@@ -1296,14 +1296,14 @@
   },
   {
    "key": "/RealOutputs/Auton/StartHeadingErrorDeg",
-   "unit": "deg",
+   "unit": "degrees",
    "doc": "",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Auton/StartPoseErrorMeters",
-   "unit": "m",
+   "unit": "meters",
    "doc": "",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
@@ -1324,7 +1324,7 @@
   },
   {
    "key": "/RealOutputs/BatteryLogger/Energy",
-   "unit": "wh",
+   "unit": "watt hours",
    "doc": "",
    "source": "src/main/java/frc/spectrumLib/telemetry/BatteryLogger.java",
    "input": false
@@ -1345,7 +1345,7 @@
   },
   {
    "key": "/RealOutputs/CANConfig/BudgetSpentSeconds",
-   "unit": "",
+   "unit": "seconds",
    "doc": "",
    "source": "src/main/java/frc/robot/Robot.java",
    "input": false
@@ -2101,7 +2101,7 @@
   },
   {
    "key": "/RealOutputs/ShotLog/AimToleranceDeg",
-   "unit": "deg",
+   "unit": "degrees",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
@@ -2178,7 +2178,7 @@
   },
   {
    "key": "/RealOutputs/ShotLog/HeadingErrorDeg",
-   "unit": "deg",
+   "unit": "degrees",
    "doc": "Fused heading minus the aim target, while the drivetrain aims; NaN for a set shot.",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
@@ -2423,21 +2423,21 @@
   },
   {
    "key": "/RealOutputs/Summary/Battery/MinVolts",
-   "unit": "",
+   "unit": "volts",
    "doc": "",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Battery/SecondsUnder7V",
-   "unit": "",
+   "unit": "seconds",
    "doc": "",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Summary/Battery/SecondsUnder8V",
-   "unit": "",
+   "unit": "seconds",
    "doc": "",
    "source": "src/main/java/frc/spectrumLib/telemetry/MatchSummary.java",
    "input": false
@@ -2633,7 +2633,7 @@
   },
   {
    "key": "/RealOutputs/Swerve/Tilt/TiltDegrees",
-   "unit": "",
+   "unit": "degrees",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
@@ -2647,7 +2647,7 @@
   },
   {
    "key": "/RealOutputs/Swerve/Tilt/TiltRateDegPerSec",
-   "unit": "",
+   "unit": "degrees per second",
    "doc": "",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
@@ -2661,7 +2661,7 @@
   },
   {
    "key": "/RealOutputs/System/CpuPercent",
-   "unit": "%",
+   "unit": "percent",
    "doc": "",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
@@ -2675,7 +2675,7 @@
   },
   {
    "key": "/RealOutputs/System/Gc/MsPerSecond",
-   "unit": "ms",
+   "unit": "milliseconds",
    "doc": "",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
@@ -2689,28 +2689,28 @@
   },
   {
    "key": "/RealOutputs/System/Loop/MaxPeriodMs",
-   "unit": "ms",
+   "unit": "milliseconds",
    "doc": "",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
   {
    "key": "/RealOutputs/System/Loop/MeanPeriodMs",
-   "unit": "ms",
+   "unit": "milliseconds",
    "doc": "",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
   {
    "key": "/RealOutputs/System/Loop/OverrunPercent",
-   "unit": "%",
+   "unit": "percent",
    "doc": "",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
   },
   {
    "key": "/RealOutputs/System/MainThreadPercent",
-   "unit": "%",
+   "unit": "percent",
    "doc": "",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false
@@ -2731,7 +2731,7 @@
   },
   {
    "key": "/RealOutputs/System/ProcessPercent",
-   "unit": "%",
+   "unit": "percent",
    "doc": "",
    "source": "src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java",
    "input": false

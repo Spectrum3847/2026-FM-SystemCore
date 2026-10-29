@@ -872,9 +872,9 @@ public final class MatchSummary {
     // ── Log keys ─────────────────────────────────────────────────────────────
 
     private void log() {
-        Logger.recordOutput("Summary/Battery/MinVolts", nanToZero(minVolts));
-        Logger.recordOutput("Summary/Battery/SecondsUnder8V", secondsUnderLow);
-        Logger.recordOutput("Summary/Battery/SecondsUnder7V", secondsUnderVeryLow);
+        Logger.recordOutput("Summary/Battery/MinVolts", nanToZero(minVolts), "volts");
+        Logger.recordOutput("Summary/Battery/SecondsUnder8V", secondsUnderLow, "seconds");
+        Logger.recordOutput("Summary/Battery/SecondsUnder7V", secondsUnderVeryLow, "seconds");
         Logger.recordOutput("Summary/Brownouts", brownoutCount());
         Logger.recordOutput("Summary/Loop/EnabledLoops", enabledLoops);
         Logger.recordOutput("Summary/Loop/Overruns", overruns);

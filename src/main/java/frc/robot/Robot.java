@@ -879,7 +879,7 @@ public class Robot extends SpectrumRobot {
         lastCanStatusSeconds = now;
         canBusInputs.buses.forEach(this::logOneCanBus);
 
-        Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds());
+        Telemetry.log("CANConfig/BudgetSpentSeconds", CanConfigBudget.getSpentSeconds(), "seconds");
         Telemetry.log("CANConfig/FailedCalls", CanConfigBudget.getFailedCalls());
         Telemetry.logDash("CANConfig/BudgetExhausted", CanConfigBudget.exhausted());
 
@@ -895,7 +895,7 @@ public class Robot extends SpectrumRobot {
      * a bus whose status read itself failed, which looks exactly like a healthy idle bus.
      */
     private void logOneCanBus(String prefix, CanBusInputs.Bus bus) {
-        Telemetry.logDash(prefix + "/BusUtilization", bus.utilizationPct(), "%");
+        Telemetry.logDash(prefix + "/BusUtilization", bus.utilizationPct(), "percent");
         Telemetry.log(prefix + "/BusOffCount", bus.busOffCount());
         Telemetry.log(prefix + "/TxFullCount", bus.txFullCount());
         Telemetry.log(prefix + "/ReceiveErrorCounter", bus.receiveErrorCount());
@@ -1117,8 +1117,8 @@ public class Robot extends SpectrumRobot {
 
     /** The robot's distance from the selected auto's start, as the pre-match check measured it. */
     private void logStartPose() {
-        Telemetry.logDash("Auton/StartPoseErrorMeters", autoStart.getDistanceMeters(), "m");
-        Telemetry.logDash("Auton/StartHeadingErrorDeg", autoStart.getHeadingErrorDeg(), "deg");
+        Telemetry.logDash("Auton/StartPoseErrorMeters", autoStart.getDistanceMeters(), "meters");
+        Telemetry.logDash("Auton/StartHeadingErrorDeg", autoStart.getHeadingErrorDeg(), "degrees");
     }
 
     @Override

@@ -165,7 +165,12 @@ tasks.withType(JavaCompile).configureEach {
         disable("UnrecognisedJavadocTag", "NotJavadoc", "EmptyBlockTag")
         // Style only.
         disable("StatementSwitchToExpressionSwitch", "UnnecessaryParentheses", "StringSplitter",
-                "ArrayRecordComponent", "InlineMeSuggester")
+                "ArrayRecordComponent", "InlineMeSuggester", "RefactorSwitch")
+        // Commands, threads and pose sources are compared by identity on purpose; enums hold
+        // geometry (Pose2d), which is immutable but not annotated.
+        disable("ReferenceEquality", "ImmutableEnumChecker")
+        // BackgroundSampler's scheduled task catches its own exceptions, so its Future is unused.
+        disable("FutureReturnValueIgnored")
         // Robot.java hands out subsystems through static fields set in its constructor.
         disable("StaticAssignmentInConstructor")
         // Mechanism subclasses narrow `config` to their own Config type.

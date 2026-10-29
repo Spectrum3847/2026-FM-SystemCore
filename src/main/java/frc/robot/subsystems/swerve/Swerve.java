@@ -345,8 +345,8 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
 
             // Built once so the 10 Hz tick does no string concatenation.
             String module =
-                    i < SwerveAlignment.MODULE_NAMES.length
-                            ? SwerveAlignment.MODULE_NAMES[i]
+                    i < SwerveAlignment.MODULE_NAMES.size()
+                            ? SwerveAlignment.MODULE_NAMES.get(i)
                             : "Module" + i;
             moduleCurrentKeys[4 * i] = CURRENTS_PREFIX + module + "/DriveStatorCurrent";
             moduleCurrentKeys[4 * i + 1] = CURRENTS_PREFIX + module + "/DriveSupplyCurrent";

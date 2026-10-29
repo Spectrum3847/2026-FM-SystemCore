@@ -82,8 +82,6 @@ public class JetsonNTIO implements JetsonIO {
     private final StringSubscriber fieldMapError;
     private final StringSubscriber logLines;
 
-    private final NetworkTableInstance nt = NetworkTableInstance.getDefault();
-
     private final BooleanPublisher record;
     private final StringPublisher label;
     private final IntegerPublisher clock;

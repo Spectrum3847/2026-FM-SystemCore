@@ -352,11 +352,11 @@ public class Robot extends SpectrumRobot {
         }
         var in = swerve.getInputs();
         String drivetrain = busLabel.apply(CanBuses.DRIVETRAIN);
-        for (int i = 0; i < SwerveAlignment.MODULE_NAMES.length; i++) {
+        for (int i = 0; i < SwerveAlignment.MODULE_NAMES.size(); i++) {
             final int m = i;
             // As Swerve reads it: logs from before ModuleConnected was recorded have none.
             matchSummary.addDevice(
-                    "Swerve " + SwerveAlignment.MODULE_NAMES[i],
+                    "Swerve " + SwerveAlignment.MODULE_NAMES.get(i),
                     drivetrain,
                     () -> in.moduleConnected.length != 4 || in.moduleConnected[m],
                     () -> swerve.moduleRebootedThisLoop(m),

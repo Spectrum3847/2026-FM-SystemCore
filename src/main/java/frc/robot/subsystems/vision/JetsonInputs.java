@@ -239,7 +239,7 @@ public class JetsonInputs implements LoggableInputs {
         table.put("Ssd/UnsafeShutdowns", ssdUnsafeShutdowns);
         table.put("Ssd/PercentUsed", ssdPercentUsed);
         table.put("Ssd/CriticalWarning", ssdCriticalWarning);
-        table.put("Ssd/AvailableSparePct", ssdAvailableSparePct, "percent");
+        table.put("Ssd/AvailableSparePct", ssdAvailableSparePct);
         table.put("ExcludedTagsActive", excludedTagsActive);
         table.put("Rewind/Recording", rewindRecording);
         table.put("Rewind/Session", rewindSession);

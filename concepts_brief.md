@@ -24,20 +24,23 @@ Six reviewers looked at the concept without seeing this conversation. Their find
 - a systemd unit with `Nice=10` and a CPU quota;
 - a measured budget before adoption (for example under 3% CPU idle, under 10% while a log downloads), using the existing `-ProbotTop` task. No current CPU figure is assumed; measure it.
 
-**4. Service language: Java.** Reviewers split between Python, Java and Go. With the facts now known:
-- *Java, a second small program in the same Gradle build:* the Java runtime is already on every SystemCore, because the robot program needs it. Uses the JDK's built-in `com.sun.net.httpserver` and WPILib's own NT4 client, with no new dependencies. Tested with JUnit inside `./gradlew build`, same as the robot code, so agents check it with tools they already use. Its 60–100 MB of RAM is small against 4 GB. Cost: some CPU while the JVM starts up after a deploy. Run it at a lower priority and cap its heap so its garbage collector stays small.
-- *Python:* can be installed on the SystemCore, but it is not there by default. Every new or reflashed SystemCore would need a setup step, often with no internet in the pit. A deploy that silently loses its app after a reflash is the kind of failure this project is trying to remove.
-- *Go:* lightest on the robot, but adds a cross-compile toolchain that agents and laptops must keep working. Not worth it with 4 GB of RAM.
+**4. Service and page languages are open.** Reviewers split, and the facts that decide it are not known yet. What each reviewer argued:
+- *Python standard library* (two reviewers): nothing to compile, and the log tools in `tools/` are already Python and could run on the robot.
+- *Java, a second small program in the same Gradle build* (two reviewers): the Java runtime is on every SystemCore because the robot program needs it. Built-in `com.sun.net.httpserver` and WPILib's NT4 client, no new dependencies, tested with JUnit in `./gradlew build`. A second JVM uses about 60–100 MB of RAM (the SystemCore has 4 GB).
+- *Go, one static binary* (two reviewers): lightest on the robot, but needs a cross-compile toolchain built in CI.
+- *Pages:* five reviewers said to keep plain HTML/JS with no build step. Not yet weighed against TypeScript or a library like Preact, which add checks for agent-maintained code at the cost of a build step.
+
+Unknown: whether `python3` is on a SystemCore by default (the team knows it can be installed). Nobody has checked. A focused review of the language choice, with these facts, should come before the team decides.
 
 **5. Changes to the robot must go through the robot program (five reviewers).** The service must never write robot config or files the robot reads. Changes go as NetworkTables commands that the robot's main loop applies only while disabled and logs as inputs, so AdvantageKit replay matches. A crashed robot program therefore means read-only mode, and that is acceptable.
 
 **6. Hard-stop confirmation has to be something an agent cannot do itself.** If the API caller can also send "confirm", an agent can confirm its own change. The design that survived: the agent *proposes* a change; the service holds it as pending (old value, new value, failure mode, short expiry); a person clicks Confirm on a page; the robot logs both the proposal and the confirmation with a request ID, so a log shows which session caused which change. The robot publishes which values count as hard stops; the app keeps no list of its own.
 
-**7. One place to start, replacing other tools where it can (team decision, against the reviewers).** All six reviewers said to link to existing tools rather than rebuild them. The team overruled this: having to know AdvantageScope, Elastic, Phoenix Tuner X, WinSCP and each device's web page is hard to teach. The app must:
+**7. One place to start, replacing other tools where it can (team decision, against the reviewers).** All six reviewers said to link to existing tools rather than rebuild them. The team decided otherwise: having to know AdvantageScope, Elastic, Phoenix Tuner X, WinSCP and each device's web page is hard to teach. The app must:
 - for every common pit job, say which tool to use, why, and link to it (a "How do I…" page);
 - do the job itself when the common case is small: download logs, check a device is reachable, see live motor and CAN status, set swerve offsets, see why the robot program is down.
 
-The cost the reviewers raised still holds: every replaced feature is code that agents must keep working when the robot code changes. To keep that cost down:
+The cost the reviewers raised still holds: every replaced feature is code that agents must keep working when the robot code changes. Suggested limits, not yet reviewed or approved:
 - replace the common, simple case and link out for the deep one (for example, a live current and temperature table instead of Tuner X for checking motors, but Tuner X for firmware updates and configs);
 - every page reads robot facts from the manifest, NetworkTables or the log, never a copy;
 - every page states in its "How do I…" entry when to switch to the full tool.
@@ -84,33 +87,36 @@ Candidates to replace or partly replace: WinSCP (log download and file view), th
 
 * **Keep serving from the robot program's `WebServer` (the current first version).** Rejected: goes down when the robot program crashes, which breaks a hard requirement.
 * **An app installed on each laptop.** Rejected: drifts from the robot code, and needs per-laptop setup. This is how the old `tools/robot-app` went stale.
-* **Node, npm or Vite front end.** Rejected: laptop toolchain and cached old builds; the old app's documented failures.
+* **Node, npm or Vite front end.** Reviewers advised against it: laptop toolchain and cached old builds were the old app's documented failures. Not yet decided by the team (see item 4).
 * **Off-the-shelf servers (Cockpit, filebrowser).** Rejected: need ARM builds on the device, Cockpit uses noticeable CPU, and neither offers hard-stop confirmation.
 * **The service sends live data to browsers itself (one robot connection, shared out).** Not chosen for now: it saves NetworkTables load with many phones but adds CPU on the robot. Revisit if many clients become a problem.
 * **Link to existing tools instead of replacing any (all six reviewers).** Rejected by the team: too many places to learn. Kept in part: the app links out for the deep cases.
-* **Python service.** Rejected: not installed by default, so every new or reflashed SystemCore needs a setup step, and a missing install silently takes the app down.
 * **Agent access only through a laptop-side command-line tool or MCP server (SSH plus existing tools).** Partly kept. One reviewer argued an on-robot API is unneeded because agents already have SSH, NetworkTables, `tools/*.py` and the `spectrum-logs` MCP. Others answered that pages need the same API anyway, so an MCP wrapper should be a thin layer over it, not a separate system.
-* **Go binary for the service.** Rejected: needs a cross-compile toolchain, and 4 GB of RAM removes the reason to use it.
 
 ## Key Decisions & Staging for Next Steps
 
-**Decided:**
-1. Separate systemd service, installed by the normal deploy through a `CommandArtifact` that restarts it only when its files changed.
-2. Keep the plain HTML/JS front end, the no-copied-facts rule and the `node --test` suite. Remove `WebServer.start` from `Robot.java` in the same change.
+**Decided by the team:**
+1. The app runs as its own service on the SystemCore, keeps working when the robot program crashes, and is installed by every robot deploy, adding no more than 10–15 s.
+2. The app is the single starting point: it explains which tool to use for every pit job and replaces other tools where it can.
+3. The existing Power, CAN and Cameras pages are rebuilt, with the current code as a reference, not a base.
+4. AI sessions are directed by a person; a person confirms any hard-stop change.
+
+**Reviewer recommendations, not yet approved by the team:**
+1. The service runs under systemd, installed through a GradleRIO `CommandArtifact` that restarts it only when its files changed.
+2. Remove `WebServer.start` from `Robot.java` when the service replaces it.
 3. The browser reads live data from NetworkTables directly; the service does files, status, network and the API.
-4. Writes only through logged NetworkTables commands while disabled; hard-stop changes are proposed by the API and confirmed by a person's click.
-5. Build log download and the status page first; they are the clearest pain today.
-6. The app is the single starting point: a "How do I…" guide for every pit job, and its own pages for the common case of each tool.
-7. The service is a second small Java program in the same Gradle build.
-8. The existing Power, CAN and Cameras pages are rebuilt, not kept as they are: each covers the common pit case, gets robot facts from the robot, and says when to switch to AdvantageScope, Tuner X or the camera's own page. The current code is a reference, not a base.
+4. Writes only through logged NetworkTables commands while disabled; hard-stop changes are proposed through the API and confirmed by a person's click on a page.
+5. The app keeps no copies of robot facts; a robot manifest with a git SHA, plus a mismatch banner.
+6. Build log download and the status page first.
+
+**Open:**
+1. Service language (Python, Java or Go) and page approach (plain JS or a build step). Needs a focused review.
+2. Whether the API needs any login beyond "confirm comes from a page click".
 
 **Check on the bench before `/egm-draft`:**
 1. CPU use with vision running, and with the service idle and serving a download.
-2. Java service start-up time after a deploy, and its CPU while starting.
+2. Is `python3` on a SystemCore by default?
 3. Can a deploy install and restart a systemd unit (sudo or `systemctl --user` with lingering)?
 4. A free port that the field allows.
 5. Which log folder is used, with and without a USB stick.
 6. Does killing the robot program leave the service up?
-
-**Undecided:**
-- Whether the API needs any login beyond "confirm comes from a page click".

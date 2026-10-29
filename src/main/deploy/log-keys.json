@@ -51,56 +51,56 @@
   {
    "key": "/CAN/<label>/BusOffCount",
    "unit": "",
-   "doc": "",
+   "doc": "Times the bus went bus-off (too many errors) since the controller booted.",
    "source": "src/main/java/frc/spectrumLib/hardware/CanBusInputs.java",
    "input": true
   },
   {
    "key": "/CAN/<label>/BusUtilization",
    "unit": "",
-   "doc": "",
+   "doc": "Share of the bus's bandwidth in use.",
    "source": "src/main/java/frc/spectrumLib/hardware/CanBusInputs.java",
    "input": true
   },
   {
    "key": "/CAN/<label>/ReceiveErrorCounter",
    "unit": "",
-   "doc": "",
+   "doc": "CAN receive error counter: rises with noise or a bad wire, falls as frames arrive clean.",
    "source": "src/main/java/frc/spectrumLib/hardware/CanBusInputs.java",
    "input": true
   },
   {
    "key": "/CAN/<label>/Status",
    "unit": "",
-   "doc": "",
+   "doc": "Phoenix's status for the read; anything but OK means the counters are 0.",
    "source": "src/main/java/frc/spectrumLib/hardware/CanBusInputs.java",
    "input": true
   },
   {
    "key": "/CAN/<label>/StatusOK",
    "unit": "",
-   "doc": "",
+   "doc": "The status read worked: only then are the other values real.",
    "source": "src/main/java/frc/spectrumLib/hardware/CanBusInputs.java",
    "input": true
   },
   {
    "key": "/CAN/<label>/TransmitErrorCounter",
    "unit": "",
-   "doc": "",
+   "doc": "CAN transmit error counter (0-255): over 255 the bus goes bus-off.",
    "source": "src/main/java/frc/spectrumLib/hardware/CanBusInputs.java",
    "input": true
   },
   {
    "key": "/CAN/<label>/TxFullCount",
    "unit": "",
-   "doc": "",
+   "doc": "Frames dropped because the transmit buffer was full since boot.",
    "source": "src/main/java/frc/spectrumLib/hardware/CanBusInputs.java",
    "input": true
   },
   {
    "key": "/CAN/Labels",
    "unit": "",
-   "doc": "",
+   "doc": "The buses found, by the label each one is logged under.",
    "source": "src/main/java/frc/spectrumLib/hardware/CanBusInputs.java",
    "input": true
   },
@@ -205,7 +205,7 @@
   {
    "key": "/Mechanisms/<name>/Connected",
    "unit": "",
-   "doc": "",
+   "doc": "The leader answered this loop's signal refresh. Readings are stale or zero while false.",
    "source": "src/main/java/frc/spectrumLib/mechanism/MotorInputs.java",
    "input": true
   },
@@ -219,28 +219,28 @@
   {
    "key": "/Mechanisms/<name>/FollowerConnected",
    "unit": "",
-   "doc": "",
+   "doc": "Whether each follower answered this loop, in config order.",
    "source": "src/main/java/frc/spectrumLib/mechanism/MotorInputs.java",
    "input": true
   },
   {
    "key": "/Mechanisms/<name>/FollowerResetOccurred",
    "unit": "",
-   "doc": "",
+   "doc": "Whether each follower rebooted since last loop, in config order.",
    "source": "src/main/java/frc/spectrumLib/mechanism/MotorInputs.java",
    "input": true
   },
   {
    "key": "/Mechanisms/<name>/FollowerStickyFaultField",
    "unit": "",
-   "doc": "",
+   "doc": "Each follower's latched-fault bitfield, in config order.",
    "source": "src/main/java/frc/spectrumLib/mechanism/MotorInputs.java",
    "input": true
   },
   {
    "key": "/Mechanisms/<name>/FollowerSupplyCurrentAmps",
    "unit": "",
-   "doc": "",
+   "doc": "Each follower's battery current, in config order.",
    "source": "src/main/java/frc/spectrumLib/mechanism/MotorInputs.java",
    "input": true
   },
@@ -254,7 +254,7 @@
   {
    "key": "/Mechanisms/<name>/PositionRotations",
    "unit": "",
-   "doc": "",
+   "doc": "Leader position in mechanism rotations (after the gear ratio), as of its last frame.",
    "source": "src/main/java/frc/spectrumLib/mechanism/MotorInputs.java",
    "input": true
   },
@@ -268,28 +268,28 @@
   {
    "key": "/Mechanisms/<name>/StatorCurrentAmps",
    "unit": "",
-   "doc": "",
+   "doc": "Current through the leader's motor windings: what makes torque and heat.",
    "source": "src/main/java/frc/spectrumLib/mechanism/MotorInputs.java",
    "input": true
   },
   {
    "key": "/Mechanisms/<name>/StickyFaultField",
    "unit": "",
-   "doc": "",
+   "doc": "Faults latched since boot, as a bitfield (see faultField).",
    "source": "src/main/java/frc/spectrumLib/mechanism/MotorInputs.java",
    "input": true
   },
   {
    "key": "/Mechanisms/<name>/SupplyCurrentAmps",
    "unit": "",
-   "doc": "",
+   "doc": "Current the leader draws from the battery.",
    "source": "src/main/java/frc/spectrumLib/mechanism/MotorInputs.java",
    "input": true
   },
   {
    "key": "/Mechanisms/<name>/TempCelsius",
    "unit": "",
-   "doc": "",
+   "doc": "Leader's internal temperature.",
    "source": "src/main/java/frc/spectrumLib/mechanism/MotorInputs.java",
    "input": true
   },
@@ -303,14 +303,14 @@
   {
    "key": "/Mechanisms/<name>/VelocityRPS",
    "unit": "",
-   "doc": "",
+   "doc": "Leader velocity in mechanism rotations per second.",
    "source": "src/main/java/frc/spectrumLib/mechanism/MotorInputs.java",
    "input": true
   },
   {
    "key": "/Mechanisms/<name>/Voltage",
    "unit": "",
-   "doc": "",
+   "doc": "Voltage the leader applies to its motor (its output, not the battery).",
    "source": "src/main/java/frc/spectrumLib/mechanism/MotorInputs.java",
    "input": true
   },
@@ -1969,105 +1969,105 @@
   {
    "key": "/RealOutputs/Shooting/Gate/AimToleranceDeg",
    "unit": "degrees",
-   "doc": "",
+   "doc": "Largest heading error the gate accepts at this distance; NaN for a set shot.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Gate/BlockedReason",
    "unit": "",
-   "doc": "",
+   "doc": "The first check holding the shot: None, NoShot, HoodNotZeroed, HoodNotReady, NotAimed, InvalidShot, Settling.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Gate/CheckAim",
    "unit": "",
-   "doc": "",
+   "doc": "The drivetrain is aiming, so the heading check applies.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Gate/Feeding",
    "unit": "",
-   "doc": "",
+   "doc": "The indexers are feeding fuel to the launcher this loop.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Gate/FeedReason",
    "unit": "",
-   "doc": "",
+   "doc": "Why the gate fed or didn't: NotLaunching, Held, Ready, Override, Timeout.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Gate/FlywheelErrorRPM",
    "unit": "RPM",
-   "doc": "",
+   "doc": "Flywheel speed minus the shot's target; negative is slow.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Gate/HeadingErrorDeg",
    "unit": "degrees",
-   "doc": "",
+   "doc": "Robot heading minus the heading that aims at the target.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Gate/HeldLoops",
    "unit": "",
-   "doc": "",
+   "doc": "Loops in a launch state where the gate held the feed, since boot.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Gate/HoodErrorDeg",
    "unit": "degrees",
-   "doc": "",
+   "doc": "Hood angle minus the shot's target.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Gate/InRange",
    "unit": "",
-   "doc": "",
+   "doc": "The shot model has a valid solution from here.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Gate/LaunchingLoops",
    "unit": "",
-   "doc": "",
+   "doc": "Loops spent in a launch state since boot.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Gate/Override",
    "unit": "",
-   "doc": "",
+   "doc": "The operator is holding Y to feed regardless of the gate.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Gate/PoseTrusted",
    "unit": "",
-   "doc": "",
+   "doc": "Vision updated the pose within the last 3 s, so the aim is trusted.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Gate/Ready",
    "unit": "",
-   "doc": "",
+   "doc": "Every check passes: a shot is set, the hood is zeroed and on target, aimed, in range, settled.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Shooting/Gate/SecondsHeld",
    "unit": "seconds",
-   "doc": "",
+   "doc": "How long this launch has been held so far; 0 while feeding.",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },
@@ -2081,7 +2081,7 @@
   {
    "key": "/RealOutputs/Shooting/Gate/Volleys",
    "unit": "",
-   "doc": "",
+   "doc": "Volleys fed since boot (rows in Shooting/Log).",
    "source": "src/main/java/frc/robot/subsystems/SuperStructure.java",
    "input": false
   },

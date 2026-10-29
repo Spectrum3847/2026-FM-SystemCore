@@ -39,6 +39,10 @@ jobs:
       - name: Check Java formatting (Spotless)
         run: ./gradlew spotlessCheck
 
+      # docs/log-keys.md and deploy/log-keys.json are generated from the source.
+      - name: Log key guide is current
+        run: python3 tools/make_log_key_guide.py --check
+
       # Runs a single command using the runners shell
       - name: Compile and run tests on robot code
         run: ./gradlew build

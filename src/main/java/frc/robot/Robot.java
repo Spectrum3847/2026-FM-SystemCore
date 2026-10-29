@@ -551,6 +551,16 @@ public class Robot extends SpectrumRobot {
                     default -> "Unknown";
                 });
 
+        // What each key means (tools/make_log_key_guide.py), so a log explains itself.
+        try {
+            Logger.recordMetadata(
+                    "LogKeyGuide",
+                    java.nio.file.Files.readString(
+                            Filesystem.getDeployDirectory().toPath().resolve("log-keys.json")));
+        } catch (IOException e) {
+            Logger.recordMetadata("LogKeyGuide", "");
+        }
+
         // Every receiver goes through RadioStatusRedactor.addFirst, so no log file or dashboard
         // ever gets the radio's Wi-Fi key hashes (replay too: older logs still carry them).
         switch (Constants.currentMode) {

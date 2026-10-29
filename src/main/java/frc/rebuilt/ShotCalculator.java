@@ -85,26 +85,37 @@ public class ShotCalculator {
     public static final double STARTING_DRIVE_ANGLE_OFFSET = 0; // degrees
     public static double DRIVE_ANGLE_OFFSET = STARTING_DRIVE_ANGLE_OFFSET;
 
+    // The operator's d-pad trims every shot for the rest of the match, so each press is an event.
+    private static void setHoodAngleOffset(double degrees) {
+        HOOD_ANGLE_OFFSET = degrees;
+        Telemetry.logEvent("Events", String.format("hood angle offset %.1f deg", degrees));
+    }
+
+    private static void setDriveAngleOffset(double degrees) {
+        DRIVE_ANGLE_OFFSET = degrees;
+        Telemetry.logEvent("Events", String.format("drive angle offset %.0f deg", degrees));
+    }
+
     public static Command increaseHoodAngleOffset() {
-        return Commands.runOnce(() -> HOOD_ANGLE_OFFSET += 0.1)
+        return Commands.runOnce(() -> setHoodAngleOffset(HOOD_ANGLE_OFFSET + 0.1))
                 .ignoringDisable(true)
                 .withName("ShotCalculator.increaseHoodAngleOffset");
     }
 
     public static Command decreaseHoodAngleOffset() {
-        return Commands.runOnce(() -> HOOD_ANGLE_OFFSET -= 0.1)
+        return Commands.runOnce(() -> setHoodAngleOffset(HOOD_ANGLE_OFFSET - 0.1))
                 .ignoringDisable(true)
                 .withName("ShotCalculator.decreaseHoodAngleOffset");
     }
 
     public static Command increaseDriveAngleOffset() {
-        return Commands.runOnce(() -> DRIVE_ANGLE_OFFSET += 1)
+        return Commands.runOnce(() -> setDriveAngleOffset(DRIVE_ANGLE_OFFSET + 1))
                 .ignoringDisable(true)
                 .withName("ShotCalculator.increaseDriveAngleOffset");
     }
 
     public static Command decreaseDriveAngleOffset() {
-        return Commands.runOnce(() -> DRIVE_ANGLE_OFFSET -= 1)
+        return Commands.runOnce(() -> setDriveAngleOffset(DRIVE_ANGLE_OFFSET - 1))
                 .ignoringDisable(true)
                 .withName("ShotCalculator.decreaseDriveAngleOffset");
     }

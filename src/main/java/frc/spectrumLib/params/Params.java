@@ -88,6 +88,10 @@ public final class Params {
     private static final ParamsInputs INPUTS = new ParamsInputs(STORE);
 
     private static boolean started = false;
+
+    /** Each param's value at the last log, to log a change as an event. */
+    private static final Map<String, Object> lastLogged = new HashMap<>();
+
     private static ParamTransport.LiveValue saveButton;
     private static boolean saveRequested = false;
     private static ThreadPoolExecutor writer;
@@ -177,6 +181,7 @@ public final class Params {
         Telemetry.log("Params/LiveTuning", live);
         Logger.processInputs("Params", INPUTS);
         loggedValuesVersion = STORE.valuesVersion();
+        logChanges();
         report();
     }
 
@@ -215,12 +220,42 @@ public final class Params {
         if (replay || STORE.valuesVersion() != loggedValuesVersion) {
             Logger.processInputs("Params", INPUTS);
             loggedValuesVersion = STORE.valuesVersion();
+            logChanges();
         }
         if (!replay) {
             handleSave();
         }
         pollSave();
         report();
+    }
+
+    private static void logChanges() {
+        changes(STORE, lastLogged).forEach(line -> Telemetry.logEvent("Events", line));
+    }
+
+    /**
+     * One line per param whose value changed since {@code last}, with where the new value came
+     * from, and updates {@code last}. Nothing for a param's first value.
+     */
+    static List<String> changes(ParamStore store, Map<String, Object> last) {
+        List<String> lines = new ArrayList<>();
+        for (Param<?> p : store.params()) {
+            Object now = p.get();
+            Object before = last.put(p.path(), now);
+            if (before != null && !before.equals(now)) {
+                lines.add(
+                        "param "
+                                + p.path()
+                                + ": "
+                                + before
+                                + " -> "
+                                + now
+                                + " ("
+                                + p.source()
+                                + ")");
+            }
+        }
+        return lines;
     }
 
     /**

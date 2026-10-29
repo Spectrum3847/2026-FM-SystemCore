@@ -32,7 +32,7 @@ Six reviewers looked at the concept without seeing this conversation. Their find
 
 Unknown: whether `python3` is on a SystemCore by default (the team knows it can be installed). Nobody has checked. A focused review of the language choice, with these facts, should come before the team decides.
 
-**5. Changes to the robot must go through the robot program (five reviewers).** The service must never write robot config or files the robot reads. Changes go as NetworkTables commands that the robot's main loop applies only while disabled and logs as inputs, so AdvantageKit replay matches. A crashed robot program therefore means read-only mode, and that is acceptable.
+**5. Changes to the robot must go through the robot program (five reviewers).** The service must never write robot config or files the robot reads. Changes go as NetworkTables commands that the robot's main loop applies only while disabled and logs as inputs, so AdvantageKit replay matches. A crashed robot program would then mean read-only mode.
 
 **6. Hard-stop confirmation has to be something an agent cannot do itself.** If the API caller can also send "confirm", an agent can confirm its own change. The design that survived: the agent *proposes* a change; the service holds it as pending (old value, new value, failure mode, short expiry); a person clicks Confirm on a page; the robot logs both the proposal and the confirmation with a request ID, so a log shows which session caused which change. The robot publishes which values count as hard stops; the app keeps no list of its own.
 
@@ -40,10 +40,7 @@ Unknown: whether `python3` is on a SystemCore by default (the team knows it can 
 - for every common pit job, say which tool to use, why, and link to it (a "How do I…" page);
 - do the job itself when the common case is small: download logs, check a device is reachable, see live motor and CAN status, set swerve offsets, see why the robot program is down.
 
-The cost the reviewers raised still holds: every replaced feature is code that agents must keep working when the robot code changes. Suggested limits, not yet reviewed or approved:
-- replace the common, simple case and link out for the deep one (for example, a live current and temperature table instead of Tuner X for checking motors, but Tuner X for firmware updates and configs);
-- every page reads robot facts from the manifest, NetworkTables or the log, never a copy;
-- every page states in its "How do I…" entry when to switch to the full tool.
+The reviewers' concern still applies: every replaced feature is code agents must keep working when the robot code changes. How far to replace each tool is open.
 
 Candidates to replace or partly replace: WinSCP (log download and file view), the Limelight and radio pages for status (link out for configuration), Tuner X for motor health checks, AdvantageScope for a quick look at the last match (power and CAN summaries). AdvantageScope stays the tool for detailed log analysis.
 
@@ -59,39 +56,30 @@ Candidates to replace or partly replace: WinSCP (log download and file view), th
 
 **10. Other details.**
 - *Port:* `LimelightHelpers` forwards 5800–5809 for USB Limelights, and a SystemCore teardown lists a built-in service on 5800. Pick a port that is free and allowed by the field (check the game manual).
-- *Shortcut:* don't patch SystemCore's built-in web page; a system image update erases it. Use `robot.local:<port>`, a bookmark, and a QR code sticker on the robot.
-- *System files:* read-only, limited to an allowlist (logs, deploy, selected config), with a path-traversal test.
 - *Service health:* the service can't use AdvantageKit (separate process). It writes to journald and offers `/api/health` (version, uptime, robot unit state, NetworkTables connected).
 
 ## Goals vs. Non-Goals
 
 * **In-Scope Goals:**
-  * A separate service on the SystemCore that survives robot program crashes, installed and restarted by `./gradlew deploy`, adding under 10–15 s (about 1 s when unchanged).
+  * A separate service on the SystemCore that survives robot program crashes, installed and restarted by `./gradlew deploy`, adding no more than 10–15 s.
   * One-click log download from laptop and phone.
   * Status page: robot program up or down since when, versions, last log.
   * Network page: devices found from NetworkTables and the neighbour table, reachable or not, links to their config pages.
-  * Controls guide built from descriptions next to the bindings in Java.
+  * Controls and button layouts, and how to use the robot.
   * Guided tuning procedures (swerve offsets, gyro scale), applied through logged NetworkTables commands while disabled.
-  * A JSON API with a self-describing index, used by pages, `curl` and AI sessions; hard-stop changes need a person's click.
-  * Read-only file viewer for an allowlist of folders.
+  * An API that AI sessions directed by a person can use; a person confirms any hard-stop change.
+  * A shortcut from SystemCore's built-in web page, if possible.
+  * Viewing system files and transferring files.
   * A "How do I…" page that names the tool for every common pit job and links to it.
   * Replacements for the common case of other tools: log download and file view (WinSCP), device status (Limelight, radio, Jetson pages), motor health (Tuner X), a quick last-match power and CAN summary (AdvantageScope).
-* **Out-of-Scope Non-Goals:**
-  * Detailed log analysis and plotting; AdvantageScope stays the tool, linked from the app.
-  * Rebuilding full camera, radio, Jetson or motor-controller configuration; the app shows status and links to them.
-  * Changing robot behaviour while enabled, or writing robot files directly from the service.
-  * Changing SystemCore's built-in web page.
-  * Agents changing hard-stop values without a person.
+* **Out-of-Scope Non-Goals:** none set yet; see Open.
 
 ## Alternatives Weighed
 
 * **Keep serving from the robot program's `WebServer` (the current first version).** Rejected: goes down when the robot program crashes, which breaks a hard requirement.
-* **An app installed on each laptop.** Rejected: drifts from the robot code, and needs per-laptop setup. This is how the old `tools/robot-app` went stale.
 * **Node, npm or Vite front end.** Reviewers advised against it: laptop toolchain and cached old builds were the old app's documented failures. Not yet decided by the team (see item 4).
 * **Off-the-shelf servers (Cockpit, filebrowser).** Rejected: need ARM builds on the device, Cockpit uses noticeable CPU, and neither offers hard-stop confirmation.
-* **The service sends live data to browsers itself (one robot connection, shared out).** Not chosen for now: it saves NetworkTables load with many phones but adds CPU on the robot. Revisit if many clients become a problem.
 * **Link to existing tools instead of replacing any (all six reviewers).** Rejected by the team: too many places to learn. Kept in part: the app links out for the deep cases.
-* **Agent access only through a laptop-side command-line tool or MCP server (SSH plus existing tools).** Partly kept. One reviewer argued an on-robot API is unneeded because agents already have SSH, NetworkTables, `tools/*.py` and the `spectrum-logs` MCP. Others answered that pages need the same API anyway, so an MCP wrapper should be a thin layer over it, not a separate system.
 
 ## Key Decisions & Staging for Next Steps
 
@@ -109,14 +97,16 @@ Candidates to replace or partly replace: WinSCP (log download and file view), th
 5. The app keeps no copies of robot facts; a robot manifest with a git SHA, plus a mismatch banner.
 6. Build log download and the status page first.
 
-**Open:**
-1. Service language (Python, Java or Go) and page approach (plain JS or a build step). Needs a focused review.
+**Open (for the new review, then the team):**
+1. Service language (Python, Java or Go) and page approach (plain JS or a build step).
 2. Whether the API needs any login beyond "confirm comes from a page click".
+3. Whether a shortcut can be added to SystemCore's built-in web page, and how.
+4. File transfer: which directions, which folders, read-only or not.
+5. What is out of scope (log analysis, device configuration, changes while enabled, others).
+6. Where the agent interface lives: an API on the robot, a tool on the laptop, or both.
+7. Whether the service relays live data to browsers, or browsers connect to NetworkTables directly.
+8. How far the app replaces each other tool.
+9. Where the controls guide gets its content.
+10. Which bench checks are needed.
 
-**Check on the bench before `/egm-draft`:**
-1. CPU use with vision running, and with the service idle and serving a download.
-2. Is `python3` on a SystemCore by default?
-3. Can a deploy install and restart a systemd unit (sudo or `systemctl --user` with lingering)?
-4. A free port that the field allows.
-5. Which log folder is used, with and without a USB stick.
-6. Does killing the robot program leave the service up?
+**Bench checks:** see Open item 10.

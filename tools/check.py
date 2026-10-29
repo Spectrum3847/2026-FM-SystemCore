@@ -78,7 +78,8 @@ def robot_cmd(env):
         "java.base/java.lang=ALL-UNNAMED",
         "--enable-native-access=ALL-UNNAMED",
         "-jar",
-        str(ROOT / "build" / "libs" / "2026-FM-SystemCore-all.jar"),
+        # Gradle names the jar after the project folder, which differs in a worktree.
+        str(next((ROOT / "build" / "libs").glob("*-all.jar"))),
     ]
 
 

@@ -44,6 +44,8 @@ check "echo of a commit command" 0 "echo \"run $G $C -m x\""
 check "env prefix"               2 "GIT_EDITOR=true $G $C -m x"
 check "quoted message in command" 2 "$G $C -m \"say \\\"hi\\\"\""
 check "backquoted"               2 "x=\`$G $C -m x\`"
+# Markdown backquotes in text look like command substitution; "commit" must still be its own word.
+check "markdown auto-commit"     0 "$(printf 'cat > r.md <<EOF\n- \140%s add -A\140 runs before the auto-%s\nEOF' "$G" "$C")"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" = 0 ]

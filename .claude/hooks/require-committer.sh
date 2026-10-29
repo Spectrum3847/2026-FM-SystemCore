@@ -32,7 +32,7 @@ payload="${payload//\\n/$'\n'}"
 # or a flag like --no-commit-id, none of which write a commit.
 # "git" must be a whole word followed by a blank: the payload also holds cwd and transcript
 # paths, and a repo under a "github" folder would otherwise match.
-is_commit=$'(^|[;&|(`\n])[[:blank:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:blank:]]*[[:blank:]]+)*([^[:blank:];&|()]*/)?git[[:blank:]][^&|;\n]*commit([^a-zA-Z0-9_-]|$)'
+is_commit=$'(^|[;&|(`\n])[[:blank:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:blank:]]*[[:blank:]]+)*([^[:blank:];&|()]*/)?git[[:blank:]]([^&|;\n]*[[:blank:]])?commit([^a-zA-Z0-9_-]|$)'
 if [[ ! "$payload" =~ $is_commit ]]; then
     exit 0
 fi

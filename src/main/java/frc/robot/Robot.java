@@ -100,7 +100,6 @@ import org.wpilib.smartdashboard.SmartDashboard;
 import org.wpilib.system.Filesystem;
 import org.wpilib.system.RobotController;
 import org.wpilib.system.Timer;
-import org.wpilib.units.Units;
 
 /**
  * FM (2026 "Final Machine") on SystemCore, competing as 8515.
@@ -310,16 +309,11 @@ public class Robot extends SpectrumRobot {
             throw t;
         }
 
-        // Offseason: 6.0 V rather than 4.6 V. A worse sag than Chezy's 8.8 V would take the
-        // controller below its own reset point before a 4.6 V brownout ever tripped, and a reboot
-        // mid-match is far worse than a second of disabled outputs.
-        //
-        // SystemCore image on the alpha-6 bench unit rejects this (HAL -1098, "handle"), which
-        // crashed the constructor. The brownout API is treated as optional: if setting it
-        // fails, the brownout telemetry that reads it is skipped too.
+        // SystemCore keeps its default brownout voltage: setting one fails there (HAL -1098). The
+        // reads are optional too: if either fails, the brownout telemetry is skipped.
         try {
-            RobotController.setBrownoutVoltage(Units.Volts.of(6.0));
             RobotController.isBrownedOut();
+            RobotController.getBrownoutVoltage();
             powerApiAvailable = true;
         } catch (RuntimeException e) {
             powerApiAvailable = false;

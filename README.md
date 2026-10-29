@@ -844,8 +844,8 @@ Deployed to the bench SystemCore (no CAN devices, two cameras):
 - The SystemCore's own cameras connect straight to this program as `limelightsc0/1`. No NT bridge
   is needed when the SystemCore is the robot controller. (Deploying this code replaced the
   SystemCoreVision bridge program on that unit; redeploy that repo to get it back.)
-- `RobotController.setBrownoutVoltage` fails (HAL -1098) on that image; the code carries on
-  without it.
+- `RobotController.setBrownoutVoltage` fails (HAL -1098) on that image, so the code doesn't set
+  one and SystemCore keeps its default brownout voltage.
 
 Read the robot's console over the deploy connection (it restarts the program afterwards):
 

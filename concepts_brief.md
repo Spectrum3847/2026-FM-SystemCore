@@ -486,6 +486,7 @@ How the gate is armed differs:
 4. AI sessions are directed by a person; a person confirms any hard-stop change.
 5. Tuning mode is turned on by a NetworkTables request from a button on the website. It has no timer: the robot network is secured at events and the robot is only powered while people work on it. It starts off at every boot, since the request is not saved. It turns off when an FMS attaches.
 6. Proposed by the team, to be reviewed: install the service once as an `.ipk` (for the tile and icon), and let each Gradle deploy update its files, reinstalling or restarting only when they changed. Open: how Gradle detects a change, whether a deploy can run the `.ipk` install itself, and how the package manager's recorded version stays in step with files Gradle replaced.
+7. Proposed by the team, to be reviewed: on every deploy, copy the robot's saved values that differ from git to the laptop and print a summary, then carry on; ask in the terminal which to keep when a person is at a console, otherwise choose later (Gradle command, website or AI session) from the saved copy.
 
 **Reviewer recommendations, not yet approved by the team:**
 1. The service runs under systemd, installed through a GradleRIO `CommandArtifact` that restarts it only when its files changed.

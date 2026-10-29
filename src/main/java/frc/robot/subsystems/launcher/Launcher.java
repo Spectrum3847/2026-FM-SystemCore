@@ -157,6 +157,7 @@ public class Launcher extends Mechanism {
 
     @Override
     public void periodic() {
+        Telemetry.time("Scheduler/Periodic/Launcher");
         systemState = handleStateTransition();
         applyStates();
         logBatteryUsage();
@@ -167,6 +168,7 @@ public class Launcher extends Mechanism {
         // same signals are also recorded every loop as inputs under Mechanisms/.
         logDiagnostics("Launcher");
         Telemetry.log("Launcher/RPM", getVelocityRPM(), "RPM");
+        Telemetry.timeEnd("Scheduler/Periodic/Launcher");
     }
 
     // --------------------------------------------------------------------------------

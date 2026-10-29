@@ -255,6 +255,7 @@ public class Hood extends Mechanism {
 
     @Override
     public void periodic() {
+        Telemetry.time("Scheduler/Periodic/Hood");
         Logger.processInputs("Hood/Homing", homingLogMarker);
         assumedZeroedForReplay =
                 HoodHoming.assumeZeroedForReplay(
@@ -296,6 +297,7 @@ public class Hood extends Mechanism {
         logDiagnostics("Hood");
         Telemetry.log("Hood/PositionDegrees", getPositionDegrees(), "degrees");
         Telemetry.log("Hood/RPM", getVelocityRPM(), "RPM");
+        Telemetry.timeEnd("Scheduler/Periodic/Hood");
     }
 
     // --------------------------------------------------------------------------------

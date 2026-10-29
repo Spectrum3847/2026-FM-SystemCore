@@ -125,6 +125,7 @@ public class FuelIntake extends Mechanism {
 
     @Override
     public void periodic() {
+        Telemetry.time("Scheduler/Periodic/FuelIntake");
         systemState = handleStateTransition();
         applyStates();
         logBatteryUsage();
@@ -135,6 +136,7 @@ public class FuelIntake extends Mechanism {
         // same signals are also recorded every loop as inputs under Mechanisms/.
         logDiagnostics("FuelIntake");
         Telemetry.log("FuelIntake/RPM", getVelocityRPM(), "RPM");
+        Telemetry.timeEnd("Scheduler/Periodic/FuelIntake");
     }
 
     // --------------------------------------------------------------------------------

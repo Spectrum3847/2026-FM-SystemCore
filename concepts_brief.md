@@ -49,7 +49,8 @@ the question is given in brackets.
 * "Displays the controllers and buttons layouts, other information about the code and the system
   and how to use it." Clarified: "it shows the controller displays, and can explain how to tune
   certain things ... It should help explain how to use its tools, tool tips, guides, etc. but not
-  like tutorials or quizzes, etc."
+  like tutorials or quizzes, etc." It "shouldn't explain what an intake is": it explains its own
+  tools, not the robot's mechanisms.
 * "Tuning help for things like swerve module angle, gyro scalar tuning, other diagnostic and tuning."
 * Guided procedures: "the webpage for setting swerve positions ... can read wheel values so it can
   say ... the user needs to spin each wheel and direct the user to point each one forward, etc. Same

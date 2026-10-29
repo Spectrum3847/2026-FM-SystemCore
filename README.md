@@ -757,7 +757,9 @@ plus any audio and video it recorded, to the robot while the field still connect
 laptop then pulls them with the match log. The robot side is
 [DsUploadReceiver](src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java):
 
-- HTTP on port **5806** (inside the field's 5800–5810 team range), header `X-MatchReview-Token`.
+- HTTP on port **5809** (inside the field's 5800–5810 team range, R704; SystemCore's own
+  `visionserver` holds 5800–5803 and 5805–5807), header `X-MatchReview-Token`. The MatchReview
+  helper's `ds.receiver_port` must match.
   The token lives in `/home/systemcore/ds-upload-token` on the robot, never in this public repo;
   without that file the receiver stays off (info alert).
 - **Only while disabled.** The field gives each team about 7 Mbps, so pushes wait for the match
@@ -784,7 +786,7 @@ laptop then pulls them with the match log. The robot side is
   take turns.
 - Logged as `DSUpload/FilesReceived`, `BytesReceived`, `LastFile` and `LastError`.
 - Bench test on a laptop: `./gradlew compileJava`, then
-  `java -cp build/classes/java/main frc.spectrumLib.telemetry.DsUploadReceiver <folder> <token> 5806`
+  `java -cp build/classes/java/main frc.spectrumLib.telemetry.DsUploadReceiver <folder> <token> 5809`
   (type `enabled` / `disabled` to set the robot state). The MatchReview helper's
   `tests/test_java_receiver.py` runs its client against it.
 

@@ -156,7 +156,7 @@ public class OrinCameraInputs implements LoggableInputs {
         table.put("Health/Recoveries", healthRecoveries);
         table.put("Health/Heartbeat", healthHeartbeat);
         table.put("Health/State", healthState);
-        table.put("Health/LastFrameAgeMs", healthLastFrameAgeMs, "milliseconds");
+        table.put("Health/LastFrameAgeMs", healthLastFrameAgeMs);
         table.put("Health/Problem", healthProblem);
         table.put("Mount/HeightM", mountHeightM);
         table.put("Mount/PitchDeg", mountPitchDeg, "degrees");

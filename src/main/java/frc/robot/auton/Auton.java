@@ -17,6 +17,7 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Commands;
 import org.wpilib.command2.PrintCommand;
+import org.wpilib.driverstation.DriverStationErrors;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.util.Units;
@@ -254,7 +255,8 @@ public class Auton {
             // markers.
             return AutoBuilder.followPath(path);
         } catch (FileVersionException | IOException | ParseException e) {
-            e.printStackTrace();
+            DriverStationErrors.reportError(
+                    "Failed to load path " + pathName + ": " + e.getMessage(), e.getStackTrace());
         }
         return new PrintCommand("ERROR LOADING PATH");
     }

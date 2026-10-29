@@ -31,7 +31,9 @@ final class SummaryFileWriter {
     static final String SUFFIX = ".summary.json";
 
     private static final boolean WINDOWS =
-            System.getProperty("os.name", "").toLowerCase().startsWith("windows");
+            System.getProperty("os.name", "")
+                    .toLowerCase(java.util.Locale.ROOT)
+                    .startsWith("windows");
 
     private final File folder;
     private final ThreadPoolExecutor executor;

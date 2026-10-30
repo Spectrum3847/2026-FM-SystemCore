@@ -65,7 +65,8 @@ the question is given in brackets.
 * "Robot network help, what devices are on the robot network, links to their configuration pages
   like camera configuration pages, etc." Devices: "Systemcore, limelights, Jetson, the radio, that
   should be most but could have networked sensors or other team laptops." Discovery is required:
-  "someone plugs in an unconfigured device and need to know where it's webpage is to configure it."
+  "someone plugs in an unconfigured device and need to know where it's webpage is to configure it." [After the review
+  suggested a fixed device table with scans put off:] "It needs to scan devices."
 * "Log downloading, viewing the system files and transferring things, etc." [What needs to move?]
   "Largely just logs off the robot, there isn't a convenient way to do it, you have pull up winscp
   because the other tools fail sometimes, or know how to do it in the command line."

@@ -37,6 +37,16 @@ deploy {
                     directory = '/home/systemcore/deploy'
                     deleteOldFiles = true
                 }
+
+                // Keeps SystemCore's built-in vision off where our PhotonVision replaces it
+                // (tools/systemcore_services.sh). Printed directly: GradleRIO only shows a
+                // command's output with --info.
+                systemCoreServices(getArtifactTypeClass('CommandArtifact')) {
+                    command = 'true'
+                    postdeploy << { ctx ->
+                        println ctx.execute(file('tools/systemcore_services.sh').text).result.trim()
+                    }
+                }
             }
         }
     }

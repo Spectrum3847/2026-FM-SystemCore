@@ -30,7 +30,7 @@ jobs:
   fixtures:
     # AdvantageKit 27.0.0-alpha-7 can't replay logs from before it (docs/upgrading-to-alpha-8.md).
     # Back on once the fixtures are alpha-8 robot logs.
-    if: github.head_ref != 'upgrade/alpha-8'
+    if: github.head_ref != 'upgrade/alpha-8' && github.base_ref != 'upgrade/alpha-8'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

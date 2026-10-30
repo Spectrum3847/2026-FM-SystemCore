@@ -24,7 +24,7 @@ import org.wpilib.system.Timer;
  * straights, strafes and spins in teleop while every pose source is logged.
  *
  * <p>Opt-in only: set the environment variable {@code FM_SIM_SCRIPT} before {@code ./gradlew
- * simulateJava}. With it unset the sim behaves normally and takes a real Driver Station.
+ * run}. With it unset the sim behaves normally and takes a real Driver Station.
  *
  * <ul>
  *   <li>{@code drive}: the localization lap.

@@ -34,7 +34,8 @@ Each item is on the branch. The ones marked **robot** still need checking on FM.
 - **Packaging.** GradleRIO alpha-8 dropped the fat jar. `build.gradle` uses Gradle's `application`
   plugin (`deployArtifact.configureApplication`, `wpi.java.configureApplication`): the robot jar
   plus one jar per library. Locally, `./gradlew installDist` puts them in `build/install/`;
-  `tools/check.py` and CI run that. `debugJni` moved inside the wpilibJava artifact.
+  `tools/check.py` and CI run that. `debugJni` moved inside the wpilibJava artifact. The sim
+  task `simulateJava` is now `run` (`./gradlew run -PnoSimGui`).
 - **Vendordeps.** Alpha-7 ones, plus WPILib's own `CameraServer.json` and `AprilTag.json`: in 2027
   they are vendordeps, and PhotonLib's camera sim needs them (OpenCV).
 - **Nanoseconds.** `RobotController.getTime()` and `HALUtil.getMonotonicTime()` return ns, and so

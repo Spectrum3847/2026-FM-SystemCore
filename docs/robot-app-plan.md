@@ -242,7 +242,7 @@ The design removes the old causes: the app parses no Java and keeps no copies of
 
 **CI check (GitHub Actions, on PRs only).** This keeps the old app's rule that nothing may fail a build or block a deploy.
 
-1. Run the scripted sim: `FM_SIM_SCRIPT=drive ./gradlew simulateJava -PnoSimGui`.
+1. Run the scripted sim: `FM_SIM_SCRIPT=drive ./gradlew run -PnoSimGui`.
 2. Run `log-model.js` in Node against that log and its manifest. Fail if a page's required key is missing, with a message like `power: hood missing SupplyCurrent`.
 3. Run the existing tests: committed match logs, camera fixtures, the power math.
 4. Run `tsc --noEmit` for the JSDoc types.

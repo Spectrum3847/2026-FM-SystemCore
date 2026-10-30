@@ -39,33 +39,33 @@ Run the simulator with the sim GUI (use the GUI's DS controls; an Xbox controlle
 Joystick 0 with "Map gamepad" on reads correctly, see [Controllers](#controllers-and-the-driver-station)):
 
 ```bash
-./gradlew simulateJava
+./gradlew run
 ```
 
 Or run the scripted demo drive, which needs no driver. It seeds the pose while disabled, then drives a lap of straights, spins and strafes in teleop:
 
 ```bash
-FM_SIM_SCRIPT=drive ./gradlew simulateJava -PnoSimGui
+FM_SIM_SCRIPT=drive ./gradlew run -PnoSimGui
 ```
 
 Or run one of FM's PathPlanner autos (any name from the Auto Chooser), e.g.:
 
 ```bash
-FM_SIM_SCRIPT="auto:TBTB Left" ./gradlew simulateJava -PnoSimGui
+FM_SIM_SCRIPT="auto:TBTB Left" ./gradlew run -PnoSimGui
 ```
 
 Or the scripted shooting run: aim and launch standing, then aim and launch while strafing, with
 fuel put in the hopper before each launch (it exercises everything under [Shooting](#shooting)):
 
 ```bash
-FM_SIM_SCRIPT=shoot ./gradlew simulateJava -PnoSimGui
+FM_SIM_SCRIPT=shoot ./gradlew run -PnoSimGui
 ```
 
 Or the chord run: the pilot's LB + face-button chords pressed and let go in sloppy orders, read in
 `SuperStructure/WantedSuperState`:
 
 ```bash
-FM_SIM_SCRIPT=chords ./gradlew simulateJava -PnoSimGui
+FM_SIM_SCRIPT=chords ./gradlew run -PnoSimGui
 ```
 
 A scripted run closes its log and exits when the script ends, so the run is one command. Add
@@ -134,7 +134,7 @@ entry with the full log's SHA-256, and replay it locally:
 
 ```bash
 python tools/fetch_replay_fixtures.py build/replay
-FM_REPLAY=1 AKIT_LOG_PATH=build/replay/NAME.wpilog ./gradlew simulateJava -PnoSimGui
+FM_REPLAY=1 AKIT_LOG_PATH=build/replay/NAME.wpilog ./gradlew run -PnoSimGui
 ```
 
 Each fixture adds about 30 s to both replay jobs. Logs from another event go in a release of their
@@ -235,7 +235,7 @@ reboots, Driver Station drops, vision counts, auto, alerts and peak motor temper
 Replay a log through the current code (edit a gate, replay, compare the shadow tracks):
 
 ```bash
-FM_REPLAY=1 AKIT_LOG_PATH=/path/to/log.wpilog ./gradlew simulateJava -PnoSimGui
+FM_REPLAY=1 AKIT_LOG_PATH=/path/to/log.wpilog ./gradlew run -PnoSimGui
 ```
 
 ```bash

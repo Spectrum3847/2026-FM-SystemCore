@@ -108,6 +108,15 @@ the question is given in brackets.
   it's just that you shouldn't make minor tweaks, or feature updates." AGENTS.md now says so.
 * The name is the Robot App.
 
+## Decisions after the clean review
+
+1. For now, the robot program serves the app. [Asked: "If we make it served as part of the robot
+   code for now, it should be pretty simple to switch it to be a separate service right?"] To keep
+   that switch simple, the server-side code (log download, network discovery, crash view) is a
+   separate package with no dependency on robot classes, talking only through NetworkTables and
+   files. A separate service comes later; until then the app does not work while the robot program
+   has crashed. The port moves off 5800.
+
 ## Choices to re-check
 
 The team chose these from options that were framed by earlier, contaminated review rounds. They are

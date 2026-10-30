@@ -1,8 +1,8 @@
 # Moving to WPILib 2027 alpha-8
 
-This repo is on alpha-6 on purpose: alpha-7 and later reject every older vendordep, and PhotonLib
-has no tagged alpha-7 release. The move happens on the long-lived branch `upgrade/alpha-8`, merged
-from `main` as it goes, and lands only when the robot runs it (checklist below).
+`main` is on alpha-6. The long-lived branch `upgrade/alpha-8` (PR #139) compiles and runs on
+alpha-8: the build, every unit test and the drive, shoot and auto sims pass. It lands on `main`
+only when the robot runs it ([checklist](#checklist)).
 
 ## Target versions
 
@@ -27,28 +27,53 @@ in `build.gradle` depends on the WPILib version (Jackson, Error Prone, JUnit).
   The robot can't move first: PhotonLib and PhotonVision have to match.
 - **A PhotonVision build for the SystemCore backup camera** (`photonvision-sc`) from the same commit.
 
-## Code changes
+## What changed
 
-Counted 2026-10-30 across the repo's 210 Java files (`LimelightHelpers.java` excluded).
+Each item is on the branch. The ones marked **robot** still need checking on FM.
 
-| Change | Where | Notes |
-| --- | --- | --- |
-| `Main`: `RobotBase.startRobot(Robot::new)` instead of `Robot.class` | 1 | |
-| Constants and enum values ALL_CAPS (`Rotation2d.kZero` → `ZERO`, `k...` enums) | ~150 uses, ~30 files | Mechanical; VS Code's project import does some. |
-| `SmartDashboard`, `SendableChooser`, `Sendable`, `Field2d` → Telemetry, Tunables, `Selectable` | 32 uses, 12 files | Real work. `TuneValue` and the Hub Model Chooser too. Alpha-8 has a shim so `Selectable` works with 2026 dashboards (Elastic). |
-| `Alert` → wpiutil; `Preferences` → `preferences` | 14 files (no `Preferences`) | Import changes. |
-| AprilTag and CameraServer → vendordeps; `AprilTagFields` → the built-in `Fields` | 74 uses, 14 files | Includes `Event.java` and the field map hashed for the Jetson (`FieldMapJson`, `FieldMapHash`): the hash must still match the Jetson's. |
-| CAN devices take a `CANPort` enum | `CanBuses` | |
-| Gamepad face buttons → `faceUp/Down/Left/Right`; axes get a default deadband | our `Gamepad` wrapper | Re-check driver deadbands: ours would stack on WPILib's. |
-| **Raw integer timestamps µs → ns** | `Swerve.java` (`HALUtil.getMonotonicTime() * 1e-6`), `IntakeExtension.java` (`RobotController.getTime() / 1000.0`) | **Highest risk.** Wrong units silently shift every odometry sample and break pose fusion. Check each call's units in the alpha-8 Javadoc, then prove it with replay. |
-| Brownout API | `Robot` | See [Brownouts](#brownouts). |
-| Vendor API changes | PhotonLib 6 files, PathPlanner 3, Phoenix 25, AdvantageKit 41 | Unknown until it compiles. |
-| `LimelightHelpers.java` | Limelight's file | No 2027 version; Limelights aren't in the 2027 plan. Keep if it compiles, else drop with the Limelight sources. |
+- **Packaging.** GradleRIO alpha-8 dropped the fat jar. `build.gradle` uses Gradle's `application`
+  plugin (`deployArtifact.configureApplication`, `wpi.java.configureApplication`): the robot jar
+  plus one jar per library. Locally, `./gradlew installDist` puts them in `build/install/`;
+  `tools/check.py` and CI run that. `debugJni` moved inside the wpilibJava artifact.
+- **Vendordeps.** Alpha-7 ones, plus WPILib's own `CameraServer.json` and `AprilTag.json`: in 2027
+  they are vendordeps, and PhotonLib's camera sim needs them (OpenCV).
+- **Nanoseconds.** `RobotController.getTime()` and `HALUtil.getMonotonicTime()` return ns, and so
+  does PhotonLib's capture time. Fixed in `Swerve` (odometry time offset) and `IntakeExtension`.
+  The sims' fused-pose error is unchanged, which would not survive a 1000x mistake.
+- **Log time.** AdvantageKit 27.0.0-alpha-7 logs `/Timestamp` in ns and marks it with
+  `"unit":"nanoseconds"`; WPILOG record times stay µs. `wpilog_summary.py`, `trim_wpilog.py` and
+  `ci_assert.py` read the mark, so they handle both.
+- **Old logs don't replay.** AdvantageKit alpha-7 refuses any log without the mark ("incompatible
+  timestamp unit"). CI's replay job is off on this branch until it has alpha-8 robot logs as
+  fixtures. `TagField` still reads the alpha-6 field names, for when it does.
+- **Alerts.** WPILib's `Alert` takes an id, unique within its group. Our `Alert` makes one per
+  alert, since many share text.
+- **SmartDashboard is gone.** Field2d, the scheduler and the Limelight views go through
+  `org.wpilib.telemetry.Telemetry.log`, under the same `SmartDashboard/` paths, so Elastic's layout
+  is unchanged. **Robot:** check that Elastic draws them.
+- **Choosers.** `LoggedDashboardChooser` became `LoggedNetworkChooser`, same keys. A dashboard
+  picks an option by writing `<key>/selected/tune` (the `auto` sim does).
+- **AprilTag fields** are `org.wpilib.fields.Field` and `Fields`. The field map sent to the Jetson
+  is WPILib 2027 Field JSON (`field-tags`, `field-dimensions`). Its hash is unchanged
+  (AndyMark `2792cd4e868967b8`, welded `ca28a7c1139ed099`). **Jetson:** must parse the new format.
+- **Bad Orin packets.** PhotonLib now decodes zeros past the end of a short packet instead of
+  throwing, so a garbled result decoded as a real one. `OrinSolver` re-encodes each result and
+  drops it (`DecodeFailures`) unless the bytes match.
+- **CAN.** `CANBus(CANPort.CAN_Sn)` for SystemCore buses; swerve uses `withNetwork`.
+- **Gamepads.** Face buttons are `FACE_DOWN/RIGHT/LEFT/UP`. **Robot:** alpha-8 needs the alpha-7
+  Driver Station, not the NI one, so check every control on the WPILib DS before driving
+  ([Controllers](../README.md#controllers-and-the-driver-station)).
+- **Brownout.** `getBrownoutVoltage` is gone. `Robot` reads only `isBrownedOut()` and keeps the
+  default voltages; `SystemStats/BrownoutVoltage` is no longer logged.
+- **Smaller ones.** `RobotBase.startRobot(Robot::new)`, constants ALL_CAPS (`Rotation2d.ZERO`),
+  `Translation2d.getAngle()` returns an `Optional`, `Rectangle2d` moved to `math.shape`.
+- **Hand-stepped tests.** WPILib reports the robot mode as UNKNOWN until
+  `DriverStationBackend.observeUserProgramStarting()`, which `startCompetition` calls. `SimRobot`
+  calls it too, or `RobotModeTriggers.teleop()` never goes true.
 
-Alpha-8 itself (over alpha-7) removes `Talon` and `VictorSP` (we only mention them in comments),
-renames more "speeds" to "velocities", and simplifies WPILib's trajectory classes. If
-PathPlannerLib alpha-4.1 calls one of those it fails at run time, not compile time; the `auto` sim
-and `simTest` would catch it. Fallback: stay on alpha-7, which image 18 also runs.
+PhotonLib is upstream's `dev-v2027.0.0-alpha-2-88-g14cc2298`, which resolves for CI. The team's
+alpha-8 build (`...-94-g0859c272`) has the same photon-serde, so either talks to a Jetson built
+from serde `14cc2298`.
 
 ## Brownouts
 
@@ -73,9 +98,9 @@ logs as `SystemStats/Faults/Brownout` and `FaultCounts/Brownout`; `MatchSummary`
 - **Open: CAN motor controllers.** The roboRIO sends them an explicit disable in a brownout;
   Limelight's notes for SystemCore name only digital and PWM outputs. Check in the same bench test.
 
-After the upgrade: keep the default or set it explicitly with `setBrownoutVoltages`, never below
-6 V; drop `getBrownoutVoltage` from the availability probe and the `SystemStats/BrownoutVoltage`
-log in `Robot`; log `isBrownedOut()` every loop beside the fault count.
+On the branch: the default voltages, `getBrownoutVoltage` and its log gone. Still to do: log
+`isBrownedOut()` every loop beside the fault count. If the default ever changes, use
+`setBrownoutVoltages`, never below 6 V.
 
 The upgrade also fixes a mismatch alpha-6 has on FM's image: the image publishes
 `/diagnostics/canbusinfo` as `struct:CanBusInfoEntry[]`, alpha-6's `RobotController.getCANStatus()`
@@ -89,18 +114,14 @@ On `upgrade/alpha-8`. Each step ends with `python tools/check.py` passing unless
 
 **Code (no robot needed)**
 
-- [ ] Install the WPILib `2027.0.0-alpha-8` ISO. `build.gradle`: GradleRIO `2027.0.0-alpha-8`;
-      `settings.gradle`: the alpha-8 install folder. Main: `Robot::new`.
-- [ ] Vendordeps: AdvantageKit 27.0.0-alpha-7, PathPlannerLib 2027.0.0-alpha-4.1, Phoenix 6
-      26.70.0-alpha-2, the alpha-8 CommandsV2, and PhotonLib from the dev build the Jetson uses
-      (add `maven.photonvision.org/snapshots` if the vendordep doesn't).
-- [ ] Get it compiling, in the table's order. Keep each kind of change its own commit.
-- [ ] Timestamps: settle both conversions from the alpha-8 Javadoc, before anything else runs.
-- [ ] `python tools/check.py --sims drive,shoot,auto` (with `simTest`) passes.
-- [ ] Replay a real match log (`--log`, and `tools/replay_regression.py` against `main`): fused
-      pose and shot gate unchanged except where the code meant to change.
-- [ ] Brownout: the alpha-7 API, per [Brownouts](#brownouts).
-- [ ] Log key guide regenerated; README's version table and this doc updated.
+- [x] GradleRIO `2027.0.0-alpha-8`, `settings.gradle` on the alpha-8 install, `Robot::new`.
+- [x] Vendordeps: AdvantageKit 27.0.0-alpha-7, PathPlannerLib 2027.0.0-alpha-4.1, Phoenix 6
+      26.70.0-alpha-2, CommandsV2 from alpha-8, PhotonLib dev build, CameraServer, AprilTag.
+- [x] Compiles; timestamps settled.
+- [x] `python tools/check.py --sims drive,shoot,auto` (with `simTest`) passes.
+- [ ] Replay a real match log: blocked until there is an alpha-8 log (old logs don't replay).
+- [ ] Brownout: log `isBrownedOut()` every loop.
+- [x] Log key guide regenerated; README's version table and this doc updated.
 
 **Robot**
 
@@ -114,6 +135,8 @@ On `upgrade/alpha-8`. Each step ends with `python tools/check.py` passing unless
 - [ ] Deploy, then [bench-checks.md](bench-checks.md): every-deploy checks, CAN, Jetson and cameras,
       pre-match GO.
 - [ ] Brownout bench test with an adjustable supply.
+- [ ] Record a few practice logs, make them CI's replay fixtures, and turn the replay job back on
+      (`.github/workflows/replay.yml`).
 - [ ] Merge `upgrade/alpha-8` to `main` through its PR.
 
 **Way back:** reflash image alpha 13, reinstall `canivore-usb` 1.16 and the current `photonvision-sc`,

@@ -111,14 +111,14 @@ jobs:
       - name: Build
         run: |
           chmod +x gradlew
-          ./gradlew shadowJar
+          ./gradlew installDist
 
       - name: Run the ${{ matrix.name }} sim
         env:
           FM_SIM_SCRIPT: ${{ matrix.script }}
         run: |
           set -o pipefail
-          timeout 5m ./gradlew simulateJava -PnoSimGui 2>&1 | tee logs-console.txt
+          timeout 5m ./gradlew run -PnoSimGui 2>&1 | tee logs-console.txt
 
       - name: Check the log
         run: python3 tools/ci_assert.py logs/*.wpilog logs-console.txt ${{ matrix.check }}

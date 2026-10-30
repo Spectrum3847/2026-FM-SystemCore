@@ -138,7 +138,7 @@ class AutoStartCheckTest {
         enabled = true;
         after(0.1);
         enabled = false;
-        pose = new Pose2d(8, 4, Rotation2d.kZero);
+        pose = new Pose2d(8, 4, Rotation2d.ZERO);
         assertEquals(Status.PASS, after(2).status());
     }
 
@@ -148,7 +148,7 @@ class AutoStartCheckTest {
         enabled = true; // practice on the field, then back to the queue
         after(1);
         enabled = false;
-        pose = new Pose2d(8, 4, Rotation2d.kZero);
+        pose = new Pose2d(8, 4, Rotation2d.ZERO);
         assertEquals(Status.PASS, after(1).status());
 
         fms = true;
@@ -168,7 +168,7 @@ class AutoStartCheckTest {
         enabled = true;
         after(1);
         enabled = false;
-        pose = new Pose2d(8, 4, Rotation2d.kZero);
+        pose = new Pose2d(8, 4, Rotation2d.ZERO);
         assertEquals(Status.PASS, after(1).status(), "match 12 is over");
 
         match = 13; // FMS stayed attached between matches

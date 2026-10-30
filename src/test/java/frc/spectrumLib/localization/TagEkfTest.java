@@ -44,7 +44,7 @@ class TagEkfTest {
     private static SwerveModulePosition[] rolled(double distance) {
         SwerveModulePosition[] p = new SwerveModulePosition[4];
         for (int i = 0; i < 4; i++) {
-            p[i] = new SwerveModulePosition(distance, Rotation2d.kZero);
+            p[i] = new SwerveModulePosition(distance, Rotation2d.ZERO);
         }
         return p;
     }
@@ -54,7 +54,7 @@ class TagEkfTest {
             String camera, double t, Pose2d robot, Transform3d mount, Translation3d tag) {
         Pose3d cameraPose = new Pose3d(robot).transformBy(mount);
         Translation3d inCamera =
-                new Pose3d(tag, Rotation3d.kZero).relativeTo(cameraPose).getTranslation();
+                new Pose3d(tag, Rotation3d.ZERO).relativeTo(cameraPose).getTranslation();
         return new TagSighting(camera, t, 0, tag, mount, inCamera, 1.0);
     }
 
@@ -69,7 +69,7 @@ class TagEkfTest {
     @Test
     void odometryAloneDeadReckons() {
         TagEkf ekf = new TagEkf(MODULES);
-        ekf.reset(new Pose2d(1, 2, Rotation2d.kCCW_Pi_2));
+        ekf.reset(new Pose2d(1, 2, Rotation2d.CCW_PI_2));
         Rotation2d gyro = Rotation2d.fromDegrees(30); // any boot angle
         for (int i = 0; i <= 250; i++) {
             ekf.addOdometry(i * 0.004, gyro, rolled(i * 0.004));
@@ -85,11 +85,11 @@ class TagEkfTest {
     void tagsPullASmallOffsetIn() {
         Pose2d truth = new Pose2d(2, 1.5, Rotation2d.fromDegrees(5));
         TagEkf ekf = new TagEkf(MODULES);
-        ekf.addOdometry(0, Rotation2d.kZero, rolled(0));
+        ekf.addOdometry(0, Rotation2d.ZERO, rolled(0));
         ekf.reset(new Pose2d(2.05, 1.46, Rotation2d.fromDegrees(5.3)));
         for (int i = 1; i <= 100; i++) {
             double t = i * 0.02;
-            ekf.addOdometry(t, Rotation2d.kZero, rolled(0));
+            ekf.addOdometry(t, Rotation2d.ZERO, rolled(0));
             if (i > 1) {
                 ekf.addFrame(frame(t - 0.03, truth));
             }
@@ -102,13 +102,13 @@ class TagEkfTest {
 
     @Test
     void relocalizesAfterAGrossError() {
-        Pose2d truth = new Pose2d(2, 1.5, Rotation2d.kZero);
+        Pose2d truth = new Pose2d(2, 1.5, Rotation2d.ZERO);
         TagEkf ekf = new TagEkf(MODULES);
-        ekf.addOdometry(0, Rotation2d.kZero, rolled(0));
-        ekf.reset(new Pose2d(3.2, 0.7, Rotation2d.kZero));
+        ekf.addOdometry(0, Rotation2d.ZERO, rolled(0));
+        ekf.reset(new Pose2d(3.2, 0.7, Rotation2d.ZERO));
         for (int i = 1; i <= 200; i++) {
             double t = i * 0.02;
-            ekf.addOdometry(t, Rotation2d.kZero, rolled(0));
+            ekf.addOdometry(t, Rotation2d.ZERO, rolled(0));
             ekf.addFrame(frame(t - 0.03, truth));
         }
         assertTrue(ekf.getRelocalizations() >= 1);
@@ -118,11 +118,11 @@ class TagEkfTest {
 
     @Test
     void outlierIsRejected() {
-        Pose2d truth = new Pose2d(2, 1.5, Rotation2d.kZero);
+        Pose2d truth = new Pose2d(2, 1.5, Rotation2d.ZERO);
         TagEkf ekf = new TagEkf(MODULES);
-        ekf.addOdometry(0, Rotation2d.kZero, rolled(0));
+        ekf.addOdometry(0, Rotation2d.ZERO, rolled(0));
         ekf.reset(truth);
-        ekf.addOdometry(0.02, Rotation2d.kZero, rolled(0));
+        ekf.addOdometry(0.02, Rotation2d.ZERO, rolled(0));
         TagSighting good = see("Front", 0.01, truth, FRONT, TAGS[0]);
         Translation3d far = good.cameraToTag().times(1.6);
         ekf.addFrame(List.of(new TagSighting("Front", 0.01, 0, good.tagField(), FRONT, far, 1.0)));
@@ -135,23 +135,23 @@ class TagEkfTest {
     void resultDoesNotDependOnArrivalOrder() {
         TagEkf inOrder = new TagEkf(MODULES);
         TagEkf late = new TagEkf(MODULES);
-        Pose2d start = new Pose2d(1, 1, Rotation2d.kZero);
+        Pose2d start = new Pose2d(1, 1, Rotation2d.ZERO);
         for (TagEkf e : List.of(inOrder, late)) {
-            e.addOdometry(0, Rotation2d.kZero, rolled(0));
+            e.addOdometry(0, Rotation2d.ZERO, rolled(0));
             e.reset(
                     start.plus(
                             new org.wpilib.math.geometry.Transform2d(
-                                    0.04, -0.03, Rotation2d.kZero)));
+                                    0.04, -0.03, Rotation2d.ZERO)));
         }
         List<List<TagSighting>> held = new ArrayList<>();
         for (int i = 1; i <= 100; i++) {
             double t = i * 0.004;
             double x = 0.5 * t; // 0.5 m/s forward
             for (TagEkf e : List.of(inOrder, late)) {
-                e.addOdometry(t, Rotation2d.kZero, rolled(x));
+                e.addOdometry(t, Rotation2d.ZERO, rolled(x));
             }
             if (i % 5 == 0) {
-                Pose2d truth = new Pose2d(1 + x - 0.5 * 0.03, 1, Rotation2d.kZero);
+                Pose2d truth = new Pose2d(1 + x - 0.5 * 0.03, 1, Rotation2d.ZERO);
                 List<TagSighting> front = frame(t - 0.03, truth);
                 List<TagSighting> left = List.of(see("Left", t - 0.025, truth, LEFT, TAGS[2]));
                 inOrder.addFrame(front);
@@ -177,11 +177,11 @@ class TagEkfTest {
     @Test
     void framesBeforeAResetAreDropped() {
         TagEkf ekf = new TagEkf(MODULES);
-        ekf.addOdometry(0, Rotation2d.kZero, rolled(0));
-        ekf.addOdometry(0.02, Rotation2d.kZero, rolled(0));
-        Pose2d pose = new Pose2d(3, 3, Rotation2d.kZero);
+        ekf.addOdometry(0, Rotation2d.ZERO, rolled(0));
+        ekf.addOdometry(0.02, Rotation2d.ZERO, rolled(0));
+        Pose2d pose = new Pose2d(3, 3, Rotation2d.ZERO);
         ekf.reset(pose);
-        ekf.addFrame(frame(0.01, new Pose2d(2, 1.5, Rotation2d.kZero)));
+        ekf.addFrame(frame(0.01, new Pose2d(2, 1.5, Rotation2d.ZERO)));
         assertEquals(TAGS.length, ekf.getRejectionCounts().get("Too Old"));
         assertEquals(pose, ekf.getPose());
     }

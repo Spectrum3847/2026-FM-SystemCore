@@ -14,8 +14,8 @@ class ShotCalculatorTest {
     private static double numericDriveAngleRate(
             Translation2d hub, Translation2d launcher, double vx, double vy) {
         Translation2d later = launcher.plus(new Translation2d(vx * DT, vy * DT));
-        Rotation2d before = hub.minus(launcher).getAngle().plus(Rotation2d.k180deg);
-        Rotation2d after = hub.minus(later).getAngle().plus(Rotation2d.k180deg);
+        Rotation2d before = hub.minus(launcher).getAngle().orElseThrow().plus(Rotation2d.k180deg);
+        Rotation2d after = hub.minus(later).getAngle().orElseThrow().plus(Rotation2d.k180deg);
         return after.minus(before).getRadians() / DT;
     }
 
@@ -52,6 +52,6 @@ class ShotCalculatorTest {
     @Test
     void standingStillOrOnTheGoalIsNoTurn() {
         assertEquals(0, ShotCalculator.bearingRateRadPerSec(new Translation2d(3, 1), 0, 0), 0);
-        assertEquals(0, ShotCalculator.bearingRateRadPerSec(Translation2d.kZero, 1, 1), 0);
+        assertEquals(0, ShotCalculator.bearingRateRadPerSec(Translation2d.ZERO, 1, 1), 0);
     }
 }

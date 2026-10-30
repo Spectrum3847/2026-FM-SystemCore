@@ -6,13 +6,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import org.wpilib.fields.Field;
+import org.wpilib.fields.FieldTag;
 import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Quaternion;
-import org.wpilib.vision.apriltag.AprilTag;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 
 /**
- * A layout as WPILib AprilTagFieldLayout JSON, for a coprocessor to load.
+ * A layout as WPILib Field JSON, for a coprocessor to load.
  *
  * <p>Written here rather than by WPILib's serializer, which re-derives each quaternion: it writes
  * the 2026 fields' {@code -0.0} components as {@code 0.0}. {@link FieldMapHash} formats those as
@@ -25,22 +25,30 @@ public final class FieldMapJson {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /**
-     * The layout as JSON: {@code {"tags":[{"ID","pose":{"translation":{x,y,z},"rotation":
-     * {"quaternion":{W,X,Y,Z}}}}],"field":{"length","width"}}}, tags sorted by ID.
+     * The layout as WPILib 2027 Field JSON: {@code {"name","season","game","program",
+     * "field-dimensions":{"length","width"},"field-tags":[{"ID","pose":{"translation":{x,y,z},
+     * "rotation":{"quaternion":{W,X,Y,Z}}}}]}}, tags sorted by ID.
      *
      * @param layout the field map
      * @return the JSON text
      */
-    public static String of(AprilTagFieldLayout layout) {
+    public static String of(Field layout) {
         ObjectNode root = MAPPER.createObjectNode();
-        ArrayNode tagsNode = root.putArray("tags");
-        List<AprilTag> tags = new ArrayList<>(layout.getTags());
-        tags.sort(Comparator.comparingInt(t -> t.ID));
-        for (AprilTag t : tags) {
-            Pose3d p = t.pose;
+        root.put("name", layout.name);
+        root.put("season", layout.season);
+        root.put("game", layout.game);
+        root.put("program", layout.program);
+        ObjectNode dimensions = root.putObject("field-dimensions");
+        dimensions.put("length", layout.getFieldLength());
+        dimensions.put("width", layout.getFieldWidth());
+        ArrayNode tagsNode = root.putArray("field-tags");
+        List<FieldTag> tags = new ArrayList<>(layout.getTags());
+        tags.sort(Comparator.comparingInt(t -> t.getID()));
+        for (FieldTag t : tags) {
+            Pose3d p = t.getPose();
             Quaternion q = p.getRotation().getQuaternion();
             ObjectNode tag = tagsNode.addObject();
-            tag.put("ID", t.ID);
+            tag.put("ID", t.getID());
             ObjectNode pose = tag.putObject("pose");
             ObjectNode translation = pose.putObject("translation");
             translation.put("x", p.getX());
@@ -52,9 +60,6 @@ public final class FieldMapJson {
             quaternion.put("Y", q.getY());
             quaternion.put("Z", q.getZ());
         }
-        ObjectNode field = root.putObject("field");
-        field.put("length", layout.getFieldLength());
-        field.put("width", layout.getFieldWidth());
         return root.toString();
     }
 }

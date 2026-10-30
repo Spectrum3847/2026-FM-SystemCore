@@ -15,27 +15,33 @@ import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 import org.photonvision.targeting.PnpResult;
 import org.photonvision.targeting.TargetCorner;
+import org.wpilib.fields.Field;
+import org.wpilib.fields.FieldTag;
 import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.geometry.Rotation3d;
 import org.wpilib.math.geometry.Transform3d;
 import org.wpilib.math.geometry.Translation3d;
-import org.wpilib.vision.apriltag.AprilTag;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 
 class OrinSolverTest {
+
+    /** A layout from tags and field size, as AprilTagFieldLayout's constructor took them. */
+    private static Field newLayout(List<FieldTag> tags, double length, double width) {
+        return new Field(null, null, null, null, length, width, null, tags);
+    }
+
     /** Tag 1 at (5, 4, 0.5) facing -x (180 deg), tag 2 beside it. */
-    private static final AprilTagFieldLayout LAYOUT =
-            new AprilTagFieldLayout(
+    private static final Field LAYOUT =
+            newLayout(
                     List.of(
-                            new AprilTag(1, new Pose3d(5, 4, 0.5, new Rotation3d(0, 0, Math.PI))),
-                            new AprilTag(2, new Pose3d(5, 5, 0.5, new Rotation3d(0, 0, Math.PI)))),
+                            new FieldTag(1, new Pose3d(5, 4, 0.5, new Rotation3d(0, 0, Math.PI))),
+                            new FieldTag(2, new Pose3d(5, 5, 0.5, new Rotation3d(0, 0, Math.PI)))),
                     16.5,
                     8.1);
 
     /** Camera at the robot origin, level, facing forward. */
     private static OrinSolver solver() {
-        return new OrinSolver(Transform3d.kZero, LAYOUT, 1.0, 1280, 800);
+        return new OrinSolver(Transform3d.ZERO, LAYOUT, 1.0, 1280, 800);
     }
 
     /** Corners well inside a 1280x800 image. */
@@ -67,11 +73,11 @@ class OrinSolverTest {
     }
 
     private static PhotonPipelineResult result(
-            long captureMicros,
+            long captureNanos,
             List<PhotonTrackedTarget> targets,
             Optional<MultiTargetPNPResult> multitag) {
         return new PhotonPipelineResult(
-                new PhotonPipelineMetadata(captureMicros, captureMicros + 5000, 1, 0),
+                new PhotonPipelineMetadata(captureNanos, captureNanos + 5_000_000, 1, 0),
                 targets,
                 multitag);
     }
@@ -84,7 +90,7 @@ class OrinSolverTest {
     void singleTagSolvesRobotPose() {
         var r =
                 result(
-                        1_000_000,
+                        1_000_000_000,
                         List.of(target(1, TWO_METRES_AHEAD, TWO_METRES_AHEAD, 0.1, CENTER_CORNERS)),
                         Optional.empty());
         List<PoseObservation> obs = solver().solve(inputsOf(r), Set.of(), null);
@@ -109,7 +115,7 @@ class OrinSolverTest {
                         new Rotation3d(0, 0, Math.PI - Math.toRadians(30)));
         var r =
                 result(
-                        1_000_000,
+                        1_000_000_000,
                         List.of(target(1, TWO_METRES_AHEAD, alt, 0.3, CENTER_CORNERS)),
                         Optional.empty());
         var withGyro =
@@ -130,14 +136,14 @@ class OrinSolverTest {
                         -1,
                         0,
                         0.9f,
-                        Transform3d.kZero,
-                        Transform3d.kZero,
+                        Transform3d.ZERO,
+                        Transform3d.ZERO,
                         0,
                         CENTER_CORNERS,
                         CENTER_CORNERS);
         var r =
                 result(
-                        1_000_000,
+                        1_000_000_000,
                         List.of(
                                 gamePiece,
                                 target(
@@ -156,14 +162,14 @@ class OrinSolverTest {
     @Test
     void multiTagCountsOnlyTheTagsInTheSolve() {
         // Three targets visible; the Jetson's multi-tag solve used only tags 1 and 2.
-        Transform3d far = new Transform3d(new Translation3d(6, 0, 0), Rotation3d.kZero);
+        Transform3d far = new Transform3d(new Translation3d(6, 0, 0), Rotation3d.ZERO);
         var targets =
                 List.of(
                         target(1, TWO_METRES_AHEAD, TWO_METRES_AHEAD, 0.1, CENTER_CORNERS),
                         target(2, TWO_METRES_AHEAD, TWO_METRES_AHEAD, 0.1, CENTER_CORNERS),
                         target(9, far, far, 0.1, CENTER_CORNERS));
         Transform3d fieldToCamera =
-                new Transform3d(new Translation3d(3, 4.5, 0.5), Rotation3d.kZero);
+                new Transform3d(new Translation3d(3, 4.5, 0.5), Rotation3d.ZERO);
         var multitag =
                 new MultiTargetPNPResult(
                         new PnpResult(fieldToCamera, 0.2), List.of((short) 1, (short) 2));
@@ -191,7 +197,7 @@ class OrinSolverTest {
                         new TargetCorner(0, 420));
         var r =
                 result(
-                        1_000_000,
+                        1_000_000_000,
                         List.of(target(1, TWO_METRES_AHEAD, TWO_METRES_AHEAD, 0.1, edge)),
                         Optional.empty());
         var o = solver().solve(inputsOf(r), Set.of(), null).get(0);
@@ -209,7 +215,7 @@ class OrinSolverTest {
 
     @Test
     void emptyResultsDecodeButGiveNoObservation() {
-        var r = result(1_000_000, List.of(), Optional.empty());
+        var r = result(1_000_000_000, List.of(), Optional.empty());
         OrinSolver s = solver();
         assertTrue(s.solve(inputsOf(r), Set.of(), null).isEmpty());
         assertEquals(0, s.decodeFailures);

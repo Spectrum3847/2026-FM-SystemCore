@@ -47,9 +47,20 @@ def encode(eid, ts, payload):
     return bytes([hdr]) + i + s + t + payload
 
 
+def ticks_per_second(data):
+    """/Timestamp value units per second (AdvantageKit 27.0.0-alpha-7 and later: ns, and marked)."""
+    for eid, _, payload, _ in records(data):
+        if eid == 0 and payload and payload[0] == 0:
+            (ln,) = struct.unpack_from("<I", payload, 5)
+            if payload[9 : 9 + ln] == b"/Timestamp":
+                return 1e9 if b'"unit":"nanoseconds"' in payload else 1e6
+    return 1e6
+
+
 def trim(data, start_s, end_s):
     header = data[: 12 + struct.unpack_from("<I", data, 8)[0]]
-    start_us, end_us = int(start_s * 1e6), int(end_s * 1e6)
+    ticks = ticks_per_second(data)
+    start_us, end_us = int(start_s * ticks), int(end_s * ticks)
     names = {}
     timestamp_id = None
     last = {}  # entry id to its latest payload before the window

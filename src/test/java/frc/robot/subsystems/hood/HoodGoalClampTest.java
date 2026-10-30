@@ -26,7 +26,7 @@ class HoodGoalClampTest {
 
     @Test
     void goalsPastTheBootedSoftLimitsGoToTheLimit() throws IOException {
-        assertTrue(HAL.initialize(500, 0));
+        assertTrue(HAL.initialize());
         // A narrowed top limit, 25.2 deg, inside the params' bounds.
         Files.writeString(tmp.resolve("soft-limits.json"), "{\"hoodForward\": 0.07}");
         Params.start(tmp, "FM2026", null, null);

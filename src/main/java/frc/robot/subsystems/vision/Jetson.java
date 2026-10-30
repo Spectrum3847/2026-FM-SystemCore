@@ -11,12 +11,12 @@ import lombok.Getter;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 import org.littletonrobotics.junction.networktables.LoggedNetworkString;
-import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.driverstation.MatchState;
 import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.geometry.Transform3d;
 import org.wpilib.math.util.Units;
 import org.wpilib.system.Timer;
+import org.wpilib.util.Alert.Level;
 
 /**
  * The Jetson Orin as a whole: what the robot tells it, and what the robot checks about it before a

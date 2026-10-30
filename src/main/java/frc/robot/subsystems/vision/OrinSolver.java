@@ -12,10 +12,10 @@ import org.photonvision.targeting.MultiTargetPNPResult;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 import org.photonvision.targeting.TargetCorner;
+import org.wpilib.fields.Field;
 import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.geometry.Transform3d;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 
 /**
  * Turns one Orin camera's logged PhotonLib results into pose observations. Reads only {@link
@@ -45,7 +45,7 @@ public final class OrinSolver {
     public static final double EDGE_MAX_SCALE = 4.0;
 
     private final Transform3d cameraToRobot;
-    private final AprilTagFieldLayout layout;
+    private final Field layout;
     private final double cameraFactor;
     private final int imageWidth;
     private final int imageHeight;
@@ -73,7 +73,7 @@ public final class OrinSolver {
      */
     public OrinSolver(
             Transform3d robotToCamera,
-            AprilTagFieldLayout layout,
+            Field layout,
             double cameraFactor,
             int imageWidth,
             int imageHeight) {
@@ -93,7 +93,17 @@ public final class OrinSolver {
     public Optional<PhotonPipelineResult> decode(byte[] bytes) {
         try {
             // A new Packet each time: setData() does not reset the read position.
-            return Optional.of(PhotonPipelineResult.photonStruct.unpack(new Packet(bytes)));
+            Packet packet = new Packet(bytes);
+            PhotonPipelineResult result = PhotonPipelineResult.photonStruct.unpack(packet);
+            // Packet reads zeros past the end instead of throwing, so a short or garbled result
+            // still decodes. A real one encodes back to the same bytes.
+            Packet again = new Packet(bytes.length);
+            again.encode(result);
+            if (!java.util.Arrays.equals(again.getWrittenDataCopy(), bytes)) {
+                decodeFailures++;
+                return Optional.empty();
+            }
+            return Optional.of(result);
         } catch (RuntimeException e) {
             decodeFailures++;
             return Optional.empty();

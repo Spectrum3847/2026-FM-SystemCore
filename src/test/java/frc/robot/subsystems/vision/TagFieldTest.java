@@ -7,21 +7,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import frc.spectrumLib.vision.FieldMapHash;
 import org.junit.jupiter.api.Test;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
-import org.wpilib.vision.apriltag.AprilTagFields;
+import org.wpilib.fields.Field;
+import org.wpilib.fields.Fields;
 
 class TagFieldTest {
-    private static final AprilTagFields ANDYMARK = AprilTagFields.k2026RebuiltAndymark;
-    private static final AprilTagFields WELDED = AprilTagFields.k2026RebuiltWelded;
-    private static final String ANDYMARK_HASH =
-            FieldMapHash.of(AprilTagFieldLayout.loadField(ANDYMARK));
+    private static final Fields ANDYMARK = Fields.FRC_2026_REBUILT_ANDY_MARK;
+    private static final Fields WELDED = Fields.FRC_2026_REBUILT_WELDED;
+    private static final String ANDYMARK_HASH = FieldMapHash.of(Field.loadField(ANDYMARK));
 
     @Test
     void replayUsesTheLoggedFieldNotTheEvents() {
         TagField.Choice c = TagField.forReplay(WELDED, ANDYMARK.name(), ANDYMARK_HASH);
         assertEquals(ANDYMARK, c.field());
         assertEquals(ANDYMARK_HASH, c.hash());
-        assertEquals(AprilTagFieldLayout.loadField(ANDYMARK), c.layout());
+        assertEquals(Field.loadField(ANDYMARK), c.layout());
         assertNull(c.warning());
     }
 

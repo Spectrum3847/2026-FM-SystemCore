@@ -21,7 +21,7 @@ class JetsonRebootTest {
 
     @Test
     void aNewBootIdIsAReboot() {
-        HAL.initialize(500, 0);
+        HAL.initialize();
         cycle("");
         cycle("a");
         // A reconnect drops the value to empty, then it comes back unchanged: not a reboot.

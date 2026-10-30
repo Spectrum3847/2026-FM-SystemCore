@@ -24,8 +24,8 @@ import java.util.concurrent.TimeUnit;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
-import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.driverstation.RobotState;
+import org.wpilib.util.Alert.Level;
 
 /**
  * Robot params: values tuned on the robot that survive the next deploy, without editing code.

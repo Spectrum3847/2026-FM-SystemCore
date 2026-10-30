@@ -324,7 +324,7 @@ public abstract class Gamepad implements Subsystem {
         benchKeys = new BenchKeys("Gamepads/" + config.name + "/");
 
         if (config.attached) {
-            hid = new GenericHID(config.port);
+            hid = org.wpilib.driverstation.DriverStation.getGenericHID(config.port);
             // Each trigger reads the layout when it is polled, so AUTO can change it.
             A = new Trigger(() -> button(layout.a));
             B = new Trigger(() -> button(layout.b));

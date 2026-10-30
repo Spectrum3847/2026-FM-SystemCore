@@ -23,8 +23,8 @@ import org.wpilib.system.Timer;
  * checked) without a driver: sit disabled so the Limelights seed the pose, then drive a lap of
  * straights, strafes and spins in teleop while every pose source is logged.
  *
- * <p>Opt-in only: set the environment variable {@code FM_SIM_SCRIPT} before {@code ./gradlew
- * simulateJava}. With it unset the sim behaves normally and takes a real Driver Station.
+ * <p>Opt-in only: set the environment variable {@code FM_SIM_SCRIPT} before {@code ./gradlew run}.
+ * With it unset the sim behaves normally and takes a real Driver Station.
  *
  * <ul>
  *   <li>{@code drive}: the localization lap.
@@ -208,7 +208,7 @@ public final class SimScript {
      */
     public static final class Actions implements LoggableInputs {
         public boolean placeRobot = false;
-        public Pose2d placePose = Pose2d.kZero;
+        public Pose2d placePose = Pose2d.ZERO;
 
         @Override
         public void toLog(LogTable table) {
@@ -403,10 +403,9 @@ public final class SimScript {
             DriverStationSim.setRobotMode(RobotMode.AUTONOMOUS);
             DriverStationSim.setEnabled(false);
             fakeMatch();
+            // Where a dashboard picks an option on AdvantageKit's LoggedNetworkChooser.
             org.wpilib.networktables.NetworkTableInstance.getDefault()
-                    .getTable("SmartDashboard")
-                    .getSubTable("Auto Chooser")
-                    .getEntry("selected")
+                    .getEntry("/SmartDashboard/Auto Chooser/selected/tune")
                     .setString(autoName);
         }
         double t = holdForFreshSignals(now, 6.0);

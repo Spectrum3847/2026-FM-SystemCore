@@ -24,8 +24,9 @@ import wpilog_summary  # noqa: E402
 class Log:
     """Writes a WPILOG file: one start record per key, then data records."""
 
-    def __init__(self):
+    def __init__(self, metadata=None):
         self.ids = {}
+        self.metadata = metadata or {}  # name to entry metadata
         self.out = bytearray(b"WPILOG" + struct.pack("<HI", 0x0100, 0))
 
     def _record(self, entry, t, payload):
@@ -38,7 +39,8 @@ class Log:
             self.ids[name] = (entry, typ)
             n, ty = name.encode(), typ.encode()
             payload = b"\x00" + struct.pack("<I", entry) + struct.pack("<I", len(n)) + n
-            payload += struct.pack("<I", len(ty)) + ty + struct.pack("<I", 0)
+            md = self.metadata.get(name, "").encode()
+            payload += struct.pack("<I", len(ty)) + ty + struct.pack("<I", len(md)) + md
             self._record(0, 0, payload)
         return self.ids[name][0]
 
@@ -203,6 +205,28 @@ class LogToolsTest(unittest.TestCase):
             'String p = PREFIX + "Sources/" + n;\nString p = PREFIX + "EKF/";')
         self.assertEqual("Mechanisms/<name>/PositionLost", render("lostKey", consts))
         self.assertEqual("<p>Pose", render('p + "Pose"', consts))
+
+    def test_tools_read_nanosecond_logs(self):
+        # AdvantageKit 27.0.0-alpha-7 and later log time in ns and mark /Timestamp so.
+        import trim_wpilog
+
+        ns = '{"source":"AdvantageKit","unit":"nanoseconds"}'
+        for metadata, ticks in ((None, 1e6), ({"/Timestamp": ns}, 1e9)):
+            log = Log(metadata)
+            for i in range(3):
+                t = 2.0 + i
+                log.put("/Timestamp", 0, int(t * ticks))
+                log.put("/RealOutputs/X", 0, t)
+            path = log.write(self.path("ns" if metadata else "us"))
+            data = open(path, "rb").read()
+            self.assertEqual(ticks, trim_wpilog.ticks_per_second(data))
+            records, types = wpilog_summary.read_wpilog(path)
+            self.assertEqual(ticks, types[wpilog_summary.TICKS_KEY])
+
+    def test_key_guide_skips_wpilibs_telemetry(self):
+        lines = ['    org.wpilib.telemetry.Telemetry.log("Field2d", field2d);']
+        text = "\n".join(lines)
+        self.assertEqual([], list(make_log_key_guide.outputs("X.java", text, lines)))
 
     def test_key_guide_reads_unit_and_comment_beside_a_call(self):
         lines = [

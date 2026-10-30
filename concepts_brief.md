@@ -104,6 +104,10 @@ the question is given in brackets.
 
 ### Rules
 
+* The app is a separate Python web app: "Being a separate python web app makes the most sense now, the
+  systemcore has python, don't have to compile/build anything, just send the python code. Every
+  system with wpilib installed can still build without any prerequisites except tests, etc."
+
 * The app moves off port 5800: "we know the port has to change ... that's always going to change."
 
 * `spectrumLib` on `event*` branches: "Fixes to spectrum lib have to be able to made at events ...
@@ -115,7 +119,7 @@ the question is given in brackets.
 The team chose these from options that were framed by earlier, contaminated review rounds. They are
 open again; a review may confirm or replace them.
 
-1. The service is written in Java (rather than Python or another runtime).
+1. ~~The service is written in Java.~~ Replaced: the team chose a separate Python web app (Rules).
 2. Pulling tuned values back only warns at deploy, with no terminal prompt.
 3. When git changed after a value was saved, both values are shown and a person chooses.
 4. The robot reports at boot when a saved hard-stop value differs from git, with a banner until

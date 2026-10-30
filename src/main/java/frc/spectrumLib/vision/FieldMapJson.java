@@ -6,13 +6,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import org.wpilib.fields.Field;
+import org.wpilib.fields.FieldTag;
 import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Quaternion;
-import org.wpilib.vision.apriltag.AprilTag;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 
 /**
- * A layout as WPILib AprilTagFieldLayout JSON, for a coprocessor to load.
+ * A layout as WPILib Field JSON, for a coprocessor to load.
  *
  * <p>Written here rather than by WPILib's serializer, which re-derives each quaternion: it writes
  * the 2026 fields' {@code -0.0} components as {@code 0.0}. {@link FieldMapHash} formats those as
@@ -31,16 +31,16 @@ public final class FieldMapJson {
      * @param layout the field map
      * @return the JSON text
      */
-    public static String of(AprilTagFieldLayout layout) {
+    public static String of(Field layout) {
         ObjectNode root = MAPPER.createObjectNode();
         ArrayNode tagsNode = root.putArray("tags");
-        List<AprilTag> tags = new ArrayList<>(layout.getTags());
-        tags.sort(Comparator.comparingInt(t -> t.ID));
-        for (AprilTag t : tags) {
-            Pose3d p = t.pose;
+        List<FieldTag> tags = new ArrayList<>(layout.getTags());
+        tags.sort(Comparator.comparingInt(t -> t.getID()));
+        for (FieldTag t : tags) {
+            Pose3d p = t.getPose();
             Quaternion q = p.getRotation().getQuaternion();
             ObjectNode tag = tagsNode.addObject();
-            tag.put("ID", t.ID);
+            tag.put("ID", t.getID());
             ObjectNode pose = tag.putObject("pose");
             ObjectNode translation = pose.putObject("translation");
             translation.put("x", p.getX());

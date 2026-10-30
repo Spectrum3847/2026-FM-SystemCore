@@ -38,6 +38,8 @@ import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Subsystem;
+import org.wpilib.fields.Field;
+import org.wpilib.fields.Fields;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Rotation2d;
@@ -48,8 +50,6 @@ import org.wpilib.math.util.Units;
 import org.wpilib.networktables.NetworkTableInstance;
 import org.wpilib.system.Timer;
 import org.wpilib.util.Alert.Level;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
-import org.wpilib.vision.apriltag.AprilTagFields;
 
 /**
  * FM's multi-source localization testbed: up to three Limelights and three Orin/PhotonVision
@@ -258,9 +258,9 @@ public class Vision implements Subsystem {
      * The field the robot solves with: this event's ({@code Event.APRILTAG_FIELD}), or in replay
      * the match's (see {@link TagField}). The Jetson's must match.
      */
-    @Getter private static AprilTagFields tagField;
+    @Getter private static Fields tagField;
 
-    @Getter private static AprilTagFieldLayout tagLayout;
+    @Getter private static Field tagLayout;
 
     /** {@link #tagLayout}'s canonical hash ({@code FieldMapHash}). */
     @Getter private static String tagLayoutHash;

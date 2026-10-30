@@ -24,7 +24,6 @@ import org.wpilib.math.util.Units;
 import org.wpilib.smartdashboard.Mechanism2d;
 import org.wpilib.smartdashboard.MechanismLigament2d;
 import org.wpilib.smartdashboard.MechanismRoot2d;
-import org.wpilib.smartdashboard.SmartDashboard;
 import org.wpilib.util.Color;
 import org.wpilib.util.Color8Bit;
 
@@ -69,7 +68,7 @@ public class RobotSim {
 
     public RobotSim(SuperStructure superStructure) {
         this.robotSuperStructure = superStructure;
-        SmartDashboard.putData("Sim/LeftView", RobotSim.leftView);
+        org.wpilib.telemetry.Telemetry.log("Sim/LeftView", RobotSim.leftView);
         leftView.setBackgroundColor(new Color8Bit(Color.LIGHT_GRAY));
         drawRobot();
 

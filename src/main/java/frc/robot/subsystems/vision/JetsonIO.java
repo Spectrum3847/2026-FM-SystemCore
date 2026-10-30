@@ -50,7 +50,7 @@ public interface JetsonIO {
      *
      * @param name the WPILib field's name, or {@code "custom"}
      * @param hash the canonical hash ({@code FieldMapHash})
-     * @param json the layout as WPILib AprilTagFieldLayout JSON
+     * @param json the layout as WPILib Field JSON
      */
     default void publishFieldMap(String name, String hash, String json) {}
 }

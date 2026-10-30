@@ -65,7 +65,7 @@ public class Alert extends org.wpilib.util.Alert {
      * @param level its severity
      */
     public Alert(String text, Level level) {
-        super(text, level);
+        super("Alerts", text, level);
         this.level = level;
         this.text = text;
         ALL.add(this);

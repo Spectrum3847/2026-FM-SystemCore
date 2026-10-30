@@ -245,7 +245,7 @@ public class SwerveConfig {
     public SwerveConfig updateConfig() {
         drivetrainConstants =
                 new SwerveDrivetrainConstants()
-                        .withCANBusName(canBus.getName())
+                        .withNetwork(canBus)
                         .withPigeon2Id(pigeonId)
                         .withPigeon2Configs(pigeonConfigs);
 

@@ -12,10 +12,10 @@ import org.photonvision.targeting.MultiTargetPNPResult;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 import org.photonvision.targeting.TargetCorner;
+import org.wpilib.fields.Field;
 import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.geometry.Transform3d;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 
 /**
  * Turns one Orin camera's logged PhotonLib results into pose observations. Reads only {@link
@@ -45,7 +45,7 @@ public final class OrinSolver {
     public static final double EDGE_MAX_SCALE = 4.0;
 
     private final Transform3d cameraToRobot;
-    private final AprilTagFieldLayout layout;
+    private final Field layout;
     private final double cameraFactor;
     private final int imageWidth;
     private final int imageHeight;
@@ -73,7 +73,7 @@ public final class OrinSolver {
      */
     public OrinSolver(
             Transform3d robotToCamera,
-            AprilTagFieldLayout layout,
+            Field layout,
             double cameraFactor,
             int imageWidth,
             int imageHeight) {

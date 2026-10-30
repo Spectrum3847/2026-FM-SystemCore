@@ -11,19 +11,18 @@ import java.util.Locale;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
-import org.wpilib.vision.apriltag.AprilTagFields;
+import org.wpilib.fields.Field;
+import org.wpilib.fields.Fields;
 
 class FieldMapJsonTest {
 
     @ParameterizedTest
     @EnumSource(
-            value = AprilTagFields.class,
+            value = Fields.class,
             names = {"k2026RebuiltAndymark", "k2026RebuiltWelded"})
-    void wpilibReadsItBackAsTheSameMap(AprilTagFields field) {
-        AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(field);
-        AprilTagFieldLayout back =
-                Jsonb.instance().type(AprilTagFieldLayout.class).fromJson(FieldMapJson.of(layout));
+    void wpilibReadsItBackAsTheSameMap(Fields field) {
+        Field layout = Field.loadField(field);
+        Field back = Jsonb.instance().type(Field.class).fromJson(FieldMapJson.of(layout));
         assertEquals(layout, back);
         assertEquals(FieldMapHash.of(layout), FieldMapHash.of(back));
     }
@@ -34,12 +33,11 @@ class FieldMapJsonTest {
      */
     @ParameterizedTest
     @CsvSource({"k2026RebuiltAndymark,2792cd4e868967b8", "k2026RebuiltWelded,ca28a7c1139ed099"})
-    void publishedHashIsTheHashOfThePublishedJson(AprilTagFields field, String expected) {
-        AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(field);
+    void publishedHashIsTheHashOfThePublishedJson(Fields field, String expected) {
+        Field layout = Field.loadField(field);
         String publishedJson = FieldMapJson.of(layout);
         String publishedHash = FieldMapHash.of(layout);
-        AprilTagFieldLayout parsed =
-                Jsonb.instance().type(AprilTagFieldLayout.class).fromJson(publishedJson);
+        Field parsed = Jsonb.instance().type(Field.class).fromJson(publishedJson);
         assertEquals(expected, publishedHash);
         assertEquals(publishedHash, FieldMapHash.of(parsed));
     }
@@ -47,10 +45,10 @@ class FieldMapJsonTest {
     /** What a coprocessor does: hash the numbers in the JSON it was sent. */
     @ParameterizedTest
     @EnumSource(
-            value = AprilTagFields.class,
+            value = Fields.class,
             names = {"k2026RebuiltAndymark", "k2026RebuiltWelded"})
-    void hashingTheJsonsNumbersGivesTheRobotsHash(AprilTagFields field) throws Exception {
-        AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(field);
+    void hashingTheJsonsNumbersGivesTheRobotsHash(Fields field) throws Exception {
+        Field layout = Field.loadField(field);
         JsonNode root = new ObjectMapper().readTree(FieldMapJson.of(layout));
         List<String> lines = new ArrayList<>();
         for (JsonNode tag : root.get("tags")) {

@@ -95,7 +95,6 @@ import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.net.WebServer;
 import org.wpilib.smartdashboard.Field2d;
-import org.wpilib.smartdashboard.SmartDashboard;
 import org.wpilib.system.Filesystem;
 import org.wpilib.system.RobotController;
 import org.wpilib.system.Timer;
@@ -283,9 +282,9 @@ public class Robot extends SpectrumRobot {
 
             batteryLogger.setEnabled(true);
 
-            SmartDashboard.putData("Field2d", field2d);
+            org.wpilib.telemetry.Telemetry.log("Field2d", field2d);
             // The commands running now, for Elastic's Scheduler widget (as in the offseason code).
-            SmartDashboard.putData("Scheduler", CommandScheduler.getInstance());
+            org.wpilib.telemetry.Telemetry.log("Scheduler", CommandScheduler.getInstance());
             // Build the ShotCalculator now so its Hub Model Chooser is on the dashboard before
             // enabling.
             ShotCalculator.getInstance();
@@ -309,15 +308,13 @@ public class Robot extends SpectrumRobot {
             throw t;
         }
 
-        // SystemCore keeps its default brownout voltage: setting one fails there (HAL -1098). The
-        // reads are optional too: if either fails, the brownout telemetry is skipped.
+        // SystemCore keeps its default brownout voltage (6.75 V, recovering at 7.5 V). The read is
+        // optional: if it fails, the brownout telemetry is skipped, as recorded in
+        // SummaryInputs/Brownout/BrownedOutValid.
         try {
             RobotController.isBrownedOut();
-            RobotController.getBrownoutVoltage();
             powerApiAvailable = true;
         } catch (RuntimeException e) {
-            // Expected on SystemCore until WPILib alpha-7 (docs/upgrading-to-alpha-8.md). The log
-            // has it as SummaryInputs/Brownout/BrownedOutValid.
             powerApiAvailable = false;
         }
         RuntimeInputs.setBrownoutApiAvailable(powerApiAvailable);
@@ -880,12 +877,6 @@ public class Robot extends SpectrumRobot {
         Telemetry.log("CANConfig/FailedCalls", CanConfigBudget.getFailedCalls());
         // Failed CAN config time ran out, so remaining config calls are skipped (a dead bus).
         Telemetry.logDash("CANConfig/BudgetExhausted", CanConfigBudget.exhausted());
-
-        if (powerApiAvailable) {
-            // The voltage at which the controller browns out.
-            Telemetry.log(
-                    "SystemStats/BrownoutVoltage", RobotController.getBrownoutVoltage(), "volts");
-        }
     }
 
     /**

@@ -6,9 +6,9 @@ import frc.spectrumLib.vision.FieldMapHash;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
+import org.wpilib.fields.Field;
+import org.wpilib.fields.Fields;
 import org.wpilib.util.Alert.Level;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
-import org.wpilib.vision.apriltag.AprilTagFields;
 
 /**
  * Which AprilTag field the robot solves with, as a logged input ({@code Vision/FieldMap/Name} and
@@ -30,8 +30,7 @@ public final class TagField {
      * @param hash its canonical hash ({@link FieldMapHash})
      * @param warning why a replay may not solve as the match did, or null
      */
-    public record Choice(
-            AprilTagFields field, AprilTagFieldLayout layout, String hash, String warning) {}
+    public record Choice(Fields field, Field layout, String hash, String warning) {}
 
     /** The input: written on the robot and in the sim, read back in replay. */
     static final class Inputs implements LoggableInputs {
@@ -62,7 +61,7 @@ public final class TagField {
      * @param eventField this event's field ({@code Event.APRILTAG_FIELD})
      * @return the field to solve with
      */
-    public static Choice load(AprilTagFields eventField) {
+    public static Choice load(Fields eventField) {
         Inputs inputs = new Inputs();
         boolean replay = Constants.currentMode == Constants.Mode.REPLAY;
         Choice choice;
@@ -92,7 +91,7 @@ public final class TagField {
      * @param loggedHash the logged canonical hash, {@link #ABSENT} in older logs
      * @return the field, with a warning when the replay may solve differently from the match
      */
-    static Choice forReplay(AprilTagFields eventField, String loggedName, String loggedHash) {
+    static Choice forReplay(Fields eventField, String loggedName, String loggedHash) {
         if (loggedName.equals(ABSENT)) {
             return of(
                     eventField,
@@ -101,7 +100,7 @@ public final class TagField {
                             + eventField.name()
                             + "; replay may differ from the match");
         }
-        AprilTagFields logged = parse(loggedName);
+        Fields logged = parse(loggedName);
         if (logged == null) {
             return of(
                     eventField,
@@ -126,17 +125,23 @@ public final class TagField {
         return c;
     }
 
-    private static Choice of(AprilTagFields field, String warning) {
-        AprilTagFieldLayout layout = AprilTagFieldLayout.loadField(field);
+    private static Choice of(Fields field, String warning) {
+        Field layout = Field.loadField(field);
         return new Choice(field, layout, FieldMapHash.of(layout), warning);
     }
 
-    private static AprilTagFields parse(String name) {
-        for (AprilTagFields f : AprilTagFields.values()) {
+    /** The 2026 fields under their alpha-6 enum names, so logs from then still replay. */
+    private static final java.util.Map<String, Fields> ALPHA6_NAMES =
+            java.util.Map.of(
+                    "k2026RebuiltAndymark", Fields.FRC_2026_REBUILT_ANDY_MARK,
+                    "k2026RebuiltWelded", Fields.FRC_2026_REBUILT_WELDED);
+
+    private static Fields parse(String name) {
+        for (Fields f : Fields.values()) {
             if (f.name().equals(name)) {
                 return f;
             }
         }
-        return null;
+        return ALPHA6_NAMES.get(name);
     }
 }

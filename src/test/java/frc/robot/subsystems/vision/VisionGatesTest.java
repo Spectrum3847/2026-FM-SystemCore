@@ -18,8 +18,7 @@ class VisionGatesTest {
     private static final double NOW = 100.0;
 
     private static final GateContext CONTEXT =
-            new GateContext(
-                    NOW, Pose2d.ZERO, Pose2d.ZERO, new ChassisVelocities(), 0, false, true);
+            new GateContext(NOW, Pose2d.ZERO, Pose2d.ZERO, new ChassisVelocities(), 0, false, true);
 
     /** A two-tag MegaTag1 frame mid-field that every other gate passes. */
     private static PoseObservation frameAt(double timestampSeconds) {

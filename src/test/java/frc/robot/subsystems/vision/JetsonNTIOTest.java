@@ -8,10 +8,10 @@ import frc.spectrumLib.vision.FieldMapHash;
 import frc.spectrumLib.vision.FieldMapJson;
 import io.avaje.jsonb.Jsonb;
 import org.junit.jupiter.api.Test;
+import org.wpilib.fields.Field;
+import org.wpilib.fields.Fields;
 import org.wpilib.networktables.NetworkTableInstance;
 import org.wpilib.networktables.PubSubOption;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
-import org.wpilib.vision.apriltag.AprilTagFields;
 
 class JetsonNTIOTest {
 
@@ -66,8 +66,7 @@ class JetsonNTIOTest {
         assertEquals(1_790_000_000.0, inputs.fieldMapLoadedAt, 1e-9);
         assertEquals("none yet", inputs.fieldMapError);
 
-        AprilTagFieldLayout layout =
-                AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltAndymark);
+        Field layout = Field.loadField(Fields.FRC_2026_REBUILT_ANDY_MARK);
         io.publishFieldMap(
                 "k2026RebuiltAndymark", FieldMapHash.of(layout), FieldMapJson.of(layout));
         String json = nt.getStringTopic("/SpectrumVision/FieldMap/Json").subscribe("").get();
@@ -78,7 +77,7 @@ class JetsonNTIOTest {
                 "k2026RebuiltAndymark",
                 nt.getStringTopic("/SpectrumVision/FieldMap/Name").subscribe("").get());
         // The published JSON is the same map: it reads back to the same layout and hash.
-        AprilTagFieldLayout back = Jsonb.instance().type(AprilTagFieldLayout.class).fromJson(json);
+        Field back = Jsonb.instance().type(Field.class).fromJson(json);
         assertEquals(layout, back);
         assertEquals("2792cd4e868967b8", FieldMapHash.of(back));
         hash.close();

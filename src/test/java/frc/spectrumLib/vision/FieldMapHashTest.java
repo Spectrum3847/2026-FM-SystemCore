@@ -6,37 +6,41 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.wpilib.fields.Field;
+import org.wpilib.fields.FieldTag;
+import org.wpilib.fields.Fields;
 import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Rotation3d;
-import org.wpilib.vision.apriltag.AprilTag;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
-import org.wpilib.vision.apriltag.AprilTagFields;
 
 class FieldMapHashTest {
+
+    /** A layout from tags and field size, as AprilTagFieldLayout's constructor took them. */
+    private static Field newLayout(List<FieldTag> tags, double length, double width) {
+        return new Field(null, null, null, null, length, width, null, tags);
+    }
 
     // The SpectrumJetson side checks itself against these two.
     @Test
     void andymarkHash() {
         assertEquals(
                 "2792cd4e868967b8",
-                FieldMapHash.of(
-                        AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltAndymark)));
+                FieldMapHash.of(Field.loadField(Fields.FRC_2026_REBUILT_ANDY_MARK)));
     }
 
     @Test
     void weldedHash() {
         assertEquals(
                 "ca28a7c1139ed099",
-                FieldMapHash.of(AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded)));
+                FieldMapHash.of(Field.loadField(Fields.FRC_2026_REBUILT_WELDED)));
     }
 
     @Test
     void canonicalTextIsSortedFourDecimalsNoTrailingNewline() {
-        AprilTagFieldLayout layout =
-                new AprilTagFieldLayout(
+        Field layout =
+                newLayout(
                         List.of(
-                                new AprilTag(7, new Pose3d(1.0, 2.0, 0.5, Rotation3d.ZERO)),
-                                new AprilTag(
+                                new FieldTag(7, new Pose3d(1.0, 2.0, 0.5, Rotation3d.ZERO)),
+                                new FieldTag(
                                         2,
                                         new Pose3d(
                                                 11.863959,
@@ -56,11 +60,9 @@ class FieldMapHashTest {
     void roundsTheShortestDecimalHalfUp() {
         // 0.55245 is just below the tie in binary; Python's "%.4f" gives 0.5524. The 2026 fields'
         // hub tags are at this height, so another implementation must round like Java.
-        AprilTagFieldLayout layout =
-                new AprilTagFieldLayout(
-                        List.of(new AprilTag(1, new Pose3d(0, 0, 0.55245, Rotation3d.ZERO))),
-                        1,
-                        1);
+        Field layout =
+                newLayout(
+                        List.of(new FieldTag(1, new Pose3d(0, 0, 0.55245, Rotation3d.ZERO))), 1, 1);
         assertEquals(
                 "1,0.0000,0.0000,0.5525,1.0000,0.0000,0.0000,0.0000\nfield,1.0000,1.0000",
                 FieldMapHash.canonicalText(layout));
@@ -74,34 +76,29 @@ class FieldMapHashTest {
 
     @Test
     void movingOneTagAMillimeterChangesIt() {
-        AprilTagFieldLayout full =
-                AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltAndymark);
-        List<AprilTag> tags = new ArrayList<>(full.getTags());
+        Field full = Field.loadField(Fields.FRC_2026_REBUILT_ANDY_MARK);
+        List<FieldTag> tags = new ArrayList<>(full.getTags());
         AprilTag first = tags.get(0);
         tags.set(
                 0,
-                new AprilTag(
-                        first.ID,
+                new FieldTag(
+                        first.getID(),
                         new Pose3d(
-                                first.pose.getX() + 0.001,
-                                first.pose.getY(),
-                                first.pose.getZ(),
-                                first.pose.getRotation())));
+                                first.getPose().getX() + 0.001,
+                                first.getPose().getY(),
+                                first.getPose().getZ(),
+                                first.getPose().getRotation())));
         assertNotEquals(
                 FieldMapHash.of(full),
-                FieldMapHash.of(
-                        new AprilTagFieldLayout(
-                                tags, full.getFieldLength(), full.getFieldWidth())));
+                FieldMapHash.of(newLayout(tags, full.getFieldLength(), full.getFieldWidth())));
     }
 
     @Test
     void tagOrderDoesNotMatter() {
-        AprilTagFieldLayout full = AprilTagFieldLayout.loadField(AprilTagFields.k2026RebuiltWelded);
-        List<AprilTag> reversed = new ArrayList<>(full.getTags()).reversed();
+        Field full = Field.loadField(Fields.FRC_2026_REBUILT_WELDED);
+        List<FieldTag> reversed = new ArrayList<>(full.getTags()).reversed();
         assertEquals(
                 FieldMapHash.of(full),
-                FieldMapHash.of(
-                        new AprilTagFieldLayout(
-                                reversed, full.getFieldLength(), full.getFieldWidth())));
+                FieldMapHash.of(newLayout(reversed, full.getFieldLength(), full.getFieldWidth())));
     }
 }

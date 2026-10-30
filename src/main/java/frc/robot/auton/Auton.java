@@ -13,7 +13,7 @@ import frc.spectrumLib.telemetry.Telemetry;
 import java.io.IOException;
 import java.util.function.Consumer;
 import org.json.simple.parser.ParseException;
-import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
+import org.littletonrobotics.junction.networktables.LoggedNetworkChooser;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Commands;
 import org.wpilib.command2.PrintCommand;
@@ -37,8 +37,8 @@ public class Auton {
      * The auto chooser. An AdvantageKit dashboard input rather than a plain SendableChooser, so the
      * selected auto is in the log and replay runs the same auto.
      */
-    private final LoggedDashboardChooser<Command> pathChooser =
-            new LoggedDashboardChooser<>("Auto Chooser");
+    private final LoggedNetworkChooser<Command> pathChooser =
+            new LoggedNetworkChooser<>("Auto Chooser");
 
     private final AutoEnd autoEnd = new AutoEnd();
 
@@ -57,31 +57,31 @@ public class Auton {
      */
     public void setupSelectors() {
 
-        pathChooser.addDefaultOption("Do Nothing", doNothing());
+        pathChooser.addDefault("Do Nothing", doNothing());
 
-        pathChooser.addOption("TBTB Left", TBTB(false));
-        pathChooser.addOption("TBTB Right", TBTB(true));
+        pathChooser.add("TBTB Left", TBTB(false));
+        pathChooser.add("TBTB Right", TBTB(true));
 
-        pathChooser.addOption("TBTT Left", TBTT(false));
-        pathChooser.addOption("TBTT Right", TBTT(true));
+        pathChooser.add("TBTT Left", TBTT(false));
+        pathChooser.add("TBTT Right", TBTT(true));
 
-        pathChooser.addOption("TTTT Left", TTTT(false));
-        pathChooser.addOption("TTTT Right", TTTT(true));
+        pathChooser.add("TTTT Left", TTTT(false));
+        pathChooser.add("TTTT Right", TTTT(true));
 
-        pathChooser.addOption("BBBB Left", BBBB(false));
-        pathChooser.addOption("BBBB Right", BBBB(true));
+        pathChooser.add("BBBB Left", BBBB(false));
+        pathChooser.add("BBBB Right", BBBB(true));
 
-        pathChooser.addOption("Optional - Left TBT", optional_TBT(false));
-        pathChooser.addOption("Optional - Right TBT", optional_TBT(true));
+        pathChooser.add("Optional - Left TBT", optional_TBT(false));
+        pathChooser.add("Optional - Right TBT", optional_TBT(true));
 
-        pathChooser.addOption("Optional - Left BBB", optional_BBB(false));
-        pathChooser.addOption("Optional - Right BBB", optional_BBB(true));
+        pathChooser.add("Optional - Left BBB", optional_BBB(false));
+        pathChooser.add("Optional - Right BBB", optional_BBB(true));
 
-        pathChooser.addOption("2nd Man - TBTB Left", secondMan_TBTB(false));
-        pathChooser.addOption("2nd Man - TBTB Right", secondMan_TBTB(true));
+        pathChooser.add("2nd Man - TBTB Left", secondMan_TBTB(false));
+        pathChooser.add("2nd Man - TBTB Right", secondMan_TBTB(true));
 
-        pathChooser.addOption("2nd Man - BBD Left", secondMan_BBD(false));
-        pathChooser.addOption("2nd Man - BBD Right", secondMan_BBD(true));
+        pathChooser.add("2nd Man - BBD Left", secondMan_BBD(false));
+        pathChooser.add("2nd Man - BBD Right", secondMan_BBD(true));
     }
 
     private SuperStructure robotSuperStructure;

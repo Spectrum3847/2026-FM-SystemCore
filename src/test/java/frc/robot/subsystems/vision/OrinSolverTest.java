@@ -15,21 +15,27 @@ import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 import org.photonvision.targeting.PnpResult;
 import org.photonvision.targeting.TargetCorner;
+import org.wpilib.fields.Field;
+import org.wpilib.fields.FieldTag;
 import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.geometry.Rotation3d;
 import org.wpilib.math.geometry.Transform3d;
 import org.wpilib.math.geometry.Translation3d;
-import org.wpilib.vision.apriltag.AprilTag;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 
 class OrinSolverTest {
+
+    /** A layout from tags and field size, as AprilTagFieldLayout's constructor took them. */
+    private static Field newLayout(List<FieldTag> tags, double length, double width) {
+        return new Field(null, null, null, null, length, width, null, tags);
+    }
+
     /** Tag 1 at (5, 4, 0.5) facing -x (180 deg), tag 2 beside it. */
-    private static final AprilTagFieldLayout LAYOUT =
-            new AprilTagFieldLayout(
+    private static final Field LAYOUT =
+            newLayout(
                     List.of(
-                            new AprilTag(1, new Pose3d(5, 4, 0.5, new Rotation3d(0, 0, Math.PI))),
-                            new AprilTag(2, new Pose3d(5, 5, 0.5, new Rotation3d(0, 0, Math.PI)))),
+                            new FieldTag(1, new Pose3d(5, 4, 0.5, new Rotation3d(0, 0, Math.PI))),
+                            new FieldTag(2, new Pose3d(5, 5, 0.5, new Rotation3d(0, 0, Math.PI)))),
                     16.5,
                     8.1);
 

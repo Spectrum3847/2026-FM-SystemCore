@@ -36,7 +36,7 @@ final class SimRobot {
         if (logs != null) {
             logsBefore.addAll(List.of(logs));
         }
-        assertTrue(HAL.initialize(500, 0), "HAL failed to initialize");
+        assertTrue(HAL.initialize(), "HAL failed to initialize");
         SimHooks.pauseTiming();
         DriverStationSim.setDsAttached(true);
         DriverStationSim.setAllianceStationId(AllianceStationID.BLUE_1);

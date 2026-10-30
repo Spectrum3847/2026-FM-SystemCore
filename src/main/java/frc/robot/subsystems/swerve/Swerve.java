@@ -392,7 +392,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         // vision share. Not Timer.getTimestamp() itself: AdvantageKit pins that to the start of the
         // cycle, which would shift every sample by however far into the loop this line runs.
         double phoenixMinusWpilib =
-                Utils.getCurrentTimeSeconds() - HALUtil.getMonotonicTime() * 1e-6;
+                Utils.getCurrentTimeSeconds() - HALUtil.getMonotonicTime() * 1e-9; // ns
 
         int n = odometryQueue.size();
         double[] times = new double[n];

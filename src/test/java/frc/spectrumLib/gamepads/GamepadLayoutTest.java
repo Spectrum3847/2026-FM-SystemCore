@@ -58,7 +58,7 @@ class GamepadLayoutTest {
 
     @BeforeAll
     static void initHal() {
-        assertTrue(HAL.initialize(500, 0));
+        assertTrue(HAL.initialize());
     }
 
     @BeforeEach
@@ -83,22 +83,22 @@ class GamepadLayoutTest {
     @Test
     void niDsTableMatchesWpilibNiDsXboxController() {
         var l = GamepadLayout.NI_DS;
-        assertEquals(NiDsXboxController.Button.kA.value, l.a);
-        assertEquals(NiDsXboxController.Button.kB.value, l.b);
-        assertEquals(NiDsXboxController.Button.kX.value, l.x);
-        assertEquals(NiDsXboxController.Button.kY.value, l.y);
-        assertEquals(NiDsXboxController.Button.kLeftBumper.value, l.leftBumper);
-        assertEquals(NiDsXboxController.Button.kRightBumper.value, l.rightBumper);
-        assertEquals(NiDsXboxController.Button.kBack.value, l.back);
-        assertEquals(NiDsXboxController.Button.kStart.value, l.start);
-        assertEquals(NiDsXboxController.Button.kLeftStick.value, l.leftStick);
-        assertEquals(NiDsXboxController.Button.kRightStick.value, l.rightStick);
-        assertEquals(NiDsXboxController.Axis.kLeftX.value, l.leftX);
-        assertEquals(NiDsXboxController.Axis.kLeftY.value, l.leftY);
-        assertEquals(NiDsXboxController.Axis.kRightX.value, l.rightX);
-        assertEquals(NiDsXboxController.Axis.kRightY.value, l.rightY);
-        assertEquals(NiDsXboxController.Axis.kLeftTrigger.value, l.leftTrigger);
-        assertEquals(NiDsXboxController.Axis.kRightTrigger.value, l.rightTrigger);
+        assertEquals(NiDsXboxController.Button.A.value, l.a);
+        assertEquals(NiDsXboxController.Button.B.value, l.b);
+        assertEquals(NiDsXboxController.Button.X.value, l.x);
+        assertEquals(NiDsXboxController.Button.Y.value, l.y);
+        assertEquals(NiDsXboxController.Button.LEFT_BUMPER.value, l.leftBumper);
+        assertEquals(NiDsXboxController.Button.RIGHT_BUMPER.value, l.rightBumper);
+        assertEquals(NiDsXboxController.Button.BACK.value, l.back);
+        assertEquals(NiDsXboxController.Button.START.value, l.start);
+        assertEquals(NiDsXboxController.Button.LEFT_STICK.value, l.leftStick);
+        assertEquals(NiDsXboxController.Button.RIGHT_STICK.value, l.rightStick);
+        assertEquals(NiDsXboxController.Axis.LEFT_X.value, l.leftX);
+        assertEquals(NiDsXboxController.Axis.LEFT_Y.value, l.leftY);
+        assertEquals(NiDsXboxController.Axis.RIGHT_X.value, l.rightX);
+        assertEquals(NiDsXboxController.Axis.RIGHT_Y.value, l.rightY);
+        assertEquals(NiDsXboxController.Axis.LEFT_TRIGGER.value, l.leftTrigger);
+        assertEquals(NiDsXboxController.Axis.RIGHT_TRIGGER.value, l.rightTrigger);
         assertTrue(l.dpadOnPov());
         assertFalse(GamepadLayout.WPILIB_DS.dpadOnPov());
     }

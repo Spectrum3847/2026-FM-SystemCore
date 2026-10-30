@@ -78,7 +78,7 @@ class FieldMapHashTest {
     void movingOneTagAMillimeterChangesIt() {
         Field full = Field.loadField(Fields.FRC_2026_REBUILT_ANDY_MARK);
         List<FieldTag> tags = new ArrayList<>(full.getTags());
-        AprilTag first = tags.get(0);
+        FieldTag first = tags.get(0);
         tags.set(
                 0,
                 new FieldTag(

@@ -111,7 +111,7 @@ jobs:
       - name: Build
         run: |
           chmod +x gradlew
-          ./gradlew shadowJar
+          ./gradlew installDist
 
       - name: Run the ${{ matrix.name }} sim
         env:

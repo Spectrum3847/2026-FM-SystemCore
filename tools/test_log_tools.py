@@ -204,6 +204,11 @@ class LogToolsTest(unittest.TestCase):
         self.assertEqual("Mechanisms/<name>/PositionLost", render("lostKey", consts))
         self.assertEqual("<p>Pose", render('p + "Pose"', consts))
 
+    def test_key_guide_skips_wpilibs_telemetry(self):
+        lines = ['    org.wpilib.telemetry.Telemetry.log("Field2d", field2d);']
+        text = "\n".join(lines)
+        self.assertEqual([], list(make_log_key_guide.outputs("X.java", text, lines)))
+
     def test_key_guide_reads_unit_and_comment_beside_a_call(self):
         lines = [
             "    // How far the robot is from the hub.",

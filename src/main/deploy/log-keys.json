@@ -2677,13 +2677,6 @@
    "input": false
   },
   {
-   "key": "/RealOutputs/SystemStats/BrownoutVoltage",
-   "unit": "volts",
-   "doc": "The voltage at which the controller browns out.",
-   "source": "src/main/java/frc/robot/Robot.java",
-   "input": false
-  },
-  {
    "key": "/RealOutputs/Vision/<name>/Connected",
    "unit": "",
    "doc": "Per Orin camera: the camera is talking.",

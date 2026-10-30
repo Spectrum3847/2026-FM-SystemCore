@@ -19,7 +19,7 @@ class FieldMapJsonTest {
     @ParameterizedTest
     @EnumSource(
             value = Fields.class,
-            names = {"k2026RebuiltAndymark", "k2026RebuiltWelded"})
+            names = {"FRC_2026_REBUILT_ANDY_MARK", "FRC_2026_REBUILT_WELDED"})
     void wpilibReadsItBackAsTheSameMap(Fields field) {
         Field layout = Field.loadField(field);
         Field back = Jsonb.instance().type(Field.class).fromJson(FieldMapJson.of(layout));
@@ -32,7 +32,10 @@ class FieldMapJsonTest {
      * the Jetson hashes the layout it parses from that JSON. They must be the same value.
      */
     @ParameterizedTest
-    @CsvSource({"k2026RebuiltAndymark,2792cd4e868967b8", "k2026RebuiltWelded,ca28a7c1139ed099"})
+    @CsvSource({
+        "FRC_2026_REBUILT_ANDY_MARK,2792cd4e868967b8",
+        "FRC_2026_REBUILT_WELDED,ca28a7c1139ed099"
+    })
     void publishedHashIsTheHashOfThePublishedJson(Fields field, String expected) {
         Field layout = Field.loadField(field);
         String publishedJson = FieldMapJson.of(layout);
@@ -46,7 +49,7 @@ class FieldMapJsonTest {
     @ParameterizedTest
     @EnumSource(
             value = Fields.class,
-            names = {"k2026RebuiltAndymark", "k2026RebuiltWelded"})
+            names = {"FRC_2026_REBUILT_ANDY_MARK", "FRC_2026_REBUILT_WELDED"})
     void hashingTheJsonsNumbersGivesTheRobotsHash(Fields field) throws Exception {
         Field layout = Field.loadField(field);
         JsonNode root = new ObjectMapper().readTree(FieldMapJson.of(layout));

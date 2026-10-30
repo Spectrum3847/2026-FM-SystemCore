@@ -77,9 +77,10 @@ def robot_cmd(env):
         "--add-opens",
         "java.base/java.lang=ALL-UNNAMED",
         "--enable-native-access=ALL-UNNAMED",
-        "-jar",
-        # Gradle names the jar after the project folder, which differs in a worktree.
-        str(next((ROOT / "build" / "libs").glob("*-all.jar"))),
+        "-cp",
+        # installDist's folder is named after the project folder, which differs in a worktree.
+        str(next((ROOT / "build" / "install").glob("*")) / "lib" / "*"),
+        "frc.robot.Main",
     ]
 
 
@@ -213,7 +214,7 @@ def main():
     env["JAVA_HOME"] = str(java_home())
 
     start = time.monotonic()
-    if gradle(["shadowJar"], OUT / "build.txt", env) != 0:
+    if gradle(["installDist", "extractReleaseNative"], OUT / "build.txt", env) != 0:
         print(f"FAIL  build ({time.monotonic() - start:.0f} s), see build/check/build.txt")
         sys.exit(1)
     print(f"PASS  build ({time.monotonic() - start:.0f} s)", flush=True)

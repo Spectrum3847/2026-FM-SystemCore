@@ -73,11 +73,11 @@ class OrinSolverTest {
     }
 
     private static PhotonPipelineResult result(
-            long captureMicros,
+            long captureNanos,
             List<PhotonTrackedTarget> targets,
             Optional<MultiTargetPNPResult> multitag) {
         return new PhotonPipelineResult(
-                new PhotonPipelineMetadata(captureMicros, captureMicros + 5000, 1, 0),
+                new PhotonPipelineMetadata(captureNanos, captureNanos + 5_000_000, 1, 0),
                 targets,
                 multitag);
     }
@@ -90,7 +90,7 @@ class OrinSolverTest {
     void singleTagSolvesRobotPose() {
         var r =
                 result(
-                        1_000_000,
+                        1_000_000_000,
                         List.of(target(1, TWO_METRES_AHEAD, TWO_METRES_AHEAD, 0.1, CENTER_CORNERS)),
                         Optional.empty());
         List<PoseObservation> obs = solver().solve(inputsOf(r), Set.of(), null);
@@ -115,7 +115,7 @@ class OrinSolverTest {
                         new Rotation3d(0, 0, Math.PI - Math.toRadians(30)));
         var r =
                 result(
-                        1_000_000,
+                        1_000_000_000,
                         List.of(target(1, TWO_METRES_AHEAD, alt, 0.3, CENTER_CORNERS)),
                         Optional.empty());
         var withGyro =
@@ -143,7 +143,7 @@ class OrinSolverTest {
                         CENTER_CORNERS);
         var r =
                 result(
-                        1_000_000,
+                        1_000_000_000,
                         List.of(
                                 gamePiece,
                                 target(
@@ -197,7 +197,7 @@ class OrinSolverTest {
                         new TargetCorner(0, 420));
         var r =
                 result(
-                        1_000_000,
+                        1_000_000_000,
                         List.of(target(1, TWO_METRES_AHEAD, TWO_METRES_AHEAD, 0.1, edge)),
                         Optional.empty());
         var o = solver().solve(inputsOf(r), Set.of(), null).get(0);
@@ -215,7 +215,7 @@ class OrinSolverTest {
 
     @Test
     void emptyResultsDecodeButGiveNoObservation() {
-        var r = result(1_000_000, List.of(), Optional.empty());
+        var r = result(1_000_000_000, List.of(), Optional.empty());
         OrinSolver s = solver();
         assertTrue(s.solve(inputsOf(r), Set.of(), null).isEmpty());
         assertEquals(0, s.decodeFailures);

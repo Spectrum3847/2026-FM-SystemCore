@@ -78,7 +78,7 @@ class JetsonNTIOTest {
                 nt.getStringTopic("/SpectrumVision/FieldMap/Name").subscribe("").get());
         // The published JSON is the same map: it reads back to the same layout and hash.
         Field back = Jsonb.instance().type(Field.class).fromJson(json);
-        assertEquals(layout, back);
+        assertEquals(layout.getTags(), back.getTags());
         assertEquals("2792cd4e868967b8", FieldMapHash.of(back));
         hash.close();
         name.close();

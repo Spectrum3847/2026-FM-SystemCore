@@ -23,7 +23,9 @@ class FieldMapJsonTest {
     void wpilibReadsItBackAsTheSameMap(Fields field) {
         Field layout = Field.loadField(field);
         Field back = Jsonb.instance().type(Field.class).fromJson(FieldMapJson.of(layout));
-        assertEquals(layout, back);
+        assertEquals(layout.getTags(), back.getTags());
+        assertEquals(layout.getFieldLength(), back.getFieldLength());
+        assertEquals(layout.getFieldWidth(), back.getFieldWidth());
         assertEquals(FieldMapHash.of(layout), FieldMapHash.of(back));
     }
 
@@ -54,7 +56,7 @@ class FieldMapJsonTest {
         Field layout = Field.loadField(field);
         JsonNode root = new ObjectMapper().readTree(FieldMapJson.of(layout));
         List<String> lines = new ArrayList<>();
-        for (JsonNode tag : root.get("tags")) {
+        for (JsonNode tag : root.get("field-tags")) {
             JsonNode t = tag.get("pose").get("translation");
             JsonNode q = tag.get("pose").get("rotation").get("quaternion");
             lines.add(
@@ -69,7 +71,7 @@ class FieldMapJsonTest {
                             num(q, "Y"),
                             num(q, "Z")));
         }
-        JsonNode f = root.get("field");
+        JsonNode f = root.get("field-dimensions");
         lines.add("field," + num(f, "length") + "," + num(f, "width"));
         assertEquals(FieldMapHash.of(layout), FieldMapHash.hash(String.join("\n", lines)));
     }

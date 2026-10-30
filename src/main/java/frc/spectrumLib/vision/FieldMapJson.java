@@ -25,15 +25,23 @@ public final class FieldMapJson {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /**
-     * The layout as JSON: {@code {"tags":[{"ID","pose":{"translation":{x,y,z},"rotation":
-     * {"quaternion":{W,X,Y,Z}}}}],"field":{"length","width"}}}, tags sorted by ID.
+     * The layout as WPILib 2027 Field JSON: {@code {"name","season","game","program",
+     * "field-dimensions":{"length","width"},"field-tags":[{"ID","pose":{"translation":{x,y,z},
+     * "rotation":{"quaternion":{W,X,Y,Z}}}}]}}, tags sorted by ID.
      *
      * @param layout the field map
      * @return the JSON text
      */
     public static String of(Field layout) {
         ObjectNode root = MAPPER.createObjectNode();
-        ArrayNode tagsNode = root.putArray("tags");
+        root.put("name", layout.name);
+        root.put("season", layout.season);
+        root.put("game", layout.game);
+        root.put("program", layout.program);
+        ObjectNode dimensions = root.putObject("field-dimensions");
+        dimensions.put("length", layout.getFieldLength());
+        dimensions.put("width", layout.getFieldWidth());
+        ArrayNode tagsNode = root.putArray("field-tags");
         List<FieldTag> tags = new ArrayList<>(layout.getTags());
         tags.sort(Comparator.comparingInt(t -> t.getID()));
         for (FieldTag t : tags) {
@@ -52,9 +60,6 @@ public final class FieldMapJson {
             quaternion.put("Y", q.getY());
             quaternion.put("Z", q.getZ());
         }
-        ObjectNode field = root.putObject("field");
-        field.put("length", layout.getFieldLength());
-        field.put("width", layout.getFieldWidth());
         return root.toString();
     }
 }

@@ -42,12 +42,12 @@ import org.wpilib.command2.Command;
 import org.wpilib.command2.Commands;
 import org.wpilib.command2.Subsystem;
 import org.wpilib.command2.button.Trigger;
-import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.driverstation.DriverStationErrors;
 import org.wpilib.driverstation.RobotState;
 import org.wpilib.system.Timer;
 import org.wpilib.units.measure.Angle;
 import org.wpilib.units.measure.AngularVelocity;
+import org.wpilib.util.Alert.Level;
 
 /**
  * Abstract base class representing a CTRE TalonFX-driven robot mechanism with common control modes,

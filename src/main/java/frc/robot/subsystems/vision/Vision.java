@@ -38,7 +38,6 @@ import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Subsystem;
-import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Rotation2d;
@@ -48,6 +47,7 @@ import org.wpilib.math.geometry.Translation3d;
 import org.wpilib.math.util.Units;
 import org.wpilib.networktables.NetworkTableInstance;
 import org.wpilib.system.Timer;
+import org.wpilib.util.Alert.Level;
 import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 import org.wpilib.vision.apriltag.AprilTagFields;
 
@@ -302,7 +302,7 @@ public class Vision implements Subsystem {
     @Getter private boolean poseHeadingSeeded = false;
     @Getter private boolean poseSeedConfirmed = false;
     private int seedConfirmStreak = 0;
-    private Rotation2d seedConfirmHeadingRef = Rotation2d.kZero;
+    private Rotation2d seedConfirmHeadingRef = Rotation2d.ZERO;
     private double seedConfirmSpreadLow = 0;
     private double seedConfirmSpreadHigh = 0;
     private double grossHeadingSince = Double.NaN;

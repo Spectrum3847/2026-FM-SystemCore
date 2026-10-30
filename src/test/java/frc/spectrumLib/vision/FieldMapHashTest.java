@@ -35,7 +35,7 @@ class FieldMapHashTest {
         AprilTagFieldLayout layout =
                 new AprilTagFieldLayout(
                         List.of(
-                                new AprilTag(7, new Pose3d(1.0, 2.0, 0.5, Rotation3d.kZero)),
+                                new AprilTag(7, new Pose3d(1.0, 2.0, 0.5, Rotation3d.ZERO)),
                                 new AprilTag(
                                         2,
                                         new Pose3d(
@@ -58,7 +58,7 @@ class FieldMapHashTest {
         // hub tags are at this height, so another implementation must round like Java.
         AprilTagFieldLayout layout =
                 new AprilTagFieldLayout(
-                        List.of(new AprilTag(1, new Pose3d(0, 0, 0.55245, Rotation3d.kZero))),
+                        List.of(new AprilTag(1, new Pose3d(0, 0, 0.55245, Rotation3d.ZERO))),
                         1,
                         1);
         assertEquals(

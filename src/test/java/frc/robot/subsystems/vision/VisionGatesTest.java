@@ -19,7 +19,7 @@ class VisionGatesTest {
 
     private static final GateContext CONTEXT =
             new GateContext(
-                    NOW, Pose2d.kZero, Pose2d.kZero, new ChassisVelocities(), 0, false, true);
+                    NOW, Pose2d.ZERO, Pose2d.ZERO, new ChassisVelocities(), 0, false, true);
 
     /** A two-tag MegaTag1 frame mid-field that every other gate passes. */
     private static PoseObservation frameAt(double timestampSeconds) {
@@ -27,7 +27,7 @@ class VisionGatesTest {
                 "Test",
                 Kind.LIMELIGHT_MT1,
                 timestampSeconds,
-                new Pose3d(new Pose2d(5, 4, Rotation2d.kZero)),
+                new Pose3d(new Pose2d(5, 4, Rotation2d.ZERO)),
                 2,
                 2.0,
                 1.0,

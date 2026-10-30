@@ -35,7 +35,7 @@ class OrinSolverTest {
 
     /** Camera at the robot origin, level, facing forward. */
     private static OrinSolver solver() {
-        return new OrinSolver(Transform3d.kZero, LAYOUT, 1.0, 1280, 800);
+        return new OrinSolver(Transform3d.ZERO, LAYOUT, 1.0, 1280, 800);
     }
 
     /** Corners well inside a 1280x800 image. */
@@ -130,8 +130,8 @@ class OrinSolverTest {
                         -1,
                         0,
                         0.9f,
-                        Transform3d.kZero,
-                        Transform3d.kZero,
+                        Transform3d.ZERO,
+                        Transform3d.ZERO,
                         0,
                         CENTER_CORNERS,
                         CENTER_CORNERS);
@@ -156,14 +156,14 @@ class OrinSolverTest {
     @Test
     void multiTagCountsOnlyTheTagsInTheSolve() {
         // Three targets visible; the Jetson's multi-tag solve used only tags 1 and 2.
-        Transform3d far = new Transform3d(new Translation3d(6, 0, 0), Rotation3d.kZero);
+        Transform3d far = new Transform3d(new Translation3d(6, 0, 0), Rotation3d.ZERO);
         var targets =
                 List.of(
                         target(1, TWO_METRES_AHEAD, TWO_METRES_AHEAD, 0.1, CENTER_CORNERS),
                         target(2, TWO_METRES_AHEAD, TWO_METRES_AHEAD, 0.1, CENTER_CORNERS),
                         target(9, far, far, 0.1, CENTER_CORNERS));
         Transform3d fieldToCamera =
-                new Transform3d(new Translation3d(3, 4.5, 0.5), Rotation3d.kZero);
+                new Transform3d(new Translation3d(3, 4.5, 0.5), Rotation3d.ZERO);
         var multitag =
                 new MultiTargetPNPResult(
                         new PnpResult(fieldToCamera, 0.2), List.of((short) 1, (short) 2));

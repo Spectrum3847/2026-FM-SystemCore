@@ -4,9 +4,9 @@ import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import java.util.HashMap;
 import java.util.Map;
-import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.framework.RobotBase;
 import org.wpilib.system.RobotController;
+import org.wpilib.util.Alert.Level;
 
 /**
  * Identifies the specific RoboRIO that is running, keyed by its serial number. Used to select

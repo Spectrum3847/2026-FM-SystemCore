@@ -73,7 +73,7 @@ public class PoseFusion {
     /** Time of the last odometry sample, for starting a shadow with one buffer entry. */
     private double lastSampleTime = 0;
 
-    private Rotation2d lastGyro = Rotation2d.kZero;
+    private Rotation2d lastGyro = Rotation2d.ZERO;
     private SwerveModulePosition[] lastPositions;
     private SwerveModulePosition[] lastRawPositions;
 
@@ -106,9 +106,9 @@ public class PoseFusion {
         this.lastGyro = gyro;
         this.lastPositions = copy(positions);
         this.lastRawPositions = copy(positions);
-        this.fused = newEstimator(odometryStdDevs, Pose2d.kZero);
+        this.fused = newEstimator(odometryStdDevs, Pose2d.ZERO);
         this.fusedVision = new OrderedVisionUpdates(fused);
-        this.odometry = new SwerveDriveOdometry(kinematics, gyro, positions, Pose2d.kZero);
+        this.odometry = new SwerveDriveOdometry(kinematics, gyro, positions, Pose2d.ZERO);
         this.tagEkf = new TagEkf(kinematics.getModules());
         this.odometryStdDevs = odometryStdDevs;
     }

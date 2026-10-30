@@ -52,6 +52,6 @@ class ShotCalculatorTest {
     @Test
     void standingStillOrOnTheGoalIsNoTurn() {
         assertEquals(0, ShotCalculator.bearingRateRadPerSec(new Translation2d(3, 1), 0, 0), 0);
-        assertEquals(0, ShotCalculator.bearingRateRadPerSec(Translation2d.kZero, 1, 1), 0);
+        assertEquals(0, ShotCalculator.bearingRateRadPerSec(Translation2d.ZERO, 1, 1), 0);
     }
 }

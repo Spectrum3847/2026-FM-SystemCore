@@ -6,7 +6,7 @@ import frc.spectrumLib.vision.FieldMapHash;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
-import org.wpilib.driverstation.Alert.Level;
+import org.wpilib.util.Alert.Level;
 import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 import org.wpilib.vision.apriltag.AprilTagFields;
 

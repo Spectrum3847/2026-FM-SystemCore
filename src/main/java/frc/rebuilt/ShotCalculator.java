@@ -25,7 +25,7 @@ public class ShotCalculator {
     private static ShotCalculator instance;
 
     /** Offset from robot centre to launcher. Zero means the launcher is at the robot centre. */
-    private static final Transform2d robotToLauncher = Transform2d.kZero;
+    private static final Transform2d robotToLauncher = Transform2d.ZERO;
 
     public static ShotCalculator getInstance() {
         if (instance == null) instance = new ShotCalculator();

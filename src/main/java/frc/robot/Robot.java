@@ -88,7 +88,6 @@ import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.CommandScheduler;
 import org.wpilib.command2.Commands;
-import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.driverstation.Alliance;
 import org.wpilib.driverstation.MatchState;
 import org.wpilib.driverstation.RobotState;
@@ -100,6 +99,7 @@ import org.wpilib.smartdashboard.SmartDashboard;
 import org.wpilib.system.Filesystem;
 import org.wpilib.system.RobotController;
 import org.wpilib.system.Timer;
+import org.wpilib.util.Alert.Level;
 
 /**
  * FM (2026 "Final Machine") on SystemCore, competing as 8515.
@@ -1049,7 +1049,7 @@ public class Robot extends SpectrumRobot {
                                                     new Pose2d(
                                                             point.position.getX(),
                                                             point.position.getY(),
-                                                            Rotation2d.kZero))
+                                                            Rotation2d.ZERO))
                                     .collect(Collectors.toList()));
                 }
                 field2d.getObject("Auto Routine").setPoses(poses);

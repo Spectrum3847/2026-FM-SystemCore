@@ -395,7 +395,7 @@ public class Limelight {
      */
     public Pose3d getMegaTag1_Pose3d() {
         if (!isAttached()) {
-            return Pose3d.kZero;
+            return Pose3d.ZERO;
         }
         return mt1Pose3d();
     }
@@ -407,7 +407,7 @@ public class Limelight {
      */
     public Pose2d getMegaTag2_Pose2d() {
         if (!isAttached()) {
-            return Pose2d.kZero;
+            return Pose2d.ZERO;
         }
         return mt2Estimate().pose;
     }

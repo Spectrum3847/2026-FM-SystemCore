@@ -20,11 +20,11 @@ import org.littletonrobotics.conduit.ConduitApi;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
-import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.driverstation.MatchState;
 import org.wpilib.driverstation.MatchType;
 import org.wpilib.driverstation.RobotState;
 import org.wpilib.system.Timer;
+import org.wpilib.util.Alert.Level;
 
 /**
  * A short summary of the run, kept as it happens: battery, brownouts, loop overruns, CAN drops and

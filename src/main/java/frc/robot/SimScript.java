@@ -208,7 +208,7 @@ public final class SimScript {
      */
     public static final class Actions implements LoggableInputs {
         public boolean placeRobot = false;
-        public Pose2d placePose = Pose2d.kZero;
+        public Pose2d placePose = Pose2d.ZERO;
 
         @Override
         public void toLog(LogTable table) {

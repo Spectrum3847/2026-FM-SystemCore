@@ -85,13 +85,13 @@ public class RobotSim {
                         * robotSuperStructure.getIntakeExtension().getPositionPercentage()
                         / 100;
         var intakePose3d =
-                Pose3d.kZero.plus(
+                Pose3d.ZERO.plus(
                         new Transform3d(
-                                new Translation3d(intakeExtensionPose, 0, 0), Rotation3d.kZero));
+                                new Translation3d(intakeExtensionPose, 0, 0), Rotation3d.ZERO));
 
         double hoodAngleDegrees = robotSuperStructure.getHood().getPositionDegrees();
         var hoodPose3d =
-                Pose3d.kZero.rotateAround(
+                Pose3d.ZERO.rotateAround(
                         SHOOTER_HOOD_PIVOT_POINT,
                         new Rotation3d(0, -Math.toRadians(hoodAngleDegrees - 9), 0));
 

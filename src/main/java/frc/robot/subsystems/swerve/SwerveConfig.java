@@ -64,7 +64,7 @@ public class SwerveConfig {
     @Getter private double kDRotationController = 0.0;
 
     /* Blue alliance sees forward as 0 degrees (toward red alliance wall) */
-    @Getter private final Rotation2d blueAlliancePerspectiveRotation = Rotation2d.kZero;
+    @Getter private final Rotation2d blueAlliancePerspectiveRotation = Rotation2d.ZERO;
     /* Red alliance sees forward as 180 degrees (toward blue alliance wall) */
     @Getter private final Rotation2d redAlliancePerspectiveRotation = Rotation2d.k180deg;
 

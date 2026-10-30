@@ -107,6 +107,12 @@ the question is given in brackets.
 
 ### Rules
 
+* Custom dashboard is a requirement: "There isn't any reason to really use elastic for most things
+  when we can custom build a dashboard served by the robot." "Building the widgets is minutes of
+  work ... we can cache the page on the laptop so it's only the data sending over the network that
+  is going there anyway." "Camera video comes from our custom photonvision software we can make the
+  website show those."
+
 * Power, CAN and Cameras pages: "Replace power, can, cameras, ours will have way more detail for the
   robot, list what's on each can branch, list how power is being used since we have the different
   power sources, currents, etc."
@@ -156,6 +162,7 @@ open again; a review may confirm or replace them.
 12. Answered: a package with `X-Has-UI` and `X-Port` gets a tile linking to that port's root (see
     Verified facts).
 13. What carries over to the next robot.
+14. How the custom dashboard is tested before it is used in matches.
 
 ## Verified facts
 

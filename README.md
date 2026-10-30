@@ -849,6 +849,11 @@ Deployed to the bench SystemCore (no CAN devices, two cameras):
 - The SystemCore's own cameras connect straight to this program as `limelightsc0/1`. No NT bridge
   is needed when the SystemCore is the robot controller. (Deploying this code replaced the
   SystemCoreVision bridge program on that unit; redeploy that repo to get it back.)
+- Where our PhotonVision package (`photonvision-sc`) is installed, it replaces that built-in vision:
+  every deploy turns Limelight's `limelight_visionserver*` services back off if an OS update
+  re-enabled them, and prints one `SystemCore services:` line
+  ([tools/systemcore_services.sh](tools/systemcore_services.sh)). Without the package, the
+  built-in vision is left alone.
 - `RobotController.setBrownoutVoltage` fails (HAL -1098) on that image, so the code doesn't set
   one and SystemCore keeps its default brownout voltage.
 

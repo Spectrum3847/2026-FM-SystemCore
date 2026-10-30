@@ -316,7 +316,7 @@ public class Robot extends SpectrumRobot {
             RobotController.getBrownoutVoltage();
             powerApiAvailable = true;
         } catch (RuntimeException e) {
-            // Expected on SystemCore until WPILib alpha-7 (docs/upgrading-to-alpha-7.md). The log
+            // Expected on SystemCore until WPILib alpha-7 (docs/upgrading-to-alpha-8.md). The log
             // has it as SummaryInputs/Brownout/BrownedOutValid.
             powerApiAvailable = false;
         }

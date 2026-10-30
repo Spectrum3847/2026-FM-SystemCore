@@ -17,8 +17,9 @@ source to trust, and when.
 | Orin cameras | PhotonLib `v2027.0.0-alpha-2` |
 | Team number | 8515 (`.wpilib/wpilib_preferences.json`) |
 
-Why alpha-6 and not alpha-7: PathPlanner and PhotonLib have no alpha-7 builds yet, and alpha-7
-breaks every older vendordep. When they ship, see [docs/upgrading-to-alpha-7.md](docs/upgrading-to-alpha-7.md).
+Why alpha-6: alpha-7 and later break every older vendordep, and PhotonLib has no tagged alpha-7
+release. The move to alpha-8 is planned in [docs/upgrading-to-alpha-8.md](docs/upgrading-to-alpha-8.md),
+on the branch `upgrade/alpha-8`.
 
 ## Quick start
 

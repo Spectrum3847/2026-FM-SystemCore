@@ -839,7 +839,10 @@ Deployed to the bench SystemCore (no CAN devices, two cameras):
     14–30 ms, versus 20–45 ms with the CANivore layout.
   - Unplug or disable the SystemCore cameras when they aren't being tested.
 - `System/TopThreads` lists this program's busiest threads from `/proc`, native ones included. A
-  native thread that never named itself shows as `java/<tid>`. The boot console prints
+  native thread that never named itself shows as `java/<tid>`. A native thread starts with the
+  name of the thread that created it, so CTRE's CAN workers, started by `BackgroundSampler`'s first
+  `CANBus.getStatus()`, show as `BackgroundSampl` at real-time priority 2-3 (Phoenix sets those;
+  our sampler thread itself runs at normal priority). The boot console prints
   `[Threads] <step>: <new tids> | cpu ticks: ...` to tie each tid to what created it.
   `./gradlew deployrobotLogsystemcore -ProbotLog -ProbotThreads --info` samples them from the
   robot itself ([tools/robot_threads.sh](tools/robot_threads.sh)).

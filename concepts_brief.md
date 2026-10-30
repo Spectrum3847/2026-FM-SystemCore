@@ -104,6 +104,8 @@ the question is given in brackets.
 
 ### Rules
 
+* The app moves off port 5800: "we know the port has to change ... that's always going to change."
+
 * `spectrumLib` on `event*` branches: "Fixes to spectrum lib have to be able to made at events ...
   it's just that you shouldn't make minor tweaks, or feature updates." AGENTS.md now says so.
 * The name is the Robot App.

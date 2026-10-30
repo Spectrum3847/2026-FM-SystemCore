@@ -71,7 +71,8 @@ the question is given in brackets.
   because the other tools fail sometimes, or know how to do it in the command line."
 * "Things you can do thru should be able to be controlled by AI agents usually." [Run alone?] "I
   don't expect the agent to run by itself we mean a ai session being directed by a pit student or
-  coach to figure things out and make the robot better."
+  coach to figure things out and make the robot better." [After the review asked API or documentation
+  only:] "AI interface is API."
 * While the robot program has crashed: "Likely try for diff and disable bad file, the likely outcome
   is we are redeploying code anyway if it's running while code crashed but displaying errors and
   things is nice."

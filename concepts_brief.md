@@ -107,6 +107,10 @@ the question is given in brackets.
 
 ### Rules
 
+* Power, CAN and Cameras pages: "Replace power, can, cameras, ours will have way more detail for the
+  robot, list what's on each can branch, list how power is being used since we have the different
+  power sources, currents, etc."
+
 * The app is a separate Python web app: "Being a separate python web app makes the most sense now, the
   systemcore has python, don't have to compile/build anything, just send the python code. Every
   system with wpilib installed can still build without any prerequisites except tests, etc."
@@ -132,7 +136,7 @@ open again; a review may confirm or replace them.
    in CI and locally.
 7. The shared Java part lives in `spectrumLib`.
 8. Hard-stop changes are confirmed by a click on a page.
-9. The existing Power, CAN and Cameras pages are rebuilt.
+9. ~~The existing Power, CAN and Cameras pages are rebuilt.~~ Decided: replace them with robot-specific pages (Rules).
 
 ## Open questions
 

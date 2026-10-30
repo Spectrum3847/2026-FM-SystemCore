@@ -39,13 +39,12 @@ deploy {
                 }
 
                 // Keeps SystemCore's built-in vision off where our PhotonVision replaces it
-                // (tools/systemcore_services.sh). Printed directly: GradleRIO only shows a
-                // command's output with --info.
-                systemCoreServices(getArtifactTypeClass('CommandArtifact')) {
-                    command = 'true'
-                    postdeploy << { ctx ->
-                        println ctx.execute(file('tools/systemcore_services.sh').text).result.trim()
-                    }
+                // (tools/systemcore_services.sh). Sent as a file so the deploy prints one short
+                // command and its result, not the whole script.
+                systemCoreServices(getArtifactTypeClass('FileArtifact')) {
+                    file = project.file('tools/systemcore_services.sh')
+                    filename = 'systemcore_services.sh'
+                    postdeploy << { ctx -> ctx.execute('sh systemcore_services.sh') }
                 }
             }
         }

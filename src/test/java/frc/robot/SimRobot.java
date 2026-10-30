@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.littletonrobotics.junction.Logger;
+import org.wpilib.driverstation.internal.DriverStationBackend;
 import org.wpilib.framework.IterativeRobotBase;
 import org.wpilib.hardware.hal.AllianceStationID;
 import org.wpilib.hardware.hal.HAL;
@@ -55,6 +56,9 @@ final class SimRobot {
         loopFunc = IterativeRobotBase.class.getDeclaredMethod("loopFunc");
         loopFunc.setAccessible(true);
         robot.simulationInit();
+        // As startCompetition does. Until then WPILib reports the robot mode as UNKNOWN, so
+        // RobotModeTriggers.teleop() never goes true.
+        DriverStationBackend.observeUserProgramStarting();
         step(50);
     }
 

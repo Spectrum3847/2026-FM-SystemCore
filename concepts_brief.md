@@ -128,16 +128,104 @@ the question is given in brackets.
   it's just that you shouldn't make minor tweaks, or feature updates." AGENTS.md now says so.
 * The name is the Robot App.
 
+## Team proposal: params sync and reconciliation (v2)
+
+Written by the team. It answers the "pulling values back" requirement above and replaces choices
+2-4 below.
+
+### Goals
+
+Sync tuned values from `/home/systemcore/params/` back to git without colliding with
+`eventDeploy` (`git add -A`), without blocking headless or AI deploys, without leaving stale
+overrides on the robot after code changes, and without depending on the robot's clock to decide
+which value wins.
+
+### Clock
+
+During deploy, over the live SSH session, Gradle sets SystemCore's clock if it is behind the
+laptop: `if [ $(date +%s) -lt <laptopEpoch> ]; then sudo -n date -s @<laptopEpoch> || true; fi`.
+Nothing is written to disk, so a later reboot without a deploy never restores a stale time. No
+browser or NT clock sync. Time is for display only (`savedAtEpoch`, "saved 12 min ago"); it never
+decides which value wins. A save with no valid clock records `savedAtEpoch: null`, never 1970.
+To verify on 8515: whether SystemCore's clock starts at 1970 without a Driver Station, and whether
+`LogStorage.java:214` is affected.
+
+### Deploy steps (in order)
+
+1. `fetchRobotParams`: reads `/home/systemcore/params/` over SSH into `.robot-inbox/<robot>/`
+   (git-ignored, so `eventDeploy` never stages it). It never writes to the robot. Never blocks or
+   prompts; if the robot is unreachable the deploy continues.
+2. `generateDeployMeta`: writes `build/generated/deploy-meta/deploy-meta.json` (under `build/`, so
+   the working tree stays clean), deployed to the robot's deploy directory as its own GradleRIO
+   artifact. Contents:
+   * `gitSha`, `gitDirty`, `dirtyParamFiles` (from `git status --porcelain`);
+   * `ancestorChecks`: for each `savedAtGitSha` found in `.robot-inbox/`: `git cat-file -e
+     <sha>^{commit}` fails -> `"unknown"`; else `git merge-base --is-ancestor <sha> HEAD` exit 0 ->
+     `"ancestor"`, exit 1 -> `"diverged"`;
+   * `fetchedFileHashes`: `{ "<group>.json": "<sha256>" }` for every file successfully copied into
+     the inbox.
+3. Deploy code and `deploy-meta.json`.
+4. End-of-deploy banner in the terminal: clean overrides (`base -> value`), conflicts, hard-stop
+   groups, and a loud line whenever a value just deployed will be overridden by a robot save at
+   boot (rows 5 and 7 below), with the command to resolve it (`./gradlew applyRobotParams`).
+
+### Saved file (`/home/systemcore/params/<robot>/<group>.json`)
+
+```json
+{
+  "_meta": { "robot": "alpha", "hardwareStamp": "a1b2c3d4",
+             "savedAtGitSha": "8f3d1a2", "savedOnDirtyDeploy": false },
+  "values": { "Elevator/kP": { "value": 4.2, "baseDeployedValue": 3.5, "savedAtEpoch": 1761815700 } },
+  "_superseded": {},
+  "_orphaned": {}
+}
+```
+
+`/Tuning/SaveParams`: a key whose live value equals the deployed value is removed; otherwise it
+writes `value`, `baseDeployedValue` (kept from an earlier save in the same deploy), `savedAtEpoch`,
+and `_meta` (`savedAtGitSha` and `savedOnDirtyDeploy` from `deploy-meta.json`, `hardwareStamp` for
+`swerve` and `soft-limits`).
+
+### Robot boot reconciliation
+
+On the main thread at boot; resolved values and their sources are logged as AdvantageKit inputs so
+replay matches. First, `_superseded` entries are cleared only for files whose current hash matches
+`fetchedFileHashes`. Then each saved key goes through these rules; the first match wins:
+
+1. Hardware stamp mismatch (`swerve`, `soft-limits`): refuse the file, alert, use the deployed value.
+2. Key not in the deployed schema: move to `_orphaned`, warn, ignore.
+3. `saved.value == deployedValue`: delete the key (the value is in the deployed code).
+4. `saved.baseDeployedValue == deployedValue`: keep the override (`saved.value` wins).
+5. Base differs and `savedOnDirtyDeploy`: keep the override and flag `DIRTY_CONFLICT`.
+6. Base differs and (`<group>.json` in `dirtyParamFiles` or ancestry `"ancestor"`): deployed value
+   wins; move the robot's key from `values` to `_superseded`.
+7. Base differs and ancestry `"diverged"`, `"unknown"` or missing: keep the override and log
+   `BRANCH_MISMATCH` or `UNKNOWN_SAVE_COMMIT`.
+
+### Promoting the inbox to git
+
+`./gradlew applyRobotParams`, or an AI session following AGENTS.md, reads `.robot-inbox/<robot>/`
+(including `_superseded`, to recover an overridden value). Clean overrides (base equals the working
+tree value, not saved on a dirty deploy) are written into the tracked params files for `git diff`
+review. Dirty-deploy saves, conflicts, and hard-stop groups need a person's confirmation; hard-stop
+changes also get the AGENTS.md PR block (old value, new value, failure mode).
+
+### 2027 and AdvantageKit rules
+
+2027 APIs only (`Timer.getTimestamp`, `MatchState` / `RobotState`); `System.nanoTime` for elapsed
+time during init. Logs through `LogStorage`. Anything robot code reads goes through logged inputs on
+the main thread.
+
 ## Choices to re-check
 
 The team chose these from options that were framed by earlier, contaminated review rounds. They are
 open again; a review may confirm or replace them.
 
 1. ~~The service is written in Java.~~ Replaced: the team chose a separate Python web app (Rules).
-2. Pulling tuned values back only warns at deploy, with no terminal prompt.
-3. When git changed after a value was saved, both values are shown and a person chooses.
-4. The robot reports at boot when a saved hard-stop value differs from git, with a banner until
-   resolved.
+2. ~~Pulling tuned values back only warns at deploy, with no terminal prompt.~~ Replaced by the params sync proposal.
+3. ~~When git changed after a value was saved, both values are shown and a person chooses.~~ Replaced by the params sync proposal.
+4. ~~The robot reports at boot when a saved hard-stop value differs from git, with a banner until
+   resolved.~~ Replaced by the params sync proposal.
 5. `lib/nt4.js` keeps each topic's last-update time.
 6. Gradle generates a module of keys, params and button bindings from the Java; a drift check runs
    in CI and locally.

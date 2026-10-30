@@ -216,6 +216,21 @@ changes also get the AGENTS.md PR block (old value, new value, failure mode).
 time during init. Logs through `LogStorage`. Anything robot code reads goes through logged inputs on
 the main thread.
 
+## Decisions after the review of v2
+
+1. Params sync: "Let's cut it to 3 and see how well it works." The boot rules become the three the
+   review proposed: a hardware stamp mismatch refuses the file; if `baseDeployedValue` equals the
+   deployed value, the override stays; otherwise the deployed value wins, and the robot's old value
+   stays recoverable from `.robot-inbox/`. That proposal also dropped the git ancestry checks, the
+   dirty-deploy flags, `deploy-meta.json` and the deploy-time clock set, showing `savedAtGitSha`
+   instead of a save time. Where this conflicts with the v2 proposal above, this wins.
+2. Hard-stop confirmation: "page click is only live gate." (Answers choice 8.)
+3. API shape: pages talk to NT4 directly and use `SaveParams`; the Python service serves only what
+   the browser cannot do itself (logs, network scan, robot program status while crashed).
+4. Port: "it will be somewhere in the 5800 range that is free ... just let it be a setting."
+   "Limelight forwarding is dead."
+5. Elastic: "It will replace elastic but elastic can be used for certain things or a fallback."
+
 ## Choices to re-check
 
 The team chose these from options that were framed by earlier, contaminated review rounds. They are
@@ -230,7 +245,7 @@ open again; a review may confirm or replace them.
 6. Gradle generates a module of keys, params and button bindings from the Java; a drift check runs
    in CI and locally.
 7. The shared Java part lives in `spectrumLib`.
-8. Hard-stop changes are confirmed by a click on a page.
+8. ~~Hard-stop changes are confirmed by a click on a page.~~ Decided (decision 2 above).
 9. ~~The existing Power, CAN and Cameras pages are rebuilt.~~ Decided: replace them with robot-specific pages (Rules).
 
 ## Open questions

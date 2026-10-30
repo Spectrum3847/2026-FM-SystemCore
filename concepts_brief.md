@@ -93,7 +93,9 @@ the question is given in brackets.
   automatically, so this website can modify the param values directly for tuning." "We still need
   to build the bring back to git part but the idea is there, this app can use those files if the
   reviewers think it's correct."
-* Turning tuning on: "Network tables request that can be hit from the website." No timer: "Wifi
+* Turning tuning on: "Network tables request that can be hit from the website." [After the review
+  found the compile-time `TUNING_MODE` gate blocks this on `main`:] "Website request has to be able to
+  work." No timer: "Wifi
   network does have security at events, so its not security risk and robot should only be on when
   people are working on it." "Turn off when fms attaches."
 * Pulling values back: "Can the deploy ask what to do with the changes in the terminal? Or can it

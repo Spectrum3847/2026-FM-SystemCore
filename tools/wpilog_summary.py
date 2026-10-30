@@ -20,6 +20,11 @@ import struct
 import sys
 
 
+# types[TICKS_KEY]: /Timestamp's value units per second. Record times stay microseconds (the
+# WPILOG format); AdvantageKit 27.0.0-alpha-7 and later write the values in nanoseconds.
+TICKS_KEY = "#ticks"
+
+
 def read_wpilog(path):
     with open(path, "rb") as f:
         data = f.read()
@@ -27,6 +32,7 @@ def read_wpilog(path):
         raise ValueError("not a wpilog")
     extra_len = struct.unpack_from("<I", data, 8)[0]
     pos = 12 + extra_len
+    ticks = 1e6  # /Timestamp value units per second
     entries = {}  # id to (name, type)
     records = collections.defaultdict(list)  # name to list of (t, payload)
     n = len(data)
@@ -54,10 +60,13 @@ def read_wpilog(path):
                 (lt,) = struct.unpack_from("<I", payload, o)
                 typ = payload[o + 4 : o + 4 + lt].decode()
                 entries[entry] = (name, typ)
+                if name == "/Timestamp" and b'"unit":"nanoseconds"' in payload:
+                    ticks = 1e9  # AdvantageKit 27.0.0-alpha-7 and later
             continue
         if eid in entries:
             records[entries[eid][0]].append((ts / 1e6, payload))
     types = {name: typ for name, typ in entries.values()}
+    types[TICKS_KEY] = ticks
     return records, types
 
 

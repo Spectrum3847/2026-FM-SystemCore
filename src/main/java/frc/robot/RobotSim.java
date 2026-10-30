@@ -68,7 +68,7 @@ public class RobotSim {
 
     public RobotSim(SuperStructure superStructure) {
         this.robotSuperStructure = superStructure;
-        org.wpilib.telemetry.Telemetry.log("Sim/LeftView", RobotSim.leftView);
+        org.wpilib.telemetry.Telemetry.log("SmartDashboard/Sim/LeftView", RobotSim.leftView);
         leftView.setBackgroundColor(new Color8Bit(Color.LIGHT_GRAY));
         drawRobot();
 

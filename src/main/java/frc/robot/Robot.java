@@ -282,9 +282,11 @@ public class Robot extends SpectrumRobot {
 
             batteryLogger.setEnabled(true);
 
-            org.wpilib.telemetry.Telemetry.log("Field2d", field2d);
+            // Under SmartDashboard/, where the dashboards have always read it.
+            org.wpilib.telemetry.Telemetry.log("SmartDashboard/Field2d", field2d);
             // The commands running now, for Elastic's Scheduler widget (as in the offseason code).
-            org.wpilib.telemetry.Telemetry.log("Scheduler", CommandScheduler.getInstance());
+            org.wpilib.telemetry.Telemetry.log(
+                    "SmartDashboard/Scheduler", CommandScheduler.getInstance());
             // Build the ShotCalculator now so its Hub Model Chooser is on the dashboard before
             // enabling.
             ShotCalculator.getInstance();

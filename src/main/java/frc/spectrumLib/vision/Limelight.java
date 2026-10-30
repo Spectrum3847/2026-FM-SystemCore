@@ -760,17 +760,19 @@ public class Limelight {
         }
         Pose3d botPose3d = getMegaTag1_Pose3d();
         org.wpilib.telemetry.Telemetry.log(
-                "LimelightX", df.format(botPose3d.getTranslation().getX()));
+                "SmartDashboard/LimelightX", df.format(botPose3d.getTranslation().getX()));
         org.wpilib.telemetry.Telemetry.log(
-                "LimelightY", df.format(botPose3d.getTranslation().getY()));
+                "SmartDashboard/LimelightY", df.format(botPose3d.getTranslation().getY()));
         org.wpilib.telemetry.Telemetry.log(
-                "LimelightZ", df.format(botPose3d.getTranslation().getZ()));
+                "SmartDashboard/LimelightZ", df.format(botPose3d.getTranslation().getZ()));
         org.wpilib.telemetry.Telemetry.log(
-                "LimelightRoll", df.format(Units.radiansToDegrees(botPose3d.getRotation().getX())));
+                "SmartDashboard/LimelightRoll",
+                df.format(Units.radiansToDegrees(botPose3d.getRotation().getX())));
         org.wpilib.telemetry.Telemetry.log(
-                "LimelightPitch",
+                "SmartDashboard/LimelightPitch",
                 df.format(Units.radiansToDegrees(botPose3d.getRotation().getY())));
         org.wpilib.telemetry.Telemetry.log(
-                "LimelightYaw", df.format(Units.radiansToDegrees(botPose3d.getRotation().getZ())));
+                "SmartDashboard/LimelightYaw",
+                df.format(Units.radiansToDegrees(botPose3d.getRotation().getZ())));
     }
 }

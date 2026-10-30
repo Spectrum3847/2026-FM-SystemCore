@@ -301,7 +301,7 @@ public class ShotCalculator {
      * are unaffected.
      */
     private final LoggedNetworkChooser<PolyModel> hubModelChooser =
-            new LoggedNetworkChooser<>("Hub Model Chooser");
+            new LoggedNetworkChooser<>("SmartDashboard/Hub Model Chooser");
 
     // An AdvantageKit dashboard input (same dashboard key as the 2026 SendableChooser): the shot
     // model changes every hood angle and RPM, so replay has to know which one was selected.

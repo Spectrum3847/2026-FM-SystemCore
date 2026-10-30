@@ -403,10 +403,9 @@ public final class SimScript {
             DriverStationSim.setRobotMode(RobotMode.AUTONOMOUS);
             DriverStationSim.setEnabled(false);
             fakeMatch();
+            // Where a dashboard picks an option on AdvantageKit's LoggedNetworkChooser.
             org.wpilib.networktables.NetworkTableInstance.getDefault()
-                    .getTable("SmartDashboard")
-                    .getSubTable("Auto Chooser")
-                    .getEntry("selected")
+                    .getEntry("/SmartDashboard/Auto Chooser/selected/tune")
                     .setString(autoName);
         }
         double t = holdForFreshSignals(now, 6.0);

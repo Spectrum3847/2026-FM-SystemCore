@@ -38,7 +38,7 @@ public class Auton {
      * selected auto is in the log and replay runs the same auto.
      */
     private final LoggedNetworkChooser<Command> pathChooser =
-            new LoggedNetworkChooser<>("Auto Chooser");
+            new LoggedNetworkChooser<>("SmartDashboard/Auto Chooser");
 
     private final AutoEnd autoEnd = new AutoEnd();
 

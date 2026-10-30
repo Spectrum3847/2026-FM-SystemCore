@@ -99,9 +99,10 @@ logs as `SystemStats/Faults/Brownout` and `FaultCounts/Brownout`; `MatchSummary`
 - **Open: CAN motor controllers.** The roboRIO sends them an explicit disable in a brownout;
   Limelight's notes for SystemCore name only digital and PWM outputs. Check in the same bench test.
 
-On the branch: the default voltages, `getBrownoutVoltage` and its log gone. Still to do: log
-`isBrownedOut()` every loop beside the fault count. If the default ever changes, use
-`setBrownoutVoltages`, never below 6 V.
+On the branch: the default voltages, `getBrownoutVoltage` and its log gone. The existing
+per-loop read now works: the alpha-8 sim logs `Runtime/BrownedOut` (input),
+`SystemStats/BrownedOut`, an event on each change, and `BrownedOutValid` true in the match
+summary. If the default ever changes, use `setBrownoutVoltages`, never below 6 V.
 
 The upgrade also fixes a mismatch alpha-6 has on FM's image: the image publishes
 `/diagnostics/canbusinfo` as `struct:CanBusInfoEntry[]`, alpha-6's `RobotController.getCANStatus()`
@@ -121,7 +122,7 @@ On `upgrade/alpha-8`. Each step ends with `python tools/check.py` passing unless
 - [x] Compiles; timestamps settled.
 - [x] `python tools/check.py --sims drive,shoot,auto` (with `simTest`) passes.
 - [ ] Replay a real match log: blocked until there is an alpha-8 log (old logs don't replay).
-- [ ] Brownout: log `isBrownedOut()` every loop.
+- [x] Brownout: `isBrownedOut()` read and logged every loop (it threw on alpha-6).
 - [x] Log key guide regenerated; README's version table and this doc updated.
 
 **Robot**

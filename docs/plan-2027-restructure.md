@@ -82,9 +82,10 @@ change, and verify the robot safely.
   log-key freshness, and replay (when fixtures exist). A PR that fails CI does not merge.
 - **Clear module boundaries.** Library vs. robot. The library is versioned; the robot is the
   application.
-- **Colocated context.** `AGENTS.md`, `CLAUDE.md`, and a short `docs/architecture.md` per repo
-  describe conventions, safety rules, and how to run/verify. Keep them accurate; update them in the
-  same PR as the change.
+- **Colocated context.** A single `AGENTS.md` per repo describes conventions, safety rules, and how
+  to run/verify. `CLAUDE.md` is only a thin include (`@AGENTS.md`) for tools that look for it, so
+  there is one source of truth. Keep it accurate; update it in the same PR as the change. A short
+  `docs/architecture.md` can hold repo-specific detail.
 - **Safety is explicit.** Hard-stop values (CAN IDs, inversions, offsets, current limits, soft
   limits, gear ratios, brake/coast, zero positions) require human confirmation and a PR block.
   CI cannot catch hardware changes, so the PR template carries the checklist.
@@ -148,7 +149,7 @@ most user-friendly option. "Parameters" and "Settings" remain acceptable alterna
 - NT topics: `/Params/...` → `/RobotSettings/...`; `/Tuning/SaveParams` → `/Tuning/SaveRobotSettings`
   (or keep `/Tuning/` as the action namespace)
 - Log keys: `/Params/Sources/<path>` → `/RobotSettings/Sources/<path>`
-- Files: `src/main/deploy/params/` → `src/main/deploy/robot-settings/`; `params/robots/...` accordingly
+- Files: `src/main/deploy/params/` → `src/main/deploy/settings/`; `params/robots/...` accordingly
 - Gradle tasks: `pullTuning` stays (it pulls tuned values); `fetchRobotParams`/`applyRobotParams`
   → `fetchRobotSettings`/`applyRobotSettings`
 - App: `Tuning` page labels and the generated module names

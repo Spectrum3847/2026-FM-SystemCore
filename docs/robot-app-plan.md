@@ -1,7 +1,9 @@
 # FM Robot App on SystemCore
 
 Plan from 2026-09-24. Status: first cut in `src/main/deploy/app/`, read-only to the robot (see
-[What the first cut covers](#what-the-first-cut-covers)).
+[What the first cut covers](#what-the-first-cut-covers)). Being replaced by the Robot App brief
+(`concepts_brief.md` on branch `ccr-78e179ce-f84m7v`): on FM's SystemCore the first cut can't serve
+on 5800 (below), and the brief installs the app as a SystemCore package instead.
 
 ## Summary
 
@@ -274,13 +276,13 @@ Steps 2 to 7 and 9 remain.
 
 None of these should change the plan, but each one could change a detail, so check them during step 1.
 
-- [x] **Port 5800 / hosting.** Resolved: the app is served by a separate Python service on a free port in the 5800s (a setting), not by `WebServer` on 5800, which collides with SystemCore's `visionserver` and Limelight streams.
+- [x] **Port 5800 / hosting.** Resolved: the app is served by a separate Python service on a free port in the 5800s (a setting), not by `WebServer` on 5800, which collides with SystemCore's `visionserver` (5800, 5802, 5805-5807) and Limelight streams. Verified on FM 2026-10-29: ports in use 5800-5803, 5805-5807, 5810, 5812, 5815-5817, 5819, 5820, 5822, 5825-5827, 5832, 5835-5837.
 - [x] **Cache headers.** The Python service must send `Cache-Control: no-store, no-cache` on every response, matching `WebServer`'s behavior, so a deploy is never masked by a stale browser cache. `WebServer` in sim already does this, so the `version.js` stamp is not needed.
 - [x] **`WebServer` behavior (sim/dev only).** From the allwpilib source (`wpinet` `WebServer.cpp` and `HttpServerConnection.cpp`): every response sends `Cache-Control: no-store, no-cache`. A directory serves its `index.html`, else an HTML listing, and `?format=json` returns the listing as JSON. The log folder is outside the deploy folder, so the Logs page still needs robot code or the service to list it.
-- [ ] **SystemCore cameras.** Do `limelightsc0/1` answer the same Limelight HTTP API on port 5807 as standalone Limelights? The Cameras page assumes they do, at the robot's own address. A Limelight streams on 5800, the same port as our `WebServer`, so the built-in cameras' stream must be somewhere else.
+- [x] **SystemCore cameras.** Yes for the API: on FM, `http://<robot>:5807/results` returns the standard Limelight results JSON (2026-10-29). Their stream is `visionserver` on 5800, which is why our `WebServer` can't use that port. Which of the two cameras answers on 5807 is not checked.
 - [ ] **Joystick data.** Which topics on SystemCore's system NT server carry Driver Station joystick data, for the controller page.
-- [ ] **CPU headroom.** Watch loop time with a page open and a log download running (`-ProbotTop`).
-- [ ] **Log folder.** Where logs land with and without a USB stick, and whether the web server can read that folder.
+- [ ] **CPU headroom.** The bench unit runs 80-90% busy, with SystemCore's own vision servers using about 55%. Watch loop time with a page open and a log download running (`-ProbotTop`).
+- [ ] **Log folder.** Without a USB stick, logs land in `/home/systemcore/logs` (FM, 2026-10-29), outside the deploy folder. With a USB stick: not checked.
 
 ## Sources
 

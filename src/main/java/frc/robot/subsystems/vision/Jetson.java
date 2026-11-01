@@ -57,6 +57,8 @@ public class Jetson {
     // Alert thresholds: the issue's starting points; tune with logs.
     private static final double HEARTBEAT_TIMEOUT_SECONDS = 3.0;
     private static final double MIN_FPS = 100; // bench: 122
+    // The Jetson idles cameras at ~30 fps while disabled; its fps reading lags the enable.
+    private static final double FULL_SPEED_AFTER_ENABLE_SECONDS = 3.0;
     private static final double MAX_TJ_TEMP_C = 75;
     private static final double MIN_FAN_RPM = 1000;
     private static final double MIN_REWIND_FREE_GB = 20;
@@ -97,6 +99,7 @@ public class Jetson {
     private double framesDroppedRoseSeconds = Double.NaN;
     private long overCurrentAtEnable = -1;
     private boolean wasEnabled = false;
+    private double enabledAtSeconds = Double.NaN;
 
     private final Alert jetsonDown =
             new Alert("Jetson not responding (no heartbeat): Orin cameras are out", Level.HIGH);
@@ -283,6 +286,7 @@ public class Jetson {
         updateRewind(now, enabled);
 
         if (enabled && !wasEnabled) {
+            enabledAtSeconds = now;
             rebooted.set(false);
             overCurrentAtEnable = inputs.overCurrentEvents;
             for (CameraCheck c : checks) {
@@ -290,10 +294,11 @@ public class Jetson {
             }
         }
         wasEnabled = enabled;
+        boolean fullSpeed = enabled && now - enabledAtSeconds > FULL_SPEED_AFTER_ENABLE_SECONDS;
 
         updateJetsonAlerts(now);
         for (CameraCheck c : checks) {
-            updateCameraAlerts(c, now, disabled && robotStill);
+            updateCameraAlerts(c, now, disabled && robotStill, fullSpeed);
         }
     }
 
@@ -447,7 +452,8 @@ public class Jetson {
                 up && RobotState.isFMSAttached() && mismatch && now - recordingMismatchSince > 2.0);
     }
 
-    private void updateCameraAlerts(CameraCheck c, double now, boolean mountCheckAllowed) {
+    private void updateCameraAlerts(
+            CameraCheck c, double now, boolean mountCheckAllowed, boolean fullSpeed) {
         OrinCameraInputs in = c.camera.source().getCameraInputs();
         // A camera turned off on purpose reads as disconnected after 0.5 s: no alerts for it (8f).
         boolean watch = isExpected() && c.camera.installed() && in.enabled;
@@ -460,7 +466,11 @@ public class Jetson {
         show(
                 c.slow,
                 c.slowDebounce.calculate(
-                        watch && in.connected && in.healthFps > 0 && in.healthFps < MIN_FPS),
+                        watch
+                                && fullSpeed
+                                && in.connected
+                                && in.healthFps > 0
+                                && in.healthFps < MIN_FPS),
                 () ->
                         String.format(
                                 "Orin camera %s slow: %.0f fps", c.camera.name(), in.healthFps));

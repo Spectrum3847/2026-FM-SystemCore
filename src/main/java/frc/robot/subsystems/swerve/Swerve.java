@@ -345,8 +345,8 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
 
             // Built once so the 10 Hz tick does no string concatenation.
             String module =
-                    i < SwerveAlignment.MODULE_NAMES.length
-                            ? SwerveAlignment.MODULE_NAMES[i]
+                    i < SwerveAlignment.MODULE_NAMES.size()
+                            ? SwerveAlignment.MODULE_NAMES.get(i)
                             : "Module" + i;
             moduleCurrentKeys[4 * i] = CURRENTS_PREFIX + module + "/DriveStatorCurrent";
             moduleCurrentKeys[4 * i + 1] = CURRENTS_PREFIX + module + "/DriveSupplyCurrent";
@@ -1370,6 +1370,9 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
     /** Simulation state, or {@code null} off the desktop sim. */
     private SimState sim = null;
 
+    /** OdometryGuard's shortest judged interval (MIN_ELAPSED_SECONDS), so a step always fits it. */
+    private static final double MAX_SIM_STEP_SECONDS = 0.02;
+
     private void startSimThread() {
         sim = new SimState();
         // Wall time: the robot clock is pinned per cycle, so it would hand the sim a jump at
@@ -1380,7 +1383,11 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
                 new Notifier(
                         () -> {
                             double now = System.nanoTime() * 1e-9;
-                            double dt = now - lastTime[0];
+                            // Capped: after a JVM-wide stall (a busy CI runner) one long step
+                            // moves the wheels between two odometry samples a few ms apart, which
+                            // OdometryGuard rightly rejects as impossible. The sim robot pauses
+                            // with the JVM instead.
+                            double dt = Math.min(now - lastTime[0], MAX_SIM_STEP_SECONDS);
                             lastTime[0] = now;
                             updateSimState(dt, RobotController.getBatteryVoltage());
                         });

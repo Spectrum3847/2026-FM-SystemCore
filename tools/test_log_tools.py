@@ -145,6 +145,50 @@ class LogToolsTest(unittest.TestCase):
         self.assertEqual(1, result.returncode, result.stdout)
         self.assertIn("FAIL  Localization/FusedPose", result.stdout)
 
+    def test_ci_assert_skips_the_second_after_a_sim_stall(self):
+        import ci_assert
+
+        log = Log()
+        log.put("/Vision/PoseSeedConfirmed", 0.0, True)
+        t = 0.0
+        while t < 4.0:
+            log.put("/Timestamp", t, int(t * 1e6))
+            # A 0.3 s stall at 2.0 s: the pose is off until vision catches up 0.6 s later.
+            error = 0.5 if 2.3 <= t < 2.9 else 0.02
+            log.put("/RealOutputs/Localization/FusedErrorVsTruthMeters", t, error)
+            t = round(t + (0.3 if abs(t - 2.0) < 1e-9 else 0.02), 6)
+        records, types = wpilog_summary.read_wpilog(log.write(self.path("stall")))
+        ok, msg = ci_assert.check_fused_error(records, types)
+        self.assertTrue(ok, msg)
+        self.assertIn("1 sim stalls", msg)
+
+    def test_replay_compare_after_skips_a_cut_logs_first_moments(self):
+        log = Log()
+        for i in range(10):
+            t = 1.0 + i * 0.1
+            log.put("/RealOutputs/Localization/FusedPose", t, (1.0, 0.0, 0.0), "struct:Pose2d")
+            replayed = 0.0 if i < 3 else 1.0  # fresh code state for the first 0.3 s
+            log.put("/ReplayOutputs/Localization/FusedPose", t, (replayed, 0.0, 0.0), "struct:Pose2d")
+        path = log.write(self.path("cut_sim"))
+        self.assertIn("REPLAY DIFFERS", run("replay_compare.py", path).stdout)
+        result = run("replay_compare.py", path, "--after", "1.3", "Localization/FusedPose")
+        self.assertIn("REPLAY MATCHES", result.stdout, result.stdout + result.stderr)
+
+    def test_check_finds_the_enabled_part_of_a_match(self):
+        import check
+
+        log = Log()
+        for t, on in [(1.0, False), (40.0, True), (55.0, False), (60.0, True), (200.0, False)]:
+            log.put("/DriverStation/Enabled", t, on)
+        log.put("/DriverStation/Enabled", 300.0, False)
+        self.assertEqual((40.0, 200.0), check.enabled_window(bytes(log.out)))
+
+        idle = Log().put("/DriverStation/Enabled", 1.0, False).put("/DriverStation/Enabled", 90.0, False)
+        self.assertIsNone(check.enabled_window(bytes(idle.out)))
+
+        cut_off = Log().put("/DriverStation/Enabled", 10.0, True).put("/DriverStation/Enabled", 70.0, True)
+        self.assertEqual((10.0, 70.0), check.enabled_window(bytes(cut_off.out)))
+
     def test_key_guide_renders_runtime_parts_as_names(self):
         render = make_log_key_guide.render
         self.assertEqual("Mechanisms/<name>/Voltage", render('"Mechanisms/" + config.getName() + "/Voltage"'))

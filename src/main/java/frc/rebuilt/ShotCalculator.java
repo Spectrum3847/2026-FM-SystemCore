@@ -171,7 +171,7 @@ public class ShotCalculator {
      *     d²·v, d·v², v³
      * @param angleCoeffs launch-angle coefficients in the same basis
      */
-    private record PolyModel(
+    record PolyModel(
             String name,
             double distMin,
             double distMax,

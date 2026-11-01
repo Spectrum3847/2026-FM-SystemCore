@@ -3,6 +3,7 @@ package frc.spectrumLib.util;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
@@ -43,7 +44,7 @@ public final class BackgroundSampler {
      */
     public static final class Latest<T> {
         private volatile T value;
-        private volatile long sequence = 0;
+        private final AtomicLong sequence = new AtomicLong();
 
         /** The newest value, or null before the first read finished. */
         public T get() {
@@ -52,12 +53,12 @@ public final class BackgroundSampler {
 
         /** Increments each time a new value lands; compare to see whether one is new. */
         public long sequence() {
-            return sequence;
+            return sequence.get();
         }
 
         void set(T v) {
             value = v;
-            sequence++;
+            sequence.incrementAndGet();
         }
     }
 

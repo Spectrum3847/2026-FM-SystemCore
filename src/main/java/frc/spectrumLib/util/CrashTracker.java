@@ -5,7 +5,8 @@ import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Date;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.UUID;
 import org.wpilib.framework.RobotBase;
 
@@ -34,12 +35,13 @@ public class CrashTracker {
 
     /** Logs the marker. */
     private static void logMarker(String mark, Throwable nullableException) {
-        try (PrintWriter writer = new PrintWriter(new FileWriter(filePath, true))) {
+        try (PrintWriter writer =
+                new PrintWriter(new FileWriter(filePath, StandardCharsets.UTF_8, true))) {
             writer.print(RUN_INSTANCE_UUID.toString());
             writer.print(", ");
             writer.print(mark);
             writer.print(", ");
-            writer.print(new Date().toString());
+            writer.print(Instant.now().toString());
 
             if (nullableException != null) {
                 writer.print(", ");

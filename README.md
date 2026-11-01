@@ -67,8 +67,8 @@ Or the chord run: the pilot's LB + face-button chords pressed and let go in slop
 FM_SIM_SCRIPT=chords ./gradlew simulateJava -PnoSimGui
 ```
 
-Add `FM_SIM_EXIT=1` to any scripted run to have the program close its log and exit when the script
-ends, so the run is one command. Add `FM_SIM_MATCH=Q12` to have the Driver Station report an FMS
+A scripted run closes its log and exits when the script ends, so the run is one command. Add
+`FM_SIM_EXIT=0` to keep it running afterwards (to keep looking at it live in AdvantageScope). Add `FM_SIM_MATCH=Q12` to have the Driver Station report an FMS
 match, so the end of teleop writes the match summary file into `logs/`.
 
 All 32 autos and 26 paths from 2026 `main` are in `src/main/deploy/pathplanner`, unchanged. The Auto
@@ -96,12 +96,23 @@ Every PR runs, in parallel:
 | `replay` | the PR moving the fused pose (5 cm, 2°) or the shot gate's verdicts (10 loops) in any replay fixture, against the base branch replaying the same fixtures ([tools/replay_regression.py](tools/replay_regression.py)) |
 | `app` | the robot app's tests |
 
-Sim logs and replay logs are uploaded as artifacts. To check a sim run locally:
+Sim logs and replay logs are uploaded as artifacts.
+
+To check locally in one command, use [tools/check.py](tools/check.py). It builds once, then runs the
+tests, scripted sims and replays in parallel, and prints one PASS/FAIL summary (full output in
+`build/check/`):
 
 ```bash
-FM_SIM_SCRIPT=drive FM_SIM_EXIT=1 ./gradlew simulateJava -PnoSimGui | tee console.txt
-python tools/ci_assert.py logs/akit_XXXX.wpilog console.txt
+python tools/check.py --quick --log robotlogs/X.wpilog   # ~80 s: unit tests, drive sim, a replay
+python tools/check.py --sims drive,shoot,auto            # ~2.5 min: everything CI's build and sims run
 ```
+
+Loop overruns only warn there, since the jobs share the laptop's CPU; CI judges loop timing.
+A `--log` replays only the enabled part of the log (10 s before the first enable to 5 s after the
+last disable; `--full-log` for all of it), since a replay costs about 16 s plus 0.1 s per logged
+second. The comparison with the robot then skips the cut's first 2 s, raw odometry and the shadow
+tracks, which build up from wherever they start; the fused pose replays exactly. A log from older
+code differs where the code changed: that is the replay's answer, not a failure.
 
 When a PR is meant to change the replay (a gate, a std-dev tier), add the `replay-change-expected`
 label.
@@ -316,8 +327,9 @@ the FMS, the robot leaves `record` alone unless the manual switch changes. FM's 
 save their own 165 s buffers at auto and teleop end.
 
 **Clock.** The robot publishes its wall clock (`/photonvision/clock/unixMs`) every loop once the DS
-has set it. The Jetson has no clock battery, and this gives it the right date offline. Still to check
-on the robot: does SystemCore get its clock from the DS the way the roboRIO does?
+has set it. The Jetson has no clock battery, and this gives it the right date offline. SystemCore
+gets its clock from the DS like the roboRIO (`MrcCommDaemon` sets it when the DS connects), and the
+Jetson's clock follows (checked on FM, 2026-10-29). Until a DS connects, both can be days off.
 
 **Logged** under `Vision/Jetson/*` and `Vision/Orin/<camera>/*`:
 - Jetson health: temperatures, fan, power, GPU load, throttle reason, over-current events, JPEG
@@ -333,7 +345,7 @@ on the robot: does SystemCore get its clock from the DS the way the roboRIO does
 |---|---|
 | Jetson heartbeat stale > 3 s | error |
 | Camera not on NetworkTables (2 s), connected but no frames for 1.5 s, or 0 fps for 1 s | error |
-| Camera under 100 fps for 2 s | warning |
+| Camera under 100 fps for 2 s, once enabled for 3 s (disabled, the Jetson idles cameras at ~30 fps) | warning |
 | Camera JPEG decode failures rising, or the camera was reset during the match | warning |
 | Result timestamps more than 0.5 s from now for 2 s (time sync / timebase) | warning |
 | Jetson tj temp > 75 °C, fan < 1000 rpm, throttling, over-current during the match, CPU JPEG fallback | warning |
@@ -745,7 +757,9 @@ plus any audio and video it recorded, to the robot while the field still connect
 laptop then pulls them with the match log. The robot side is
 [DsUploadReceiver](src/main/java/frc/spectrumLib/telemetry/DsUploadReceiver.java):
 
-- HTTP on port **5806** (inside the field's 5800–5810 team range), header `X-MatchReview-Token`.
+- HTTP on port **5809** (inside the field's 5800–5810 team range, R704; SystemCore's own
+  `visionserver` holds 5800–5803 and 5805–5807), header `X-MatchReview-Token`. The MatchReview
+  helper's `ds.receiver_port` must match.
   The token lives in `/home/systemcore/ds-upload-token` on the robot, never in this public repo;
   without that file the receiver stays off (info alert).
 - **Only while disabled.** The field gives each team about 7 Mbps, so pushes wait for the match
@@ -772,7 +786,7 @@ laptop then pulls them with the match log. The robot side is
   take turns.
 - Logged as `DSUpload/FilesReceived`, `BytesReceived`, `LastFile` and `LastError`.
 - Bench test on a laptop: `./gradlew compileJava`, then
-  `java -cp build/classes/java/main frc.spectrumLib.telemetry.DsUploadReceiver <folder> <token> 5806`
+  `java -cp build/classes/java/main frc.spectrumLib.telemetry.DsUploadReceiver <folder> <token> 5809`
   (type `enabled` / `disabled` to set the robot state). The MatchReview helper's
   `tests/test_java_receiver.py` runs its client against it.
 
@@ -818,21 +832,30 @@ Deployed to the bench SystemCore (no CAN devices, two cameras):
   - **With `USE_CANIVORE = true` and no CANivore plugged in, one Phoenix native thread spins a
     full core.** It starts as the first device on the `*` bus is constructed. With the native
     layout nothing spins: the program uses ~18% of the machine instead of ~35%, and the
-    busiest thread is the main loop at ~25% of one core. Not yet checked: whether the spin also
-    happens with a real CANivore attached. **Check `System/TopThreads` on the real robot.**
+    busiest thread is the main loop at ~25% of one core. With a real CANivore attached nothing
+    spins either: on FM (2026-10-29, disabled) `System/TopThreads` tops out at the main loop,
+    ~25%.
   - Native layout, bench unit: mean period 10.1–10.3 ms, 1–5% of loops over 12.5 ms, worst
     14–30 ms, versus 20–45 ms with the CANivore layout.
   - Unplug or disable the SystemCore cameras when they aren't being tested.
 - `System/TopThreads` lists this program's busiest threads from `/proc`, native ones included. A
-  native thread that never named itself shows as `java/<tid>`. The boot console prints
+  native thread that never named itself shows as `java/<tid>`. A native thread starts with the
+  name of the thread that created it, so CTRE's CAN workers, started by `BackgroundSampler`'s first
+  `CANBus.getStatus()`, show as `BackgroundSampl` at real-time priority 2-3 (Phoenix sets those;
+  our sampler thread itself runs at normal priority). The boot console prints
   `[Threads] <step>: <new tids> | cpu ticks: ...` to tie each tid to what created it.
   `./gradlew deployrobotLogsystemcore -ProbotLog -ProbotThreads --info` samples them from the
   robot itself ([tools/robot_threads.sh](tools/robot_threads.sh)).
 - The SystemCore's own cameras connect straight to this program as `limelightsc0/1`. No NT bridge
   is needed when the SystemCore is the robot controller. (Deploying this code replaced the
   SystemCoreVision bridge program on that unit; redeploy that repo to get it back.)
-- `RobotController.setBrownoutVoltage` fails (HAL -1098) on that image; the code carries on
-  without it.
+- Where our PhotonVision package (`photonvision-sc`) is installed, it replaces that built-in vision:
+  every deploy turns Limelight's `limelight_visionserver*` services back off if an OS update
+  re-enabled them, and prints one `SystemCore services:` line
+  ([tools/systemcore_services.sh](tools/systemcore_services.sh)). Without the package, the
+  built-in vision is left alone.
+- `RobotController.setBrownoutVoltage` fails (HAL -1098) on that image, so the code doesn't set
+  one and SystemCore keeps its default brownout voltage.
 
 Read the robot's console over the deploy connection (it restarts the program afterwards):
 

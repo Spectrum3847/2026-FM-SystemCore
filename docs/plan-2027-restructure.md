@@ -173,8 +173,44 @@ most user-friendly option. "Parameters" and "Settings" remain acceptable alterna
 4. Robot Settings rename: confirm "Robot Settings" over "Parameters"/"Settings"/"Calibration" before
    executing (note: WPILib already uses `Tunable`/`Tunables`, so that name is avoided).
 5. Which robots get their own repo vs. sharing a template repo?
+6. How are WPILib vendordeps (Phoenix, PhotonLib, AdvantageKit) version-aligned between the
+   library and each robot repo? The library can carry Maven deps, but vendordeps are JSON files
+   applied per project.
+7. Does SpectrumLib ship a shared Gradle plugin / build-logic, or does each robot repo duplicate
+   the build script?
+8. How do robot repos consume library snapshots during development (composite build, snapshot
+   version, or a `main` branch of the library)?
+9. What is the deprecation policy for library APIs that robots depend on?
+10. Who owns SpectrumLib releases, and on what cadence (per WPILib alpha, per event, on demand)?
+11. Does each robot repo keep its own replay fixtures, or is there a shared fixture set?
+12. How do event branches work when a library bug fix is needed mid-event?
+13. What license does SpectrumLib use, and is it compatible with WPILib/AdvantageKit licenses?
+14. How are AI context files (AGENTS.md) kept in sync across repos?
 
-## 5. Checklist
+## 5. Pitfalls
+
+- **Version skew.** A robot pinned to an old SpectrumLib while the library moves on WPILib alphas
+  can fail to compile. Bumps must be deliberate and tested.
+- **Vendordep skew.** Phoenix/PhotonLib/AdvantageKit versions must agree between library and robot;
+  a mismatch shows up as runtime or replay differences, not compile errors.
+- **Event pressure.** Library PRs are slower than editing in-repo code. Teams may copy code into
+  the robot repo to move fast, causing drift. Decide up front whether event branches may pin a
+  library snapshot or vendor source.
+- **AI drift.** An AI session editing the library can change APIs that many robots depend on.
+  Library changes need review and a version bump; robot repos then bump.
+- **Generated-file staleness.** The generated contract must be regenerated in the library and
+  consumed by robot repos; a stale generated module silently breaks pages.
+- **Replay fixtures.** Each robot needs its own fixtures; shared fixtures do not transfer because
+  hardware and code differ.
+- **CI duplication.** Without shared workflow templates, each repo's CI drifts; use reusable
+  GitHub Actions workflows.
+- **Environment assumptions.** WPILib is installed locally per the settings.gradle logic. Document
+  the required JDK/WPILib version and provide a setup script.
+- **License/dependency compliance.** Verify the library's license is compatible with WPILib and
+  vendor libraries before publishing.
+- **Over-splitting.** Too many tiny repos increase maintenance. Revisit the repo list each season.
+
+## 6. Checklist
 
 - [ ] Extract `spectrumLib` as a Gradle module in this repo and prove the build.
 - [ ] Publish to Maven local; switch robot module to consume it.

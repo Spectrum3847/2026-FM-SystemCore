@@ -210,7 +210,49 @@ most user-friendly option. "Parameters" and "Settings" remain acceptable alterna
   vendor libraries before publishing.
 - **Over-splitting.** Too many tiny repos increase maintenance. Revisit the repo list each season.
 
-## 6. Checklist
+## 6. Suggested improvements (easy wins)
+
+Carried over from the FM codebase audit. These are low-effort, high-value items to fold into
+the 2027 repos as they are created.
+
+### Code
+
+1. Turn the `Mechanism` config-apply failure (`System.out.println` in `Mechanism.java`) into a
+   HIGH `Alert` so it shows on the dashboard and in the log.
+2. Route `SystemLoadMonitor.threadCensus` through `Telemetry.print`/`Logger.recordOutput` so the
+   thread list is replayable and visible in AdvantageScope, not only on the console.
+3. Leave `LimelightHelpers.java` (vendor code) and its `System.out` calls untouched.
+4. Leave `Curve.printPoints` as a documented debug helper; ensure no production path calls it.
+
+### Tooling / CI
+
+5. Add `tools/doctor.py` to check `JAVA_HOME`, the WPILib install path, Python, and Node before a
+   new contributor runs anything.
+6. Add a pre-commit hook running Spotless (`spotlessCheck`) to catch formatting before CI.
+7. Enable Dependabot/Renovate for `vendordeps/*.json` (merge only when asked, per AGENTS.md).
+8. Add `CODEOWNERS` so PRs touching `spectrumLib`, safety-critical files (CanBuses, swerve
+   offsets, current limits), or `AGENTS.md` get the right reviewer.
+9. Add a short `docs/architecture.md` giving an AI session the 5-minute tour (loop order, logged
+   inputs, replay, where mechanisms live).
+10. Add a log-size budget check in CI to catch logging bloat before it hits the robot's 2 GB cap.
+11. Add a per-robot bench checklist template generated from that robot's mechanisms.
+12. Document serial/identity mapping per robot (`Rio.id`) so a new robot's mapping isn't missed.
+
+### Not worth doing
+
+- Rewriting `LimelightHelpers.java` (vendor code).
+- Replacing `Thread.sleep` in `Robot.init` / `LogStorage` (wall-clock by design; robot clock is
+  frozen during init).
+
+### Splitting `Mechanism`
+
+`Mechanism.java` (~127 KB) is too large for AI-assisted work and human review. Splitting it is
+acceptable even if replay diverges, because new 2027 robots have no replay fixtures to preserve.
+Split into focused pieces (e.g. motor config application, signal refresh, fault decoding, telemetry
+logging, diagnostic commands) while keeping the public `Mechanism` API stable. Do this as a
+dedicated PR with sim verification only.
+
+## 7. Checklist
 
 - [ ] Extract `spectrumLib` as a Gradle module in this repo and prove the build.
 - [ ] Publish to Maven local; switch robot module to consume it.
@@ -219,3 +261,7 @@ most user-friendly option. "Parameters" and "Settings" remain acceptable alterna
 - [ ] Migrate Photon, then AM, then XM/PM.
 - [ ] Decide and execute the Robot Settings rename.
 - [ ] Update AGENTS.md/CLAUDE.md/docs for the new layout.
+- [ ] Split `Mechanism.java` into focused pieces (config apply, signal refresh, fault decoding,
+      telemetry, diagnostics) with sim verification; replay divergence acceptable for new robots.
+- [ ] Fold in the easy wins from section 6 (alerts for config-apply failure, thread census in log,
+      doctor.py, pre-commit hook, CODEOWNERS, architecture.md, log-size budget check).

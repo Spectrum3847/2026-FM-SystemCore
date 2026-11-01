@@ -132,24 +132,25 @@ rename touches code, NT keys, log keys, docs, and app pages.
 
 | Current | Candidate | NT prefix | Files |
 | --- | --- | --- | --- |
-| Params | Tunables | `/Tunables/` | `tunables/*.json` |
+| Params | Parameters | `/Parameters/` | `parameters/*.json` |
 | Params | Settings | `/Settings/` | `settings/*.json` |
 | Params | Calibration | `/Calibration/` | `calibration/*.json` |
 
-Recommendation: **Tunables**. It matches the existing `/Tuning/` NT prefix and describes the
-content (values that are tuned) without colliding with `Config` (robot configuration) or
-`Settings` (which sounds like user preferences).
+Recommendation: **Parameters** (the full word, not "Params"). It is neutral, does not collide with
+WPILib's `org.wpilib.tunable.Tunable`/`Tunables` (which would make "Tunables" confusing), and
+does not collide with `Config` (robot configuration) or WPILib's `Preferences`. "Settings" is an
+acceptable alternative if "Parameters" still feels too generic.
 
 ### 3.2 Rename scope (if Tunables is chosen)
 
-- Package: `frc.spectrumLib.params` → `frc.spectrumLib.tunables`
-- Classes: `Params`, `ParamsInputs`, `Params.group(...)` → `Tunables`, `TunablesInputs`, `Tunables.group(...)`
-- NT topics: `/Params/...` → `/Tunables/...`; `/Tuning/SaveParams` → `/Tuning/SaveTunables`
+- Package: `frc.spectrumLib.params` → `frc.spectrumLib.parameters`
+- Classes: `Params`, `ParamsInputs`, `Params.group(...)` → `Parameters`, `ParametersInputs`, `Parameters.group(...)`
+- NT topics: `/Params/...` → `/Parameters/...`; `/Tuning/SaveParams` → `/Tuning/SaveParameters`
   (or keep `/Tuning/` as the action namespace)
-- Log keys: `/Params/Sources/<path>` → `/Tunables/Sources/<path>`
-- Files: `src/main/deploy/params/` → `src/main/deploy/tunables/`; `params/robots/...` accordingly
+- Log keys: `/Params/Sources/<path>` → `/Parameters/Sources/<path>`
+- Files: `src/main/deploy/params/` → `src/main/deploy/parameters/`; `params/robots/...` accordingly
 - Gradle tasks: `pullTuning` stays (it pulls tuned values); `fetchRobotParams`/`applyRobotParams`
-  → `fetchRobotTunables`/`applyRobotTunables`
+  → `fetchRobotParameters`/`applyRobotParameters`
 - App: `Tuning` page labels and the generated module names
 - Docs: `docs/robot-app-plan.md`, `AGENTS.md`, `README.md`, `docs/log-keys.md`
 - Tests and `tools/` that reference params paths
@@ -168,7 +169,8 @@ content (values that are tuned) without colliding with `Config` (robot configura
    robot, or allow `includeBuild` overrides?
 2. XM/PM: one repo with a config switch, or two repos sharing a template? Recommend one repo.
 3. Does the Robot App ship inside SpectrumLib or per robot? Recommend per robot, infra in library.
-4. Tunables rename: confirm "Tunables" over "Settings"/"Calibration" before executing.
+4. Parameters rename: confirm "Parameters" over "Settings"/"Calibration" before executing (note:
+   WPILib already uses `Tunable`/`Tunables`, so that name is avoided).
 5. Which robots get their own repo vs. sharing a template repo?
 
 ## 5. Checklist
@@ -178,5 +180,5 @@ content (values that are tuned) without colliding with `Config` (robot configura
 - [ ] Create `SpectrumLib` repo and CI publish.
 - [ ] Create robot repo templates.
 - [ ] Migrate Photon, then AM, then XM/PM.
-- [ ] Decide and execute the Tunables rename.
+- [ ] Decide and execute the Parameters rename.
 - [ ] Update AGENTS.md/CLAUDE.md/docs for the new layout.

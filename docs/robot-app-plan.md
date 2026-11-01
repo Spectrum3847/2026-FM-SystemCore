@@ -20,6 +20,7 @@ The FM robot will serve its own pit web app from the SystemCore, as plain HTML a
 | What a laptop needs | WPILib only (plus Python for the existing `tools/`); no Node |
 | How the app changes robot behavior | NT commands, handled by the main loop as logged inputs |
 | Camera mounts | Repo JSON is the source of truth, pushed to the cameras, calibrated from field tags |
+| WPILib baseline | Alpha 8 or later. The app assumes alpha-8 NT behavior (int64 topic UIDs, WPILib version published to NT, USB log transfer) and is not built for alpha-6. |
 
 The code referenced here is on [`port/fm-2027` (PR #1)](https://github.com/Spectrum3847/2026-FM-SystemCore/pull/1) and the PRs built on it. The old app is [`tools/robot-app`](https://github.com/Spectrum3847/2026-Spectrum/tree/2026-offseason-bot/tools/robot-app) on 2026-Spectrum's `2026-offseason-bot` branch.
 
@@ -147,22 +148,24 @@ Most pages port from the old app; soft limits and the on-robot Logs page are new
 | --- | --- | --- | --- |
 | Swerve Align | Live CANcoder angles (already published by `SwerveAlignment` at 20 Hz while disabled). Set wheels straight, press Capture. | `swerve.json`, applied on next restart | Port; keys from the manifest |
 | Soft Limits | Robot disabled, motors in coast, move by hand, watch position, press "Set min" / "Set max". Shows observed range from recent logs beside the limits. | `soft-limits.json`, applied to the TalonFX at once | New |
-| Cameras | Live view, pitch / roll / height from accelerometer and tag solve, image settings and the auto-tune sweep | `cameras.json`, pushed to cameras | Port |
+| Cameras | Live view and mount checks for the PhotonVision cameras on the Jetson and SystemCore's own cameras (Limelights are not used next year); image settings and the auto-tune sweep | `cameras.json`, pushed to cameras | Port |
 | Logs | Lists `LogStorage.folder()` with date, size and match; download, zip a day, open in Power or CAN; file browser over SystemCore | Nothing (download/upload via the service) | New |
 | Power | Current vs limit, time at limit, sag, internal resistance, energy per mechanism, breaker heat | Nothing | Port; limits from the log's manifest |
 | CAN | Bus use, error counters, dropouts, device list, broken down by mechanism | Nothing | Port; add SystemCore's native buses (PR #2) |
 | Network | Scans the robot subnet on demand, identifies devices by open ports/services (Limelight, PhotonVision, laptop, radio); simpler themed view replacing radio config pages | Nothing | New |
 | Status / Crash | Robot program running/crashed, crash log tail, CPU, temps, process list; WPILib version (published to NT on alpha-8+); pages grey out when NT or the program is down | Nothing | New |
 | Pilot / Operator | Button maps and live controller diagram | Nothing | Port; descriptions from the manifest, joystick data from NT |
+| Selectors | Auto chooser and Hub Model chooser moved to the Tunables API and surfaced here (autos may become OpModes) | Tunables (NT) | New |
 | Tuning | Params manifest, live edits, save, hard-stop confirmation by click | Params via NT / SaveParams | New |
 
 The Turret page is dropped (FM has a hood, not a turret), but its "list every key without a view" pattern is reused on every log page.
 
 **Cameras.**
 
-- Repo JSON is the source of truth and `pushLimelightMounts` gets turned on, the same as the offseason robot. This clears the README's pre-event item "verify, then turn it on".
+- Cameras are PhotonVision cameras on the Jetson plus SystemCore's own cameras; Limelights are not used next year, so `pushLimelightMounts` is not needed.
+- Repo JSON is the source of truth for mounts and image settings, pushed to each camera, calibrated from field tags.
 - The tag solve measures pitch, roll and height. Forward, right and yaw need a known robot position; a later "known spot" mode could solve all six with the robot parked on a marked field position.
-- Open: also keep exposure, sensor gain and black level in `cameras.json` and push them, so a replacement camera gets the same image settings?
+- Open: keep exposure, sensor gain and black level in `cameras.json` and push them, so a replacement camera gets the same image settings.
 
 **Logs and power.**
 
@@ -200,7 +203,7 @@ If one of these is ever needed, serve the same files from localhost on the lapto
 ### What still needs robot code or the laptop
 
 - **Listing files on the robot:** the Python service browses SystemCore's filesystem directly (download and upload), so WinSCP is not needed. NT is not involved.
-- **Changing anything on the robot:** an NT command the main loop handles and logs.
+- **Changing anything on the robot:** an NT command the main loop handles and logs. Brownout voltage is set in code (`setBrownoutVoltages`) and is never changed from the app.
 - **SSH and git:** gradle tasks on the laptop.
 
 ### Folder layout

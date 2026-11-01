@@ -25,7 +25,7 @@ public final class RuntimeInputs implements LoggableInputs {
     private boolean brownedOut = false;
 
     /** Whether the HAL's brownout API works on this controller; see {@code Robot}. */
-    private static boolean brownoutApiAvailable = false;
+    private boolean brownoutApiAvailable = false;
 
     private RuntimeInputs() {}
 
@@ -35,7 +35,8 @@ public final class RuntimeInputs implements LoggableInputs {
             INSTANCE.simulation = Constants.currentMode == Constants.Mode.SIM;
             INSTANCE.batteryVoltage = org.wpilib.system.RobotController.getBatteryVoltage();
             INSTANCE.brownedOut =
-                    brownoutApiAvailable && org.wpilib.system.RobotController.isBrownedOut();
+                    INSTANCE.brownoutApiAvailable
+                            && org.wpilib.system.RobotController.isBrownedOut();
         }
         Logger.processInputs("Runtime", INSTANCE);
     }
@@ -55,9 +56,16 @@ public final class RuntimeInputs implements LoggableInputs {
         return INSTANCE.brownedOut;
     }
 
+    /** Whether the recorded run's controller had a working brownout API. */
+    public static boolean brownoutApiAvailable() {
+        return INSTANCE.brownoutApiAvailable;
+    }
+
     /** Starts reading the brownout state, once the robot has found the API works. */
     public static void setBrownoutApiAvailable(boolean available) {
-        brownoutApiAvailable = available;
+        if (Constants.currentMode != Constants.Mode.REPLAY) {
+            INSTANCE.brownoutApiAvailable = available;
+        }
     }
 
     @Override
@@ -65,6 +73,8 @@ public final class RuntimeInputs implements LoggableInputs {
         table.put("Simulation", simulation);
         table.put("BatteryVoltage", batteryVoltage, "volts");
         table.put("BrownedOut", brownedOut);
+        // The HAL's brownout API works on this controller, so BrownedOut is real.
+        table.put("BrownoutApiAvailable", brownoutApiAvailable);
     }
 
     @Override
@@ -73,5 +83,6 @@ public final class RuntimeInputs implements LoggableInputs {
         batteryVoltage = table.get("BatteryVoltage", batteryVoltage);
         // Logs from before this was recorded have none: not browned out.
         brownedOut = table.get("BrownedOut", false);
+        brownoutApiAvailable = table.get("BrownoutApiAvailable", false);
     }
 }

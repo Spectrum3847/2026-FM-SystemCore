@@ -2908,6 +2908,13 @@
    "input": true
   },
   {
+   "key": "/Runtime/BrownoutApiAvailable",
+   "unit": "",
+   "doc": "Whether the HAL's brownout API works on this controller; see Robot.",
+   "source": "src/main/java/frc/robot/RuntimeInputs.java",
+   "input": true
+  },
+  {
    "key": "/Runtime/Simulation",
    "unit": "",
    "doc": "Whether the recorded run was the desktop simulator (false on a robot).",

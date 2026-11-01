@@ -784,7 +784,7 @@ public class Robot extends SpectrumRobot {
             Telemetry.time("Scheduler/SystemLogging");
             batteryLogger.setBatteryVoltage(RuntimeInputs.batteryVoltage());
             // Every loop: a brownout is a few hundred milliseconds.
-            if (powerApiAvailable) {
+            if (RuntimeInputs.brownoutApiAvailable()) {
                 // The controller is browned out now (outputs off), where the brownout API works.
                 Telemetry.log("SystemStats/BrownedOut", RuntimeInputs.brownedOut());
                 if (RuntimeInputs.brownedOut() != wasBrownedOut) {

@@ -431,6 +431,7 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Vision/SeedConfirmProgress` |  |  | Frames in the current seed-confirm run, of 50. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/Runtime/BatteryVoltage` | I |  | Battery voltage, as the controller measured it. | src/main/java/frc/robot/RuntimeInputs.java |
 | `/Runtime/BrownedOut` | I |  | The controller is browned out (outputs disabled). False where the API is unavailable. | src/main/java/frc/robot/RuntimeInputs.java |
+| `/Runtime/BrownoutApiAvailable` | I |  | Whether the HAL's brownout API works on this controller; see Robot. | src/main/java/frc/robot/RuntimeInputs.java |
 | `/Runtime/Simulation` | I |  | Whether the recorded run was the desktop simulator (false on a robot). | src/main/java/frc/robot/RuntimeInputs.java |
 | `/SimScript/PlacePose` | I |  | Sim script: where it was placed. | src/main/java/frc/robot/SimScript.java |
 | `/SimScript/PlaceRobot` | I |  | Sim script: the robot was placed at PlacePose this loop. | src/main/java/frc/robot/SimScript.java |

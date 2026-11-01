@@ -102,7 +102,8 @@ logs as `SystemStats/Faults/Brownout` and `FaultCounts/Brownout`; `MatchSummary`
 On the branch: the default voltages, `getBrownoutVoltage` and its log gone. The existing
 per-loop read now works: the alpha-8 sim logs `Runtime/BrownedOut` (input),
 `SystemStats/BrownedOut`, an event on each change, and `BrownedOutValid` true in the match
-summary. If the default ever changes, use `setBrownoutVoltages`, never below 6 V.
+summary, gated by the logged input `Runtime/BrownoutApiAvailable`. If the default ever changes,
+use `setBrownoutVoltages`, never below 6 V.
 
 The upgrade also fixes a mismatch alpha-6 has on FM's image: the image publishes
 `/diagnostics/canbusinfo` as `struct:CanBusInfoEntry[]`, alpha-6's `RobotController.getCANStatus()`

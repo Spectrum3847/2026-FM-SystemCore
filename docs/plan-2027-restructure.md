@@ -134,12 +134,14 @@ rename touches code, NT keys, log keys, docs, and app pages.
 | --- | --- | --- | --- |
 | Params | Parameters | `/Parameters/` | `parameters/*.json` |
 | Params | Settings | `/Settings/` | `settings/*.json` |
+| Params | Robot Settings | `/RobotSettings/` | `robot-settings/*.json` |
 | Params | Calibration | `/Calibration/` | `calibration/*.json` |
 
 Recommendation: **Parameters** (the full word, not "Params"). It is neutral, does not collide with
 WPILib's `org.wpilib.tunable.Tunable`/`Tunables` (which would make "Tunables" confusing), and
 does not collide with `Config` (robot configuration) or WPILib's `Preferences`. "Settings" is an
-acceptable alternative if "Parameters" still feels too generic.
+acceptable alternative if "Parameters" still feels too generic; "Robot Settings" is the most
+user-friendly and is also collision-free, but is more verbose.
 
 ### 3.2 Rename scope (if Tunables is chosen)
 

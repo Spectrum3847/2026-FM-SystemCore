@@ -224,6 +224,14 @@ the main thread.
    stays recoverable from `.robot-inbox/`. That proposal also dropped the git ancestry checks, the
    dirty-deploy flags, `deploy-meta.json` and the deploy-time clock set, showing `savedAtGitSha`
    instead of a save time. Where this conflicts with the v2 proposal above, this wins.
+   Reopened: "the cut to 3 may be too simplistic if it doesn't have any time involved at all." The
+   three rules can't tell a deliberate git change after the save from a deploy of an older or
+   different branch; both make the deployed value win. For the reviewers to weigh:
+   * (a) three rules plus a git-history check: the deployed value wins if the commit the robot was
+     tuned on is an ancestor of the deployed code; otherwise the robot value stays, with a warning;
+   * (b) three rules plus time: the same split, decided by save time against commit time (needs the
+     clock set; clocks can be unset or skewed);
+   * (c) the three rules as they are, relying on `.robot-inbox/` and the deploy warning.
 2. Hard-stop confirmation: "page click is only live gate." (Answers choice 8.)
 3. API shape: pages talk to NT4 directly and use `SaveParams`; the Python service serves only what
    the browser cannot do itself (logs, network scan, robot program status while crashed).

@@ -152,7 +152,7 @@ Most pages port from the old app; soft limits and the on-robot Logs page are new
 | Power | Current vs limit, time at limit, sag, internal resistance, energy per mechanism, breaker heat | Nothing | Port; limits from the log's manifest |
 | CAN | Bus use, error counters, dropouts, device list, broken down by mechanism | Nothing | Port; add SystemCore's native buses (PR #2) |
 | Network | Scans the robot subnet on demand, identifies devices by open ports/services (Limelight, PhotonVision, laptop, radio); simpler themed view replacing radio config pages | Nothing | New |
-| Status / Crash | Robot program running/crashed, crash log tail, CPU, temps, process list; pages grey out when NT or the program is down | Nothing | New |
+| Status / Crash | Robot program running/crashed, crash log tail, CPU, temps, process list; WPILib version (published to NT on alpha-8+); pages grey out when NT or the program is down | Nothing | New |
 | Pilot / Operator | Button maps and live controller diagram | Nothing | Port; descriptions from the manifest, joystick data from NT |
 | Tuning | Params manifest, live edits, save, hard-stop confirmation by click | Params via NT / SaveParams | New |
 
@@ -166,7 +166,7 @@ The Turret page is dropped (FM has a hood, not a turret), but its "list every ke
 
 **Logs and power.**
 
-- Logs are read in the browser, in a background worker, so the robot does no parsing. The same pages can open a `.wpilog` from the laptop. The Python service streams log files itself (proxied, chunked) and can zip a day; it does not buffer whole logs in memory on the 4 GB controller.
+- Logs are read in the browser, in a background worker, so the robot does no parsing. The same pages can open a `.wpilog` from the laptop. The Python service streams log files itself (proxied, chunked) and can zip a day; it does not buffer whole logs in memory on the 4 GB controller. On alpha-8+ logs may be transferred to USB automatically and match logs are not deleted on cleanup, so the service must re-list the folder rather than cache paths.
 - `MotorInputs` now logs `followerSupplyCurrentAmps[]` and `followerConnected[]`. That removes two of the old README's warnings: leader-only current readings, and dead followers that didn't show up.
 - Each log carries its own manifest, so old logs still display correctly after the code changes.
 
@@ -231,7 +231,7 @@ The design removes the old causes: the app parses no Java and keeps no copies of
 
 **CI check (GitHub Actions, on PRs only).** This keeps the old app's rule that nothing may fail a build or block a deploy.
 
-1. Run the scripted sim: `FM_SIM_SCRIPT=drive ./gradlew simulateJava -PnoSimGui`.
+1. Run the scripted sim: `FM_SIM_SCRIPT=drive ./gradlew run -PnoSimGui` (command name changes to `run` on alpha-8+).
 2. Run `log-model.js` in Node against that log and its manifest. Fail if a page's required key is missing, with a message like `power: hood missing SupplyCurrent`.
 3. Run the existing tests: committed match logs, camera fixtures, the power math.
 4. Run `tsc --noEmit` for the JSDoc types.
@@ -243,7 +243,7 @@ The design removes the old causes: the app parses no Java and keeps no copies of
 
 - To add a tuned value, declare it in Java (`Params.group(...)`) and add it to `src/main/deploy/params/*.json`. Don't touch `app/` for it.
 - Never put Java file paths, NT key strings or CAN IDs in `app/`. Read them from the manifest.
-- The app changes the robot only through NT commands, handled on the main thread, logged as inputs. Tuning applies only while disabled with no FMS attached; tuning mode itself is toggled from the website at runtime, with no compile-time gate. Guided procedures may need utility mode, but the page never commands motion.
+- The app changes the robot only through NT commands, handled on the main thread, logged as inputs. Tuning applies only while disabled with no FMS attached; tuning mode itself is toggled from the website at runtime, with no compile-time gate. Guided procedures may need utility mode, but the page never commands motion. Every app action that changes robot behavior - including settings, captures and guided-procedure confirmations - is logged (as an input or an event) with who/what/when, so replay reproduces it exactly.
 - New libraries go in `app/vendor/` as single files. No npm, no build step.
 - A PR that renames a manifest field or log key a page needs updates that page's list in the same PR.
 
@@ -253,7 +253,7 @@ Steps 1–5 are realistic before the October event; 6 and 7 can wait. Build on `
 
 - [x] **1. Trial run.** Swerve Align is plain files in `src/main/deploy/app/`. Its NT prefix is still a constant in the page; the generated module replaces it. Phone access still needs the bench.
 - [ ] **2. Python service (launcher `.ipk`).** Separate process serving `src/main/deploy/app/` on a configurable port, with `Cache-Control: no-store, no-cache`, crash-status and file-browser endpoints, and the on-demand network scan. `WebServer` stays in sim only.
-- [ ] **3. Generated contract.** Gradle task emitting a committed module (params, manifest fields, bindings) into `app/`; CI freshness check; `lib/nt4.js` keeps per-topic last-update time.
+- [ ] **3. Generated contract.** Gradle task emitting a committed module (params, manifest fields, bindings) into `app/`; CI freshness check; `lib/nt4.js` keeps per-topic last-update time (from the robot's NT timestamps; on alpha-7+ raw timestamps are nanoseconds in memory but microseconds on the wire, and topic metadata UIDs are int64 on alpha-8+).
 - [ ] **4. Manifest.** Build it from `Mechanism`, `SwerveAlignment`, `VisionConfig` and `LogStorage`. Publish on NT and log it once at startup.
 - [ ] **5. Tuning JSON.** `swerve.json`, `soft-limits.json`, `cameras.json`; the loader with overrides and the bad-file alert; NT commands; runtime tuning toggle; hard-stop confirmation by click; effective tuning logged as an input. Turn on `pushLimelightMounts`.
 - [ ] **6. Params sync.** `fetchRobotParams`, `applyRobotParams`, boot reconciliation (three rules + ancestry), deploy check, inbox under `.robot-inbox/`.

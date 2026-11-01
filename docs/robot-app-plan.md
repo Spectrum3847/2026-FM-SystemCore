@@ -15,8 +15,8 @@ The FM robot will serve its own pit web app from the SystemCore, as plain HTML a
 
 | Decision | Choice |
 | --- | --- |
-| Where the app runs | On the robot, from this repo (`src/main/deploy/app/`) |
-| Build step | None: plain files, with libraries saved in the repo as single files |
+| Where the app runs | On the robot, served by a separate Python service (launcher `.ipk`); files ship from this repo (`src/main/deploy/app/`) with every deploy |
+| Build step | None for laptops (no npm). Gradle generates a committed module into `app/` from the Java (params, manifest fields, bindings); CI checks it is fresh |
 | What a laptop needs | WPILib only (plus Python for the existing `tools/`); no Node |
 | How the app changes robot behavior | NT commands, handled by the main loop as logged inputs |
 | Camera mounts | Repo JSON is the source of truth, pushed to the cameras, calibrated from field tags |
@@ -53,31 +53,33 @@ The robot holds the app, the facts and the live values; the laptop only does git
 flowchart LR
   Browser["Browser<br/>phone or laptop"]
   subgraph Robot["SystemCore"]
-    WS["WebServer :5800<br/>app files"]
+    PS["Python service<br/>app files, files, scan, status"]
     NT["NT4 server"]
     Code["Robot code<br/>main loop"]
-    Ovr["Override files<br/>tuning folder"]
+    Ovr["Params folder<br/>survives deploy"]
     Logs["Log folder"]
   end
   Laptop["Laptop<br/>gradle tasks"]
-  Repo["Git repo<br/>tuning JSON"]
-  Browser -->|loads pages| WS
+  Repo["Git repo<br/>params JSON"]
+  Browser -->|loads pages| PS
   Browser <-->|manifest, live data, commands| NT
+  Browser <-->|files, scan, status, crash log| PS
   NT <--> Code
   Code -->|saves| Ovr
   Code -->|writes| Logs
-  Laptop -->|pullTuning| Ovr
+  Laptop -->|fetchRobotParams| Ovr
   Laptop -->|commit| Repo
-  Repo -->|deploy| WS
+  Repo -->|deploy| PS
 ```
 
 Pages load from the robot, talk to the code over NT, and never touch files; the laptop moves tuned values into git.
 
 ### 1. The robot serves the app
 
-- `Robot.java` already calls `WebServer.start(5800, <deploy dir>)` (only when `Constants.hasHardware()`). The app goes in `src/main/deploy/app/` and ships with every deploy.
+- The app is served by a separate Python service (a launcher-only `.ipk`), not by `WebServer` inside the robot program. That is what lets it keep working when the robot program has crashed or is in a crash loop, and it avoids the SystemCore port-5800 collision. The files live in `src/main/deploy/app/` and ship with every deploy.
+- The service port is a setting, picked from a free port in the 5800s; nothing in the app hard-codes it.
 - Same origin as the robot, so no address probing, no `config.local.json`, no log-folder settings.
-- Any laptop with plain WPILib can deploy it. Nothing to install, nothing to build.
+- `WebServer` is still started in sim (guarded) for dev and Playwright tests; on a laptop, serve the folder with `jwebserver` from the WPILib JDK. Production on a real robot is always hosted on the robot.
 
 ### 2. The robot publishes a manifest
 
@@ -91,6 +93,10 @@ Built at startup from objects the code already has, replacing `robot-profile.jso
 It goes on NT for live pages, and into the log once at startup for log pages. It has to be a logged output rather than metadata: AdvantageKit only takes metadata before `Logger.start()`, and the mechanisms don't exist yet. GitSHA, GitDirty and RobotIdentity are already metadata.
 
 For `controls.json`: put a one-line description next to each binding in Java. The wording stays hand-written, as the old README wanted, but sits where anyone editing the binding sees it.
+
+### Generated contract (new)
+
+Gradle generates a committed module into `src/main/deploy/app/` from the Java: the params schema, the manifest fields, and the button bindings. Pages import it instead of hard-coding keys, prefixes or module lists. CI runs the generator with `--check` and fails a PR that leaves it stale, the same way `make_log_key_guide.py` guards `log-keys.json`. The generic generation machinery lives in `spectrumLib` (it moves with that library next year); the robot-specific field set stays in this repo. Pages that need a key the module doesn't list must add it to the Java side in the same PR.
 
 ### 3. Tuned values live in JSON
 
@@ -121,35 +127,17 @@ Gradle tasks, matching the existing `ntDump`, `-ProbotLog` and `-ProbotTop`:
 
 ## Tuning flow
 
-A value tuned in the pit is live on the robot at once, and only becomes permanent when `pullTuning` puts it in git.
+Params sync v2, cut to the three rules plus the ancestry check (decision 1). A value tuned in the pit is live on the robot at once, and only becomes permanent when `applyRobotParams` puts it in git.
 
-```mermaid
-sequenceDiagram
-  participant App as Browser app
-  participant Code as Robot code
-  participant Disk as Robot tuning folder
-  participant Laptop as Laptop (gradle)
-  participant Repo as Git repo
-  App->>Code: NT command (disabled only)
-  Code->>Code: apply, log as input
-  Code->>Disk: save override (old + new value)
-  Laptop->>Disk: pullTuning
-  Laptop->>Repo: merge into tuning JSON, commit
-  Laptop->>Code: deploy (stops if anything unpulled)
-  Code->>Disk: on boot, drop overrides now in the repo
-```
+1. **Tuning mode.** A website request turns tuning on and off at runtime (no compile-time `TUNING_MODE` gate); it is off when FMS is attached and ignored while enabled. Changes apply on the main thread only while disabled with no field, and are logged as inputs. Hard-stop changes are confirmed by a click on the page, with no controller required.
+2. **Tune.** A page sends an NT command while the robot is disabled. The main loop applies it where it can (TalonFX soft limits at once; swerve offsets on the next restart). It saves an override recording `value`, `baseDeployedValue`, `savedAtEpoch` and `_meta` (`savedAtGitSha`, `hardwareStamp` for `swerve` and `soft-limits`).
+3. **Replay.** The effective tuning is logged as an input when it loads. Replay on the PC uses the logged values; the PC has no override files.
+4. **Fetch.** `fetchRobotParams` reads `/home/systemcore/params/` over SSH into `.robot-inbox/<robot>/` (git-ignored, so `eventDeploy` never stages it). It never writes to the robot and never blocks a deploy if the robot is unreachable.
+5. **Promote.** `applyRobotParams` (or an AI session following AGENTS.md) reads the inbox, including superseded entries. Clean overrides (base equals the working-tree value, not saved on a dirty deploy) are written into the tracked params files for `git diff` review. Dirty-deploy saves, conflicts and hard-stop groups need a person's confirmation; hard-stop changes also get the AGENTS.md PR block (old value, new value, failure mode).
+6. **Boot reconciliation (three rules, first match wins).** Hardware-stamp mismatch refuses the file and alerts; `baseDeployedValue == deployedValue` keeps the override; otherwise the deployed value wins and the robot's old value stays recoverable from `.robot-inbox/`. Plus an ancestry check: the deployed value wins if the commit the robot was tuned on is an ancestor of the deployed code; otherwise the robot value stays, with a warning. Resolved values and their sources are logged as AdvantageKit inputs.
+7. **Deploy check.** If the robot has overrides not in the repo, deploy stops and lists them (e.g. `hood.softLimitMax 0.137 -> 0.141, tuned 9/24`); `-PdiscardTuning` throws them away on purpose.
 
-1. **Boot.** The code loads the repo's `params/*.json` from the deploy folder, then applies overrides from `/home/systemcore/params/`.
-    - Overrides can't live in the deploy folder: `build.gradle` sets `deleteOldFiles = true` there, so every deploy wipes it.
-    - A bad override file raises an alert and falls back to the repo values, so a bad tune can't stop the code from starting.
-2. **Tune.** A page sends an NT command while the robot is disabled. The main loop applies it where it can (TalonFX soft limits apply at once; swerve offsets apply on the next code restart). It saves an override that records the new value, the value it replaced, and when.
-3. **Replay.** The effective tuning is logged as an input when it loads. Replay on the PC uses the logged values, since the PC has no override files.
-4. **Pull.** `./gradlew pullTuning` copies the overrides over SSH and merges them into `src/main/deploy/params/*.json`. Review the `git diff` and commit.
-    - If the repo value changed since the override was made (its "replaced" value no longer matches), the pull stops and shows both.
-5. **Deploy.** A check runs first. If the robot has overrides that aren't in the repo, deploy stops and lists them, for example `hood.softLimitMax 0.137 → 0.141, tuned 9/24`. A flag (e.g. `-PdiscardTuning`) throws them away on purpose.
-6. **Clean up.** On the next boot the code deletes overrides that now equal the deployed values.
-
-The existing `eventDeploy` auto-commit on `event*` branches picks up the pulled JSON with no extra step.
+The existing `eventDeploy` auto-commit on `event*` branches picks up the pulled JSON with no extra step. Clocks are never used to decide which value wins; time is display-only (`savedAtEpoch`, "saved 12 min ago"), and a save with no valid clock records `null`, never 1970.
 
 ## Pages
 
@@ -160,10 +148,13 @@ Most pages port from the old app; soft limits and the on-robot Logs page are new
 | Swerve Align | Live CANcoder angles (already published by `SwerveAlignment` at 20 Hz while disabled). Set wheels straight, press Capture. | `swerve.json`, applied on next restart | Port; keys from the manifest |
 | Soft Limits | Robot disabled, motors in coast, move by hand, watch position, press "Set min" / "Set max". Shows observed range from recent logs beside the limits. | `soft-limits.json`, applied to the TalonFX at once | New |
 | Cameras | Live view, pitch / roll / height from accelerometer and tag solve, image settings and the auto-tune sweep | `cameras.json`, pushed to cameras | Port |
-| Logs | Lists `LogStorage.folder()` with date, size and match; download, zip a day, open in Power or CAN | Nothing | New |
+| Logs | Lists `LogStorage.folder()` with date, size and match; download, zip a day, open in Power or CAN; file browser over SystemCore | Nothing (download/upload via the service) | New |
 | Power | Current vs limit, time at limit, sag, internal resistance, energy per mechanism, breaker heat | Nothing | Port; limits from the log's manifest |
-| CAN | Bus use, error counters, dropouts, device list | Nothing | Port; add SystemCore's native buses (PR #2) |
+| CAN | Bus use, error counters, dropouts, device list, broken down by mechanism | Nothing | Port; add SystemCore's native buses (PR #2) |
+| Network | Scans the robot subnet on demand, identifies devices by open ports/services (Limelight, PhotonVision, laptop, radio); simpler themed view replacing radio config pages | Nothing | New |
+| Status / Crash | Robot program running/crashed, crash log tail, CPU, temps, process list; pages grey out when NT or the program is down | Nothing | New |
 | Pilot / Operator | Button maps and live controller diagram | Nothing | Port; descriptions from the manifest, joystick data from NT |
+| Tuning | Params manifest, live edits, save, hard-stop confirmation by click | Params via NT / SaveParams | New |
 
 The Turret page is dropped (FM has a hood, not a turret), but its "list every key without a view" pattern is reused on every log page.
 
@@ -175,7 +166,7 @@ The Turret page is dropped (FM has a hood, not a turret), but its "list every ke
 
 **Logs and power.**
 
-- Logs are read in the browser, in a background worker, so the robot does no parsing. The same pages can open a `.wpilog` from the laptop.
+- Logs are read in the browser, in a background worker, so the robot does no parsing. The same pages can open a `.wpilog` from the laptop. The Python service streams log files itself (proxied, chunked) and can zip a day; it does not buffer whole logs in memory on the 4 GB controller.
 - `MotorInputs` now logs `followerSupplyCurrentAmps[]` and `followerConnected[]`. That removes two of the old README's warnings: leader-only current readings, and dead followers that didn't show up.
 - Each log carries its own manifest, so old logs still display correctly after the code changes.
 
@@ -208,7 +199,7 @@ If one of these is ever needed, serve the same files from localhost on the lapto
 
 ### What still needs robot code or the laptop
 
-- **Listing files on the robot:** robot code publishes the list over NT, unless WPILib's `WebServer` shows directory listings (check).
+- **Listing files on the robot:** the Python service browses SystemCore's filesystem directly (download and upload), so WinSCP is not needed. NT is not involved.
 - **Changing anything on the robot:** an NT command the main loop handles and logs.
 - **SSH and git:** gradle tasks on the laptop.
 
@@ -228,9 +219,7 @@ The existing `WebServer` serves this at `http://robot.local:5800/app/`. Keep `li
 
 After a deploy, a browser may keep running JavaScript it cached earlier.
 
-- Gradle writes `version.js` with the git SHA, from the same info it puts in `BuildConstants`. That's a stamp, not a compile.
-- Each page compares its stamp with the `GitSHA` the robot reports. If they differ, it shows "old app cached, press Ctrl+Shift+R".
-- Also check whether WPILib's `WebServer` sends `Cache-Control: no-cache`; if it doesn't, the stamp is what catches it.
+- No `version.js` stamp is needed: both `WebServer` (sim) and the Python service (production) send `Cache-Control: no-store, no-cache`, so a deploy is never masked by a stale browser cache. If that ever stops being true, the stamp comes back.
 
 ## Keeping it in sync with AI and human edits
 
@@ -246,7 +235,7 @@ The design removes the old causes: the app parses no Java and keeps no copies of
 2. Run `log-model.js` in Node against that log and its manifest. Fail if a page's required key is missing, with a message like `power: hood missing SupplyCurrent`.
 3. Run the existing tests: committed match logs, camera fixtures, the power math.
 4. Run `tsc --noEmit` for the JSDoc types.
-5. Later: load each page in Playwright against the sim. `WebServer` only starts when `Constants.hasHardware()`, so either start it in sim too or serve the folder with `jwebserver`.
+5. Later: load each page in Playwright against the sim, served by `WebServer` in sim or by `jwebserver` for laptop dev.
 
 **Runtime banner.** A page missing something it needs shows a warning and keeps working, like the old app's `/api/drift` banner.
 
@@ -254,7 +243,7 @@ The design removes the old causes: the app parses no Java and keeps no copies of
 
 - To add a tuned value, declare it in Java (`Params.group(...)`) and add it to `src/main/deploy/params/*.json`. Don't touch `app/` for it.
 - Never put Java file paths, NT key strings or CAN IDs in `app/`. Read them from the manifest.
-- The app changes the robot only through NT commands, handled on the main thread, logged as inputs, and only while disabled.
+- The app changes the robot only through NT commands, handled on the main thread, logged as inputs. Tuning applies only while disabled with no FMS attached; tuning mode itself is toggled from the website at runtime, with no compile-time gate. Guided procedures may need utility mode, but the page never commands motion.
 - New libraries go in `app/vendor/` as single files. No npm, no build step.
 - A PR that renames a manifest field or log key a page needs updates that page's list in the same PR.
 
@@ -262,35 +251,38 @@ The design removes the old causes: the app parses no Java and keeps no copies of
 
 Steps 1–5 are realistic before the October event; 6 and 7 can wait. Build on `port/fm-2027`; the Logs page needs `LogStorage` from PR #6. One feature per PR, per AGENTS.md.
 
-- [x] **1. Trial run.** Swerve Align is plain files in `src/main/deploy/app/`, served by the existing `WebServer`. Its NT prefix is still a constant in the page; the manifest replaces it in step 2. Port 5800 and phone access still need the bench.
-- [ ] **2. Manifest.** Build it from `Mechanism`, `SwerveAlignment`, `VisionConfig` and `LogStorage`. Publish on NT and log it once at startup.
-- [ ] **3. Tuning JSON.** `swerve.json`, `soft-limits.json`, `cameras.json`; the loader with overrides and the bad-file alert; NT commands; the effective tuning logged as an input. Turn on `pushLimelightMounts`. Each command the app sends, and whether the robot accepted it, is logged as an input too, so replay applies the same changes at the same loop and the log shows who changed what.
-- [ ] **4. Laptop tasks.** `pullTuning` and the deploy check.
-- [ ] **5. Pit pages.** Soft Limits, Cameras (port), and Logs with downloads. Cameras is ported; Logs opens a file from the laptop but cannot list the robot's log folder yet.
-- [x] **6. Log pages.** Port Power and CAN, with SystemCore's native buses.
-- [ ] **7. Upkeep.** The CI check, the AGENTS.md rules, log sync to 2026-Robot-Logs, and the Pilot / Operator page.
+- [x] **1. Trial run.** Swerve Align is plain files in `src/main/deploy/app/`. Its NT prefix is still a constant in the page; the generated module replaces it. Phone access still needs the bench.
+- [ ] **2. Python service (launcher `.ipk`).** Separate process serving `src/main/deploy/app/` on a configurable port, with `Cache-Control: no-store, no-cache`, crash-status and file-browser endpoints, and the on-demand network scan. `WebServer` stays in sim only.
+- [ ] **3. Generated contract.** Gradle task emitting a committed module (params, manifest fields, bindings) into `app/`; CI freshness check; `lib/nt4.js` keeps per-topic last-update time.
+- [ ] **4. Manifest.** Build it from `Mechanism`, `SwerveAlignment`, `VisionConfig` and `LogStorage`. Publish on NT and log it once at startup.
+- [ ] **5. Tuning JSON.** `swerve.json`, `soft-limits.json`, `cameras.json`; the loader with overrides and the bad-file alert; NT commands; runtime tuning toggle; hard-stop confirmation by click; effective tuning logged as an input. Turn on `pushLimelightMounts`.
+- [ ] **6. Params sync.** `fetchRobotParams`, `applyRobotParams`, boot reconciliation (three rules + ancestry), deploy check, inbox under `.robot-inbox/`.
+- [ ] **7. Pit pages.** Soft Limits, Cameras (port), Logs with downloads and file browser, Network, Status/Crash.
+- [x] **8. Log pages.** Port Power and CAN, with SystemCore's native buses and per-mechanism breakdown.
+- [ ] **9. Upkeep.** The CI check (scripted sim + generated-module freshness + `tsc --noEmit`), AGENTS.md rules, log sync to 2026-Robot-Logs, Pilot / Operator page, and Playwright against `jwebserver` + sim.
 
 ## What the first cut covers
 
-The pages in the table above, minus Soft Limits and Pilot / Operator, with these limits:
+The pages in the table above, minus Soft Limits, Network, Status/Crash, Tuning and Pilot / Operator, with these limits:
 
-- **Read-only to the robot.** No manifest, no tuning JSON, no NT commands, no `pullTuning`. Swerve Align and Cameras print the Java line to paste; Cameras can also save a mount or image setting to the camera's own flash.
+- **Read-only to the robot.** No manifest, no tuning JSON, no NT commands, no params sync. Swerve Align and Cameras print the Java line to paste; Cameras can also save a mount or image setting to the camera's own flash.
 - **No robot facts in the app.** Mechanisms, CAN buses and cameras are found from the log or from NT announcements. Current limits are not logged, so Power shows no limit lines until the manifest carries them.
 - **Logs come from the laptop.** The Logs, Power and CAN pages open a `.wpilog` with a file picker.
-- **Tests** in `tools/app-test/` run with `node --test` in the CI `app` job. They include a check that every relative import and link resolves.
+- **Tests** in `tools/app-test/` run with `node --test` in the CI `app` job. They include a check that every relative import and link resolves. The old app's code is not carried over; this app is built fresh.
 
-Steps 2 to 4 and 7 remain.
+Steps 2 to 7 and 9 remain.
 
 ## Check on the bench first
 
 None of these should change the plan, but each one could change a detail, so check them during step 1.
 
-- [x] **Port 5800.** Checked on FM, 2026-10-29: SystemCore's own `visionserver` listens on 5800 (and 5802, 5805-5807), so our `WebServer.start(5800, ...)` can't bind there; the robot program's only listener is NT on 5810. Ports in use from 5800 to 5837: 5800-5803, 5805-5807, 5810, 5812, 5815-5817, 5819, 5820, 5822, 5825-5827, 5832, 5835-5837.
-- [x] **`WebServer` behavior.** From the allwpilib source (`wpinet` `WebServer.cpp` and `HttpServerConnection.cpp`): every response sends `Cache-Control: no-store, no-cache`, so the `version.js` stamp is not needed. A directory serves its `index.html`, else an HTML listing, and `?format=json` returns the listing as JSON. The log folder is outside the deploy folder, so the Logs page still needs robot code to list it.
+- [x] **Port 5800 / hosting.** Resolved: the app is served by a separate Python service on a free port in the 5800s (a setting), not by `WebServer` on 5800, which collides with SystemCore's `visionserver` (5800, 5802, 5805-5807) and Limelight streams. Verified on FM 2026-10-29: ports in use 5800-5803, 5805-5807, 5810, 5812, 5815-5817, 5819, 5820, 5822, 5825-5827, 5832, 5835-5837.
+- [x] **Cache headers.** The Python service must send `Cache-Control: no-store, no-cache` on every response, matching `WebServer`'s behavior, so a deploy is never masked by a stale browser cache. `WebServer` in sim already does this, so the `version.js` stamp is not needed.
+- [x] **`WebServer` behavior (sim/dev only).** From the allwpilib source (`wpinet` `WebServer.cpp` and `HttpServerConnection.cpp`): every response sends `Cache-Control: no-store, no-cache`. A directory serves its `index.html`, else an HTML listing, and `?format=json` returns the listing as JSON. The log folder is outside the deploy folder, so the Logs page still needs robot code or the service to list it.
 - [x] **SystemCore cameras.** Yes for the API: on FM, `http://<robot>:5807/results` returns the standard Limelight results JSON (2026-10-29). Their stream is `visionserver` on 5800, which is why our `WebServer` can't use that port. Which of the two cameras answers on 5807 is not checked.
 - [ ] **Joystick data.** Which topics on SystemCore's system NT server carry Driver Station joystick data, for the controller page.
-- [ ] **CPU headroom.** The README measured the bench unit at 80–90% busy, with SystemCore's own vision servers using about 55%. Watch loop time with a page open and a log download running (`-ProbotTop`).
-- [ ] **Log folder.** Without a USB stick, logs land in `/home/systemcore/logs` (FM, 2026-10-29), outside the deploy folder, so the `WebServer` can't list them. With a USB stick: not checked.
+- [ ] **CPU headroom.** The bench unit runs 80-90% busy, with SystemCore's own vision servers using about 55%. Watch loop time with a page open and a log download running (`-ProbotTop`).
+- [ ] **Log folder.** Without a USB stick, logs land in `/home/systemcore/logs` (FM, 2026-10-29), outside the deploy folder. With a USB stick: not checked.
 
 ## Sources
 

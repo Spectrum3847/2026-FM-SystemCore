@@ -6,6 +6,7 @@ import frc.robot.Robot;
 import frc.robot.RuntimeInputs;
 import frc.robot.auton.Auton;
 import frc.robot.subsystems.swerve.Swerve;
+import frc.robot.subsystems.swerve.TiltState;
 import frc.spectrumLib.checks.CameraHeadingCheck;
 import frc.spectrumLib.localization.GateContext;
 import frc.spectrumLib.localization.PoseFusion;
@@ -848,8 +849,6 @@ public class Vision implements Subsystem {
     private void feedTagEkf() {
         TagEkf ekf = fusion.getTagEkf();
         Set<Integer> excluded = jetson.getExcludedTags();
-        // The 2-D model assumes a level robot.
-        boolean tilted = swerve.isTilted();
         long start = System.nanoTime();
         for (int i = 0; i < orinIos.size(); i++) {
             OrinPoseSourceIO io = orinIos.get(i);
@@ -874,7 +873,7 @@ public class Vision implements Subsystem {
                                     t.bestCameraToTarget.getTranslation(),
                                     io.getSolver().cameraFactor()));
                 }
-                addTagFrame(ekf, frame, tilted);
+                addTagFrame(ekf, frame);
             }
         }
         int stride = PoseSourceInputs.FIDUCIAL_STRIDE;
@@ -908,20 +907,53 @@ public class Vision implements Subsystem {
                                         in.fiducials[f + 3]),
                                 1.0));
             }
-            addTagFrame(ekf, frame, tilted);
+            addTagFrame(ekf, frame);
         }
         // Time to feed this loop's observations to the comparison EKF.
         Logger.recordOutput("Localization/EKF/FeedMicros", (System.nanoTime() - start) / 1000);
     }
 
-    private static void addTagFrame(TagEkf ekf, List<TagSighting> frame, boolean tilted) {
-        if (tilted) {
+    /**
+     * Tags are dropped only while the robot is steeply tilted (the 2-D model assumes a level
+     * robot). TXMAN1 r19 sat at a steady 6-8 deg for 13 s at a time; dropping every tag above 5 deg
+     * there left the EKF on spinning wheels and it lost lock (71% of r19 more than 1 m off in
+     * replay, 0% with this). 15-20 deg score the same in TagEkfTuner; a tilt-rate gate never
+     * helped.
+     */
+    static final double EKF_SKIP_TILT_DEG = 20.0;
+
+    private void addTagFrame(TagEkf ekf, List<TagSighting> frame) {
+        addTagFrame(ekf, frame, swerve.getTilt().tiltDeg(), EKF_SKIP_TILT_DEG);
+    }
+
+    /**
+     * Feeds one frame to the EKF under the tilt policy: skipped above {@code skipDeg}; above {@link
+     * TiltState#TILTED_DEG}, fed with each tag's noise scaled by tilt over that.
+     */
+    static void addTagFrame(TagEkf ekf, List<TagSighting> frame, double tiltDeg, double skipDeg) {
+        if (tiltDeg > skipDeg) {
             for (TagSighting t : frame) {
                 ekf.skip(t.camera(), "Tilted");
             }
-        } else {
-            ekf.addFrame(frame);
+            return;
         }
+        if (tiltDeg > TiltState.TILTED_DEG) {
+            double k = tiltDeg / TiltState.TILTED_DEG;
+            List<TagSighting> scaled = new ArrayList<>(frame.size());
+            for (TagSighting t : frame) {
+                scaled.add(
+                        new TagSighting(
+                                t.camera(),
+                                t.timestampSeconds(),
+                                t.tagId(),
+                                t.tagField(),
+                                t.robotToCamera(),
+                                t.cameraToTag(),
+                                t.noiseScale() * k));
+            }
+            frame = scaled;
+        }
+        ekf.addFrame(frame);
     }
 
     // =========================================================================

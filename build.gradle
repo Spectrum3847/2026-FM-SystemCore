@@ -316,3 +316,23 @@ if (project.hasProperty('robotLog')) {
         }
     }
 }
+
+// Sweeps TagEkf's noise model over exported logs: ./gradlew tagEkfTune -Plogs=robotlogs/TXMAN1-8515
+// (export first: python tools/export_tagekf_events.py robotlogs/TXMAN1-8515/*.wpilog)
+tasks.register('tagEkfTune', JavaExec) {
+    group = 'Spectrum'
+    description = 'Replay exported logs through TagEkf and tune its noise model (-Plogs=DIR)'
+    dependsOn 'testClasses', 'extractReleaseNative'
+    mainClass = 'frc.robot.subsystems.vision.TagEkfTuner'
+    classpath = sourceSets.test.runtimeClasspath
+    def nativeDir = file("$buildDir/jni/release")
+    jvmArgs = [
+        "-Djava.library.path=${nativeDir}",
+        "-Dtuner.trace=${project.findProperty('trace') ?: ''}",
+        "-Dtuner.sweep=${project.findProperty('sweep') ?: 'true'}"
+    ]
+    environment 'PATH', "${nativeDir}${File.pathSeparator}${System.getenv('PATH')}"
+    args = [
+        project.findProperty('logs') ?: 'robotlogs/TXMAN1-8515'
+    ]
+}

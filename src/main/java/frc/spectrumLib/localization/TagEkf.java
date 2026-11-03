@@ -75,6 +75,39 @@ public class TagEkf {
 
     private static final double UNSEEDED_VAR = 1e4;
 
+    /**
+     * The noise model, so replay (TagEkfTuner) can sweep it. {@link #DEFAULT} is the constants
+     * above.
+     *
+     * @param slipYawWeight weight of the wheel-vs-gyro rotation gap in the slip term (1 = as built)
+     */
+    public record Noise(
+            double odomVarPerMeter,
+            double slipVarPerMeter,
+            double slipYawWeight,
+            double headingVarPerSecond,
+            double headingVarPerRadian,
+            double bearingStdRad,
+            double rangeStdBaseM,
+            double rangeStdPerM2,
+            double timingStdSeconds,
+            double gateChi2) {
+        public static final Noise DEFAULT =
+                new Noise(
+                        ODOM_VAR_PER_METER,
+                        SLIP_VAR_PER_METER,
+                        1.0,
+                        HEADING_VAR_PER_SECOND,
+                        HEADING_VAR_PER_RADIAN,
+                        BEARING_STD_RAD,
+                        RANGE_STD_BASE_M,
+                        RANGE_STD_PER_M2,
+                        TIMING_STD_SECONDS,
+                        GATE_CHI2);
+    }
+
+    private final Noise noise;
+
     /** Per-camera tag counts, and this loop's residuals of the tags that passed. */
     public static final class CameraStats {
         public long accepted;
@@ -208,6 +241,15 @@ public class TagEkf {
      * @param moduleLocations module positions from the robot centre, robot frame
      */
     public TagEkf(Translation2d[] moduleLocations) {
+        this(moduleLocations, Noise.DEFAULT);
+    }
+
+    /**
+     * @param moduleLocations module positions from the robot centre, robot frame
+     * @param noise the noise model
+     */
+    public TagEkf(Translation2d[] moduleLocations, Noise noise) {
+        this.noise = noise;
         modules = moduleLocations.length;
         moduleX = new double[modules];
         moduleY = new double[modules];
@@ -287,7 +329,9 @@ public class TagEkf {
         }
         double dGyro = MathUtil.angleModulus(g - lastGyro);
         lastGyro = g;
-        double slip = Math.sqrt(residual / modules) + Math.abs(w - dGyro) * meanModuleRadius;
+        double slip =
+                Math.sqrt(residual / modules)
+                        + noise.slipYawWeight() * Math.abs(w - dGyro) * meanModuleRadius;
 
         // Pose exponential with the gyro's heading change, as WPILib's odometry does.
         double sinTerm;
@@ -304,9 +348,10 @@ public class TagEkf {
 
         double dt = Math.max(0, timestampSeconds - newestTime());
         double varXy =
-                (ODOM_VAR_PER_METER * Math.hypot(lx, ly) + SLIP_VAR_PER_METER * slip)
+                (noise.odomVarPerMeter() * Math.hypot(lx, ly) + noise.slipVarPerMeter() * slip)
                         * odometryNoiseScale;
-        double varTheta = HEADING_VAR_PER_SECOND * dt + HEADING_VAR_PER_RADIAN * Math.abs(dGyro);
+        double varTheta =
+                noise.headingVarPerSecond() * dt + noise.headingVarPerRadian() * Math.abs(dGyro);
         predict(s, p, lx, ly, dGyro, varXy, varTheta);
         while (size > 0 && sampleTime[oldest] < timestampSeconds - HISTORY_SECONDS) {
             dropOldest();
@@ -537,8 +582,35 @@ public class TagEkf {
         }
     }
 
-    /** One tag's bearing-and-distance update; false if it failed the gate. */
+    /**
+     * A tag's innovation against the current estimate, without applying it: for scoring held-out
+     * tags in replay. Call with the filter advanced to the tag's capture time.
+     *
+     * @param t the tag
+     * @return {bearing residual rad, range residual m, Mahalanobis² with the robot at rest}, or
+     *     null
+     */
+    public double[] innovation(TagSighting t) {
+        Measured m = measure(t);
+        if (m == null || !seeded) {
+            return null;
+        }
+        double[] state = s.clone();
+        double[] cov = p.clone();
+        double[] out = new double[3];
+        boolean ok = correctTag(m, 0, 0, false, out);
+        System.arraycopy(state, 0, s, 0, 3);
+        System.arraycopy(cov, 0, p, 0, 9);
+        return ok || out[2] > 0 ? out : null;
+    }
+
     private boolean correctTag(Measured m, double speed, double omega, boolean record) {
+        return correctTag(m, speed, omega, record, null);
+    }
+
+    /** One tag's bearing-and-distance update; false if it failed the gate. */
+    private boolean correctTag(
+            Measured m, double speed, double omega, boolean record, double[] innovationOut) {
         double c = Math.cos(s[2]);
         double sn = Math.sin(s[2]);
         double wx = m.tagX() - s[0];
@@ -566,13 +638,13 @@ public class TagEkf {
 
         double stdB =
                 Math.hypot(
-                        BEARING_STD_RAD * m.noiseScale(),
-                        (omega + speed / m.range()) * TIMING_STD_SECONDS);
+                        noise.bearingStdRad() * m.noiseScale(),
+                        (omega + speed / m.range()) * noise.timingStdSeconds());
         double stdR =
                 Math.hypot(
-                        (RANGE_STD_BASE_M + RANGE_STD_PER_M2 * m.range() * m.range())
+                        (noise.rangeStdBaseM() + noise.rangeStdPerM2() * m.range() * m.range())
                                 * m.noiseScale(),
-                        speed * TIMING_STD_SECONDS);
+                        speed * noise.timingStdSeconds());
         double rb = stdB * stdB;
         double rr = stdR * stdR;
 
@@ -589,7 +661,13 @@ public class TagEkf {
         double i01 = -s01 / det;
         double i11 = s00 / det;
         double d2 = nb * (i00 * nb + i01 * nr) + nr * (i01 * nb + i11 * nr);
-        if (d2 > GATE_CHI2) {
+        if (innovationOut != null) {
+            innovationOut[0] = nb;
+            innovationOut[1] = nr;
+            innovationOut[2] = d2;
+            return d2 <= noise.gateChi2();
+        }
+        if (d2 > noise.gateChi2()) {
             if (record) {
                 reject(m.camera(), "Innovation");
             }

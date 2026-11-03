@@ -336,7 +336,10 @@ tasks.register('tagEkfTune', JavaExec) {
         "-Dtuner.knock=${project.findProperty('knock') ?: '0'}",
         "-Dtuner.quick=${project.findProperty('quick') ?: 'false'}",
         "-Dtuner.mounttau=${project.findProperty('mounttau') ?: '0'}",
-        "-Dtuner.adaptive=${project.findProperty('adaptive') ?: '0'}"
+        "-Dtuner.adaptive=${project.findProperty('adaptive') ?: '0'}",
+        "-Dtuner.midangle=${project.findProperty('midangle') ?: 'false'}",
+        "-Dtuner.steerrate=${project.findProperty('steerrate') ?: '0'}",
+        "-Dtuner.steernoise=${project.findProperty('steernoise') ?: '10'}"
     ]
     environment 'PATH', "${nativeDir}${File.pathSeparator}${System.getenv('PATH')}"
     args = [

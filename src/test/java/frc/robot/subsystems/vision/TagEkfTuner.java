@@ -152,6 +152,15 @@ public final class TagEkfTuner {
         return new Frame(f.t(), f.orin(), tags, corners);
     }
 
+    /** Odometry: each module's angle as the middle of its swing over the sample. */
+    static final boolean MID_ANGLE = Boolean.getBoolean("tuner.midangle");
+
+    /** Odometry noise x STEER_NOISE while any module steers faster than this, rad/s; 0 = off. */
+    static final double STEER_RATE = Double.parseDouble(System.getProperty("tuner.steerrate", "0"));
+
+    static final double STEER_NOISE =
+            Double.parseDouble(System.getProperty("tuner.steernoise", "10"));
+
     /** Self-checking uncertainty (TagEkf.setAdaptive); 0 = off. */
     double adaptiveNis = Double.parseDouble(System.getProperty("tuner.adaptive", "0"));
 
@@ -240,6 +249,7 @@ public final class TagEkfTuner {
         long fedAccepted;
         long fedRejected;
         long slipLoops;
+        long steerSamples;
         long knockedFrames;
         double knockDetectedAfter = Double.NaN;
         final Map<String, String> mounts = new java.util.TreeMap<>();
@@ -564,6 +574,9 @@ public final class TagEkfTuner {
         TagEkf ekf = new TagEkf(modules, noise);
         ekf.setAdaptive(adaptiveNis, adaptiveGain);
         java.util.ArrayDeque<TagSighting> pending = new java.util.ArrayDeque<>();
+        Rotation2d[] prevAngle = new Rotation2d[4];
+        double prevAngleT = Double.NaN;
+        double[] loopNoiseScale = {1.0};
         MountEstimator mountEst =
                 mountTau > 0
                         ? new MountEstimator(mountTau, MOUNT_MAX_RMS_PX, MOUNT_KNOCK_DEG, 20)
@@ -612,6 +625,7 @@ public final class TagEkfTuner {
                             sc.slipLoops++;
                         }
                     }
+                    loopNoiseScale[0] = scale;
                     ekf.setOdometryNoiseScale(scale);
                     field.update(ekf, v.t(), tilt.tiltDeg());
                 }
@@ -657,11 +671,33 @@ public final class TagEkfTuner {
                     }
                     lastOdomT = o.t();
                     double s = tilt.odometryScale() * wheelScale;
+                    double steerRate = 0;
                     for (int m = 0; m < 4; m++) {
                         double raw = p[m].distance;
                         scaled[m] = haveDistances ? scaled[m] + (raw - lastRaw[m]) * s : raw;
                         lastRaw[m] = raw;
-                        positions[m] = new SwerveModulePosition(scaled[m], p[m].angle);
+                        Rotation2d angle = p[m].angle;
+                        if (prevAngle[m] != null && o.t() > prevAngleT) {
+                            steerRate =
+                                    Math.max(
+                                            steerRate,
+                                            Math.abs(angle.minus(prevAngle[m]).getRadians())
+                                                    / (o.t() - prevAngleT));
+                            if (MID_ANGLE) {
+                                // The wheel rolled across the whole swing: use the middle.
+                                angle = prevAngle[m].interpolate(p[m].angle, 0.5);
+                            }
+                        }
+                        prevAngle[m] = p[m].angle;
+                        positions[m] = new SwerveModulePosition(scaled[m], angle);
+                    }
+                    prevAngleT = o.t();
+                    if (STEER_RATE > 0) {
+                        boolean steering = steerRate > STEER_RATE;
+                        if (steering) {
+                            sc.steerSamples++;
+                        }
+                        ekf.setOdometryNoiseScale(loopNoiseScale[0] * (steering ? STEER_NOISE : 1));
                     }
                     haveDistances = true;
                     ekf.addOdometry(o.t(), out.get().heading(), positions.clone());

@@ -88,7 +88,7 @@ Numbered as first proposed; team decisions in the last column.
 | F8 | Cross-check cameras that see the same tag | Write it efficiently: compare per-camera residual means, not pairs of tags |
 | F9 | Camera coverage | Goal: 360° or close, at least 4 tag cameras, possibly more |
 | F10 | Per-module slip and scale | Yes: weight distribution differs per wheel |
-| F11 | Commanded motion, voltage and current in the prediction | Yes. Also steer: commanded vs measured module angle |
+| F11 | Commanded motion, voltage and current in the prediction | Yes. Steer: mid-sample angle and steer-rate noise tested, no gain (results below); control-side options listed there |
 | F12 | Fuse both gyros (Pigeon + SystemCore IMU), each calibrated | Yes: redundant gyros |
 | F13 | Gyro bias from temperature, estimated while still | Yes: cheap |
 | F14 | Fixed-lag smoother (look-back correction) | **Built** (`TagEkf.smoothedAt`), scored below; log both poses |
@@ -132,6 +132,37 @@ Decision:
 
 The blackout window is fixed (`t mod 20 < 5`), so these numbers carry some luck in which manoeuvres
 fall in a gap; re-run with new logs before trusting small differences.
+
+## Results: steering in odometry
+
+`-Pmidangle=true` and `-Psteerrate=<rad/s> -Psteernoise=<x>`, with mount correction and
+self-checking on as on the robot.
+
+| | Normal p90 / lost | Blackout 5 of 20 s p90 / lost |
+|---|---|---|
+| As built | 0.120 m / 0.2% | 0.726 m / 6.5% |
+| Mid-sample steer angle | 0.120 m / 0.2% | 0.729 m / 6.7% |
+| Odometry noise x5-20 while any module steers > 3-10 rad/s | 0.121-0.129 m / 0.1-0.2% | 0.728-0.736 m / 6.5-6.6% |
+
+**Neither helps.** At 4 ms odometry samples a fast steer swing moves about 1 deg per sample, so the
+mid-angle makes no difference; and TagEkf's existing scrub term already sees the modules disagreeing
+while they steer, so extra noise only loosens the filter. Odometry already uses the measured steer
+angle, so "where the wheels actually point" is handled.
+
+Control side (not testable in replay):
+
+- **Cosine compensation** (drive speed x cos(steer error)): WPILib recommends it and says it
+  reduces skew on direction changes. This code drives modules through CTRE's swerve requests with
+  no scaling of its own. Phoenix 6 doesn't publish `Apply`'s body, but the module has a private
+  `ApplyVelocityCorrections(velocity, targetAngle)`, which suggests it does something like it.
+  Check in sim or on the robot: command a sharp direction change and compare commanded with measured
+  module speed while the steer is still swinging.
+- **Swerve setpoint generator** (254, now PathPlanner): limits each loop's command to what the
+  modules can do (steer speed, wheel speed and torque), so the drive never pushes far in the wrong
+  direction. Not used here.
+- **Chassis-speed discretization** (translate-while-rotating drift): already used.
+- **Steady-state steer error under load**: steer kI, static-friction feedforward, or a current
+  steer request.
 
 ## Results: noise re-tune and measured mounts
 

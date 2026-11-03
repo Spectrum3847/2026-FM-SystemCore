@@ -1277,6 +1277,27 @@
    "input": false
   },
   {
+   "key": "/RealOutputs/Localization/EKF/Mount/<limelightSimCamera>/OffCalibration",
+   "unit": "",
+   "doc": "The correction is far from calibration: recalibrate, or knocked.",
+   "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/EKF/Mount/<limelightSimCamera>/PitchFixDeg",
+   "unit": "",
+   "doc": "Online mount pitch correction, deg.",
+   "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
+   "input": false
+  },
+  {
+   "key": "/RealOutputs/Localization/EKF/Mount/<limelightSimCamera>/YawFixDeg",
+   "unit": "",
+   "doc": "Online mount yaw correction the EKF is using for this camera, deg.",
+   "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
+   "input": false
+  },
+  {
    "key": "/RealOutputs/Localization/FusedErrorVsTruthMeters",
    "unit": "",
    "doc": "Sim only: fused pose error against the true pose; the CI pose check reads this.",

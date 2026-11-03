@@ -84,7 +84,7 @@ Numbered as first proposed; team decisions in the last column.
 | F4 | Exposure-centred timestamps | **Already done**; measure each camera's lag (spin test) |
 | F5 | Reject tags with high corner reprojection error | Idea |
 | F6 | Camera clock sync and drift check | PhotonVision already syncs to the SystemCore clock (to confirm). Still alert on drift or frozen capture times (TXMAN1 r4/r20 had frozen Orin timestamps) |
-| F7 | Online per-camera mount estimate; **detect knocked cameras and turn them off** | Mount solving already done, more planned. `CameraHeadingCheck` flags cameras whose heading disagrees by >15°, pre-match (NO-GO); `VisionGates` rejects solves with roll/pitch beyond limits. **Not done**: in-match detection of a knocked camera from TagEkf's per-camera residuals (`EKF/Cameras/<cam>/BearingResidualsDeg`) and switching it off automatically |
+| F7 | Online per-camera mount estimate; **detect knocked cameras and turn them off** | **Built and on** (`MountEstimator`): p90 0.241 -> 0.141 m. Knock alert: correction more than 2.5° off calibration (`Mount/<cam>/OffCalibration`). Also existing: `CameraHeadingCheck` (pre-match, >15°) and `VisionGates` (roll/pitch). Not done: automatically switching a camera off |
 | F8 | Cross-check cameras that see the same tag | Write it efficiently: compare per-camera residual means, not pairs of tags |
 | F9 | Camera coverage | Goal: 360° or close, at least 4 tag cameras, possibly more |
 | F10 | Per-module slip and scale | Yes: weight distribution differs per wheel |
@@ -132,6 +132,36 @@ Decision:
 
 The blackout window is fixed (`t mod 20 < 5`), so these numbers carry some luck in which manoeuvres
 fall in a gap; re-run with new logs before trusting small differences.
+
+## Results: online mount estimation
+
+`-Pmode=mount` (add `-Pknock=-3` to knock Orin-Left 3 deg 60 s into each log, `-Pquick=true` for
+the per-log corrections only). `MountEstimator`: each Orin frame, before use, projects every tag's
+corners from the current estimate through the camera's corrected mount; the offset of each tag's
+**centre** (not its corners: an error bigger than half the tag's size in pixels pairs corners
+with the wrong neighbour) drives a yaw (horizontal) and pitch (vertical) correction with time
+constant 1-2 s. Held-out frames get the correction but never update it.
+
+| Fed | Mount correction off | On (tau 1-2 s) |
+|---|---|---|
+| Bearing/range, p50 / p90 | 0.082 / 0.241 m | **0.048 / 0.141 m** |
+| Bearing/range, Orin-Left knocked -3 deg | 0.085 / 0.308 m | **0.048 / 0.142 m** |
+| Corners 4 px, p50 / p90 | 0.106 / 0.393 m | 0.070 / 0.256 m |
+
+- **40% lower error** with bearing/range, and a 3 deg knock no longer matters: the correction
+  re-converges in 0-2 s.
+- **The TXMAN1 mounts were well off:** Orin-Left converges to -4.0 to -6.8 deg yaw on every log,
+  Orin-Right to -3.4 to -4.1 deg pitch on most. Fix those in `orinRobotToCamera` (after checking
+  the sign convention against a static calibration).
+- **Corners** improve a lot with corrected mounts and centre-relative matching but still trail
+  bearing/range (p90 0.256 vs 0.141 m). Keep bearing/range.
+- **Knock detection by jump** (correction leaving a slow baseline for 1 s) false-alarmed on 6 of 9
+  logs: the correction wanders as different tags come into view. The robot instead alerts on the
+  correction's size against calibration (`Mount/<cam>/OffCalibration`, > 2.5 deg); on TXMAN1 that
+  alert is true, since the mounts really were ~5 deg off.
+
+**On** in `Vision` for the Orin cameras (tau 2 s), logged as
+`Localization/EKF/Mount/<cam>/YawFixDeg`, `PitchFixDeg`, `OffCalibration`.
 
 ## Results: smoothing and self-checking uncertainty
 

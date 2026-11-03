@@ -4,6 +4,7 @@ import frc.robot.Event;
 import frc.robot.subsystems.swerve.SwerveConfig;
 import frc.robot.subsystems.swerve.TiltState;
 import frc.spectrumLib.localization.CornerSighting;
+import frc.spectrumLib.localization.MountEstimator;
 import frc.spectrumLib.localization.OdometryGuard;
 import frc.spectrumLib.localization.SlipDetector;
 import frc.spectrumLib.localization.TagEkf;
@@ -95,14 +96,61 @@ public final class TagEkfTuner {
     record Frame(double t, boolean orin, List<TagSighting> tags, List<CornerSighting> corners)
             implements Ev {}
 
-    /** 6.5 in AprilTags. */
-    static final double TAG_SIZE_M = 0.1651;
+    static final double TAG_SIZE_M = Vision.TAG_SIZE_M;
 
     /**
      * Orin frames fed as corner pixels instead of PhotonVision's per-tag bearing and range, at this
      * corner std (pixels); 0 = bearing and range.
      */
     double orinCornerPx = 0;
+
+    /** Online mount estimation time constant, s; 0 = off. */
+    double mountTau = 0;
+
+    static final double MOUNT_MAX_RMS_PX = 40;
+
+    static final double MOUNT_KNOCK_DEG = 2.5;
+
+    /** Knock injection: this camera's mount turns this much, this long after its first frame. */
+    static final String KNOCK_CAMERA = "Orin-Left";
+
+    static final double KNOCK_DEG = Double.parseDouble(System.getProperty("tuner.knock", "0"));
+
+    static final double KNOCK_AFTER_SECONDS = 60;
+
+    /** Orin sighting camera name -> configured mount (with -Pmountfix). */
+    private final Map<String, Transform3d> orinBase = new HashMap<>();
+
+    /** The frame's tags and corners with a different mount. */
+    static Frame remount(Frame f, Transform3d m) {
+        List<TagSighting> tags = new ArrayList<>(f.tags().size());
+        for (TagSighting t : f.tags()) {
+            tags.add(
+                    new TagSighting(
+                            t.camera(),
+                            t.timestampSeconds(),
+                            t.tagId(),
+                            t.tagField(),
+                            m,
+                            t.cameraToTag(),
+                            t.noiseScale()));
+        }
+        List<CornerSighting> corners = new ArrayList<>(f.corners().size());
+        for (CornerSighting c : f.corners()) {
+            corners.add(
+                    new CornerSighting(
+                            c.camera(),
+                            c.timestampSeconds(),
+                            c.tagId(),
+                            c.fieldCorners(),
+                            c.pixels(),
+                            m,
+                            c.intrinsics(),
+                            c.distortion(),
+                            c.pixelStd()));
+        }
+        return new Frame(f.t(), f.orin(), tags, corners);
+    }
 
     /** Self-checking uncertainty (TagEkf.setAdaptive); 0 = off. */
     double adaptiveNis = 0;
@@ -191,6 +239,9 @@ public final class TagEkfTuner {
         long fedAccepted;
         long fedRejected;
         long slipLoops;
+        long knockedFrames;
+        double knockDetectedAfter = Double.NaN;
+        final Map<String, String> mounts = new java.util.TreeMap<>();
         long bumpFixes;
         long constraints;
 
@@ -296,6 +347,7 @@ public final class TagEkfTuner {
             String side = name.substring("orin-".length());
             orinNames.put(
                     name, "Orin-" + Character.toUpperCase(side.charAt(0)) + side.substring(1));
+            orinBase.put(orinNames.get(name), mount);
         }
     }
 
@@ -511,6 +563,19 @@ public final class TagEkfTuner {
         TagEkf ekf = new TagEkf(modules, noise);
         ekf.setAdaptive(adaptiveNis, adaptiveGain);
         java.util.ArrayDeque<TagSighting> pending = new java.util.ArrayDeque<>();
+        MountEstimator mountEst =
+                mountTau > 0
+                        ? new MountEstimator(mountTau, MOUNT_MAX_RMS_PX, MOUNT_KNOCK_DEG, 20)
+                        : null;
+        double knockAt = Double.NaN;
+        if (KNOCK_DEG != 0) {
+            for (Ev e : log.events()) {
+                if (e instanceof Frame fr && fr.orin()) {
+                    knockAt = fr.t() + KNOCK_AFTER_SECONDS;
+                    break;
+                }
+            }
+        }
         OdometryGuard guard = new OdometryGuard(guardSettings);
         TiltState tilt = new TiltState();
         Score sc = new Score();
@@ -638,9 +703,32 @@ public final class TagEkfTuner {
                                 ekf.getRejectedCount());
                     }
                 }
-                case Frame f -> {
+                case Frame f0 -> {
                     if (!haveDistances || !ekf.isSeeded()) {
                         continue;
+                    }
+                    Frame f = f0;
+                    boolean heldOut = frameIndex % HOLDOUT == 0;
+                    if (f0.orin() && (mountEst != null || !Double.isNaN(knockAt))) {
+                        // The camera as it is now: knocked after knockAt (simulated by turning the
+                        // configured mount the other way), then the online correction on top.
+                        String cam = f0.tags().get(0).camera();
+                        Transform3d base = orinBase.get(cam);
+                        if (cam.equals(KNOCK_CAMERA) && f0.t() >= knockAt) {
+                            base = MountEstimator.withFix(base, -KNOCK_DEG, 0);
+                            sc.knockedFrames++;
+                        }
+                        Transform3d m = mountEst == null ? base : mountEst.corrected(cam, base);
+                        f = remount(f0, m);
+                        if (mountEst != null && !heldOut) {
+                            mountEst.update(ekf.getPose(), f.corners());
+                            if (cam.equals(KNOCK_CAMERA)
+                                    && f0.t() >= knockAt
+                                    && Double.isNaN(sc.knockDetectedAfter)
+                                    && mountEst.cameras().get(cam).knocked()) {
+                                sc.knockDetectedAfter = f0.t() - knockAt;
+                            }
+                        }
                     }
                     boolean skipped = tilt.tiltDeg() > skipDeg;
                     if (frameIndex++ % HOLDOUT == 0 && !skipped) {
@@ -750,6 +838,18 @@ public final class TagEkfTuner {
                     "  first odometry %.3f  first Orin frame %.3f%n", firstOdom, firstOrin);
         }
         sc.bumpFixes = field.bumpFixes();
+        if (mountEst != null) {
+            mountEst.cameras()
+                    .forEach(
+                            (cam, c) ->
+                                    sc.mounts.put(
+                                            cam,
+                                            String.format(
+                                                    "yaw %+.2f pitch %+.2f deg%s",
+                                                    c.yawDeg(),
+                                                    c.pitchDeg(),
+                                                    c.knocked() ? " KNOCKED" : "")));
+        }
         sc.constraints = field.constraints();
         return sc;
     }
@@ -881,6 +981,46 @@ public final class TagEkfTuner {
         return total;
     }
 
+    /** Online mount estimation off and on, fed as bearing/range and as corners. */
+    static void compareMount(TagEkfTuner tuner, List<Log> logs) {
+        boolean quick = Boolean.getBoolean("tuner.quick");
+        for (double px : quick ? new double[0] : new double[] {0, 4, 16}) {
+            tuner.orinCornerPx = px;
+            for (double tau : new double[] {0, 1, 2, 5}) {
+                tuner.mountTau = tau;
+                Score sc = tuner.runAll(logs, Noise.DEFAULT, 1.0);
+                System.out.printf(
+                        "  %-15s mount %-9s cost %s  %s%n",
+                        px == 0 ? "bearing/range" : "corners " + px + " px",
+                        tau == 0 ? "off" : "tau " + tau + " s",
+                        fmt(cost(sc)),
+                        sc);
+            }
+        }
+        tuner.orinCornerPx = 0;
+        tuner.mountTau = 2;
+        System.out.println(
+                "Per log, bearing/range, mount tau 2 s: final corrections"
+                        + (KNOCK_DEG != 0
+                                ? ", knock " + KNOCK_DEG + " deg on " + KNOCK_CAMERA
+                                : ""));
+        for (Log l : logs) {
+            Score sc = tuner.run(l, Noise.DEFAULT, 1.0, "all");
+            String knock = "";
+            if (KNOCK_DEG != 0) {
+                knock =
+                        String.format(
+                                "  knocked frames %d, detected after %s",
+                                sc.knockedFrames,
+                                Double.isNaN(sc.knockDetectedAfter)
+                                        ? "never"
+                                        : String.format("%.1f s", sc.knockDetectedAfter));
+            }
+            System.out.printf("  %-14s %s%s%n", l.name(), sc.mounts, knock);
+        }
+        tuner.mountTau = 0;
+    }
+
     /** Real-time vs smoothed scores, with self-checking uncertainty off and on. */
     static void compareSmooth(TagEkfTuner tuner, List<Log> logs) {
         double[][] settings = {{0, 0}, {4, 0.5}, {4, 2}, {6, 0.5}, {6, 2}, {10, 1}, {10, 4}};
@@ -992,6 +1132,10 @@ public final class TagEkfTuner {
         Score asBuilt = tuner.runAll(logs, Noise.DEFAULT, 1.0);
         System.out.println("All logs, as built: " + asBuilt);
         if (CORNER_CHECK) {
+            return;
+        }
+        if (System.getProperty("tuner.mode", "").equals("mount")) {
+            compareMount(tuner, logs);
             return;
         }
         if (System.getProperty("tuner.mode", "").equals("smooth")) {

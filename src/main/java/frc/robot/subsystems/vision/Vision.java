@@ -8,7 +8,9 @@ import frc.robot.auton.Auton;
 import frc.robot.subsystems.swerve.Swerve;
 import frc.robot.subsystems.swerve.TiltState;
 import frc.spectrumLib.checks.CameraHeadingCheck;
+import frc.spectrumLib.localization.CornerSighting;
 import frc.spectrumLib.localization.GateContext;
+import frc.spectrumLib.localization.MountEstimator;
 import frc.spectrumLib.localization.PoseFusion;
 import frc.spectrumLib.localization.PoseObservation;
 import frc.spectrumLib.localization.PoseObservation.Kind;
@@ -291,6 +293,19 @@ public class Vision implements Subsystem {
      * with their settings.
      */
     private final FieldPriors fieldPriors = new FieldPriors(0, 0.05, 0.40);
+
+    /**
+     * Online Orin mount yaw/pitch correction from tag corners (TagEkfTuner -Pmode=mount): TXMAN1
+     * held-out p90 0.241 -> 0.144 m; Orin-Left converged to ~-5 deg yaw, Orin-Right ~-4 deg pitch.
+     * Its jump-based knock flag false-alarmed on 6 of 9 logs, so the alert is the plain size of the
+     * correction against calibration ({@link #MOUNT_ALERT_DEG}).
+     */
+    private final MountEstimator mountEstimator = new MountEstimator(2, 40, 2.5, 20);
+
+    static final double MOUNT_ALERT_DEG = 2.5;
+
+    /** 6.5 in AprilTags. */
+    static final double TAG_SIZE_M = 0.1651;
 
     /** Orin sources built on the main ones: gyro-held PnP and tx/ty (issue #10, 3 and 8c). */
     @Getter private final List<PoseSource> orinGyroSources = new ArrayList<>();
@@ -861,7 +876,43 @@ public class Vision implements Subsystem {
         for (int i = 0; i < orinIos.size(); i++) {
             OrinPoseSourceIO io = orinIos.get(i);
             String camera = orinSources.get(i).getName();
+            double[] k = io.getCameraInputs().cameraMatrix;
+            double[] dist = io.getCameraInputs().distCoeffs;
             for (PhotonPipelineResult r : io.getSolver().decoded) {
+                // The mount as currently corrected; this frame's corners then update the estimate.
+                Transform3d mount = mountEstimator.corrected(camera, orinMounts.get(i));
+                if (k.length == 9) {
+                    List<CornerSighting> corners = new ArrayList<>();
+                    for (PhotonTrackedTarget t : r.getTargets()) {
+                        Optional<Pose3d> tag = tagLayout.getTagPose(t.fiducialId);
+                        if (t.fiducialId < 0
+                                || excluded.contains(t.fiducialId)
+                                || tag.isEmpty()
+                                || t.getDetectedCorners().size() != 4) {
+                            continue;
+                        }
+                        double[][] px = new double[4][];
+                        for (int c = 0; c < 4; c++) {
+                            px[c] =
+                                    new double[] {
+                                        t.getDetectedCorners().get(c).x,
+                                        t.getDetectedCorners().get(c).y
+                                    };
+                        }
+                        corners.add(
+                                new CornerSighting(
+                                        camera,
+                                        r.getTimestampSeconds(),
+                                        t.fiducialId,
+                                        CornerSighting.tagCorners(tag.get(), TAG_SIZE_M),
+                                        px,
+                                        mount,
+                                        new double[] {k[0], k[4], k[2], k[5]},
+                                        dist,
+                                        1.0));
+                    }
+                    mountEstimator.update(ekf.getPose(), corners);
+                }
                 List<TagSighting> frame = new ArrayList<>();
                 for (PhotonTrackedTarget t : r.getTargets()) {
                     if (t.fiducialId < 0 || excluded.contains(t.fiducialId)) {
@@ -877,7 +928,7 @@ public class Vision implements Subsystem {
                                     r.getTimestampSeconds(),
                                     t.fiducialId,
                                     tag.get().getTranslation(),
-                                    orinMounts.get(i),
+                                    mount,
                                     t.bestCameraToTarget.getTranslation(),
                                     io.getSolver().cameraFactor()));
                 }
@@ -918,6 +969,20 @@ public class Vision implements Subsystem {
             addTagFrame(ekf, frame);
         }
         fieldPriors.update(ekf, Timer.getTimestamp(), swerve.getTilt().tiltDeg());
+        mountEstimator
+                .cameras()
+                .forEach(
+                        (cam, m) -> {
+                            String p = "Localization/EKF/Mount/" + cam + "/";
+                            // Online mount yaw correction the EKF is using for this camera, deg.
+                            Logger.recordOutput(p + "YawFixDeg", m.yawDeg());
+                            // Online mount pitch correction, deg.
+                            Logger.recordOutput(p + "PitchFixDeg", m.pitchDeg());
+                            // The correction is far from calibration: recalibrate, or knocked.
+                            Logger.recordOutput(
+                                    p + "OffCalibration",
+                                    Math.hypot(m.yawDeg(), m.pitchDeg()) > MOUNT_ALERT_DEG);
+                        });
         // Field-prior updates the comparison EKF has taken, since boot.
         Logger.recordOutput("Localization/EKF/FieldConstraints", fieldPriors.constraints());
         // Time to feed this loop's observations to the comparison EKF.

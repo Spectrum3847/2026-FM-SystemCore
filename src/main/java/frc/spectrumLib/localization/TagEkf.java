@@ -695,14 +695,27 @@ public class TagEkf {
                 return false;
             }
         }
-        // Match each detected corner to the nearest predicted one (orders differ by convention).
+        // Match each detected corner to a predicted one by shape about each set's centre (orders
+        // differ by convention, and an offset bigger than half the tag would pair neighbours).
+        double pcu = 0;
+        double pcv = 0;
+        double dcu = 0;
+        double dcv = 0;
+        for (int i = 0; i < n; i++) {
+            pcu += pred[i][0] / n;
+            pcv += pred[i][1] / n;
+            dcu += t.pixels()[i][0] / n;
+            dcv += t.pixels()[i][1] / n;
+        }
         int[] match = new int[n];
         boolean[] used = new boolean[n];
         for (int i = 0; i < n; i++) {
             int best = -1;
             double bestD = Double.POSITIVE_INFINITY;
             for (int j = 0; j < n; j++) {
-                double d = sq(t.pixels()[i][0] - pred[j][0]) + sq(t.pixels()[i][1] - pred[j][1]);
+                double d =
+                        sq((t.pixels()[i][0] - dcu) - (pred[j][0] - pcu))
+                                + sq((t.pixels()[i][1] - dcv) - (pred[j][1] - pcv));
                 if (!used[j] && d < bestD) {
                     bestD = d;
                     best = j;

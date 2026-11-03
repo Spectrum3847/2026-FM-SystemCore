@@ -105,7 +105,7 @@ public final class TagEkfTuner {
     double orinCornerPx = 0;
 
     /** Online mount estimation time constant, s; 0 = off. */
-    double mountTau = 0;
+    double mountTau = Double.parseDouble(System.getProperty("tuner.mounttau", "0"));
 
     static final double MOUNT_MAX_RMS_PX = 40;
 
@@ -153,9 +153,10 @@ public final class TagEkfTuner {
     }
 
     /** Self-checking uncertainty (TagEkf.setAdaptive); 0 = off. */
-    double adaptiveNis = 0;
+    double adaptiveNis = Double.parseDouble(System.getProperty("tuner.adaptive", "0"));
 
-    double adaptiveGain = 0;
+    /** Gain 1, as PoseFusion sets it. */
+    double adaptiveGain = adaptiveNis > 0 ? 1 : 0;
 
     /** Held-out tags are scored against the smoothed pose this long after their capture. */
     static final double SMOOTH_LAG_SECONDS = 0.5;

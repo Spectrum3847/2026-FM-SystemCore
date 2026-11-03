@@ -133,6 +133,36 @@ Decision:
 The blackout window is fixed (`t mod 20 < 5`), so these numbers carry some luck in which manoeuvres
 fall in a gap; re-run with new logs before trusting small differences.
 
+## Results: noise re-tune and measured mounts
+
+With mounts corrected, the old noise values were too loose (NIS 0.75: the filter thought itself
+worse than it was; 1 deg of bearing noise had been covering ~5 deg mount errors). Re-tuned with
+`./gradlew tagEkfTune -Pmounttau=2`, then checked with self-checking uncertainty on as on the robot
+(`-Padaptive=10`):
+
+| Mount correction + self-checking | Old noise | New noise |
+|---|---|---|
+| Normal: p90 / NIS | 0.137 m / 0.59 | **0.125 m / 1.69** |
+| Blackout 5 of 20 s: p90 / lost | 0.706 m / 6.1% | 0.725 m / 6.4% |
+
+New `TagEkf` defaults: bearing 1 -> 0.25 deg, range 0.02 + 0.01 r² -> 0.005 + 0.005 r², timing 5 ->
+0.6 ms, odometry 0.0009 -> 0.0018 m²/m, heading 16x per second and per radian. Not adopted: wheel
+scale 0.78 and "never skip on tilt" (sweep edges, tiny gains). The new values need corrected
+mounts: without them p90 is 0.289 m.
+
+**Measured mounts in the config.** `orinRobotToCamera` now carries MountEstimator's median
+correction over the 9 logs composed onto the CAD mounts: orin-left (roll, pitch, yaw) 0, -18, 90 ->
+1.5, -18.12, 85.13 deg; orin-right 0, -18, -84.5 -> -0.03, -21.85, -84.41 deg. Not yet checked
+against a static calibration. Replay with them, new noise, self-checking:
+
+| | p50 | p90 |
+|---|---|---|
+| Online correction off | 0.045 m | 0.122 m |
+| Online correction on | 0.043 m | 0.120 m |
+
+Remaining online corrections are mostly under 2 deg; Orin-Right still corrects -4.6 deg pitch on
+Q32 and -2.4 deg on Q34, so its pitch may differ match to match.
+
 ## Results: online mount estimation
 
 `-Pmode=mount` (add `-Pknock=-3` to knock Orin-Left 3 deg 60 s into each log, `-Pquick=true` for

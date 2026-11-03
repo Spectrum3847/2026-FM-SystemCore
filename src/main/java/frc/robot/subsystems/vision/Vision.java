@@ -168,13 +168,22 @@ public class Vision implements Subsystem {
          * roll.
          */
         @Getter
+        // Rotations from TXMAN1 replay: MountEstimator's median correction over 9 logs (left -4.6
+        // deg local yaw, right -3.9 deg local pitch) composed onto the CAD mounts (0, -18, 90) and
+        // (0, -18, -84.5). Not yet checked against a static calibration.
         final Transform3d[] orinRobotToCamera = {
             new Transform3d(
                     new Translation3d(0.0836, 0.3231, 0.4883),
-                    new Rotation3d(0, Units.degreesToRadians(-18), Units.degreesToRadians(90))),
+                    new Rotation3d(
+                            Units.degreesToRadians(1.5),
+                            Units.degreesToRadians(-18.12),
+                            Units.degreesToRadians(85.13))),
             new Transform3d(
                     new Translation3d(0.0836, -0.3231, 0.4883),
-                    new Rotation3d(0, Units.degreesToRadians(-18), Units.degreesToRadians(-84.5)))
+                    new Rotation3d(
+                            Units.degreesToRadians(-0.03),
+                            Units.degreesToRadians(-21.85),
+                            Units.degreesToRadians(-84.41)))
         };
 
         /** Per-camera std-dev multiplier (6328's camera factor); 1 until logs say otherwise. */

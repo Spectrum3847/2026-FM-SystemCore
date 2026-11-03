@@ -35,29 +35,36 @@ public class TagEkf {
     static final double HISTORY_SECONDS = 1.5;
     private static final int CAPACITY = 1024;
 
-    /** Translation variance per metre driven (m²/m): 3 cm after 1 m. */
-    static final double ODOM_VAR_PER_METER = 0.03 * 0.03;
+    /**
+     * Translation variance per metre driven (m²/m): ~4 cm after 1 m. Odometry, heading, bearing,
+     * range and timing values re-tuned in TagEkfTuner on 9 TXMAN1 logs with MountEstimator on:
+     * held-out p90 0.138 -> 0.122 m, NIS 0.75 -> 1.9 (docs/pose-improvements.md).
+     */
+    static final double ODOM_VAR_PER_METER = 0.0018;
 
     /** Translation variance per metre of slip (m²/m). */
     static final double SLIP_VAR_PER_METER = 0.05;
 
-    /** Heading random walk (rad²/s): the Pigeon's ~0.4 deg/min. */
-    static final double HEADING_VAR_PER_SECOND = sq(Math.toRadians(0.4)) / 60.0;
+    /** Heading random walk (rad²/s). */
+    static final double HEADING_VAR_PER_SECOND = 1.3e-5;
 
-    /** Heading variance per radian turned (rad²/rad): ~0.3% gyro scale error. */
-    static final double HEADING_VAR_PER_RADIAN = 6e-5;
+    /** Heading variance per radian turned (rad²/rad). */
+    static final double HEADING_VAR_PER_RADIAN = 9.6e-4;
 
-    /** Bearing std-dev on the optical axis; mostly mount-yaw error. */
-    static final double BEARING_STD_RAD = Math.toRadians(1.0);
+    /**
+     * Bearing std-dev on the optical axis. Was 1 deg, mostly covering mount-yaw error; with
+     * MountEstimator correcting the mounts the tags are good to ~0.25 deg.
+     */
+    static final double BEARING_STD_RAD = Math.toRadians(0.25);
 
-    static final double RANGE_STD_BASE_M = 0.02;
-    static final double RANGE_STD_PER_M2 = 0.01;
+    static final double RANGE_STD_BASE_M = 0.005;
+    static final double RANGE_STD_PER_M2 = 0.005;
 
     /** Std-devs scale by 1 + (angle off the optical axis / this)². */
     static final double OFF_AXIS_REF_RAD = Math.toRadians(35);
 
     /** Capture-time error, turned into noise by the robot's speed. */
-    static final double TIMING_STD_SECONDS = 0.005;
+    static final double TIMING_STD_SECONDS = 0.000625;
 
     static final double MIN_RANGE_M = 0.2;
     static final double MAX_RANGE_M = 8.0;

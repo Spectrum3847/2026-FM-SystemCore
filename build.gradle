@@ -334,7 +334,9 @@ tasks.register('tagEkfTune', JavaExec) {
         "-Dtuner.blackout=${project.findProperty('blackout') ?: '0'}",
         "-Dtuner.mountfix=${project.findProperty('mountfix') ?: '0,0,0,0'}",
         "-Dtuner.knock=${project.findProperty('knock') ?: '0'}",
-        "-Dtuner.quick=${project.findProperty('quick') ?: 'false'}"
+        "-Dtuner.quick=${project.findProperty('quick') ?: 'false'}",
+        "-Dtuner.mounttau=${project.findProperty('mounttau') ?: '0'}",
+        "-Dtuner.adaptive=${project.findProperty('adaptive') ?: '0'}"
     ]
     environment 'PATH', "${nativeDir}${File.pathSeparator}${System.getenv('PATH')}"
     args = [

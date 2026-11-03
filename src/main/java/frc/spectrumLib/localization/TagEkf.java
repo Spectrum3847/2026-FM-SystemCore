@@ -164,6 +164,12 @@ public class TagEkf {
         final double varTheta;
         boolean inflate;
 
+        /** A one-axis position measurement: px, py the unit normal, ptheta the value, varXy. */
+        boolean axis;
+
+        /** A frame of tag corners instead of tags. */
+        CornerSighting[] corners;
+
         Correction(double time, Measured[] tags) {
             this(time, tags, 0, 0, 0, 0, 0);
         }
@@ -206,6 +212,16 @@ public class TagEkf {
     private final double[] preState = new double[CAPACITY * 3];
 
     private final double[] preCov = new double[CAPACITY * 9];
+
+    /** State and covariance after each sample's corrections, before the next prediction. */
+    private final double[] postState = new double[CAPACITY * 3];
+
+    private final double[] postCov = new double[CAPACITY * 9];
+
+    /** Self-checking uncertainty: mean frame NIS above this widens P first. 0 = off. */
+    private double adaptiveNis = 0;
+
+    private double adaptiveGain = 0;
     private int oldest = 0;
     private int size = 0;
 
@@ -352,6 +368,9 @@ public class TagEkf {
                         * odometryNoiseScale;
         double varTheta =
                 noise.headingVarPerSecond() * dt + noise.headingVarPerRadian() * Math.abs(dGyro);
+        if (size > 0) {
+            storePost(index(size - 1));
+        }
         predict(s, p, lx, ly, dGyro, varXy, varTheta);
         while (size > 0 && sampleTime[oldest] < timestampSeconds - HISTORY_SECONDS) {
             dropOldest();
@@ -385,6 +404,27 @@ public class TagEkf {
         }
         seeded = true;
         rejectsSinceGoodFrame = 0;
+    }
+
+    /**
+     * Applies a one-axis position measurement: {@code nx * x + ny * y = value}, for field knowledge
+     * such as a bump crossing or a wall the robot can't be past. Needs a seeded filter.
+     *
+     * @param timestampSeconds when it held
+     * @param nx unit normal, x
+     * @param ny unit normal, y
+     * @param value the measured projection, metres
+     * @param std its std-dev, metres
+     * @return false if it fell outside the history or the filter isn't seeded
+     */
+    public boolean addAxis(
+            double timestampSeconds, double nx, double ny, double value, double std) {
+        if (!seeded) {
+            return false;
+        }
+        Correction c = new Correction(clampTime(timestampSeconds), null, nx, ny, value, sq(std), 0);
+        c.axis = true;
+        return insert(c, "Axis");
     }
 
     /**
@@ -457,6 +497,38 @@ public class TagEkf {
         }
     }
 
+    /**
+     * Applies one camera frame's tags as corner pixels (eight measurements per tag), gated per tag
+     * at the 8-dof equivalent of {@code gateChi2}. They must share one capture time.
+     *
+     * @param frame the frame's tags
+     */
+    public void addCornerFrame(List<CornerSighting> frame) {
+        if (frame.isEmpty()) {
+            return;
+        }
+        if (!seeded) {
+            for (CornerSighting t : frame) {
+                reject(t.camera(), "Not Seeded");
+            }
+            return;
+        }
+        Correction c = new Correction(clampTime(frame.get(0).timestampSeconds()), null);
+        c.corners = frame.toArray(new CornerSighting[0]);
+        if (rejectsSinceGoodFrame >= RELOCALIZE_MIN_REJECTS
+                && c.time - lastGoodFrameTime >= RELOCALIZE_SECONDS) {
+            c.inflate = true;
+            relocalizations++;
+            rejectsSinceGoodFrame = 0;
+            lastGoodFrameTime = c.time;
+        }
+        if (!insert(c, null)) {
+            for (CornerSighting t : frame) {
+                reject(t.camera(), size == 0 ? "No Odometry" : "Too Old");
+            }
+        }
+    }
+
     private static Measured measure(TagSighting t) {
         Translation3d inCamera = t.cameraToTag();
         double norm = inCamera.getNorm();
@@ -515,6 +587,7 @@ public class TagEkf {
         for (int j = k; j < size; j++) {
             int ij = index(j);
             if (j > k) {
+                storePost(index(j - 1));
                 predict(
                         s,
                         p,
@@ -539,6 +612,28 @@ public class TagEkf {
             p[4] += sq(RELOCALIZE_XY_STD_M);
             p[8] += sq(RELOCALIZE_THETA_STD_RAD);
         }
+        if (c.axis) {
+            correctAxis(c);
+            return;
+        }
+        if (c.corners != null) {
+            boolean rec = c == recording;
+            int ok = 0;
+            for (CornerSighting t : c.corners) {
+                if (correctCorners(t, rec)) {
+                    ok++;
+                }
+            }
+            if (rec) {
+                if (2 * ok >= c.corners.length) {
+                    rejectsSinceGoodFrame = 0;
+                    lastGoodFrameTime = c.time;
+                } else {
+                    rejectsSinceGoodFrame += c.corners.length - ok;
+                }
+            }
+            return;
+        }
         if (c.tags == null) {
             correctPose(c);
             return;
@@ -547,6 +642,27 @@ public class TagEkf {
         double speed = dt > 0 ? Math.hypot(sampleDx[sample], sampleDy[sample]) / dt : 0;
         double omega = dt > 0 ? Math.abs(sampleDtheta[sample]) / dt : 0;
         boolean record = c == recording;
+        if (adaptiveNis > 0) {
+            // Self-checking uncertainty: if this frame's tags sit, on average, further from the
+            // estimate than its covariance allows, the covariance is too small: widen it in
+            // proportion before using them. Deterministic, so replay reproduces it.
+            double sum = 0;
+            int n = 0;
+            double[] out = new double[3];
+            for (Measured m : c.tags) {
+                correctTag(m, speed, omega, false, out);
+                if (out[2] > 0) {
+                    sum += Math.min(out[2], 100);
+                    n++;
+                }
+            }
+            double excess = n > 0 ? sum / n - adaptiveNis : 0;
+            if (excess > 0) {
+                p[0] += adaptiveGain * excess * sq(0.05);
+                p[4] += adaptiveGain * excess * sq(0.05);
+                p[8] += adaptiveGain * excess * sq(Math.toRadians(1));
+            }
+        }
         int accepted = 0;
         for (Measured m : c.tags) {
             if (correctTag(m, speed, omega, record)) {
@@ -559,6 +675,119 @@ public class TagEkf {
                 lastGoodFrameTime = c.time;
             } else {
                 rejectsSinceGoodFrame += c.tags.length - accepted;
+            }
+        }
+    }
+
+    /** 8-dof chi-squared at the same tail as the 2-dof {@link #GATE_CHI2} (99.9%). */
+    static final double GATE_CHI2_8 = 26.12;
+
+    /**
+     * One tag's four corners: pixels matched to the nearest predicted corner, numeric Jacobian,
+     * information-form update (only 3x3 inverses: R is diagonal). False if gated out.
+     */
+    private boolean correctCorners(CornerSighting t, boolean record) {
+        int n = t.pixels().length;
+        double[][] pred = new double[n][];
+        for (int i = 0; i < n; i++) {
+            pred[i] = t.project(s[0], s[1], s[2], t.fieldCorners()[i]);
+            if (pred[i] == null) {
+                return false;
+            }
+        }
+        // Match each detected corner to the nearest predicted one (orders differ by convention).
+        int[] match = new int[n];
+        boolean[] used = new boolean[n];
+        for (int i = 0; i < n; i++) {
+            int best = -1;
+            double bestD = Double.POSITIVE_INFINITY;
+            for (int j = 0; j < n; j++) {
+                double d = sq(t.pixels()[i][0] - pred[j][0]) + sq(t.pixels()[i][1] - pred[j][1]);
+                if (!used[j] && d < bestD) {
+                    bestD = d;
+                    best = j;
+                }
+            }
+            used[best] = true;
+            match[i] = best;
+        }
+        int m = 2 * n;
+        double[] nu = new double[m];
+        double[][] h = new double[m][3];
+        double[] eps = {1e-4, 1e-4, 1e-5};
+        for (int i = 0; i < n; i++) {
+            double[] pr = pred[match[i]];
+            nu[2 * i] = t.pixels()[i][0] - pr[0];
+            nu[2 * i + 1] = t.pixels()[i][1] - pr[1];
+            for (int k = 0; k < 3; k++) {
+                double[] st = {s[0], s[1], s[2]};
+                st[k] += eps[k];
+                double[] q = t.project(st[0], st[1], st[2], t.fieldCorners()[match[i]]);
+                if (q == null) {
+                    return false;
+                }
+                h[2 * i][k] = (q[0] - pr[0]) / eps[k];
+                h[2 * i + 1][k] = (q[1] - pr[1]) / eps[k];
+            }
+        }
+        double rInv = 1 / sq(t.pixelStd());
+        // Information form: P+ = (P^-1 + Hᵀ R^-1 H)^-1, x+ = x + P+ Hᵀ R^-1 ν.
+        double[] info = inverse3(p);
+        double[] htrnu = new double[3];
+        for (int r = 0; r < m; r++) {
+            for (int a = 0; a < 3; a++) {
+                htrnu[a] += h[r][a] * rInv * nu[r];
+                for (int b = 0; b < 3; b++) {
+                    info[a * 3 + b] += h[r][a] * rInv * h[r][b];
+                }
+            }
+        }
+        double[] post = inverse3(info);
+        // NIS by Woodbury: νᵀ S^-1 ν = νᵀR^-1ν - (HᵀR^-1ν)ᵀ P+ (HᵀR^-1ν).
+        double nis = 0;
+        for (double v : nu) {
+            nis += v * v * rInv;
+        }
+        nis -= dot3(htrnu, mulVec3(post, htrnu));
+        if (!(nis <= GATE_CHI2_8 * noise.gateChi2() / GATE_CHI2)) {
+            if (record) {
+                reject(t.camera(), "Innovation");
+            }
+            return false;
+        }
+        double[] dx = mulVec3(post, htrnu);
+        s[0] += dx[0];
+        s[1] += dx[1];
+        s[2] = MathUtil.angleModulus(s[2] + dx[2]);
+        System.arraycopy(post, 0, p, 0, 9);
+        if (record) {
+            acceptedCount++;
+            statsFor(t.camera()).accepted++;
+        }
+        return true;
+    }
+
+    /** Scalar update, H = [nx, ny, 0]. */
+    private void correctAxis(Correction c) {
+        double[] h = {c.px, c.py, 0};
+        double[] ph = mulVec3(p, h);
+        double sv = dot3(h, ph) + c.varXy;
+        double v = c.ptheta - (c.px * s[0] + c.py * s[1]);
+        double[] k = {ph[0] / sv, ph[1] / sv, ph[2] / sv};
+        s[0] += k[0] * v;
+        s[1] += k[1] * v;
+        s[2] = MathUtil.angleModulus(s[2] + k[2] * v);
+        // Joseph form: (I-KH)P(I-KH)ᵀ + K r Kᵀ.
+        double[] ikh = new double[9];
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                ikh[i * 3 + j] = (i == j ? 1 : 0) - k[i] * h[j];
+            }
+        }
+        double[] joseph = mul3(mul3(ikh, p), transpose3(ikh));
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                p[i * 3 + j] = joseph[i * 3 + j] + k[i] * c.varXy * k[j];
             }
         }
     }
@@ -580,6 +809,82 @@ public class TagEkf {
         for (int i = 0; i < 9; i++) {
             p[i] = a[i] + b[i];
         }
+    }
+
+    /**
+     * Turns on self-checking uncertainty: before each frame, if its tags' mean NIS is above {@code
+     * nis}, P grows by {@code gain} x the excess x (5 cm, 5 cm, 1 deg)². 0 turns it off.
+     */
+    public void setAdaptive(double nis, double gain) {
+        adaptiveNis = nis;
+        adaptiveGain = gain;
+    }
+
+    /**
+     * Fixed-lag smoothed state and covariance at {@code t}: an RTS backward pass over the history,
+     * so tags seen after {@code t} also correct it. Within the last {@link #HISTORY_SECONDS}.
+     *
+     * @return {x, y, theta, P (9)}, or null outside the history
+     */
+    public double[] smoothedAt(double t) {
+        if (size == 0 || t < sampleTime[oldest]) {
+            return null;
+        }
+        double[] xs = s.clone(); // the newest sample's posterior is the current state
+        double[] ps = p.clone();
+        int j = size - 1;
+        while (j > 0 && sampleTime[index(j)] > t) {
+            int i = index(j - 1);
+            int i1 = index(j);
+            double[] xf = java.util.Arrays.copyOfRange(postState, i * 3, i * 3 + 3);
+            double[] pf = java.util.Arrays.copyOfRange(postCov, i * 9, i * 9 + 9);
+            double[] xp = java.util.Arrays.copyOfRange(preState, i1 * 3, i1 * 3 + 3);
+            double[] pp = java.util.Arrays.copyOfRange(preCov, i1 * 9, i1 * 9 + 9);
+            // F at sample j (predict's Jacobian about the posterior of j-1).
+            double c = Math.cos(xf[2]);
+            double sn = Math.sin(xf[2]);
+            double gx = c * sampleDx[i1] - sn * sampleDy[i1];
+            double gy = sn * sampleDx[i1] + c * sampleDy[i1];
+            double[] f = {1, 0, -gy, 0, 1, gx, 0, 0, 1};
+            double[] g = mul3(mul3(pf, transpose3(f)), inverse3(pp));
+            double[] dx = {xs[0] - xp[0], xs[1] - xp[1], MathUtil.angleModulus(xs[2] - xp[2])};
+            double[] corr = mulVec3(g, dx);
+            double[] dp = new double[9];
+            for (int k = 0; k < 9; k++) {
+                dp[k] = ps[k] - pp[k];
+            }
+            double[] pcorr = mul3(mul3(g, dp), transpose3(g));
+            for (int k = 0; k < 3; k++) {
+                xs[k] = xf[k] + corr[k];
+            }
+            xs[2] = MathUtil.angleModulus(xs[2]);
+            for (int k = 0; k < 9; k++) {
+                ps[k] = pf[k] + pcorr[k];
+            }
+            j--;
+        }
+        double[] out = new double[12];
+        System.arraycopy(xs, 0, out, 0, 3);
+        System.arraycopy(ps, 0, out, 3, 9);
+        return out;
+    }
+
+    /** Like {@link #innovation}, against the smoothed state at the tag's capture time. */
+    public double[] innovationSmoothed(TagSighting t) {
+        Measured m = measure(t);
+        double[] sm = seeded ? smoothedAt(t.timestampSeconds()) : null;
+        if (m == null || sm == null) {
+            return null;
+        }
+        double[] state = s.clone();
+        double[] cov = p.clone();
+        System.arraycopy(sm, 0, s, 0, 3);
+        System.arraycopy(sm, 3, p, 0, 9);
+        double[] out = new double[3];
+        boolean ok = correctTag(m, 0, 0, false, out);
+        System.arraycopy(state, 0, s, 0, 3);
+        System.arraycopy(cov, 0, p, 0, 9);
+        return ok || out[2] > 0 ? out : null;
     }
 
     /**
@@ -790,6 +1095,11 @@ public class TagEkf {
         sampleVarXy[i] = varXy;
         sampleVarTheta[i] = varTheta;
         storePre(i);
+    }
+
+    private void storePost(int i) {
+        System.arraycopy(s, 0, postState, i * 3, 3);
+        System.arraycopy(p, 0, postCov, i * 9, 9);
     }
 
     private void storePre(int i) {

@@ -284,6 +284,14 @@ public class Vision implements Subsystem {
     private final List<Transform3d> orinMounts = new ArrayList<>();
     private final List<Transform3d> chassisLimelightMounts = new ArrayList<>();
 
+    /**
+     * Walls and hubs as one-sided constraints on the tag EKF. In replay with 5 s of every 20 s of
+     * tags blacked out they cut time lost 9.6% -> 7.0% and are neutral otherwise
+     * (docs/pose-improvements.md). Bump fixes and SlipDetector are built but off: their gains swung
+     * with their settings.
+     */
+    private final FieldPriors fieldPriors = new FieldPriors(0, 0.05, 0.40);
+
     /** Orin sources built on the main ones: gyro-held PnP and tx/ty (issue #10, 3 and 8c). */
     @Getter private final List<PoseSource> orinGyroSources = new ArrayList<>();
 
@@ -909,6 +917,9 @@ public class Vision implements Subsystem {
             }
             addTagFrame(ekf, frame);
         }
+        fieldPriors.update(ekf, Timer.getTimestamp(), swerve.getTilt().tiltDeg());
+        // Field-prior updates the comparison EKF has taken, since boot.
+        Logger.recordOutput("Localization/EKF/FieldConstraints", fieldPriors.constraints());
         // Time to feed this loop's observations to the comparison EKF.
         Logger.recordOutput("Localization/EKF/FeedMicros", (System.nanoTime() - start) / 1000);
     }

@@ -329,7 +329,10 @@ tasks.register('tagEkfTune', JavaExec) {
     jvmArgs = [
         "-Djava.library.path=${nativeDir}",
         "-Dtuner.trace=${project.findProperty('trace') ?: ''}",
-        "-Dtuner.sweep=${project.findProperty('sweep') ?: 'true'}"
+        "-Dtuner.sweep=${project.findProperty('sweep') ?: 'true'}",
+        "-Dtuner.mode=${project.findProperty('mode') ?: ''}",
+        "-Dtuner.blackout=${project.findProperty('blackout') ?: '0'}",
+        "-Dtuner.mountfix=${project.findProperty('mountfix') ?: '0,0,0,0'}"
     ]
     environment 'PATH', "${nativeDir}${File.pathSeparator}${System.getenv('PATH')}"
     args = [

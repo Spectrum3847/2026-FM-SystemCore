@@ -110,6 +110,9 @@ public class PoseFusion {
         this.fusedVision = new OrderedVisionUpdates(fused);
         this.odometry = new SwerveDriveOdometry(kinematics, gyro, positions, Pose2d.ZERO);
         this.tagEkf = new TagEkf(kinematics.getModules());
+        // Self-checking uncertainty: TXMAN1 replay with 5 s of every 20 s of tags blacked out, lost
+        // 9.6% -> 6.0%; neutral with tags flowing (docs/pose-improvements.md).
+        tagEkf.setAdaptive(10, 1);
         this.odometryStdDevs = odometryStdDevs;
     }
 

@@ -1270,6 +1270,13 @@
    "input": false
   },
   {
+   "key": "/RealOutputs/Localization/EKF/FieldConstraints",
+   "unit": "",
+   "doc": "Field-prior updates the comparison EKF has taken, since boot.",
+   "source": "src/main/java/frc/robot/subsystems/vision/Vision.java",
+   "input": false
+  },
+  {
    "key": "/RealOutputs/Localization/FusedErrorVsTruthMeters",
    "unit": "",
    "doc": "Sim only: fused pose error against the true pose; the CI pose check reads this.",

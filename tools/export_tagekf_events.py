@@ -12,6 +12,7 @@ the seed). The tuner sorts frames by capture time itself.
     T t pitchDeg rollDeg pitchRate rollRate axG ayG azG   tilt, tilt rates (deg/s), Pigeon acceleration, per loop
     F camera t n id txDeg tyDeg distM ...     one Limelight MT1 frame's raw fiducials
     R camera loopT hex                        one Orin PhotonPipelineResult, PhotonLib's bytes
+    K camera fx fy cx cy d0 ... d7            an Orin camera's intrinsics (last logged), first in the file
     P camera t x y thetaRad tagCount          MT1 multi-tag pose (seed / lost-check reference)
 Limelight fiducials and Orin results are logged from TXMAN1 Q30 onward.
 """
@@ -130,6 +131,13 @@ def export(path):
                     orin += 1
             i += 1
     events.sort(key=lambda e: (e[0], e[1]))
+    for cam in ORINS:
+        k = [v for _, v in series(f"/Vision/Orin/{cam}/CameraMatrix") if v]
+        d = [v for _, v in series(f"/Vision/Orin/{cam}/DistCoeffs") if v]
+        if k:
+            fx, fy, cx, cy = k[-1][0], k[-1][4], k[-1][2], k[-1][5]
+            vals = [fx, fy, cx, cy] + (list(d[-1]) if d else [])
+            events.insert(0, (0, 0, f"K {cam} " + " ".join(f"{v:.6f}" for v in vals)))
     out = path.with_suffix(".tagekf.txt")
     out.write_text("\n".join(e[2] for e in events) + "\n")
     n = sum(1 for e in events if e[2][0] == "F")

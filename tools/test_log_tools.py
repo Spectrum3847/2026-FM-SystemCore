@@ -18,6 +18,7 @@ TOOLS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, TOOLS)
 
 import akit_log_to_ns  # noqa: E402
+import check  # noqa: E402
 import make_log_key_guide  # noqa: E402
 import wpilog_summary  # noqa: E402
 
@@ -25,14 +26,15 @@ import wpilog_summary  # noqa: E402
 class Log:
     """Writes a WPILOG file: one start record per key, then data records."""
 
-    def __init__(self, metadata=None):
+    def __init__(self, metadata=None, ticks=1e6):
         self.ids = {}
         self.metadata = metadata or {}  # name to entry metadata
+        self.ticks = ticks  # timestamp units per second: 1e6, or 1e9 from AdvantageKit alpha-7 on
         self.out = bytearray(b"WPILOG" + struct.pack("<HI", 0x0100, 0))
 
     def _record(self, entry, t, payload):
         hdr = 3 | (3 << 2) | (7 << 4)  # 4-byte id and size, 8-byte timestamp
-        self.out += bytes([hdr]) + struct.pack("<IIQ", entry, len(payload), int(t * 1e6)) + payload
+        self.out += bytes([hdr]) + struct.pack("<IIQ", entry, len(payload), int(t * self.ticks)) + payload
 
     def _start(self, name, typ):
         if name not in self.ids:
@@ -84,6 +86,20 @@ def shooting_log(prefix, gate, shot_log):
     return log
 
 
+def enable_log(ticks):
+    """Disabled at 1 s, enabled from 5 s to 20 s, logged in the given timestamp units."""
+    metadata = {}
+    if ticks == 1e9:
+        metadata["/Timestamp"] = '{"source":"AdvantageKit","unit":"nanoseconds"}'
+    log = Log(metadata, ticks)
+    for t in (1.0, 5.0, 20.0, 25.0):
+        log.put("/Timestamp", t, int(t * ticks))
+    log.put("/DriverStation/Enabled", 1.0, False)
+    log.put("/DriverStation/Enabled", 5.0, True)
+    log.put("/DriverStation/Enabled", 20.0, False)
+    return bytes(log.out)
+
+
 def run(tool, *args):
     return subprocess.run(
         [sys.executable, os.path.join(TOOLS, tool), *args],
@@ -94,6 +110,21 @@ def run(tool, *args):
 
 
 class LogToolsTest(unittest.TestCase):
+
+    def test_check_finds_the_enabled_window_in_either_timestamp_unit(self):
+        for ticks in (1e6, 1e9):
+            with self.subTest(ticks=ticks):
+                self.assertEqual(check.enabled_window(enable_log(ticks)), (5.0, 20.0))
+
+    def test_check_counts_a_log_tool_exit_as_a_failed_job(self):
+        def job():
+            raise SystemExit("no cycles at or after START")
+
+        name, ok, _, detail = check.timed("replay", job)
+        self.assertEqual(name, "replay")
+        self.assertFalse(ok)
+        self.assertIn("no cycles at or after START", detail)
+
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.dir.cleanup)

@@ -30,13 +30,13 @@ class OrderedVisionUpdatesTest {
         var e =
                 new SwerveDrivePoseEstimator(
                         k,
-                        Rotation2d.kZero,
+                        Rotation2d.ZERO,
                         p,
-                        Pose2d.kZero,
+                        Pose2d.ZERO,
                         VecBuilder.fill(0.1, 0.1, 0.1),
                         VecBuilder.fill(0.9, 0.9, 0.9));
         for (int i = 0; i <= 250; i++) {
-            e.updateWithTime(i * 0.004, Rotation2d.kZero, positions(i * 0.004));
+            e.updateWithTime(i * 0.004, Rotation2d.ZERO, positions(i * 0.004));
         }
         return e;
     }
@@ -44,13 +44,13 @@ class OrderedVisionUpdatesTest {
     private static SwerveModulePosition[] positions(double metres) {
         SwerveModulePosition[] p = new SwerveModulePosition[4];
         for (int i = 0; i < 4; i++) {
-            p[i] = new SwerveModulePosition(metres, Rotation2d.kZero);
+            p[i] = new SwerveModulePosition(metres, Rotation2d.ZERO);
         }
         return p;
     }
 
-    private static final Pose2d EARLY = new Pose2d(0.5, 0.2, Rotation2d.kZero); // t = 0.4
-    private static final Pose2d LATE = new Pose2d(0.9, -0.1, Rotation2d.kZero); // t = 0.8
+    private static final Pose2d EARLY = new Pose2d(0.5, 0.2, Rotation2d.ZERO); // t = 0.4
+    private static final Pose2d LATE = new Pose2d(0.9, -0.1, Rotation2d.ZERO); // t = 0.8
 
     @Test
     void outOfOrderMatchesInOrder() {
@@ -111,7 +111,7 @@ class OrderedVisionUpdatesTest {
         double before = e.getEstimatedPosition().getRotation().getDegrees();
         assertEquals(30, before, 0.1);
 
-        v.add(new Pose2d(0.75, 0.0, Rotation2d.kZero), 0.75, VecBuilder.fill(0.5, 0.5, HUGE), 1.0);
+        v.add(new Pose2d(0.75, 0.0, Rotation2d.ZERO), 0.75, VecBuilder.fill(0.5, 0.5, HUGE), 1.0);
         assertEquals(2, v.reapplied());
         assertEquals(before, e.getEstimatedPosition().getRotation().getDegrees(), 0.01);
     }

@@ -32,12 +32,12 @@ class PoseFusionTest {
                         new Translation2d(0.3, -0.3),
                         new Translation2d(-0.3, 0.3),
                         new Translation2d(-0.3, -0.3));
-        PoseFusion f = new PoseFusion(k, Rotation2d.kZero, still(), new double[] {0.1, 0.1, 0.1});
+        PoseFusion f = new PoseFusion(k, Rotation2d.ZERO, still(), new double[] {0.1, 0.1, 0.1});
         for (PoseSource s : sources) {
             f.register(s);
         }
         for (int i = 0; i < 20; i++) {
-            f.addOdometry(i * 0.02, Rotation2d.kZero, still());
+            f.addOdometry(i * 0.02, Rotation2d.ZERO, still());
         }
         return f;
     }
@@ -54,7 +54,7 @@ class PoseFusionTest {
                                     name,
                                     Kind.PHOTON,
                                     0.3,
-                                    new Pose3d(new Pose2d(1, 0, Rotation2d.kZero)),
+                                    new Pose3d(new Pose2d(1, 0, Rotation2d.ZERO)),
                                     3,
                                     2.0,
                                     Double.NaN,
@@ -111,7 +111,7 @@ class PoseFusionTest {
                                             "",
                                             Kind.LIMELIGHT_MT1,
                                             0.3,
-                                            Pose3d.kZero,
+                                            Pose3d.ZERO,
                                             1,
                                             3.0,
                                             0.5,
@@ -185,7 +185,7 @@ class PoseFusionTest {
     private static SwerveModulePosition[] straight(double meters) {
         SwerveModulePosition[] p = new SwerveModulePosition[4];
         for (int i = 0; i < 4; i++) {
-            p[i] = new SwerveModulePosition(meters, Rotation2d.kZero);
+            p[i] = new SwerveModulePosition(meters, Rotation2d.ZERO);
         }
         return p;
     }
@@ -193,9 +193,9 @@ class PoseFusionTest {
     @Test
     void resetPoseKeepsOdometryTrackFromJumping() {
         PoseFusion f = fusion();
-        f.addOdometry(0.4, Rotation2d.kZero, straight(0.5), straight(1.0), true);
-        f.resetPose(Pose2d.kZero);
-        f.addOdometry(0.42, Rotation2d.kZero, straight(0.5), straight(1.0), true);
+        f.addOdometry(0.4, Rotation2d.ZERO, straight(0.5), straight(1.0), true);
+        f.resetPose(Pose2d.ZERO);
+        f.addOdometry(0.42, Rotation2d.ZERO, straight(0.5), straight(1.0), true);
         assertEquals(0.0, f.getOdometryPose().getTranslation().getNorm(), 1e-9);
         assertEquals(0.0, f.getPose().getTranslation().getNorm(), 1e-9);
     }

@@ -43,19 +43,18 @@ import org.littletonrobotics.junction.networktables.LoggedNetworkBoolean;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Subsystem;
 import org.wpilib.command2.button.Trigger;
-import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.driverstation.Alliance;
 import org.wpilib.driverstation.DriverStationErrors;
 import org.wpilib.driverstation.MatchState;
 import org.wpilib.hardware.hal.HALUtil;
 import org.wpilib.hardware.imu.OnboardIMU;
 import org.wpilib.math.geometry.Pose2d;
-import org.wpilib.math.geometry.Rectangle2d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.geometry.Translation2d;
 import org.wpilib.math.kinematics.ChassisVelocities;
 import org.wpilib.math.kinematics.SwerveDriveOdometry;
 import org.wpilib.math.kinematics.SwerveModulePosition;
+import org.wpilib.math.shape.Rectangle2d;
 import org.wpilib.math.util.MathUtil;
 import org.wpilib.math.util.Units;
 import org.wpilib.system.Notifier;
@@ -63,6 +62,7 @@ import org.wpilib.system.RobotController;
 import org.wpilib.system.Timer;
 import org.wpilib.units.measure.Angle;
 import org.wpilib.units.measure.AngularVelocity;
+import org.wpilib.util.Alert.Level;
 
 /**
  * FM's swerve drivetrain: Phoenix 6's {@link SwerveDrivetrain} for control and 250 Hz odometry,
@@ -226,7 +226,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
     private static final double MODULE_CURRENT_HZ = 20;
 
     /** Last heading the aim request was asked to hold, for a replayable at-rotation check. */
-    private Rotation2d aimTarget = Rotation2d.kZero;
+    private Rotation2d aimTarget = Rotation2d.ZERO;
 
     /**
      * Constructs a new Swerve drive subsystem.
@@ -274,7 +274,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         poseFusion =
                 new PoseFusion(
                         getKinematics(),
-                        Rotation2d.kZero,
+                        Rotation2d.ZERO,
                         startPositions,
                         new double[] {0.1, 0.1, 0.1});
 
@@ -392,7 +392,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
         // vision share. Not Timer.getTimestamp() itself: AdvantageKit pins that to the start of the
         // cycle, which would shift every sample by however far into the loop this line runs.
         double phoenixMinusWpilib =
-                Utils.getCurrentTimeSeconds() - HALUtil.getMonotonicTime() * 1e-6;
+                Utils.getCurrentTimeSeconds() - HALUtil.getMonotonicTime() * 1e-9; // ns
 
         int n = odometryQueue.size();
         double[] times = new double[n];
@@ -1338,7 +1338,7 @@ public class Swerve extends SwerveDrivetrain<TalonFX, TalonFX, CANcoder> impleme
             for (int i = 0; i < 4; i++) {
                 zero[i] = new SwerveModulePosition();
             }
-            truth = new SwerveDriveOdometry(getKinematics(), Rotation2d.kZero, zero);
+            truth = new SwerveDriveOdometry(getKinematics(), Rotation2d.ZERO, zero);
         }
 
         Rotation2d corruptHeading(Rotation2d heading, double t) {

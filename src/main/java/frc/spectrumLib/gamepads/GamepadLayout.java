@@ -45,10 +45,10 @@ public enum GamepadLayout {
             2, // left trigger
             3), // right trigger
     WPILIB_DS(
-            org.wpilib.driverstation.Gamepad.Button.SOUTH_FACE.value,
-            org.wpilib.driverstation.Gamepad.Button.EAST_FACE.value,
-            org.wpilib.driverstation.Gamepad.Button.WEST_FACE.value,
-            org.wpilib.driverstation.Gamepad.Button.NORTH_FACE.value,
+            org.wpilib.driverstation.Gamepad.Button.FACE_DOWN.value,
+            org.wpilib.driverstation.Gamepad.Button.FACE_RIGHT.value,
+            org.wpilib.driverstation.Gamepad.Button.FACE_LEFT.value,
+            org.wpilib.driverstation.Gamepad.Button.FACE_UP.value,
             org.wpilib.driverstation.Gamepad.Button.LEFT_BUMPER.value,
             org.wpilib.driverstation.Gamepad.Button.RIGHT_BUMPER.value,
             org.wpilib.driverstation.Gamepad.Button.BACK.value,

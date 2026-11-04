@@ -24,7 +24,6 @@ import org.wpilib.math.util.Units;
 import org.wpilib.smartdashboard.Mechanism2d;
 import org.wpilib.smartdashboard.MechanismLigament2d;
 import org.wpilib.smartdashboard.MechanismRoot2d;
-import org.wpilib.smartdashboard.SmartDashboard;
 import org.wpilib.util.Color;
 import org.wpilib.util.Color8Bit;
 
@@ -69,7 +68,7 @@ public class RobotSim {
 
     public RobotSim(SuperStructure superStructure) {
         this.robotSuperStructure = superStructure;
-        SmartDashboard.putData("Sim/LeftView", RobotSim.leftView);
+        org.wpilib.telemetry.Telemetry.log("SmartDashboard/Sim/LeftView", RobotSim.leftView);
         leftView.setBackgroundColor(new Color8Bit(Color.LIGHT_GRAY));
         drawRobot();
 
@@ -85,13 +84,13 @@ public class RobotSim {
                         * robotSuperStructure.getIntakeExtension().getPositionPercentage()
                         / 100;
         var intakePose3d =
-                Pose3d.kZero.plus(
+                Pose3d.ZERO.plus(
                         new Transform3d(
-                                new Translation3d(intakeExtensionPose, 0, 0), Rotation3d.kZero));
+                                new Translation3d(intakeExtensionPose, 0, 0), Rotation3d.ZERO));
 
         double hoodAngleDegrees = robotSuperStructure.getHood().getPositionDegrees();
         var hoodPose3d =
-                Pose3d.kZero.rotateAround(
+                Pose3d.ZERO.rotateAround(
                         SHOOTER_HOOD_PIVOT_POINT,
                         new Rotation3d(0, -Math.toRadians(hoodAngleDegrees - 9), 0));
 

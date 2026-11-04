@@ -5,7 +5,7 @@ import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import java.util.ArrayList;
 import java.util.List;
-import org.wpilib.driverstation.Alert.Level;
+import org.wpilib.util.Alert.Level;
 
 /**
  * Pre-match self-checks: a registry of {@link Check}s that run while the robot is disabled and add

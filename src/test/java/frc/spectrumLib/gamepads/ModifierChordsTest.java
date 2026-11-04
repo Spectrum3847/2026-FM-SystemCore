@@ -23,7 +23,7 @@ class ModifierChordsTest {
 
     @BeforeAll
     static void initHal() {
-        assertTrue(HAL.initialize(500, 0));
+        assertTrue(HAL.initialize());
     }
 
     /** The buttons a test holds, read by the group as the robot reads the controller. */

@@ -4,7 +4,7 @@ import frc.rebuilt.targetFactories.FeedTargetFactory;
 import frc.rebuilt.targetFactories.HubTargetFactory;
 import frc.robot.Robot;
 import frc.spectrumLib.telemetry.Telemetry;
-import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
+import org.littletonrobotics.junction.networktables.LoggedNetworkChooser;
 import org.wpilib.command2.Command;
 import org.wpilib.command2.Commands;
 import org.wpilib.math.filter.LinearFilter;
@@ -25,7 +25,7 @@ public class ShotCalculator {
     private static ShotCalculator instance;
 
     /** Offset from robot centre to launcher. Zero means the launcher is at the robot centre. */
-    private static final Transform2d robotToLauncher = Transform2d.kZero;
+    private static final Transform2d robotToLauncher = Transform2d.ZERO;
 
     public static ShotCalculator getInstance() {
         if (instance == null) instance = new ShotCalculator();
@@ -300,14 +300,14 @@ public class ShotCalculator {
      * picked when testing indoors without a redeploy. Feed shots always use {@link #FEED_MODEL} and
      * are unaffected.
      */
-    private final LoggedDashboardChooser<PolyModel> hubModelChooser =
-            new LoggedDashboardChooser<>("Hub Model Chooser");
+    private final LoggedNetworkChooser<PolyModel> hubModelChooser =
+            new LoggedNetworkChooser<>("SmartDashboard/Hub Model Chooser");
 
     // An AdvantageKit dashboard input (same dashboard key as the 2026 SendableChooser): the shot
     // model changes every hood angle and RPM, so replay has to know which one was selected.
     private ShotCalculator() {
-        hubModelChooser.addDefaultOption(NO_CEILING_HUB_MODEL.name(), NO_CEILING_HUB_MODEL);
-        hubModelChooser.addOption(CEILING_3M_HUB_MODEL.name(), CEILING_3M_HUB_MODEL);
+        hubModelChooser.addDefault(NO_CEILING_HUB_MODEL.name(), NO_CEILING_HUB_MODEL);
+        hubModelChooser.add(CEILING_3M_HUB_MODEL.name(), CEILING_3M_HUB_MODEL);
         Telemetry.logDash("Shooting/Calc/SetShot", selectedSetShot.label);
     }
 
@@ -394,7 +394,10 @@ public class ShotCalculator {
             Translation2d spot = new Translation2d(blueX, blueY);
             Translation2d toHub =
                     new Translation2d(Field.BlueHub.centerX, Field.BlueHub.centerY).minus(spot);
-            this.bluePose = new Pose2d(spot, toHub.getAngle().plus(Rotation2d.k180deg));
+            this.bluePose =
+                    new Pose2d(
+                            spot,
+                            toHub.getAngle().orElse(Rotation2d.ZERO).plus(Rotation2d.k180deg));
             this.distanceMeters = toHub.getNorm();
         }
 
@@ -569,6 +572,7 @@ public class ShotCalculator {
         Rotation2d driveAngle =
                 launcherToTarget
                         .getAngle()
+                        .orElse(Rotation2d.ZERO)
                         .plus(Rotation2d.fromDegrees(yawOffsetDeg))
                         .plus(Rotation2d.fromDegrees(DRIVE_ANGLE_OFFSET))
                         .plus(Rotation2d.k180deg);

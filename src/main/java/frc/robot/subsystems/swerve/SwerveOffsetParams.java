@@ -6,7 +6,7 @@ import frc.spectrumLib.params.Params;
 import frc.spectrumLib.telemetry.Alert;
 import java.util.ArrayList;
 import java.util.List;
-import org.wpilib.driverstation.Alert.Level;
+import org.wpilib.util.Alert.Level;
 
 /**
  * The swerve CANcoder magnet offsets as params, group {@code swerve}, so a module re-zeroed in the

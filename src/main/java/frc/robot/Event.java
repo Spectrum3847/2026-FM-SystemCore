@@ -1,6 +1,6 @@
 package frc.robot;
 
-import org.wpilib.vision.apriltag.AprilTagFields;
+import org.wpilib.fields.Fields;
 
 /** What changes from one event to the next. Check every value here before each event. */
 public final class Event {
@@ -11,5 +11,5 @@ public final class Event {
      * with this layout and publishes it at {@code /SpectrumVision/FieldMap} for the Jetson, whose
      * reported hash the pre-match Settings check compares.
      */
-    public static final AprilTagFields APRILTAG_FIELD = AprilTagFields.k2026RebuiltAndymark;
+    public static final Fields APRILTAG_FIELD = Fields.FRC_2026_REBUILT_ANDY_MARK;
 }

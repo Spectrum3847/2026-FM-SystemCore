@@ -8,10 +8,10 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import org.wpilib.fields.Field;
+import org.wpilib.fields.FieldTag;
 import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Quaternion;
-import org.wpilib.vision.apriltag.AprilTag;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 
 /**
  * A short fingerprint of an AprilTag field map, so the robot and each coprocessor can tell whether
@@ -45,7 +45,7 @@ public final class FieldMapHash {
      * @param layout the field map
      * @return {@link #LENGTH} lowercase hex characters
      */
-    public static String of(AprilTagFieldLayout layout) {
+    public static String of(Field layout) {
         return hash(canonicalText(layout));
     }
 
@@ -55,15 +55,15 @@ public final class FieldMapHash {
      * @param layout the field map
      * @return the canonical lines, joined with {@code "\n"}
      */
-    public static String canonicalText(AprilTagFieldLayout layout) {
-        List<AprilTag> tags = new ArrayList<>(layout.getTags());
-        tags.sort(Comparator.comparingInt(t -> t.ID));
+    public static String canonicalText(Field layout) {
+        List<FieldTag> tags = new ArrayList<>(layout.getTags());
+        tags.sort(Comparator.comparingInt(t -> t.getID()));
         List<String> lines = new ArrayList<>(tags.size() + 1);
-        for (AprilTag t : tags) {
-            Pose3d p = t.pose;
+        for (FieldTag t : tags) {
+            Pose3d p = t.getPose();
             Quaternion q = p.getRotation().getQuaternion();
             lines.add(
-                    t.ID
+                    t.getID()
                             + ","
                             + num(p.getX())
                             + ","

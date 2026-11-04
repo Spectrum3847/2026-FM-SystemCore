@@ -16,6 +16,7 @@ import org.photonvision.simulation.SimCameraProperties;
 import org.photonvision.simulation.VisionSystemSim;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
+import org.wpilib.fields.Field;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Rotation2d;
@@ -23,7 +24,6 @@ import org.wpilib.math.geometry.Rotation3d;
 import org.wpilib.math.geometry.Transform3d;
 import org.wpilib.math.geometry.Translation3d;
 import org.wpilib.math.util.Units;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 
 /**
  * Simulated cameras for every pose source, on PhotonLib's {@link VisionSystemSim}.
@@ -50,7 +50,7 @@ public class SimVision {
      * @param layout field tags
      * @param truth simulated true robot pose
      */
-    public SimVision(AprilTagFieldLayout layout, Supplier<Optional<Pose2d>> truth) {
+    public SimVision(Field layout, Supplier<Optional<Pose2d>> truth) {
         this.truth = truth;
         system.addAprilTags(layout);
     }
@@ -126,11 +126,10 @@ public class SimVision {
     public static final class LimelightSimCamera {
         private final PhotonCamera camera;
         private final Transform3d robotToCamera;
-        private final AprilTagFieldLayout layout;
+        private final Field layout;
         private List<PhotonPipelineResult> results = List.of();
 
-        public LimelightSimCamera(
-                PhotonCamera camera, Transform3d robotToCamera, AprilTagFieldLayout layout) {
+        public LimelightSimCamera(PhotonCamera camera, Transform3d robotToCamera, Field layout) {
             this.camera = camera;
             this.robotToCamera = robotToCamera;
             this.layout = layout;

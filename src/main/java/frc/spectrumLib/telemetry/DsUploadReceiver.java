@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Pattern;
-import org.wpilib.driverstation.Alert.Level;
+import org.wpilib.util.Alert.Level;
 
 /**
  * Receives files the Driver Station laptop pushes after a match: its DS log, and audio and video

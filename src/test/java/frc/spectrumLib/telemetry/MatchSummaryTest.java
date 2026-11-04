@@ -24,7 +24,7 @@ import org.json.simple.parser.ParseException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.littletonrobotics.junction.LogTable;
-import org.wpilib.driverstation.Alert.Level;
+import org.wpilib.util.Alert.Level;
 
 class MatchSummaryTest {
     /** The loop period RobotLoop reports in tests. */

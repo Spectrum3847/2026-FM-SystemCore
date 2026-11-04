@@ -33,6 +33,7 @@ public class DashboardReceiver implements LogDataReceiver {
     private final int everyN;
     private final Map<String, LogValue> pending = new HashMap<>();
     private long cycle = 0;
+    private boolean wasMirroringAll = false;
 
     /**
      * @param inner the NetworkTables publisher
@@ -54,19 +55,25 @@ public class DashboardReceiver implements LogDataReceiver {
     }
 
     @Override
-    public void putTable(LogTable table) throws InterruptedException {
+    public void putChanges(LogTable changes, LogTable current) throws InterruptedException {
         boolean all = Telemetry.isMirroringAll();
-        // getAll(false) is the table's own map (absolute keys, "/RealOutputs/..."), not a copy:
-        // with ~1,100 entries every 10 ms, copying it and cutting a substring per key was most of
-        // this thread's work.
-        for (Map.Entry<String, LogValue> e : table.getAll(false).entrySet()) {
-            String key = e.getKey();
-            // The Orin's raw results are most of the log's bytes; never mirror them to NT.
-            boolean mirror = all && !key.endsWith("/Results") && !key.contains("/Results/");
-            if (mirror || key.startsWith(METADATA) || Telemetry.isDashboardTableKey(key)) {
-                pending.put(key.substring(1), e.getValue()); // put() takes keys relative to "/"
-            }
+        // Turning the mirror on sends everything once; after that, only what changes.
+        collect(all && !wasMirroringAll ? current : changes, all);
+        wasMirroringAll = all;
+        if (++cycle % everyN != 0) {
+            return;
         }
+        LogTable merged = new LogTable(changes.getTimestamp());
+        for (Map.Entry<String, LogValue> e : pending.entrySet()) {
+            merged.put(e.getKey(), e.getValue());
+        }
+        pending.clear();
+        inner.putChanges(merged, merged);
+    }
+
+    @Override
+    public void putTable(LogTable table) throws InterruptedException {
+        collect(table, Telemetry.isMirroringAll());
         if (++cycle % everyN != 0) {
             return;
         }
@@ -76,5 +83,18 @@ public class DashboardReceiver implements LogDataReceiver {
         }
         pending.clear();
         inner.putTable(merged);
+    }
+
+    /** Adds the table's dashboard entries to the ones waiting for the next publish. */
+    private void collect(LogTable table, boolean all) {
+        // getAll(false) is the table's own map (absolute keys, "/RealOutputs/..."), not a copy.
+        for (Map.Entry<String, LogValue> e : table.getAll(false).entrySet()) {
+            String key = e.getKey();
+            // The Orin's raw results are most of the log's bytes; never mirror them to NT.
+            boolean mirror = all && !key.endsWith("/Results") && !key.contains("/Results/");
+            if (mirror || key.startsWith(METADATA) || Telemetry.isDashboardTableKey(key)) {
+                pending.put(key.substring(1), e.getValue()); // put() takes keys relative to "/"
+            }
+        }
     }
 }

@@ -1,7 +1,7 @@
 {
   "fileName": "AdvantageKit-Spectrum.json",
   "name": "AdvantageKit (Spectrum fork)",
-  "version": "27.0.0-alpha-7-spectrum.4",
+  "version": "27.0.0-alpha-7-spectrum.5",
   "uuid": "cb2e36c5-3140-401c-bed3-b550c60bdf58",
   "wpilibYear": "2027_alpha7",
   "mavenUrls": [
@@ -20,7 +20,7 @@
     {
       "groupId": "org.littletonrobotics.akit",
       "artifactId": "akit-java",
-      "version": "27.0.0-alpha-7-spectrum.4"
+      "version": "27.0.0-alpha-7-spectrum.5"
     }
   ],
   "jniDependencies": [

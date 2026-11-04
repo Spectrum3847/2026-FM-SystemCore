@@ -17,6 +17,7 @@ import unittest
 TOOLS = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, TOOLS)
 
+import akit_log_to_ns  # noqa: E402
 import check  # noqa: E402
 import make_log_key_guide  # noqa: E402
 import wpilog_summary  # noqa: E402
@@ -258,6 +259,32 @@ class LogToolsTest(unittest.TestCase):
         lines = ['    org.wpilib.telemetry.Telemetry.log("Field2d", field2d);']
         text = "\n".join(lines)
         self.assertEqual([], list(make_log_key_guide.outputs("X.java", text, lines)))
+
+    def _alpha4_log(self):
+        log = Log({"/Timestamp": '{"source":"AdvantageKit","unit":"microseconds"}'})
+        for t in (1.0, 1.02):
+            log.put("/Timestamp", t, int(t * 1e6))
+            log.put("/RealOutputs/Hood/Volts", t, 1.5)
+        return log
+
+    def test_ns_converter_scales_timestamps_and_marks_the_unit(self):
+        src = self._alpha4_log().write(self.path("a.wpilog"))
+        out = akit_log_to_ns.convert(open(src, "rb").read())
+        # Entry 1 is /Timestamp: its records' timestamps and values go from microseconds to ns.
+        stamps = [(ts, struct.unpack("<q", p)[0]) for e, ts, p in akit_log_to_ns._records(out) if e == 1]
+        self.assertEqual([(1_000_000_000, 1_000_000_000), (1_020_000_000, 1_020_000_000)], stamps)
+        self.assertIn(b'"unit":"nanoseconds"', out)
+        self.assertIsNone(akit_log_to_ns.convert(out))  # already converted
+
+    def test_ns_converter_drops_a_record_cut_off_at_the_end(self):
+        data = open(self._alpha4_log().write(self.path("a.wpilog")), "rb").read()
+        whole = akit_log_to_ns.convert(data)
+        # A power loss mid-write: the last record (Hood/Volts, 8 bytes) keeps only 3 of its bytes.
+        cut = akit_log_to_ns.convert(data[:-5])
+        self.assertEqual(len(list(akit_log_to_ns._records(whole))) - 1, len(list(akit_log_to_ns._records(cut))))
+        for eid, _, payload in akit_log_to_ns._records(cut):
+            if eid != 0:
+                self.assertEqual(8, len(payload))
 
     def test_key_guide_reads_unit_and_comment_beside_a_call(self):
         lines = [

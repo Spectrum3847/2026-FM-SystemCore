@@ -142,7 +142,8 @@ def enabled_window(data):
             end = ts
     if first is None:
         return None
-    return first / 1e6, (last if last is not None else end) / 1e6
+    ticks = trim_wpilog.ticks_per_second(data)
+    return first / ticks, (last if last is not None else end) / ticks
 
 
 def job_replay(log, full_log, env):
@@ -191,7 +192,8 @@ def timed(name, fn, *args):
     start = time.monotonic()
     try:
         ok, detail = fn(*args)
-    except Exception as e:  # a crashed job is a failed job, not a crashed check
+    # A crashed job is a failed job, not a crashed check. SystemExit too: the log tools raise it.
+    except (Exception, SystemExit) as e:
         ok, detail = False, f"{type(e).__name__}: {e}"
     return name, ok, time.monotonic() - start, detail
 

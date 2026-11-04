@@ -97,7 +97,7 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
-    def akitJson = new groovy.json.JsonSlurper().parseText(new File(projectDir.getAbsolutePath() + "/vendordeps/AdvantageKit.json").text)
+    def akitJson = new groovy.json.JsonSlurper().parseText(new File(projectDir.getAbsolutePath() + "/vendordeps/AdvantageKit-Spectrum.json").text)
     annotationProcessor "org.littletonrobotics.akit:akit-autolog:$akitJson.version"
 }
 
@@ -315,4 +315,25 @@ if (project.hasProperty('robotLog')) {
                     "journalctl -u robot -b --no-pager 2>&1 | ${filter}; sudo systemctl start robot"
         }
     }
+}
+
+// Stages the robot jar, its SystemCore native libraries and the deploy folder in build/bench, for
+// tools/pi_bench.sh (replay on a Raspberry Pi 5 running the SystemCore image).
+tasks.register('benchStage', Sync) {
+    group = 'Spectrum'
+    description = 'Stage the robot program for tools/pi_bench.sh'
+    into "$buildDir/bench"
+    from(jar) { into 'classpath' }
+    from(configurations.runtimeClasspath) { into 'classpath' }
+    from({
+        configurations.systemcoreRelease.collect {
+            zipTree(it)
+        }
+    }) {
+        include '**/*.so*'
+        exclude '**/*.debug'
+        eachFile { path = "lib/$name" }
+        includeEmptyDirs = false
+    }
+    from('src/main/deploy') { into 'deploy' }
 }

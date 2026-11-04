@@ -19,7 +19,14 @@ public final class Constants {
                     ? Mode.REPLAY
                     : Mode.SIM;
 
-    public static final Mode currentMode = RobotBase.isReal() ? Mode.REAL : simMode;
+    /**
+     * Replay on a SystemCore, or a Raspberry Pi 5 running its image, to measure what the robot code
+     * costs on that CPU ({@code tools/pi_bench.sh}). Never set on a robot.
+     */
+    public static final boolean BENCH_REPLAY = Boolean.getBoolean("fm.bench");
+
+    public static final Mode currentMode =
+            BENCH_REPLAY ? Mode.REPLAY : RobotBase.isReal() ? Mode.REAL : simMode;
 
     /**
      * Robot loop period. The 2026 roboRIO ran 0.020 (50 Hz) and was often over budget; SystemCore

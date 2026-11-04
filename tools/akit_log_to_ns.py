@@ -18,7 +18,12 @@ def _nbytes(v):
 
 
 def _records(data):
-    """Yields (entry id, timestamp, payload) for each record after the header."""
+    """Yields (entry id, timestamp, payload) for each complete record after the header.
+
+    A log cut off by a power loss ends partway through a record. That record is dropped: written
+    back with the bytes it has, its size would say it is complete, and a replay would read it as a
+    value of the wrong length and crash.
+    """
     extra_len = struct.unpack_from("<I", data, 8)[0]
     pos = 12 + extra_len
     n = len(data)
@@ -34,6 +39,8 @@ def _records(data):
         pos += size_len
         ts = int.from_bytes(data[pos : pos + ts_len], "little")
         pos += ts_len
+        if pos + size > n:
+            return
         yield eid, ts, bytes(data[pos : pos + size])
         pos += size
 

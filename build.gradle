@@ -322,13 +322,9 @@ if (project.hasProperty('robotLog')) {
 tasks.register('benchStage', Sync) {
     group = 'Spectrum'
     description = 'Stage the robot program for tools/pi_bench.sh'
-    dependsOn shadowJar
     into "$buildDir/bench"
-    from(shadowJar) {
-        rename {
-            "robot.jar"
-        }
-    }
+    from(jar) { into 'classpath' }
+    from(configurations.runtimeClasspath) { into 'classpath' }
     from({
         configurations.systemcoreRelease.collect {
             zipTree(it)

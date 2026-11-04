@@ -2448,28 +2448,28 @@
   {
    "key": "/RealOutputs/Swerve/Currents/DriveStatorCurrent",
    "unit": "",
-   "doc": "All four drive motors' stator current, summed, at 10 Hz. Per module under Swerve/Currents/<module>/.",
+   "doc": "All four drive motors' stator current, summed. Per module under Swerve/Currents/<module>/.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/Currents/DriveSupplyCurrent",
    "unit": "",
-   "doc": "All four drive motors' battery current, summed, at 10 Hz.",
+   "doc": "All four drive motors' battery current, summed.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/Currents/SteerStatorCurrent",
    "unit": "",
-   "doc": "All four steer motors' stator current, summed, at 10 Hz.",
+   "doc": "All four steer motors' stator current, summed.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },
   {
    "key": "/RealOutputs/Swerve/Currents/SteerSupplyCurrent",
    "unit": "",
-   "doc": "All four steer motors' battery current, summed, at 10 Hz.",
+   "doc": "All four steer motors' battery current, summed.",
    "source": "src/main/java/frc/robot/subsystems/swerve/Swerve.java",
    "input": false
   },

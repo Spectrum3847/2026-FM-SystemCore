@@ -365,10 +365,10 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Swerve/Align/<name>/SteerVelocity` |  |  | Steer encoder velocity; non-zero means the wheel is moving, so don't save. | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
 | `/RealOutputs/Swerve/Align/Timestamp` |  |  | Lets the web app tell "the numbers are not moving" apart from "the robot went away". | src/main/java/frc/robot/subsystems/swerve/SwerveAlignment.java |
 | `/RealOutputs/Swerve/CurrentCommand` |  |  | The command requiring the drivetrain, if any. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/Swerve/Currents/DriveStatorCurrent` |  |  | All four drive motors' stator current, summed, at 10 Hz. Per module under Swerve/Currents/<module>/. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/Swerve/Currents/DriveSupplyCurrent` |  |  | All four drive motors' battery current, summed, at 10 Hz. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/Swerve/Currents/SteerStatorCurrent` |  |  | All four steer motors' stator current, summed, at 10 Hz. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
-| `/RealOutputs/Swerve/Currents/SteerSupplyCurrent` |  |  | All four steer motors' battery current, summed, at 10 Hz. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
+| `/RealOutputs/Swerve/Currents/DriveStatorCurrent` |  |  | All four drive motors' stator current, summed. Per module under Swerve/Currents/<module>/. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
+| `/RealOutputs/Swerve/Currents/DriveSupplyCurrent` |  |  | All four drive motors' battery current, summed. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
+| `/RealOutputs/Swerve/Currents/SteerStatorCurrent` |  |  | All four steer motors' stator current, summed. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
+| `/RealOutputs/Swerve/Currents/SteerSupplyCurrent` |  |  | All four steer motors' battery current, summed. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/GyroRebooted` |  |  | The Pigeon rebooted this loop. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/ModuleRebooted` |  |  | Per module, a drive or steer motor rebooted this loop. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |
 | `/RealOutputs/Swerve/OdometrySamplesThisLoop` |  |  | (Pose, module targets/velocities and chassis speed are not re-logged here: they are Localization/FusedPose and the Swerve inputs ModuleTargets, ModuleVelocities and RobotVelocity already.) | src/main/java/frc/robot/subsystems/swerve/Swerve.java |

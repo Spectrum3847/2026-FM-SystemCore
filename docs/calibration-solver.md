@@ -99,6 +99,43 @@ Each module's steer offset can be checked from any log, routine or match:
 - **Slipped offsets:** the same estimate over time per log: a step change between matches (or
   within one, after a hit) means the encoder or magnet slipped.
 
+## Calibration from many logs
+
+Every match log is also calibration data. Once logs are reproducible (`reproducible-logs.md`: git
+SHA and diff, Robot Settings values, device configs), the same solve can run across a whole event's
+logs instead of one calibration drive. It doesn't need driving on the field, so it fits events.
+
+The TXMAN1 logs, analysed by hand, already found Orin mounts about 5° off, a backwards Pigeon,
+LL-Back's flipped mount in Q30, Orin timestamps in the wrong units, the tilt rule that lost lock, and
+wheels over-counting rotation about 30%. None were seen during the event.
+
+- **Pooled solve:** one match weakly constrains a camera's lever arm or wheel radius; many matches
+  together pin it down. Each value comes with an uncertainty that shrinks as logs accumulate.
+  Candidates: camera mounts (`MountEstimator` across logs), lag and noise models, steer offsets
+  ("Steer offsets from logs"), wheel and per-module scale, gyro scale, IMU mount.
+- **History per value:** the estimate per match, with step detection: "Orin-Right pitch moved 2°
+  after Q14", "BR steer offset stepped 3° between Q20 and Q21", "wheel scale drifted 2% as treads
+  wore". A step means something moved, slipped or was hit.
+- **Across robots and events:** the same code on two robots, or one robot on two carpets, separates
+  the robot from the field.
+- **Test before deploying:** a candidate calibration or code change is replayed in `current` mode
+  on every past match before it goes on the robot.
+
+Limits:
+
+- Match driving excites some values poorly: camera x/y needs rotation, wheel radius mixes with
+  slip, lag needs fast turns. The calibration drive stays the clean source; logs track it between
+  drives.
+- Tags are the ground truth, so the field map must be right; hold out logs to check for overfitting.
+- Only reproducible logs qualify cleanly. Older logs (like TXMAN1) need `-Pmountfix`-style care.
+
+Pipeline:
+
+1. Logs upload to robotlog.spectrum3847.org after each match (already happening).
+2. A job pulls the event's logs, runs the exporter, `TagEkfTuner` and the solver, and updates each
+   value's estimate and history.
+3. A short pit report: what drifted, what's off calibration, suggested Robot Settings values.
+
 ## Implementation notes
 
 - One nonlinear least-squares solve over the drive (bundle adjustment / hand-eye calibration):

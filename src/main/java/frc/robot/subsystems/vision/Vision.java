@@ -6,8 +6,11 @@ import frc.robot.Robot;
 import frc.robot.RuntimeInputs;
 import frc.robot.auton.Auton;
 import frc.robot.subsystems.swerve.Swerve;
+import frc.robot.subsystems.swerve.TiltState;
 import frc.spectrumLib.checks.CameraHeadingCheck;
+import frc.spectrumLib.localization.CornerSighting;
 import frc.spectrumLib.localization.GateContext;
+import frc.spectrumLib.localization.MountEstimator;
 import frc.spectrumLib.localization.PoseFusion;
 import frc.spectrumLib.localization.PoseObservation;
 import frc.spectrumLib.localization.PoseObservation.Kind;
@@ -165,13 +168,22 @@ public class Vision implements Subsystem {
          * roll.
          */
         @Getter
+        // Rotations from TXMAN1 replay: MountEstimator's median correction over 9 logs (left -4.6
+        // deg local yaw, right -3.9 deg local pitch) composed onto the CAD mounts (0, -18, 90) and
+        // (0, -18, -84.5). Not yet checked against a static calibration.
         final Transform3d[] orinRobotToCamera = {
             new Transform3d(
                     new Translation3d(0.0836, 0.3231, 0.4883),
-                    new Rotation3d(0, Units.degreesToRadians(-18), Units.degreesToRadians(90))),
+                    new Rotation3d(
+                            Units.degreesToRadians(1.5),
+                            Units.degreesToRadians(-18.12),
+                            Units.degreesToRadians(85.13))),
             new Transform3d(
                     new Translation3d(0.0836, -0.3231, 0.4883),
-                    new Rotation3d(0, Units.degreesToRadians(-18), Units.degreesToRadians(-84.5)))
+                    new Rotation3d(
+                            Units.degreesToRadians(-0.03),
+                            Units.degreesToRadians(-21.85),
+                            Units.degreesToRadians(-84.41)))
         };
 
         /** Per-camera std-dev multiplier (6328's camera factor); 1 until logs say otherwise. */
@@ -282,6 +294,27 @@ public class Vision implements Subsystem {
     private final List<OrinPoseSourceIO> orinIos = new ArrayList<>();
     private final List<Transform3d> orinMounts = new ArrayList<>();
     private final List<Transform3d> chassisLimelightMounts = new ArrayList<>();
+
+    /**
+     * Walls and hubs as one-sided constraints on the tag EKF. In replay with 5 s of every 20 s of
+     * tags blacked out they cut time lost 9.6% -> 7.0% and are neutral otherwise
+     * (docs/pose-improvements.md). Bump fixes and SlipDetector are built but off: their gains swung
+     * with their settings.
+     */
+    private final FieldPriors fieldPriors = new FieldPriors(0, 0.05, 0.40);
+
+    /**
+     * Online Orin mount yaw/pitch correction from tag corners (TagEkfTuner -Pmode=mount): TXMAN1
+     * held-out p90 0.241 -> 0.144 m; Orin-Left converged to ~-5 deg yaw, Orin-Right ~-4 deg pitch.
+     * Its jump-based knock flag false-alarmed on 6 of 9 logs, so the alert is the plain size of the
+     * correction against calibration ({@link #MOUNT_ALERT_DEG}).
+     */
+    private final MountEstimator mountEstimator = new MountEstimator(2, 40, 2.5, 20);
+
+    static final double MOUNT_ALERT_DEG = 2.5;
+
+    /** 6.5 in AprilTags. */
+    static final double TAG_SIZE_M = 0.1651;
 
     /** Orin sources built on the main ones: gyro-held PnP and tx/ty (issue #10, 3 and 8c). */
     @Getter private final List<PoseSource> orinGyroSources = new ArrayList<>();
@@ -848,13 +881,47 @@ public class Vision implements Subsystem {
     private void feedTagEkf() {
         TagEkf ekf = fusion.getTagEkf();
         Set<Integer> excluded = jetson.getExcludedTags();
-        // The 2-D model assumes a level robot.
-        boolean tilted = swerve.isTilted();
         long start = System.nanoTime();
         for (int i = 0; i < orinIos.size(); i++) {
             OrinPoseSourceIO io = orinIos.get(i);
             String camera = orinSources.get(i).getName();
+            double[] k = io.getCameraInputs().cameraMatrix;
+            double[] dist = io.getCameraInputs().distCoeffs;
             for (PhotonPipelineResult r : io.getSolver().decoded) {
+                // The mount as currently corrected; this frame's corners then update the estimate.
+                Transform3d mount = mountEstimator.corrected(camera, orinMounts.get(i));
+                if (k.length == 9) {
+                    List<CornerSighting> corners = new ArrayList<>();
+                    for (PhotonTrackedTarget t : r.getTargets()) {
+                        Optional<Pose3d> tag = tagLayout.getTagPose(t.fiducialId);
+                        if (t.fiducialId < 0
+                                || excluded.contains(t.fiducialId)
+                                || tag.isEmpty()
+                                || t.getDetectedCorners().size() != 4) {
+                            continue;
+                        }
+                        double[][] px = new double[4][];
+                        for (int c = 0; c < 4; c++) {
+                            px[c] =
+                                    new double[] {
+                                        t.getDetectedCorners().get(c).x,
+                                        t.getDetectedCorners().get(c).y
+                                    };
+                        }
+                        corners.add(
+                                new CornerSighting(
+                                        camera,
+                                        r.getTimestampSeconds(),
+                                        t.fiducialId,
+                                        CornerSighting.tagCorners(tag.get(), TAG_SIZE_M),
+                                        px,
+                                        mount,
+                                        new double[] {k[0], k[4], k[2], k[5]},
+                                        dist,
+                                        1.0));
+                    }
+                    mountEstimator.update(ekf.getPose(), corners);
+                }
                 List<TagSighting> frame = new ArrayList<>();
                 for (PhotonTrackedTarget t : r.getTargets()) {
                     if (t.fiducialId < 0 || excluded.contains(t.fiducialId)) {
@@ -870,11 +937,11 @@ public class Vision implements Subsystem {
                                     r.getTimestampSeconds(),
                                     t.fiducialId,
                                     tag.get().getTranslation(),
-                                    orinMounts.get(i),
+                                    mount,
                                     t.bestCameraToTarget.getTranslation(),
                                     io.getSolver().cameraFactor()));
                 }
-                addTagFrame(ekf, frame, tilted);
+                addTagFrame(ekf, frame);
             }
         }
         int stride = PoseSourceInputs.FIDUCIAL_STRIDE;
@@ -908,20 +975,70 @@ public class Vision implements Subsystem {
                                         in.fiducials[f + 3]),
                                 1.0));
             }
-            addTagFrame(ekf, frame, tilted);
+            addTagFrame(ekf, frame);
         }
+        fieldPriors.update(ekf, Timer.getTimestamp(), swerve.getTilt().tiltDeg());
+        mountEstimator
+                .cameras()
+                .forEach(
+                        (cam, m) -> {
+                            String p = "Localization/EKF/Mount/" + cam + "/";
+                            // Online mount yaw correction the EKF is using for this camera, deg.
+                            Logger.recordOutput(p + "YawFixDeg", m.yawDeg());
+                            // Online mount pitch correction, deg.
+                            Logger.recordOutput(p + "PitchFixDeg", m.pitchDeg());
+                            // The correction is far from calibration: recalibrate, or knocked.
+                            Logger.recordOutput(
+                                    p + "OffCalibration",
+                                    Math.hypot(m.yawDeg(), m.pitchDeg()) > MOUNT_ALERT_DEG);
+                        });
+        // Field-prior updates the comparison EKF has taken, since boot.
+        Logger.recordOutput("Localization/EKF/FieldConstraints", fieldPriors.constraints());
         // Time to feed this loop's observations to the comparison EKF.
         Logger.recordOutput("Localization/EKF/FeedMicros", (System.nanoTime() - start) / 1000);
     }
 
-    private static void addTagFrame(TagEkf ekf, List<TagSighting> frame, boolean tilted) {
-        if (tilted) {
+    /**
+     * Tags are dropped only while the robot is steeply tilted (the 2-D model assumes a level
+     * robot). TXMAN1 r19 sat at a steady 6-8 deg for 13 s at a time; dropping every tag above 5 deg
+     * there left the EKF on spinning wheels and it lost lock (71% of r19 more than 1 m off in
+     * replay, 0% with this). 15-20 deg score the same in TagEkfTuner; a tilt-rate gate never
+     * helped.
+     */
+    static final double EKF_SKIP_TILT_DEG = 20.0;
+
+    private void addTagFrame(TagEkf ekf, List<TagSighting> frame) {
+        addTagFrame(ekf, frame, swerve.getTilt().tiltDeg(), EKF_SKIP_TILT_DEG);
+    }
+
+    /**
+     * Feeds one frame to the EKF under the tilt policy: skipped above {@code skipDeg}; above {@link
+     * TiltState#TILTED_DEG}, fed with each tag's noise scaled by tilt over that.
+     */
+    static void addTagFrame(TagEkf ekf, List<TagSighting> frame, double tiltDeg, double skipDeg) {
+        if (tiltDeg > skipDeg) {
             for (TagSighting t : frame) {
                 ekf.skip(t.camera(), "Tilted");
             }
-        } else {
-            ekf.addFrame(frame);
+            return;
         }
+        if (tiltDeg > TiltState.TILTED_DEG) {
+            double k = tiltDeg / TiltState.TILTED_DEG;
+            List<TagSighting> scaled = new ArrayList<>(frame.size());
+            for (TagSighting t : frame) {
+                scaled.add(
+                        new TagSighting(
+                                t.camera(),
+                                t.timestampSeconds(),
+                                t.tagId(),
+                                t.tagField(),
+                                t.robotToCamera(),
+                                t.cameraToTag(),
+                                t.noiseScale() * k));
+            }
+            frame = scaled;
+        }
+        ekf.addFrame(frame);
     }
 
     // =========================================================================

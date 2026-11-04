@@ -197,6 +197,10 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Leds/CurrentCommand` |  |  | The LED pattern command running. | src/main/java/frc/robot/subsystems/leds/Leds.java |
 | `/RealOutputs/Leds/IsAnimating` |  |  | The LEDs are running an animation, not a solid color. | src/main/java/frc/robot/subsystems/leds/Leds.java |
 | `/RealOutputs/Localization/EKF/FeedMicros` |  |  | Time to feed this loop's observations to the comparison EKF. | src/main/java/frc/robot/subsystems/vision/Vision.java |
+| `/RealOutputs/Localization/EKF/FieldConstraints` |  |  | Field-prior updates the comparison EKF has taken, since boot. | src/main/java/frc/robot/subsystems/vision/Vision.java |
+| `/RealOutputs/Localization/EKF/Mount/<limelightSimCamera>/OffCalibration` |  |  | The correction is far from calibration: recalibrate, or knocked. | src/main/java/frc/robot/subsystems/vision/Vision.java |
+| `/RealOutputs/Localization/EKF/Mount/<limelightSimCamera>/PitchFixDeg` |  |  | Online mount pitch correction, deg. | src/main/java/frc/robot/subsystems/vision/Vision.java |
+| `/RealOutputs/Localization/EKF/Mount/<limelightSimCamera>/YawFixDeg` |  |  | Online mount yaw correction the EKF is using for this camera, deg. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Localization/FusedErrorVsTruthMeters` |  |  | Sim only: fused pose error against the true pose; the CI pose check reads this. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
 | `/RealOutputs/Localization/FusedPose` |  |  | The robot pose: odometry corrected by every enabled source. What the robot drives on. | src/main/java/frc/spectrumLib/localization/PoseFusion.java |
 | `/RealOutputs/Localization/MountCheck/OnboardImu/GravityZShare` |  |  | Mount check: share of gravity on the onboard IMU's Z axis at rest; about 1 lying flat. | src/main/java/frc/robot/subsystems/swerve/Swerve.java |

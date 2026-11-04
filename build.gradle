@@ -317,6 +317,36 @@ if (project.hasProperty('robotLog')) {
     }
 }
 
+// Sweeps TagEkf's noise model over exported logs: ./gradlew tagEkfTune -Plogs=robotlogs/TXMAN1-8515
+// (export first: python tools/export_tagekf_events.py robotlogs/TXMAN1-8515/*.wpilog)
+tasks.register('tagEkfTune', JavaExec) {
+    group = 'Spectrum'
+    description = 'Replay exported logs through TagEkf and tune its noise model (-Plogs=DIR)'
+    dependsOn 'testClasses', 'extractReleaseNative'
+    mainClass = 'frc.robot.subsystems.vision.TagEkfTuner'
+    classpath = sourceSets.test.runtimeClasspath
+    def nativeDir = file("$buildDir/jni/release")
+    jvmArgs = [
+        "-Djava.library.path=${nativeDir}",
+        "-Dtuner.trace=${project.findProperty('trace') ?: ''}",
+        "-Dtuner.sweep=${project.findProperty('sweep') ?: 'true'}",
+        "-Dtuner.mode=${project.findProperty('mode') ?: ''}",
+        "-Dtuner.blackout=${project.findProperty('blackout') ?: '0'}",
+        "-Dtuner.mountfix=${project.findProperty('mountfix') ?: '0,0,0,0'}",
+        "-Dtuner.knock=${project.findProperty('knock') ?: '0'}",
+        "-Dtuner.quick=${project.findProperty('quick') ?: 'false'}",
+        "-Dtuner.mounttau=${project.findProperty('mounttau') ?: '0'}",
+        "-Dtuner.adaptive=${project.findProperty('adaptive') ?: '0'}",
+        "-Dtuner.midangle=${project.findProperty('midangle') ?: 'false'}",
+        "-Dtuner.steerrate=${project.findProperty('steerrate') ?: '0'}",
+        "-Dtuner.steernoise=${project.findProperty('steernoise') ?: '10'}"
+    ]
+    environment 'PATH', "${nativeDir}${File.pathSeparator}${System.getenv('PATH')}"
+    args = [
+        project.findProperty('logs') ?: 'robotlogs/TXMAN1-8515'
+    ]
+}
+
 // Stages the robot jar, its SystemCore native libraries and the deploy folder in build/bench, for
 // tools/pi_bench.sh (replay on a Raspberry Pi 5 running the SystemCore image).
 tasks.register('benchStage', Sync) {

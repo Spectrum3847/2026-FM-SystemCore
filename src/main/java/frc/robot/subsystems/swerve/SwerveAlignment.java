@@ -35,9 +35,8 @@ public class SwerveAlignment {
     public static final String KEY_PREFIX = "Swerve/Align/";
 
     /** Module names, in the order {@link SwerveConfig#getModules()} returns them. */
-    public static final String[] MODULE_NAMES = {
-        "FrontLeft", "FrontRight", "BackLeft", "BackRight"
-    };
+    public static final java.util.List<String> MODULE_NAMES =
+            java.util.List.of("FrontLeft", "FrontRight", "BackLeft", "BackRight");
 
     private static final String TIMESTAMP_KEY = KEY_PREFIX + "Timestamp";
 
@@ -141,12 +140,13 @@ public class SwerveAlignment {
             config.getBackRightEncoderOffset().in(Rotations)
         };
 
-        int count = Math.min(modules.length, MODULE_NAMES.length);
+        int count = Math.min(modules.length, MODULE_NAMES.size());
         moduleEncoders = new ModuleEncoder[count];
         allSignals = new BaseStatusSignal[count * 2];
         for (int i = 0; i < count; i++) {
             moduleEncoders[i] =
-                    new ModuleEncoder(MODULE_NAMES[i], modules[i].getEncoder(), configOffsets[i]);
+                    new ModuleEncoder(
+                            MODULE_NAMES.get(i), modules[i].getEncoder(), configOffsets[i]);
             allSignals[i * 2] = moduleEncoders[i].absolutePosition;
             allSignals[i * 2 + 1] = moduleEncoders[i].velocity;
         }
@@ -179,15 +179,25 @@ public class SwerveAlignment {
                     wrapRotations(module.absolutePosition.getValue().in(Rotations));
             double rawRotations = wrapRotations(absoluteRotations - module.appliedOffsetRotations);
 
+            // Pit alignment, disabled only: the CANcoder's reading with its offset applied,
+            // rotations.
             Telemetry.logDashAlways(module.absoluteRotationsKey, absoluteRotations);
+            // The CANcoder's reading without its offset: what to save as the new offset with the
+            // wheel straight.
             Telemetry.logDashAlways(module.rawRotationsKey, rawRotations);
+            // The offset the CANcoder is running with now.
             Telemetry.logDashAlways(module.appliedOffsetKey, module.appliedOffsetRotations);
+            // The applied offset was read back from the device (false: assumed from config).
             Telemetry.logDashAlways(module.appliedOffsetValidKey, module.appliedOffsetValid);
+            // The offset in the code's config.
             Telemetry.logDashAlways(module.configOffsetKey, module.configOffsetRotations);
+            // Steer encoder velocity; non-zero means the wheel is moving, so don't save.
             Telemetry.logDashAlways(
                     module.steerVelocityKey, module.velocity.getValue().in(RotationsPerSecond));
+            // The CANcoder answered.
             Telemetry.logDashAlways(
                     module.connectedKey, module.absolutePosition.getStatus().isOK());
+            // The CANcoder's CAN id.
             Telemetry.logDashAlways(module.encoderIdKey, (long) module.encoderId);
         }
 

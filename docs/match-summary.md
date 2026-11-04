@@ -54,7 +54,9 @@ boot listing, uses the newest.
 | `Summary/Loop/EnabledLoops`, `Overruns`, `LongestMs` | enabled loops only; an overrun is a loop over 1.25 periods |
 | `Summary/DS/Drops`, `DropsWhileEnabled`, `SecondsWithout` | Driver Station drops after it first connected |
 | `Summary/CAN/<bus>/Drops`, `DownSeconds` | the bus counts as down while more than half its devices that have ever connected are not answering |
+| `Summary/CAN/<bus>/BusOffs` | bus-off events from the bus's own counter since the first good status read |
 | `Summary/Devices/Drops`, `Reboots` | totals over every tracked CAN device |
+| `Summary/Devices/Faulted` | mechanism motors that reported a trouble fault (`MotorInputs.troubleFaults`) while connected |
 | `Summary/PeakTempC/<mechanism>` | hottest reading while the motor was connected |
 | `Summary/Vision/<source>/Accepted`, `Rejected` | the source's running counts since boot |
 | `Summary/Auto/Routine`, `Ended`, `Seconds` | the auto that ran, why it ended and how long it ran, as `Auton/EndReason` and `Auton/EndElapsedSeconds` logged them (`FINISHED`, `END_OF_PERIOD`, `DISABLED_BY_FMS_EARLY`, `DS_DISCONNECTED`, `E_STOP`, ...; see `AutoEnd.Reason`); empty while it runs |
@@ -131,8 +133,13 @@ illustrative numbers:
 }
 ```
 
-- `devices` lists only devices that dropped or rebooted, with up to 8 events each
-  (`moreEvents` counts the rest). `neverConnected` lists devices that never answered.
+- `devices` lists only devices that dropped, rebooted or reported a trouble fault, with up to 8
+  events each (`moreEvents` counts the rest). `faults` names each trouble fault seen while
+  connected (`Undervoltage`, `BootDuringEnable`, `DeviceTemp`, ...), each also a `fault <name>`
+  event. Current and position limits are not faults here: they latch in normal use. Only
+  mechanism leaders report them.
+- `can.<bus>` also has `busOffs`, `peakTransmitErrors` and `peakReceiveErrors` from the bus's own
+  counters, read once a second, skipping reads whose status failed. `neverConnected` lists devices that never answered.
 - `alerts.raised` lists each distinct error and warning text once, up to 20 (`moreTexts` counts
   the rest); `alerts.beforeFirstEnable.raised` up to 10. Info alerts are only counted.
 - `auto.ended` is the reason `AutoEnd` logged as `Auton/EndReason`, verbatim, and `auto.seconds`

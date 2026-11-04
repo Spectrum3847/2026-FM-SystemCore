@@ -15,13 +15,13 @@ python tools/shot_log.py logs/akit_XXXX_sim.wpilog --replay         # what repla
 On the **rising edge of the feed**: the first loop the shot gate lets fuel into the flywheel, and
 so the last loop on which the aim was still a prediction. A launch the gate opens, closes (a stall,
 the heading swinging out) and opens again is two rows. When the feed closes an **end row** is
-written under `ShotLog/End/`, joined to its row by index.
+written under `Shooting/Log/End/`, joined to its row by index.
 
 AdvantageKit records a value only when it changes, so a key that is the same as the last shot's
 has no record at this shot's time. **Read a row as each key's last value at or before the row's
-`ShotLog/Index` record**. `tools/shot_log.py` does this.
+`Shooting/Log/Index` record**. `tools/shot_log.py` does this.
 
-## `ShotLog/*`, one row per volley
+## `Shooting/Log/*`, one row per volley
 
 | Key | Meaning |
 |---|---|
@@ -44,7 +44,7 @@ has no record at this shot's time. **Read a row as each key's last value at or b
 | `PoseTrusted`, `SecondsSinceFusedEstimate`, `SeedConfirmed` | Whether the distance can be believed: vision under 3 s old, how old, and whether the disabled seed was confirmed. |
 | `Pose` | Fused robot pose. |
 
-## `ShotLog/End/*`, when the feed closes
+## `Shooting/Log/End/*`, when the feed closes
 
 | Key | Meaning |
 |---|---|
@@ -56,9 +56,9 @@ has no record at this shot's time. **Read a row as each key's last value at or b
 ## The outcome
 
 As on the offseason bot, there are no made/missed buttons: the operator's D-pad trims are the
-outcome signal (a shot going long gets the hood trimmed down). Join `ShotCalc/HoodAngleOffsetDegrees`
+outcome signal (a shot going long gets the hood trimmed down). Join `Shooting/Calc/HoodAngleOffsetDegrees`
 changes after a row on time. The offseason bot also persisted the trims through Preferences and
-logged a row per trim press (`ShotCalc/Trim/*`); that is not ported.
+logged a row per trim press (`Shooting/Calc/Trim/*`); that is not ported.
 
 First reading worth doing by hand (the offseason's advice): a bias in where shots land that is
 constant across distance is an exit-speed error; one that grows with distance is an angle error.

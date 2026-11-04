@@ -97,6 +97,7 @@ public class RobotSim {
 
         Pose3d[] mechanismPoses = {intakePose3d, hoodPose3d};
 
+        // Sim only: intake and hood poses for AdvantageScope's 3D robot.
         Telemetry.log("Sim/Components", mechanismPoses);
     }
 

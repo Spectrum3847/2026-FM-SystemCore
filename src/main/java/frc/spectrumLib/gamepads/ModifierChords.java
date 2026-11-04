@@ -93,6 +93,8 @@ public final class ModifierChords {
     }
 
     /**
+     * A chord of {@code modifier} and {@code button}.
+     *
      * @param modifier a bumper, a trigger, or a combination such as {@code bothBumpers}
      * @param button the button pressed with it
      * @return true while this chord is the group's answer
@@ -116,6 +118,8 @@ public final class ModifierChords {
     }
 
     /**
+     * The button on its own, with no modifier held.
+     *
      * @param button a button that also takes part in chords
      * @return true while {@code button} is the group's answer: held, with no modifier, past the
      *     settle time, or a tap of it playing late
@@ -125,6 +129,8 @@ public final class ModifierChords {
     }
 
     /**
+     * Whether any binding in the group is active.
+     *
      * @return true while any of the group's bindings is the answer; its falling edge is "nothing
      *     held"
      */

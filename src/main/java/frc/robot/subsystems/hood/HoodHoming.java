@@ -136,6 +136,8 @@ public final class HoodHoming {
 
         @Override
         public void toLog(LogTable table) {
+            // The log was written by code with hood homing; old logs read false, so replay assumes
+            // the hood was zeroed.
             table.put("RecordedWithHoming", recordedWithHoming);
         }
 

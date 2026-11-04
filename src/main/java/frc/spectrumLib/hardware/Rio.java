@@ -102,7 +102,7 @@ public enum Rio {
                                 .replace(String.valueOf((char) 0), "")
                                 .trim();
                 if (!s.isEmpty()) {
-                    return s.toUpperCase();
+                    return s.toUpperCase(java.util.Locale.ROOT);
                 }
             } catch (java.io.IOException | RuntimeException e) {
                 // not present on this controller

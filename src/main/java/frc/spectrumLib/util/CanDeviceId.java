@@ -50,16 +50,6 @@ public class CanDeviceId {
         return mBus;
     }
 
-    /**
-     * Type-safe equality check against another {@link CanDeviceId}.
-     *
-     * @param other the other instance to compare
-     * @return {@code true} if both the device number and bus name match
-     */
-    public boolean equals(CanDeviceId other) {
-        return equals((Object) other);
-    }
-
     /** Returns a hash code for this object. */
     @Override
     public int hashCode() {
@@ -75,8 +65,7 @@ public class CanDeviceId {
     public boolean equals(Object obj) {
         if (this == obj) return true;
         if (obj == null) return false;
-        if (!(obj instanceof CanDeviceId)) return false;
-        CanDeviceId other = (CanDeviceId) obj;
+        if (!(obj instanceof CanDeviceId other)) return false;
         if (mDeviceNumber != other.mDeviceNumber) return false;
         if (mBus == null) {
             if (other.mBus != null) return false;

@@ -8,7 +8,6 @@ import frc.spectrumLib.vision.Limelight.LimelightConfig;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 import java.util.function.DoubleFunction;
 import java.util.function.Supplier;
 import org.photonvision.PhotonCamera;
@@ -21,12 +20,9 @@ import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.math.geometry.Rotation3d;
-import org.wpilib.math.geometry.Transform2d;
 import org.wpilib.math.geometry.Transform3d;
-import org.wpilib.math.geometry.Translation2d;
 import org.wpilib.math.geometry.Translation3d;
 import org.wpilib.math.util.Units;
-import org.wpilib.system.Timer;
 import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 
 /**
@@ -45,10 +41,6 @@ import org.wpilib.vision.apriltag.AprilTagFieldLayout;
  *       is how MegaTag2 works and why it inherits gyro drift.
  *   <li><b>Target size</b> reports the largest target's area, as {@code ta}.
  * </ul>
- *
- * <p>The QuestNav is {@link QuestSimIO}: truth plus a slow random-walk drift, in a field frame that
- * only lines up once the robot has sent a pose reset. Those are the two things a VIO source gets
- * wrong.
  */
 public class SimVision {
     private final VisionSystemSim system = new VisionSystemSim("fm");
@@ -291,96 +283,6 @@ public class SimVision {
                     mt1.getZ(),
                     new Rotation3d(
                             mt1.getRotation().getX(), mt1.getRotation().getY(), yaw.getRadians()));
-        }
-    }
-
-    // ── QuestNav emulation ──────────────────────────────────────────────────
-
-    /**
-     * Simulated QuestNav: reports truth in its own frame, which lines up with the field only after
-     * {@link #resetPose}, plus a random-walk drift. Seeded, so a sim run is repeatable.
-     */
-    public static final class QuestSimIO implements PoseSourceIO, QuestNavControl {
-        /** Drift random walk, metres per sqrt(second). */
-        private static final double DRIFT_M_PER_SQRT_S = 0.01;
-
-        private final Supplier<Optional<Pose2d>> truth;
-        private final Random random = new Random(3847);
-
-        /** Maps truth to what the Quest reports. Starts as an arbitrary boot origin. */
-        private Transform2d questFrame = new Transform2d(1.3, -0.7, Rotation2d.fromDegrees(37));
-
-        private Translation2d drift = Translation2d.kZero;
-        private double lastTime = Double.NaN;
-        private int resetCount = 0;
-        private double lastResetTime = Double.NaN;
-        private int frameCount = 0;
-
-        public QuestSimIO(Supplier<Optional<Pose2d>> truth) {
-            this.truth = truth;
-        }
-
-        @Override
-        public void resetPose(Pose2d robotPose) {
-            // Choose the frame so the current truth reads as the pose the robot believes.
-            truth.get()
-                    .ifPresent(
-                            t -> {
-                                Pose2d raw = t.plus(new Transform2d(drift, Rotation2d.kZero));
-                                // Frame (R, T) such that R * raw + T == robotPose.
-                                Rotation2d r = robotPose.getRotation().minus(raw.getRotation());
-                                Translation2d offset =
-                                        robotPose
-                                                .getTranslation()
-                                                .minus(raw.getTranslation().rotateBy(r));
-                                questFrame = new Transform2d(offset, r);
-                            });
-            resetCount++;
-            lastResetTime = Timer.getTimestamp();
-        }
-
-        @Override
-        public void updateInputs(PoseSourceInputs inputs) {
-            inputs.connected = true;
-            Optional<Pose2d> t = truth.get();
-            double now = Timer.getTimestamp();
-            if (t.isEmpty()) {
-                inputs.resize(0);
-                return;
-            }
-            if (!Double.isNaN(lastTime)) {
-                double sigma = DRIFT_M_PER_SQRT_S * Math.sqrt(Math.max(now - lastTime, 0));
-                drift =
-                        drift.plus(
-                                new Translation2d(
-                                        random.nextGaussian() * sigma,
-                                        random.nextGaussian() * sigma));
-            }
-            lastTime = now;
-            Pose2d withDrift = t.get().plus(new Transform2d(drift, Rotation2d.kZero));
-            // Apply the Quest frame: field pose of the reported frame's origin composed with truth.
-            Pose2d reported =
-                    new Pose2d(
-                            withDrift
-                                    .getTranslation()
-                                    .rotateBy(questFrame.getRotation())
-                                    .plus(questFrame.getTranslation()),
-                            withDrift.getRotation().plus(questFrame.getRotation()));
-            inputs.resize(1);
-            inputs.set(
-                    0,
-                    new PoseObservation(
-                            "",
-                            Kind.QUESTNAV,
-                            now - 0.004,
-                            new Pose3d(reported),
-                            -1,
-                            Double.NaN,
-                            Double.NaN,
-                            Double.NaN,
-                            true));
-            inputs.tagIds = new int[0];
-            inputs.health = new double[] {now, ++frameCount, 100, 0, resetCount, lastResetTime};
         }
     }
 }

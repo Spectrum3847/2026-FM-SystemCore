@@ -81,13 +81,13 @@ final class PreMatch {
         DeviceHealthCheck can = new DeviceHealthCheck("CAN devices");
         String drivetrain = CanBuses.label(CanBuses.DRIVETRAIN);
         var in = swerve.getInputs();
-        for (int i = 0; i < SwerveAlignment.MODULE_NAMES.length; i++) {
+        for (int i = 0; i < SwerveAlignment.MODULE_NAMES.size(); i++) {
             final int m = i;
             // Logs from before ModuleConnected was recorded have none: the swerve treats those as
             // connected, and so does this.
             can.add(
                             drivetrain,
-                            SwerveAlignment.MODULE_NAMES[i] + " module",
+                            SwerveAlignment.MODULE_NAMES.get(i) + " module",
                             () -> in.moduleConnected.length != 4 || in.moduleConnected[m])
                     .resets(() -> swerve.moduleRebootedThisLoop(m));
         }
@@ -114,7 +114,7 @@ final class PreMatch {
 
     /**
      * A camera the robot fuses must answer; one that is only logged may be missing. FM's Limelights
-     * fuse by default; the SystemCore cameras, the Orin and the Quest only when switched on.
+     * fuse by default; the SystemCore cameras and the Orin only when switched on.
      */
     private static DeviceHealthCheck coprocessors(Vision vision) {
         DeviceHealthCheck co = new DeviceHealthCheck("coprocessors");
@@ -159,9 +159,6 @@ final class PreMatch {
                                                 : null);
             }
         }
-        PoseSource quest = vision.getQuestSource();
-        co.add("Quest", "Quest", quest::isConnected)
-                .missingIs(() -> quest.isEnabled() ? Status.FAIL : Status.SKIP);
         return co;
     }
 

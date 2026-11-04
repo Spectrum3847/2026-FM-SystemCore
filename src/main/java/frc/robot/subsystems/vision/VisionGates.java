@@ -299,14 +299,6 @@ public final class VisionGates {
             };
 
     /**
-     * QuestNav: QuestNav's own suggested std-devs for translation. Heading is left to the gyro by
-     * default so that the Quest can be compared on translation alone first; raise trust in its
-     * heading only once logs show it holds up.
-     */
-    public static final StdDevModel QUEST_MODEL =
-            (o, c) -> new StdDevs(0.02, Units.degreesToRadians(LARGE_VARIANCE), "Quest tracking");
-
-    /**
      * Shorthand used by {@link Vision} for sources that report {@link PoseObservation#tracking}.
      */
     static boolean isTracking(PoseObservation o) {

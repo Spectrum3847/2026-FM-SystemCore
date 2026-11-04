@@ -22,10 +22,6 @@ public final class CameraParams {
     public static final DoubleParam TELEOP_REWIND_SECONDS =
             CAMERAS.number("teleopRewindSeconds", 165, "s", 0, 165);
 
-    /** Quest battery below this percentage raises an alert (1425 uses 20). */
-    public static final DoubleParam QUEST_LOW_BATTERY_PERCENT =
-            CAMERAS.number("questLowBatteryPercent", 20, "%", 0, 100);
-
     /**
      * How often the settings the robot owns (IMU mode, and the mount poses when {@link
      * #PUSH_LIMELIGHT_MOUNTS} is on) are re-sent. A Limelight that boots after the robot, or

@@ -107,6 +107,7 @@ public class SuperStructure extends SubsystemBase {
 
     @Override
     public void periodic() {
+        Telemetry.time("Scheduler/Periodic/SuperStructure");
         currentSuperState = handleStateTransitions();
 
         // Restart the squeeze timer exactly once when first entering a squeeze state
@@ -119,12 +120,20 @@ public class SuperStructure extends SubsystemBase {
 
         applyStates();
 
+        if (currentSuperState != previousSuperState) {
+            Telemetry.logEvent(
+                    "Events", "SuperStructure " + previousSuperState + " -> " + currentSuperState);
+        }
         previousSuperState = currentSuperState;
 
+        // The state the drivers or auto asked for.
         Telemetry.log("SuperStructure/WantedSuperState", wantedSuperState.toString());
+        // The state SuperStructure is in (AUTON_IDLE when idle in auto or disabled).
         Telemetry.log("SuperStructure/CurrentSuperState", currentSuperState.toString());
+        // Time since a squeeze launch state began; the intake squeezes in after 1 s.
         Telemetry.log(
                 "SuperStructure/IntakeSqueezeTimerElapsed", intakeSqueezeTimer.get(), "seconds");
+        Telemetry.timeEnd("Scheduler/Periodic/SuperStructure");
     }
 
     // -- Shot readiness gate ------------------------------------------------------
@@ -293,30 +302,49 @@ public class SuperStructure extends SubsystemBase {
         }
         feedingLastLoop = feeding;
 
-        Telemetry.logDash("Shot/Ready", shotDecision.ready());
-        Telemetry.logDash("Shot/BlockedReason", shotDecision.blocker().label);
-        Telemetry.logDash("Shot/Feeding", feeding);
-        Telemetry.logDash("Shot/FeedReason", shotDecision.reason().label);
-        Telemetry.logDash("Shot/Override", override);
-        Telemetry.log("Shot/SecondsHeld", shotDecision.secondsHeld(), "seconds");
-        Telemetry.log("Shot/FlywheelErrorRPM", launcher.getVelocityRPM() - shotTargetRpm, "RPM");
+        // Every check passes: a shot is set, the hood is zeroed and on target, aimed, in range,
+        // settled.
+        Telemetry.logDash("Shooting/Gate/Ready", shotDecision.ready());
+        // The first check holding the shot: None, NoShot, HoodNotZeroed, HoodNotReady, NotAimed,
+        // InvalidShot, Settling.
+        Telemetry.logDash("Shooting/Gate/BlockedReason", shotDecision.blocker().label);
+        // The indexers are feeding fuel to the launcher this loop.
+        Telemetry.logDash("Shooting/Gate/Feeding", feeding);
+        // Why the gate fed or didn't: NotLaunching, Held, Ready, Override, Timeout.
+        Telemetry.logDash("Shooting/Gate/FeedReason", shotDecision.reason().label);
+        // The operator is holding Y to feed regardless of the gate.
+        Telemetry.logDash("Shooting/Gate/Override", override);
+        // How long this launch has been held so far; 0 while feeding.
+        Telemetry.log("Shooting/Gate/SecondsHeld", shotDecision.secondsHeld(), "seconds");
+        // Flywheel speed minus the shot's target; negative is slow.
         Telemetry.log(
-                "Shot/HoodErrorDeg",
+                "Shooting/Gate/FlywheelErrorRPM", launcher.getVelocityRPM() - shotTargetRpm, "RPM");
+        // Hood angle minus the shot's target.
+        Telemetry.log(
+                "Shooting/Gate/HoodErrorDeg",
                 hood.getPositionDegrees() - hood.getShotTargetDegrees(),
                 "degrees");
-        Telemetry.log("Shot/HeadingErrorDeg", Math.toDegrees(headingError), "degrees");
-        Telemetry.log("Shot/AimToleranceDeg", Math.toDegrees(aimTolerance), "degrees");
-        Telemetry.log("Shot/CheckAim", checkAim);
-        Telemetry.log("Shot/PoseTrusted", poseTrusted);
-        Telemetry.log("Shot/InRange", params != null && params.isValid());
-        Telemetry.log("Shot/LaunchingLoops", launchingLoops);
-        Telemetry.log("Shot/HeldLoops", heldLoops);
-        Telemetry.log("Shot/Volleys", shotLog.count());
+        // Robot heading minus the heading that aims at the target.
+        Telemetry.log("Shooting/Gate/HeadingErrorDeg", Math.toDegrees(headingError), "degrees");
+        // Largest heading error the gate accepts at this distance; NaN for a set shot.
+        Telemetry.log("Shooting/Gate/AimToleranceDeg", Math.toDegrees(aimTolerance), "degrees");
+        // The drivetrain is aiming, so the heading check applies.
+        Telemetry.log("Shooting/Gate/CheckAim", checkAim);
+        // Vision updated the pose within the last 3 s, so the aim is trusted.
+        Telemetry.log("Shooting/Gate/PoseTrusted", poseTrusted);
+        // The shot model has a valid solution from here.
+        Telemetry.log("Shooting/Gate/InRange", params != null && params.isValid());
+        // Loops spent in a launch state since boot.
+        Telemetry.log("Shooting/Gate/LaunchingLoops", launchingLoops);
+        // Loops in a launch state where the gate held the feed, since boot.
+        Telemetry.log("Shooting/Gate/HeldLoops", heldLoops);
+        // Volleys fed since boot (rows in Shooting/Log).
+        Telemetry.log("Shooting/Gate/Volleys", shotLog.count());
         if (setShot) {
             // Informational only: how far the fused heading is from the spot's heading. The set
             // shot exists for when that heading cannot be trusted, so it never gates.
             Telemetry.log(
-                    "Shot/SetShotHeadingErrorDeg",
+                    "Shooting/Gate/SetShotHeadingErrorDeg",
                     swerve.getRobotPose()
                             .getRotation()
                             .minus(ShotCalculator.getSelectedSetShot().pose().getRotation())
@@ -589,20 +617,22 @@ public class SuperStructure extends SubsystemBase {
                             intakeExtension.setBrakeMode(false);
                             hood.setBrakeMode(false);
                         })
-                .ignoringDisable(true);
+                .ignoringDisable(true)
+                .withName("SuperStructure.coastMechanisms");
     }
 
     /** Releases every mechanism held by its tracking stop; one still stuck stops again. */
     public Command clearTrackingStops() {
         return Commands.runOnce(
-                () -> {
-                    hood.clearTrackingStop();
-                    launcher.clearTrackingStop();
-                    indexerTower.clearTrackingStop();
-                    indexerBed.clearTrackingStop();
-                    intakeExtension.clearTrackingStop();
-                    fuelIntake.clearTrackingStop();
-                });
+                        () -> {
+                            hood.clearTrackingStop();
+                            launcher.clearTrackingStop();
+                            indexerTower.clearTrackingStop();
+                            indexerBed.clearTrackingStop();
+                            intakeExtension.clearTrackingStop();
+                            fuelIntake.clearTrackingStop();
+                        })
+                .withName("SuperStructure.clearTrackingStops");
     }
 
     public Command brakeMechanisms() {
@@ -611,7 +641,8 @@ public class SuperStructure extends SubsystemBase {
                             intakeExtension.setBrakeMode(true);
                             hood.setBrakeMode(true);
                         })
-                .ignoringDisable(true);
+                .ignoringDisable(true)
+                .withName("SuperStructure.brakeMechanisms");
     }
 
     // Allocation-free boolean checks. Use these in per-loop code (e.g. ShotCalculator).
@@ -653,7 +684,8 @@ public class SuperStructure extends SubsystemBase {
     }
 
     public Command setStateCommand(WantedSuperState state) {
-        return new InstantCommand(() -> setWantedSuperState(state));
+        return new InstantCommand(() -> setWantedSuperState(state))
+                .withName("SuperStructure.setState." + state);
     }
 
     /**

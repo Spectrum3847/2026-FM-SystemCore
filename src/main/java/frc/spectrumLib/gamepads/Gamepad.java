@@ -456,14 +456,20 @@ public abstract class Gamepad implements Subsystem {
      */
     private void logBench() {
         var k = benchKeys;
+        // Gamepads/<pad>/: bench readout for the robot app. Mapping: the configured button layout,
+        // or AUTO.
         Telemetry.logDash(k.mapping, config.getMapping().name());
+        // The layout being read now.
         Telemetry.logDash(k.layout, layout.name());
+        // The layout the controller's data looks like, or UNKNOWN.
         Telemetry.logDash(k.detected, detectedLayout.map(Enum::name).orElse("UNKNOWN"));
         boolean connected = isConnected();
+        // The controller is plugged in to the Driver Station.
         Telemetry.logDash(k.connected, connected);
         if (!connected) {
             return;
         }
+        // The controller's name as the Driver Station reports it.
         Telemetry.logDash(k.name, hid.getName());
 
         long available = hid.getButtonsAvailable();
@@ -473,20 +479,30 @@ public abstract class Gamepad implements Subsystem {
                 pressedBits |= 1L << i;
             }
         }
+        // Raw buttons held, as a bitfield (bit n is button n).
         Telemetry.logDash(k.rawButtons, pressedBits);
+        // Raw buttons the controller has, as a bitfield.
         Telemetry.logDash(k.rawButtonsAvailable, available);
+        // Raw d-pad (POV 0) direction, or NONE.
         Telemetry.logDash(
                 k.rawPov, (hid.getPOVsAvailable() & 1) != 0 ? hid.getPOV(0).name() : "NONE");
         for (int i = 0; i < k.rawAxes.length; i++) {
             Telemetry.logDash(k.rawAxes[i], axis(i));
         }
 
+        // Controls the code reads as pressed, through the layout, e.g. A LB DpadUp.
         Telemetry.logDash(k.pressed, describePressed());
+        // Left stick X through the layout, before any deadband.
         Telemetry.logDash(k.leftX, getLeftX());
+        // Left stick Y through the layout.
         Telemetry.logDash(k.leftY, getLeftY());
+        // Right stick X through the layout.
         Telemetry.logDash(k.rightX, getRightX());
+        // Right stick Y through the layout.
         Telemetry.logDash(k.rightY, getRightY());
+        // Left trigger, 0 to 1.
         Telemetry.logDash(k.leftTrigger, getLeftTriggerAxis());
+        // Right trigger, 0 to 1.
         Telemetry.logDash(k.rightTrigger, getRightTriggerAxis());
     }
 

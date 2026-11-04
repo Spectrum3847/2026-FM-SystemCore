@@ -13,6 +13,8 @@ extend-ignore-re = ['grep -E \\".*\\"', '\b[0-9a-f]{16,64}\b']
 [default.extend-identifiers]
 # The team's log site repo is named this way.
 Analizer = "Analizer"
+# Linux cuts thread names to 15 characters: BackgroundSampler shows as this.
+BackgroundSampl = "BackgroundSampl"
 
 [files]
 # Vendored minified libraries, and camera output captured verbatim.

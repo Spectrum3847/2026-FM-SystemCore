@@ -77,7 +77,9 @@ import org.wpilib.driverstation.Alert.Level;
  * any {@code .wpilog} they find for a robot log and upload it to the public log site.
  */
 public final class DsUploadReceiver {
-    public static final int PORT = 5806;
+    // In the field's 5800-5810 team range (R704); SystemCore's visionserver holds 5800-5803 and
+    // 5805-5807, NT 5810.
+    public static final int PORT = 5809;
     public static final String TOKEN_FILE = "/home/systemcore/ds-upload-token";
     public static final String TOKEN_HEADER = "x-matchreview-token";
 
@@ -89,6 +91,10 @@ public final class DsUploadReceiver {
     // The client sends its request head in one write. Anything slower is not the client, and must
     // not hold a pool thread for the full socket timeout.
     static final int HEAD_TIMEOUT_MS = 3_000;
+
+    /** {@link #HEAD_TIMEOUT_MS}; tests shorten it so they don't wait out 3 s. */
+    int headTimeoutMs = HEAD_TIMEOUT_MS;
+
     // Each read restarts the socket timeout, so a client trickling bytes would hold its thread
     // forever without a total limit. A 20 MB whole NI log at 7 Mbps takes ~25 s.
     static final long CONNECTION_LIMIT_MS = 120_000;
@@ -288,9 +294,13 @@ public final class DsUploadReceiver {
         }
         r.robotEnabled = enabled;
         if (Telemetry.slowLogThisLoop()) {
+            // Driver Station logs and match media uploaded to the robot since boot.
             Telemetry.log("DSUpload/FilesReceived", r.filesCompleted.get());
+            // Bytes uploaded since boot.
             Telemetry.log("DSUpload/BytesReceived", r.bytesReceived.get());
+            // The last file uploaded.
             Telemetry.log("DSUpload/LastFile", r.lastFile);
+            // The last upload error, or empty.
             Telemetry.log("DSUpload/LastError", r.lastError);
         }
     }
@@ -361,7 +371,7 @@ public final class DsUploadReceiver {
 
     private void serveOne(Socket socket) {
         try (Socket s = socket) {
-            s.setSoTimeout(HEAD_TIMEOUT_MS);
+            s.setSoTimeout(headTimeoutMs);
             handleConnection(
                     s.getInputStream(),
                     s.getOutputStream(),
@@ -401,7 +411,7 @@ public final class DsUploadReceiver {
                 new LimitedInput(
                         new BufferedInputStream(rawIn),
                         now + limitMs * 1_000_000L,
-                        now + HEAD_TIMEOUT_MS * 1_000_000L);
+                        now + headTimeoutMs * 1_000_000L);
         Reply reply;
         boolean isHead = false;
         boolean headDone = false;

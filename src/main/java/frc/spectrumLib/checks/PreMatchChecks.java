@@ -262,7 +262,9 @@ public final class PreMatchChecks {
         @Override
         public void result(String name, CheckResult r) {
             String[] k = keys.get(name);
+            // PreMatch/Checks/<check>/Status: PASS, WARN, FAIL or SKIP.
             Telemetry.logDash(k[0], r.status().name());
+            // PreMatch/Checks/<check>/Reason: what the check found.
             Telemetry.logDash(k[1], r.reason());
             Alert[] a = alerts.get(name);
             if (r.status() == Status.FAIL) {
@@ -276,9 +278,13 @@ public final class PreMatchChecks {
 
         @Override
         public void overall(boolean go, String reason, String[] summary, boolean active) {
+            // Every pre-match check passes or only warns: OK to queue.
             Telemetry.logDash(prefix + "/Go", go);
+            // The overall verdict text: GO, or NO-GO and why.
             Telemetry.logDash(prefix + "/Reason", reason);
+            // The checks are judging: disabled, and no FMS match has started.
             Telemetry.log(prefix + "/Active", active);
+            // Each check's last result: status, name and reason.
             Telemetry.log(prefix + "/Summary", summary);
         }
 

@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import frc.spectrumLib.checks.CheckResult;
 import frc.spectrumLib.checks.PreMatchChecks;
+import frc.spectrumLib.hardware.CanBusInputs;
 import frc.spectrumLib.telemetry.MatchSummary.Write;
 import java.io.File;
 import java.io.IOException;
@@ -282,6 +283,46 @@ class MatchSummaryTest {
         assertNull(obj(j, "devices").get("Intake")); // nothing happened to it
         assertEquals(List.of("Ghost"), j.get("neverConnected"));
         assertEquals(41, num(obj(j, "peakTempC"), "Hood"), 1e-9);
+    }
+
+    @Test
+    void stickyFaultsAndBusOffsFromTheirOwnCounters() throws ParseException {
+        var s = new MatchSummary(null);
+        var connected = new AtomicBoolean(true);
+        String[][] sticky = {{}};
+        s.addDevice("Launcher", "CANivore", connected::get, null, null, () -> sticky[0]);
+        s.addDevice("Hood", "CANivore", () -> true, null, null, () -> new String[0]);
+        var bus = new java.util.LinkedHashMap<String, CanBusInputs.Bus>();
+        s.addCanBuses(() -> bus);
+        // Counters since the CANivore came up; the summary counts from its first good read.
+        bus.put("CANivore", new CanBusInputs.Bus(30, 3, 0, 5, 2, "OK", true));
+        var l = new Loop();
+        step(s, l);
+
+        sticky[0] = new String[] {"Undervoltage"};
+        bus.put("CANivore", new CanBusInputs.Bus(30, 4, 0, 90, 128, "OK", true));
+        step(s, l);
+        // A failed read zeroes the counters: not a reset, not counted.
+        bus.put("CANivore", new CanBusInputs.Bus(0, 0, 0, 0, 0, "CAN bus down", false));
+        step(s, l);
+        sticky[0] = new String[] {"Undervoltage", "BridgeBrownout"};
+        step(s, l);
+        // Disconnected: its fault reading is stale.
+        connected.set(false);
+        sticky[0] = new String[] {"Undervoltage", "BridgeBrownout", "Hardware"};
+        step(s, l);
+
+        var j = json(s);
+        var launcher = obj(j, "devices", "Launcher");
+        assertEquals(List.of("Undervoltage", "BridgeBrownout"), launcher.get("faults"));
+        var events = (JSONArray) launcher.get("events");
+        assertTrue(((String) events.get(0)).endsWith("fault Undervoltage"));
+        assertTrue(((String) events.get(1)).endsWith("fault BridgeBrownout"));
+        assertNull(obj(j, "devices").get("Hood"));
+        var canivore = obj(j, "can", "CANivore");
+        assertEquals(1, num(canivore, "busOffs"));
+        assertEquals(128, num(canivore, "peakTransmitErrors"));
+        assertEquals(90, num(canivore, "peakReceiveErrors"));
     }
 
     @Test

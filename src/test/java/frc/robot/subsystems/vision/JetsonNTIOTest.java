@@ -1,41 +1,48 @@
 package frc.robot.subsystems.vision;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import frc.spectrumLib.vision.FieldMapHash;
 import frc.spectrumLib.vision.FieldMapJson;
 import io.avaje.jsonb.Jsonb;
 import org.junit.jupiter.api.Test;
-import org.photonvision.proto.Photon.ProtobufDeviceMetrics;
 import org.wpilib.networktables.NetworkTableInstance;
-import org.wpilib.networktables.RawPublisher;
+import org.wpilib.networktables.PubSubOption;
 import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 import org.wpilib.vision.apriltag.AprilTagFields;
 
 class JetsonNTIOTest {
 
     @Test
-    void readsMetricsFromAnyHost() {
+    void readsTheJetsonsDiagnostics() {
         JetsonNTIO io = new JetsonNTIO();
-        // The Jetson's hostname at TXMAN1, which the old fixed topic name missed.
-        RawPublisher pub =
-                NetworkTableInstance.getDefault()
-                        .getRawTopic("/photonvision//metrics/photonvision")
-                        .publish("proto:ProtobufDeviceMetrics");
-        pub.set(
-                ProtobufDeviceMetrics.newInstance()
-                        .setCpuUtil(37.5)
-                        .setRamUtil(41.0)
-                        .setUptime(1234.0)
-                        .toByteArray());
+        NetworkTableInstance nt = NetworkTableInstance.getDefault();
+        var cpu = nt.getDoubleTopic("/photonvision/jetson/cpuUtilPct").publish();
+        var uptime = nt.getDoubleTopic("/photonvision/jetson/uptimeSeconds").publish();
+        var bootId = nt.getStringTopic("/photonvision/jetson/bootId").publish();
+        var usb = nt.getIntegerTopic("/photonvision/jetson/usbEvents").publish();
+        var link = nt.getBooleanTopic("/photonvision/jetson/ethLinkUp").publish();
+        cpu.set(37.5);
+        uptime.set(1234.0);
+        bootId.set("3f1c");
+        usb.set(2);
+        link.set(true);
 
         JetsonInputs inputs = new JetsonInputs();
         io.updateInputs(inputs);
 
         assertEquals(37.5, inputs.cpuUtilPct, 1e-9);
-        assertEquals(41.0, inputs.ramUtilPct, 1e-9);
         assertEquals(1234.0, inputs.uptimeSeconds, 1e-9);
-        pub.close();
+        assertEquals("3f1c", inputs.bootId);
+        assertEquals(2, inputs.usbEvents);
+        assertTrue(inputs.ethLinkUp);
+        cpu.close();
+        uptime.close();
+        bootId.close();
+        usb.close();
+        link.close();
     }
 
     @Test
@@ -78,5 +85,31 @@ class JetsonNTIOTest {
         name.close();
         loadedAt.close();
         error.close();
+    }
+
+    @Test
+    void readsEveryJetsonLogLineOnce() {
+        JetsonNTIO io = new JetsonNTIO();
+        var log =
+                NetworkTableInstance.getDefault()
+                        .getStringTopic("/photonvision/jetson/log")
+                        .publish(PubSubOption.SEND_ALL, PubSubOption.KEEP_DUPLICATES);
+        // Two identical lines in a row are two events (the same USB error twice).
+        log.set("[WARN] usb 1-2.1: disconnect");
+        log.set("[WARN] usb 1-2.1: disconnect");
+        log.set("[INFO] Quiet mode on (the match ended)");
+
+        JetsonInputs inputs = new JetsonInputs();
+        io.updateInputs(inputs);
+        assertArrayEquals(
+                new String[] {
+                    "[WARN] usb 1-2.1: disconnect",
+                    "[WARN] usb 1-2.1: disconnect",
+                    "[INFO] Quiet mode on (the match ended)"
+                },
+                inputs.logLines);
+        io.updateInputs(inputs);
+        assertArrayEquals(new String[0], inputs.logLines);
+        log.close();
     }
 }

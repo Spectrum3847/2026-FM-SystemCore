@@ -30,6 +30,10 @@ public class PhotonOrinIO implements OrinCameraIO {
     private final GenericSubscriber frames;
     private final GenericSubscriber decodeFailures;
     private final GenericSubscriber recoveries;
+    private final GenericSubscriber heartbeatSub;
+    private final StringSubscriber stateSub;
+    private final GenericSubscriber lastFrameAgeMsSub;
+    private final StringSubscriber problemSub;
 
     private final GenericSubscriber heightM;
     private final GenericSubscriber pitchDeg;
@@ -60,6 +64,10 @@ public class PhotonOrinIO implements OrinCameraIO {
         frames = number(health, "frames");
         decodeFailures = number(health, "decodeFailures");
         recoveries = number(health, "recoveries");
+        heartbeatSub = number(health, "heartbeat");
+        stateSub = health.getStringTopic("state").subscribe("");
+        lastFrameAgeMsSub = number(health, "lastFrameAgeMs");
+        problemSub = health.getStringTopic("problem").subscribe("");
         NetworkTable mount = table.getSubTable("mount");
         heightM = number(mount, "heightM");
         pitchDeg = number(mount, "pitchDeg");
@@ -160,6 +168,10 @@ public class PhotonOrinIO implements OrinCameraIO {
         inputs.healthFrames = (long) read(frames, -1);
         inputs.healthDecodeFailures = (long) read(decodeFailures, -1);
         inputs.healthRecoveries = (long) read(recoveries, -1);
+        inputs.healthHeartbeat = (long) read(heartbeatSub, -1);
+        inputs.healthState = stateSub.get();
+        inputs.healthLastFrameAgeMs = (long) read(lastFrameAgeMsSub, -1);
+        inputs.healthProblem = problemSub.get();
 
         inputs.mountHeightM = read(heightM, Double.NaN);
         inputs.mountPitchDeg = read(pitchDeg, Double.NaN);

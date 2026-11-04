@@ -130,7 +130,7 @@ public class Hood extends Mechanism {
         SET_SHOT,
     }
 
-    private WantedState wantedState = WantedState.HOME;
+    @Getter private WantedState wantedState = WantedState.HOME;
     private SystemState systemState = SystemState.HOME;
 
     public void setWantedState(WantedState state) {
@@ -177,7 +177,9 @@ public class Hood extends Mechanism {
         boolean onShot =
                 systemState == SystemState.AIM_AT_TARGET || systemState == SystemState.SET_SHOT;
         shotTargetDegrees = onShot ? wantedDegrees : Double.NaN;
+        // Hood angle the current state asked for, before clamping to the soft limits.
         Telemetry.log("Hood/RequestedDegrees", requestedDegrees, "degrees");
+        // The request was past a soft limit, so the hood goes to the limit instead.
         Telemetry.log("Hood/GoalClamped", clamped);
         if (clamped && !goalWasClamped) {
             Telemetry.print(
@@ -255,6 +257,7 @@ public class Hood extends Mechanism {
 
     @Override
     public void periodic() {
+        Telemetry.time("Scheduler/Periodic/Hood");
         Logger.processInputs("Hood/Homing", homingLogMarker);
         assumedZeroedForReplay =
                 HoodHoming.assumeZeroedForReplay(
@@ -285,17 +288,26 @@ public class Hood extends Mechanism {
         systemState = handleStateTransition();
         applyStates(homed.action());
         logBatteryUsage();
+        // What SuperStructure asked of the hood.
         Telemetry.log("Hood/WantedState", wantedState.toString());
+        // The state the hood is actually in, after its own transitions.
         Telemetry.log("Hood/SystemState", systemState.toString());
+        // The command requiring the hood, if any.
         Telemetry.log("Hood/CurrentCommand", getCurrentCommandName());
+        // The hood has found its bottom stop since boot, so its angle is real.
         Telemetry.log("Hood/Zeroed", isZeroed());
+        // Replaying a log from before hood homing existed, so the hood is taken as zeroed.
         Telemetry.log("Hood/Homing/AssumedZeroedForReplay", assumedZeroedForReplay);
+        // NotZeroed, Homing, TimedOut or Zeroed.
         Telemetry.log("Hood/HomingState", homed.state().label);
         // Voltage, currents, temperature and connection at 10 Hz (offseason); the
         // same signals are also recorded every loop as inputs under Mechanisms/.
         logDiagnostics("Hood");
+        // Hood angle.
         Telemetry.log("Hood/PositionDegrees", getPositionDegrees(), "degrees");
+        // Hood speed, mechanism RPM.
         Telemetry.log("Hood/RPM", getVelocityRPM(), "RPM");
+        Telemetry.timeEnd("Scheduler/Periodic/Hood");
     }
 
     // --------------------------------------------------------------------------------

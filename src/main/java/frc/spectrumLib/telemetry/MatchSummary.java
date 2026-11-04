@@ -1,17 +1,21 @@
 package frc.spectrumLib.telemetry;
 
 import frc.spectrumLib.framework.RobotLoop;
+import frc.spectrumLib.hardware.CanBusInputs;
 import frc.spectrumLib.mechanism.Mechanism;
 import frc.spectrumLib.mechanism.MotorInputs;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import org.littletonrobotics.conduit.ConduitApi;
 import org.littletonrobotics.junction.LogTable;
 import org.littletonrobotics.junction.Logger;
@@ -91,6 +95,7 @@ public final class MatchSummary {
         final BooleanSupplier connected;
         final BooleanSupplier reset;
         final DoubleSupplier tempCelsius;
+        final Supplier<String[]> troubleFaults;
         final String peakTempKey;
 
         boolean everConnected;
@@ -98,6 +103,10 @@ public final class MatchSummary {
         int drops;
         int reboots;
         double peakTemp = Double.NaN;
+
+        /** Every trouble fault seen while connected, in the order first seen. */
+        final Set<String> faults = new LinkedHashSet<>();
+
         final List<String> events = new ArrayList<>(2);
         int eventsDropped;
 
@@ -106,12 +115,14 @@ public final class MatchSummary {
                 int bus,
                 BooleanSupplier connected,
                 BooleanSupplier reset,
-                DoubleSupplier tempCelsius) {
+                DoubleSupplier tempCelsius,
+                Supplier<String[]> troubleFaults) {
             this.name = name;
             this.bus = bus;
             this.connected = connected;
             this.reset = reset;
             this.tempCelsius = tempCelsius;
+            this.troubleFaults = troubleFaults;
             this.peakTempKey = tempCelsius == null ? null : "Summary/PeakTempC/" + name;
         }
 
@@ -139,10 +150,18 @@ public final class MatchSummary {
         double downSeconds;
         final List<String> events = new ArrayList<>(2);
 
+        // From the bus's own counters (CanBusInputs), where they are read.
+        long firstBusOffCount = -1;
+        long busOffs;
+        long peakTransmitErrors;
+        long peakReceiveErrors;
+        final String busOffsKey;
+
         Bus(String label) {
             this.label = label;
             this.dropsKey = "Summary/CAN/" + label + "/Drops";
             this.downSecondsKey = "Summary/CAN/" + label + "/DownSeconds";
+            this.busOffsKey = "Summary/CAN/" + label + "/BusOffs";
         }
     }
 
@@ -253,7 +272,9 @@ public final class MatchSummary {
 
         @Override
         public void toLog(LogTable table) {
+            // The controller's brownout fault count, or -1 where there is none.
             table.put("FaultCount", faultCount);
+            // The brownout flag API works on this controller, so the flag counts too.
             table.put("BrownedOutValid", brownedOutValid);
         }
 
@@ -287,6 +308,7 @@ public final class MatchSummary {
     private final List<Device> devices = new ArrayList<>();
     private final List<Bus> buses = new ArrayList<>();
     private final Map<String, Integer> busIndex = new LinkedHashMap<>();
+    private Supplier<Map<String, CanBusInputs.Bus>> canBuses;
     private final List<VisionSource> vision = new ArrayList<>();
     private final Thread mainThread = Thread.currentThread();
 
@@ -406,7 +428,39 @@ public final class MatchSummary {
             BooleanSupplier connected,
             BooleanSupplier reset,
             DoubleSupplier tempCelsius) {
-        devices.add(new Device(name, bus(busLabel), connected, reset, tempCelsius));
+        addDevice(name, busLabel, connected, reset, tempCelsius, null);
+    }
+
+    /**
+     * Tracks a CAN device as {@link #addDevice(String, String, BooleanSupplier, BooleanSupplier,
+     * DoubleSupplier)} does, plus the sticky faults it reports that mean trouble.
+     *
+     * @param name shown in the summary
+     * @param busLabel the bus, as its health is logged (e.g. {@code CANivore})
+     * @param connected the device's logged connected input
+     * @param reset its logged reboot input, or null
+     * @param tempCelsius its logged temperature, or null
+     * @param troubleFaults its logged trouble fault names ({@link MotorInputs#troubleFaults}), or
+     *     null
+     */
+    public void addDevice(
+            String name,
+            String busLabel,
+            BooleanSupplier connected,
+            BooleanSupplier reset,
+            DoubleSupplier tempCelsius,
+            Supplier<String[]> troubleFaults) {
+        devices.add(new Device(name, bus(busLabel), connected, reset, tempCelsius, troubleFaults));
+    }
+
+    /**
+     * Tracks each bus's own error counters: bus-off events and the peak transmit and receive error
+     * counts. Buses are matched to the devices' buses by label.
+     *
+     * @param canBuses the logged CAN bus inputs, by label
+     */
+    public void addCanBuses(Supplier<Map<String, CanBusInputs.Bus>> canBuses) {
+        this.canBuses = canBuses;
     }
 
     /**
@@ -427,7 +481,8 @@ public final class MatchSummary {
                 busLabel.apply(config.getId().getBus()),
                 () -> in.connected,
                 () -> in.resetOccurred,
-                () -> in.tempCelsius);
+                () -> in.tempCelsius,
+                () -> in.troubleFaults);
         var followers = config.getFollowerConfigs();
         for (int i = 0; i < followers.length; i++) {
             final int f = i;
@@ -720,6 +775,25 @@ public final class MatchSummary {
         return brownoutInputs.brownedOutValid ? flagBrownouts : -1;
     }
 
+    private void updateBusCounters(double now, String label, CanBusInputs.Bus reading) {
+        Integer i = busIndex.get(label);
+        // A failed status read zeroes every counter.
+        if (i == null || !reading.statusOk()) {
+            return;
+        }
+        Bus b = buses.get(i);
+        if (b.firstBusOffCount < 0) {
+            b.firstBusOffCount = reading.busOffCount();
+        }
+        long busOffs = reading.busOffCount() - b.firstBusOffCount;
+        if (busOffs > b.busOffs) {
+            b.busOffs = busOffs;
+            b.events.add(fmt(now) + " bus off");
+        }
+        b.peakTransmitErrors = Math.max(b.peakTransmitErrors, reading.transmitErrorCount());
+        b.peakReceiveErrors = Math.max(b.peakReceiveErrors, reading.receiveErrorCount());
+    }
+
     private void updateDevices(double now, double step) {
         for (Bus b : buses) {
             b.tracked = 0;
@@ -741,7 +815,14 @@ public final class MatchSummary {
                 d.reboots++;
                 d.event(now, "reboot");
             }
-            // A disconnected device's temperature is a stale or zeroed reading.
+            // A disconnected device's readings are stale or zeroed.
+            if (c && d.troubleFaults != null) {
+                for (String f : d.troubleFaults.get()) {
+                    if (d.faults.add(f)) {
+                        d.event(now, "fault " + f);
+                    }
+                }
+            }
             if (c && d.tempCelsius != null) {
                 double t = d.tempCelsius.getAsDouble();
                 if (Double.isNaN(d.peakTemp) || t > d.peakTemp) {
@@ -755,6 +836,9 @@ public final class MatchSummary {
                     b.up++;
                 }
             }
+        }
+        if (canBuses != null) {
+            canBuses.get().forEach((label, reading) -> updateBusCounters(now, label, reading));
         }
         for (Bus b : buses) {
             // More than half: all of them when a CANivore drops, those past the break when a chain
@@ -790,9 +874,9 @@ public final class MatchSummary {
     // ── Log keys ─────────────────────────────────────────────────────────────
 
     private void log() {
-        Logger.recordOutput("Summary/Battery/MinVolts", nanToZero(minVolts));
-        Logger.recordOutput("Summary/Battery/SecondsUnder8V", secondsUnderLow);
-        Logger.recordOutput("Summary/Battery/SecondsUnder7V", secondsUnderVeryLow);
+        Logger.recordOutput("Summary/Battery/MinVolts", nanToZero(minVolts), "volts");
+        Logger.recordOutput("Summary/Battery/SecondsUnder8V", secondsUnderLow, "seconds");
+        Logger.recordOutput("Summary/Battery/SecondsUnder7V", secondsUnderVeryLow, "seconds");
         Logger.recordOutput("Summary/Brownouts", brownoutCount());
         Logger.recordOutput("Summary/Loop/EnabledLoops", enabledLoops);
         Logger.recordOutput("Summary/Loop/Overruns", overruns);
@@ -802,16 +886,23 @@ public final class MatchSummary {
         Logger.recordOutput("Summary/DS/SecondsWithout", secondsWithoutDs);
         int deviceDrops = 0;
         int reboots = 0;
+        int faulted = 0;
         for (Device d : devices) {
             deviceDrops += d.drops;
             reboots += d.reboots;
+            if (!d.faults.isEmpty()) {
+                faulted++;
+            }
             if (d.peakTempKey != null && !Double.isNaN(d.peakTemp)) {
+                // Summary/PeakTempC/<device>: hottest reading while the motor was connected.
                 Logger.recordOutput(d.peakTempKey, d.peakTemp);
             }
         }
         Logger.recordOutput("Summary/Devices/Drops", deviceDrops);
         Logger.recordOutput("Summary/Devices/Reboots", reboots);
+        Logger.recordOutput("Summary/Devices/Faulted", faulted);
         for (Bus b : buses) {
+            Logger.recordOutput(b.busOffsKey, b.busOffs);
             Logger.recordOutput(b.dropsKey, b.drops);
             Logger.recordOutput(b.downSecondsKey, b.downSeconds);
         }
@@ -912,6 +1003,9 @@ public final class MatchSummary {
             j.field("devices", b.devices);
             j.field("drops", b.drops);
             j.field("downSeconds", b.downSeconds);
+            j.field("busOffs", b.busOffs);
+            j.field("peakTransmitErrors", b.peakTransmitErrors);
+            j.field("peakReceiveErrors", b.peakReceiveErrors);
             j.strings("events", b.events);
             j.close();
         }
@@ -921,11 +1015,14 @@ public final class MatchSummary {
         for (Device d : devices) {
             if (!d.everConnected) {
                 neverConnected.add(d.name);
-            } else if (d.drops > 0 || d.reboots > 0) {
+            } else if (d.drops > 0 || d.reboots > 0 || !d.faults.isEmpty()) {
                 j.key(d.name).open();
                 j.field("bus", buses.get(d.bus).label);
                 j.field("drops", d.drops);
                 j.field("reboots", d.reboots);
+                if (!d.faults.isEmpty()) {
+                    j.strings("faults", new ArrayList<>(d.faults));
+                }
                 j.strings("events", d.events);
                 if (d.eventsDropped > 0) {
                     j.field("moreEvents", d.eventsDropped);

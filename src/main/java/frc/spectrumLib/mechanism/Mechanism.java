@@ -203,6 +203,45 @@ public abstract class Mechanism implements Subsystem {
     private BaseStatusSignal statorCurrentSignal;
     private BaseStatusSignal supplyCurrentSignal;
     private BaseStatusSignal tempSignal;
+    private BaseStatusSignal faultSignal;
+    private BaseStatusSignal stickyFaultSignal;
+    private BaseStatusSignal[] troubleFaultSignals = new BaseStatusSignal[0];
+
+    /**
+     * Bits of {@link #troubleFaultSignals} set at the last read, to rebuild the names only then.
+     */
+    private int lastTroubleFaults;
+
+    /**
+     * Sticky faults that mean something went wrong, by name, in {@link #troubleFaults}'s order. Not
+     * current or position limits, which latch in normal use (homing against a stop sets
+     * StatorCurrLimit). By name because the fault field's bit order is undocumented.
+     */
+    private static final String[] TROUBLE_FAULT_NAMES = {
+        "Hardware",
+        "ProcTemp",
+        "DeviceTemp",
+        "Undervoltage",
+        "BootDuringEnable",
+        "BridgeBrownout",
+        "OverSupplyV",
+        "UnstableSupplyV"
+    };
+
+    private static BaseStatusSignal[] troubleFaults(TalonFX t, boolean refresh) {
+        return new BaseStatusSignal[] {
+            t.getStickyFault_Hardware(refresh),
+            t.getStickyFault_ProcTemp(refresh),
+            t.getStickyFault_DeviceTemp(refresh),
+            t.getStickyFault_Undervoltage(refresh),
+            t.getStickyFault_BootDuringEnable(refresh),
+            t.getStickyFault_BridgeBrownout(refresh),
+            t.getStickyFault_OverSupplyV(refresh),
+            t.getStickyFault_UnstableSupplyV(refresh)
+        };
+    }
+
+    private BaseStatusSignal[] followerStickyFaultSignals = new BaseStatusSignal[0];
     private BaseStatusSignal[] followerSupplySignals = new BaseStatusSignal[0];
 
     /** Every signal above, so one refreshAll covers the loop. Empty when unattached. */
@@ -303,6 +342,7 @@ public abstract class Mechanism implements Subsystem {
 
             followerMotors = new TalonFX[config.followerConfigs.length];
             followerSupplySignals = new BaseStatusSignal[config.followerConfigs.length];
+            followerStickyFaultSignals = new BaseStatusSignal[config.followerConfigs.length];
             followerCurrentKeys = new String[config.followerConfigs.length];
             for (int i = 0; i < config.followerConfigs.length; i++) {
                 followerMotors[i] =
@@ -312,6 +352,7 @@ public abstract class Mechanism implements Subsystem {
                                 config.followerConfigs[i].opposeLeader);
                 configureStatusSignals(followerMotors[i], SignalRole.FOLLOWER, false);
                 followerSupplySignals[i] = followerMotors[i].getSupplyCurrent(false);
+                followerStickyFaultSignals[i] = followerMotors[i].getStickyFaultField(false);
                 followerCurrentKeys[i] =
                         "Followers/" + config.followerConfigs[i].getName() + "/SupplyCurrent";
             }
@@ -326,15 +367,23 @@ public abstract class Mechanism implements Subsystem {
             statorCurrentSignal = motor.getStatorCurrent(false);
             supplyCurrentSignal = motor.getSupplyCurrent(false);
             tempSignal = motor.getDeviceTemp(false);
-            loopSignals = new BaseStatusSignal[6 + followerSupplySignals.length];
+            faultSignal = motor.getFaultField(false);
+            stickyFaultSignal = motor.getStickyFaultField(false);
+            troubleFaultSignals = troubleFaults(motor, false);
+            int n = followerSupplySignals.length;
+            int t = troubleFaultSignals.length;
+            loopSignals = new BaseStatusSignal[8 + 2 * n + t];
             loopSignals[0] = positionSignal;
             loopSignals[1] = velocitySignal;
             loopSignals[2] = voltageSignal;
             loopSignals[3] = statorCurrentSignal;
             loopSignals[4] = supplyCurrentSignal;
             loopSignals[5] = tempSignal;
-            System.arraycopy(
-                    followerSupplySignals, 0, loopSignals, 6, followerSupplySignals.length);
+            loopSignals[6] = faultSignal;
+            loopSignals[7] = stickyFaultSignal;
+            System.arraycopy(followerSupplySignals, 0, loopSignals, 8, n);
+            System.arraycopy(followerStickyFaultSignals, 0, loopSignals, 8 + n, n);
+            System.arraycopy(troubleFaultSignals, 0, loopSignals, 8 + 2 * n, t);
 
             inputs.followerSupplyCurrentAmps = new double[followerSupplySignals.length];
             inputs.followerConnected = new boolean[followerSupplySignals.length];
@@ -437,6 +486,11 @@ public abstract class Mechanism implements Subsystem {
         BaseStatusSignal.setUpdateFrequencyForAll(
                 DIAGNOSTIC_SIGNAL_HZ, talon.getStatorCurrent(), talon.getSupplyCurrent());
         talon.getDeviceTemp().setUpdateFrequency(TEMPERATURE_SIGNAL_HZ);
+        // Sticky faults latch between samples (cleared at boot), so 4 Hz misses nothing.
+        BaseStatusSignal.setUpdateFrequencyForAll(
+                TEMPERATURE_SIGNAL_HZ, talon.getFaultField(), talon.getStickyFaultField());
+        BaseStatusSignal.setUpdateFrequencyForAll(
+                TEMPERATURE_SIGNAL_HZ, troubleFaults(talon, true));
         // A long run of per-signal config calls, and only ever an optimisation. On a dead
         // bus it is pure boot latency, so it is the first thing dropped once the budget is
         // spent.
@@ -568,6 +622,8 @@ public abstract class Mechanism implements Subsystem {
         }
         // On the dashboard: the only place a dead follower is visible.
         if (Telemetry.slowLogThisLoop()) {
+            // <mechanism>/Followers/<follower>/SupplyCurrent: each follower motor's battery
+            // current.
             Telemetry.logDash(followerCurrentKeys[index], followerAmps, "amps");
         }
 
@@ -907,6 +963,25 @@ public abstract class Mechanism implements Subsystem {
         inputs.statorCurrentAmps = statorCurrentSignal.getValueAsDouble();
         inputs.supplyCurrentAmps = supplyCurrentSignal.getValueAsDouble();
         inputs.tempCelsius = tempSignal.getValueAsDouble();
+        inputs.faultField = (long) faultSignal.getValueAsDouble();
+        inputs.stickyFaultField = (long) stickyFaultSignal.getValueAsDouble();
+        int trouble = 0;
+        for (int i = 0; i < troubleFaultSignals.length; i++) {
+            if (troubleFaultSignals[i].getValueAsDouble() != 0) {
+                trouble |= 1 << i;
+            }
+        }
+        // A new array only when it changes: AdvantageKit keeps a reference to a logged array.
+        if (trouble != lastTroubleFaults) {
+            lastTroubleFaults = trouble;
+            String[] names = new String[Integer.bitCount(trouble)];
+            for (int i = 0, k = 0; i < TROUBLE_FAULT_NAMES.length; i++) {
+                if ((trouble & (1 << i)) != 0) {
+                    names[k++] = TROUBLE_FAULT_NAMES[i];
+                }
+            }
+            inputs.troubleFaults = names;
+        }
         // New arrays every loop, never written in place. AdvantageKit holds a reference to an
         // input array and serializes it after this cycle, so reusing one logged whatever the next
         // loop wrote into it. The log then disagreed with what the code used, and replay diverged.
@@ -916,6 +991,11 @@ public abstract class Mechanism implements Subsystem {
             followerAmps[i] = followerSupplySignals[i].getValueAsDouble();
             followerOk[i] = followerSupplySignals[i].getStatus().isOK();
         }
+        long[] followerSticky = new long[followerStickyFaultSignals.length];
+        for (int i = 0; i < followerSticky.length; i++) {
+            followerSticky[i] = (long) followerStickyFaultSignals[i].getValueAsDouble();
+        }
+        inputs.followerStickyFaultField = followerSticky;
         inputs.followerSupplyCurrentAmps = followerAmps;
         inputs.followerConnected = followerOk;
         // Read every loop: Phoenix reports each reset once, to the first call after it.
@@ -1041,7 +1121,11 @@ public abstract class Mechanism implements Subsystem {
             Telemetry.print(rebooted + " rebooted");
         }
         if (hasSoftLimits()) {
+            // The motor rebooted since its position was set, so its position is wrong until it
+            // re-homes.
             Logger.recordOutput(positionLostKey, resetMonitor.isPositionLost());
+            // A new zero was sent and hasn't reached the readings yet; setpoints hold until it
+            // does.
             Logger.recordOutput(positionWritePendingKey, positionWrite.isPending());
         }
         // Each rate call blocks until the device answers, so never while enabled.
@@ -1208,8 +1292,12 @@ public abstract class Mechanism implements Subsystem {
             Telemetry.print(text);
         }
         trackingAlert.set(trackingStop.isStopped());
+        // How far the mechanism is from its goal while tracking one; NaN when not.
         Logger.recordOutput(trackingErrorKey, tracking ? error : Double.NaN);
+        // Off its goal past tolerance right now (the tracking stop's debounce is running).
         Logger.recordOutput(trackingFaultKey, trackingStop.isFault());
+        // Stopped for being off its goal too long (likely jammed); clears on disable or the
+        // operator's clear.
         Logger.recordOutput(trackingStoppedKey, trackingStop.isStopped());
     }
 
@@ -1324,16 +1412,21 @@ public abstract class Mechanism implements Subsystem {
             return;
         }
         if (dashboard) {
+            // Diagnostics under the mechanism's own prefix: applied voltage.
             Telemetry.logDash(voltageKey, getVoltage(), "volts");
+            // Diagnostics: stator current.
             Telemetry.logDash(statorCurrentKey, getStatorCurrent(), "amps");
+            // Diagnostics: supply current.
             Telemetry.logDash(supplyCurrentKey, getSupplyCurrent(), "amps");
-            Telemetry.logDash(tempKey, getTemp(), "deg_C");
+            // Diagnostics: motor temperature.
+            Telemetry.logDash(tempKey, getTemp(), "celsius");
+            // Diagnostics: the motor answered this loop.
             Telemetry.logDash(motorConnectedKey, isMotorConnected());
         } else {
             Telemetry.log(voltageKey, getVoltage(), "volts");
             Telemetry.log(statorCurrentKey, getStatorCurrent(), "amps");
             Telemetry.log(supplyCurrentKey, getSupplyCurrent(), "amps");
-            Telemetry.log(tempKey, getTemp(), "deg_C");
+            Telemetry.log(tempKey, getTemp(), "celsius");
             Telemetry.log(motorConnectedKey, isMotorConnected());
         }
     }

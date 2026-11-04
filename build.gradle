@@ -31,6 +31,13 @@ deploy {
                 wpilibJava(getArtifactTypeClass('WPILibJavaArtifact')) {
                     // True uses debug JNI too, which costs a lot of performance.
                     debugJni = false
+                    // Dynamic CDS: faster robot starts and restarts (brownout, crash, code
+                    // restart). The JVM writes the archive at the first clean exit after a deploy
+                    // and ignores a stale or missing one, so no deploy step is needed. Restart
+                    // robot code once after deploying, before matches.
+                    // ponytail: measure on the Pi 5 bench (pi_bench.sh); an AOT cache with a
+                    // robot-app training button saves more if this isn't enough.
+                    jvmArgs << '-XX:+AutoCreateSharedArchive' << '-XX:SharedArchiveFile=/home/systemcore/fm-cds.jsa'
                 }
 
                 // Static files artifact

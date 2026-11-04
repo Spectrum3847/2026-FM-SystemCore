@@ -952,6 +952,31 @@ public abstract class Mechanism implements Subsystem {
             return;
         }
         lastSignalRefreshLoop = loop;
+        if (Constants.currentMode != Constants.Mode.REPLAY) {
+            readSignals();
+        }
+        // Records the readings on the robot; overwrites them from the log in replay.
+        Logger.processInputs(inputsKey, inputs);
+        double resend =
+                positionWrite.update(
+                        Timer.getTimestamp(),
+                        inputs.connected,
+                        inputs.positionRotations,
+                        inputs.velocityRps);
+        if (!Double.isNaN(resend)) {
+            sendPosition(resend);
+        }
+        handleResets();
+        updateTrackingStop();
+        checkSoftLimitParams();
+    }
+
+    /**
+     * Reads this loop's signals into {@link #inputs}. Skipped in replay, where the log supplies
+     * every input and these Phoenix calls were a fifth of the loop's work, the first of them each
+     * loop sometimes blocking for 5-28 ms.
+     */
+    private void readSignals() {
         StatusCode status = BaseStatusSignal.refreshAll(loopSignals);
         inputs.connected = status.isOK() && motor.isConnected();
         inputs.positionRotations = positionSignal.getValueAsDouble();
@@ -1009,20 +1034,6 @@ public abstract class Mechanism implements Subsystem {
                             followerOk[i], followerMotors[i].hasResetOccurred());
         }
         inputs.followerResetOccurred = followerReset;
-        // Records the readings on the robot; overwrites them from the log in replay.
-        Logger.processInputs(inputsKey, inputs);
-        double resend =
-                positionWrite.update(
-                        Timer.getTimestamp(),
-                        inputs.connected,
-                        inputs.positionRotations,
-                        inputs.velocityRps);
-        if (!Double.isNaN(resend)) {
-            sendPosition(resend);
-        }
-        handleResets();
-        updateTrackingStop();
-        checkSoftLimitParams();
     }
 
     /**

@@ -88,6 +88,17 @@ public final class RadioStatusRedactor implements LogDataReceiver {
     }
 
     @Override
+    public void putChanges(LogTable changes, LogTable current) {
+        // A status that did not change this cycle is already redacted in current.
+        if (changes.get(KEY) == null) {
+            return;
+        }
+        putTable(changes);
+        // The receiver thread copied the raw status into current before any receiver ran.
+        current.put(KEY, changes.get(KEY));
+    }
+
+    @Override
     public void putTable(LogTable table) {
         LogValue v = table.get(KEY);
         if (v == null || v.type != LoggableType.String) {

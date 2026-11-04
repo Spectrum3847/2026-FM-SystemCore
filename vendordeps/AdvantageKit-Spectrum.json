@@ -1,18 +1,26 @@
 {
-  "fileName": "AdvantageKit.json",
-  "name": "AdvantageKit",
-  "version": "27.0.0-alpha-7",
-  "uuid": "d820cc26-74e3-11ec-90d6-0242ac120003",
+  "fileName": "AdvantageKit-Spectrum.json",
+  "name": "AdvantageKit (Spectrum fork)",
+  "version": "27.0.0-alpha-7-spectrum.4",
+  "uuid": "cb2e36c5-3140-401c-bed3-b550c60bdf58",
   "wpilibYear": "2027_alpha7",
   "mavenUrls": [
+    "https://spectrum3847.github.io/AdvantageKit/",
     "https://frcmaven.wpi.edu/artifactory/littletonrobotics-mvn-release/"
   ],
-  "jsonUrl": "https://github.com/Mechanical-Advantage/AdvantageKit/releases/latest/download/AdvantageKit.json",
+  "jsonUrl": "https://spectrum3847.github.io/AdvantageKit/AdvantageKit-Spectrum.json",
+  "conflictsWith": [
+    {
+      "uuid": "d820cc26-74e3-11ec-90d6-0242ac120003",
+      "errorMessage": "Use either AdvantageKit or Spectrum's AdvantageKit fork, not both. Remove AdvantageKit.json.",
+      "offlineFileName": "AdvantageKit.json"
+    }
+  ],
   "javaDependencies": [
     {
       "groupId": "org.littletonrobotics.akit",
       "artifactId": "akit-java",
-      "version": "27.0.0-alpha-7"
+      "version": "27.0.0-alpha-7-spectrum.4"
     }
   ],
   "jniDependencies": [

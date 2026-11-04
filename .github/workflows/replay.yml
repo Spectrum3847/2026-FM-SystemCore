@@ -49,6 +49,11 @@ jobs:
       - name: Fetch and cut the fixtures
         run: python3 tools/fetch_replay_fixtures.py replay-fixtures
 
+      # The fixtures were recorded with AdvantageKit alpha-4 (microseconds); alpha-7 replays only
+      # nanosecond logs. Already-converted logs are left as they are.
+      - name: Convert the fixtures to nanosecond timestamps
+        run: python3 tools/akit_log_to_ns.py --in-place replay-fixtures/*.wpilog
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.event_name == 'pull_request'
         with:

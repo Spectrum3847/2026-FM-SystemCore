@@ -59,6 +59,7 @@ import frc.spectrumLib.params.Params;
 import frc.spectrumLib.params.TuningMode;
 import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.BatteryLogger;
+import frc.spectrumLib.telemetry.BenchReport;
 import frc.spectrumLib.telemetry.CommandLog;
 import frc.spectrumLib.telemetry.DashboardReceiver;
 import frc.spectrumLib.telemetry.DsUploadReceiver;
@@ -210,6 +211,9 @@ public class Robot extends SpectrumRobot {
                 // No CANivore at all (not plugged in, or canivore-usb not installed on the
                 // SystemCore): do not spend a minute timing out every device on it.
                 CanConfigBudget.exhaust("CANivore '" + CanBuses.CANIVORE + "' not found");
+            } else if (Constants.BENCH_REPLAY) {
+                // Replay on the Pi builds the Phoenix devices on an empty bus.
+                CanConfigBudget.exhaust("bench replay, no devices");
             } else if (Constants.currentMode == Constants.Mode.REAL && noCanTraffic()) {
                 // Buses up but nothing talking on any of them (a bench controller, or every
                 // device unpowered): the same minute of timeouts, so the same shortcut.
@@ -321,6 +325,7 @@ public class Robot extends SpectrumRobot {
         }
         RuntimeInputs.setBrownoutApiAvailable(powerApiAvailable);
         matchSummary.setBrownedOutAvailable(powerApiAvailable);
+        BenchReport.start();
     }
 
     /** Where the summary file goes: beside the log on the robot and in the sim; none in replay. */
@@ -577,11 +582,19 @@ public class Robot extends SpectrumRobot {
                         new DashboardReceiver(new NT4Publisher(), ntEveryN()));
                 break;
             case REPLAY:
-                setUseTiming(false); // Run as fast as possible
+                // The bench can pace replay at the loop period, to compare CPU percent with a
+                // match; otherwise replay runs as fast as possible.
+                setUseTiming(Boolean.getBoolean("fm.benchPaced"));
                 String logPath = LogFileUtil.findReplayLog();
                 Logger.setReplaySource(new WPILOGReader(logPath));
-                RadioStatusRedactor.addFirst(
-                        new WPILOGWriter(LogFileUtil.addPathSuffix(logPath, "_sim")));
+                var replayWriter = new WPILOGWriter(LogFileUtil.addPathSuffix(logPath, "_sim"));
+                if (Boolean.getBoolean("fm.benchNt")) {
+                    // The bench measures NT publishing too, as on the robot.
+                    RadioStatusRedactor.addFirst(
+                            replayWriter, new DashboardReceiver(new NT4Publisher(), ntEveryN()));
+                } else {
+                    RadioStatusRedactor.addFirst(replayWriter);
+                }
                 break;
         }
         Logger.start();
@@ -745,6 +758,7 @@ public class Robot extends SpectrumRobot {
         DsUploadReceiver.periodic(RobotState.isEnabled());
         systemLoad.periodic();
         Telemetry.timeEnd("Scheduler/Framework");
+        BenchReport.cycle();
 
         // Latched here rather than in the mode inits so every mode is covered by the same check.
         // Never cleared: a disable does not un-run an auto.

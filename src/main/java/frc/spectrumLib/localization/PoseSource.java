@@ -39,6 +39,7 @@ public class PoseSource {
     private final LoggedNetworkBoolean enabled;
     @Getter private final boolean enabledByDefault;
     private final String logPrefix;
+    private final String observationsPrefix;
 
     // Built once, so no string concatenation runs per loop.
     private final String acceptedPosesKey;
@@ -98,6 +99,7 @@ public class PoseSource {
         this.enabledByDefault = enabledByDefault;
         acceptedPosesKey = logPrefix + "/AcceptedPoses";
         rejectedPosesKey = logPrefix + "/RejectedPoses";
+        observationsPrefix = logPrefix + "/Observations";
         verdictsKey = logPrefix + "/Verdicts";
         xyStdKey = logPrefix + "/XYStdDevs";
         acceptedCountKey = logPrefix + "/AcceptedCount";
@@ -141,7 +143,7 @@ public class PoseSource {
     public void update() {
         io.updateInputs(inputs);
         if (io.derived()) {
-            inputs.recordAsOutputs(logPrefix + "/Observations");
+            inputs.recordAsOutputs(observationsPrefix);
         } else {
             Logger.processInputs(logPrefix, inputs);
         }

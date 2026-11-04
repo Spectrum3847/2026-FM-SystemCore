@@ -225,6 +225,11 @@ public class Telemetry {
     }
 
     private static boolean markDashboard(String key) {
+        // Called on every logDash, so the table key is built only the first time a key is seen.
+        if (dashboardKeys.contains(key)) {
+            return false;
+        }
+        // The NetworkTables receiver reads the table key, so it goes in first.
         dashboardTableKeys.add("/RealOutputs/" + key);
         return dashboardKeys.add(key);
     }

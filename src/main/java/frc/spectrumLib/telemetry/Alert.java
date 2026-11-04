@@ -10,6 +10,7 @@ import org.wpilib.networktables.NetworkTableInstance;
 import org.wpilib.networktables.StringArrayPublisher;
 import org.wpilib.networktables.StringPublisher;
 import org.wpilib.system.Timer;
+import org.wpilib.util.Alert.Level;
 
 /**
  * A WPILib {@link org.wpilib.util.Alert} that is also logged and shown on Elastic.
@@ -21,10 +22,15 @@ import org.wpilib.system.Timer;
  * {@code Alerts/Warnings}, {@code Alerts/Infos}, newest first, as the 2026 dashboard showed them)
  * and republishes them in the {@code /SmartDashboard/Alerts} group Elastic reads.
  *
- * <p>A drop-in replacement: same constructors and methods, and {@code Alert.Level} still refers to
- * WPILib's levels.
+ * <p>The WPILib alert behind it is created the first time this one turns on. AdvantageKit copies
+ * every registered alert out of native code every loop, active or not, and most of a robot's alerts
+ * never turn on, so registering them all at startup made that copy the largest allocation in the
+ * logger. An alert is registered in the same call that turns it on, so it reaches the Driver
+ * Station and the log on the same loop as before.
+ *
+ * <p>Same constructors and methods as WPILib's; the levels are WPILib's {@code Alert.Level}.
  */
-public class Alert extends org.wpilib.util.Alert {
+public class Alert {
     private static final List<Alert> ALL = new CopyOnWriteArrayList<>();
 
     // WPILib needs an id unique within the group; many alerts share text (often empty until set).
@@ -35,7 +41,10 @@ public class Alert extends org.wpilib.util.Alert {
         return "alert" + IDS.incrementAndGet();
     }
 
+    private final String group;
+    private final String id = nextId();
     private final Level level;
+    private org.wpilib.util.Alert registered;
     private boolean active;
     private String text;
     private double activeSinceSeconds;
@@ -73,7 +82,7 @@ public class Alert extends org.wpilib.util.Alert {
      * @param level its severity
      */
     public Alert(String text, Level level) {
-        super(nextId(), text, level);
+        this.group = null;
         this.level = level;
         this.text = text;
         ALL.add(this);
@@ -87,14 +96,18 @@ public class Alert extends org.wpilib.util.Alert {
      * @param level its severity
      */
     public Alert(String group, String text, Level level) {
-        super(group, nextId(), text, level);
+        this.group = group;
         this.level = level;
         this.text = text;
         ALL.add(this);
     }
 
-    @Override
-    public void set(boolean on) {
+    /**
+     * Turns the alert on or off.
+     *
+     * @param on whether the alert is active
+     */
+    public synchronized void set(boolean on) {
         if (on && !active) {
             activeSinceSeconds = Timer.getTimestamp();
         }
@@ -102,23 +115,66 @@ public class Alert extends org.wpilib.util.Alert {
             dirty = true;
         }
         active = on;
-        super.set(on);
+        if (on && registered == null) {
+            registered =
+                    group == null
+                            ? new org.wpilib.util.Alert(id, text, level)
+                            : new org.wpilib.util.Alert(group, id, text, level);
+        }
+        if (registered != null) {
+            registered.set(on);
+        }
     }
 
-    @Override
-    public void setText(String newText) {
+    /**
+     * Whether the alert is active.
+     *
+     * @return true while on
+     */
+    public boolean get() {
+        return active;
+    }
+
+    /**
+     * Changes the text shown while active.
+     *
+     * @param newText the new text
+     */
+    public synchronized void setText(String newText) {
         if (active && !newText.equals(text)) {
             dirty = true;
         }
         text = newText;
-        super.setText(newText);
+        if (registered != null) {
+            registered.setText(newText);
+        }
     }
 
-    @Override
-    public void close() {
+    /**
+     * The text shown while active.
+     *
+     * @return the text
+     */
+    public String getText() {
+        return text;
+    }
+
+    /**
+     * The alert's severity.
+     *
+     * @return its level
+     */
+    public Level getLevel() {
+        return level;
+    }
+
+    /** Removes the alert. */
+    public synchronized void close() {
         dirty = true;
         ALL.remove(this);
-        super.close();
+        if (registered != null) {
+            registered.close();
+        }
     }
 
     private static String[] active(Level level) {

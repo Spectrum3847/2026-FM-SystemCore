@@ -186,6 +186,32 @@ public class PoseSourceInputs implements LoggableInputs {
         health = table.get("Health", health);
     }
 
+    private static final String[] OUTPUT_NAMES = {
+        "/Connected",
+        "/Timestamps",
+        "/Poses",
+        "/TagCounts",
+        "/AvgTagDistances",
+        "/MaxAmbiguities",
+        "/StdDevScales",
+        "/TagIds"
+    };
+
+    private String outputPrefix;
+    private String[] outputKeys;
+
+    /** The output keys under a prefix, in {@link #OUTPUT_NAMES} order, built once per prefix. */
+    private String[] outputKeys(String prefix) {
+        if (!prefix.equals(outputPrefix)) {
+            outputKeys = new String[OUTPUT_NAMES.length];
+            for (int i = 0; i < OUTPUT_NAMES.length; i++) {
+                outputKeys[i] = prefix + OUTPUT_NAMES[i];
+            }
+            outputPrefix = prefix;
+        }
+        return outputKeys;
+    }
+
     private static boolean allOnes(double[] values) {
         for (double v : values) {
             if (v != 1.0) {
@@ -201,21 +227,22 @@ public class PoseSourceInputs implements LoggableInputs {
      * PoseSourceIO#derived()}). In replay they are recomputed, not read back.
      */
     public void recordAsOutputs(String prefix) {
+        String[] keys = outputKeys(prefix);
         // A derived source's observations, as outputs: each is the input of the same name.
-        Logger.recordOutput(prefix + "/Connected", connected);
+        Logger.recordOutput(keys[0], connected);
         // Same as the input of the same name.
-        Logger.recordOutput(prefix + "/Timestamps", timestamps);
+        Logger.recordOutput(keys[1], timestamps);
         // Same as the input of the same name.
-        Logger.recordOutput(prefix + "/Poses", poses);
+        Logger.recordOutput(keys[2], poses);
         // Same as the input of the same name.
-        Logger.recordOutput(prefix + "/TagCounts", tagCounts);
+        Logger.recordOutput(keys[3], tagCounts);
         // Same as the input of the same name.
-        Logger.recordOutput(prefix + "/AvgTagDistances", avgTagDistances);
+        Logger.recordOutput(keys[4], avgTagDistances);
         // Same as the input of the same name.
-        Logger.recordOutput(prefix + "/MaxAmbiguities", maxAmbiguities);
+        Logger.recordOutput(keys[5], maxAmbiguities);
         // Same as the input of the same name.
-        Logger.recordOutput(prefix + "/StdDevScales", stdDevScales);
+        Logger.recordOutput(keys[6], stdDevScales);
         // Same as the input of the same name.
-        Logger.recordOutput(prefix + "/TagIds", tagIds);
+        Logger.recordOutput(keys[7], tagIds);
     }
 }

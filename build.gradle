@@ -302,3 +302,28 @@ if (project.hasProperty('robotLog')) {
         }
     }
 }
+
+// Stages the robot jar, its SystemCore native libraries and the deploy folder in build/bench, for
+// tools/pi_bench.sh (replay on a Raspberry Pi 5 running the SystemCore image).
+tasks.register('benchStage', Sync) {
+    group = 'Spectrum'
+    description = 'Stage the robot program for tools/pi_bench.sh'
+    dependsOn shadowJar
+    into "$buildDir/bench"
+    from(shadowJar) {
+        rename {
+            "robot.jar"
+        }
+    }
+    from({
+        configurations.systemcoreRelease.collect {
+            zipTree(it)
+        }
+    }) {
+        include '**/*.so*'
+        exclude '**/*.debug'
+        eachFile { path = "lib/$name" }
+        includeEmptyDirs = false
+    }
+    from('src/main/deploy') { into 'deploy' }
+}

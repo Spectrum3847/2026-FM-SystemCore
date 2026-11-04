@@ -19,9 +19,9 @@ import org.littletonrobotics.junction.LogTable.LogValue;
  *       key the Elastic layout reads), plus metadata. Inputs never go.
  *   <li>Everything, while the {@value Telemetry#NT_MIRROR_SWITCH_KEY} switch is on. This is for a
  *       live AdvantageScope session on the bench, and the switch is ignored with the FMS attached.
- *   <li>One table every {@code n} cycles. Skipped cycles are merged, not dropped: an output is only
- *       in the table of the cycle that recorded it, so a value logged once a second would otherwise
- *       never reach the dashboard whenever its cycle was a skipped one.
+ *   <li>One table every {@code n} cycles. Skipped cycles are merged, not dropped: a change is only
+ *       in the changes of the cycle that made it, so a value that changes once a second would
+ *       otherwise never reach the dashboard whenever its cycle was a skipped one.
  * </ul>
  *
  * <p>The WPILOG file gets every key, every cycle, regardless.

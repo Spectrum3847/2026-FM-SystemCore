@@ -62,9 +62,6 @@ def includeDesktopSupport = true
 
 repositories {
     mavenCentral()
-    // Spectrum's AdvantageKit fork, until it is published: build it and copy akit-java into
-    // ~/.m2 under the version vendordeps/AdvantageKit.json names.
-    mavenLocal()
 }
 
 // AdvantageKit log replay: `./gradlew replayWatch` re-runs replay whenever the code changes.

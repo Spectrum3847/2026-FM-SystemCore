@@ -21,6 +21,7 @@ import org.wpilib.driverstation.MatchState;
 import org.wpilib.driverstation.POVDirection;
 import org.wpilib.math.geometry.Rotation2d;
 import org.wpilib.system.Timer;
+import org.wpilib.util.Alert.Level;
 
 /**
  * Abstract base class for robot gamepad (Xbox-compatible) controllers.
@@ -294,7 +295,7 @@ public abstract class Gamepad implements Subsystem {
      */
     protected Gamepad(Config config) {
         this.config = config;
-        disconnectedAlert = new Alert(config.name + " Gamepad Disconnected", Alert.Level.HIGH);
+        disconnectedAlert = new Alert(config.name + " Gamepad Disconnected", Level.HIGH);
 
         // Curves applied to the axes.
         leftStickCurve =
@@ -320,7 +321,7 @@ public abstract class Gamepad implements Subsystem {
                 config.getMapping() == Mapping.WPILIB_DS
                         ? GamepadLayout.WPILIB_DS
                         : GamepadLayout.NI_DS;
-        layoutAlert = new Alert(config.name + " controller layout", Alert.Level.MEDIUM);
+        layoutAlert = new Alert(config.name + " controller layout", Level.MEDIUM);
         benchKeys = new BenchKeys("Gamepads/" + config.name + "/");
 
         if (config.attached) {

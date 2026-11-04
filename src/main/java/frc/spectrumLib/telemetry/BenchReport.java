@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.wpilib.util.AlertDataJNI;
 
 /**
  * CPU and allocation cost of the robot loop, for the replay bench ({@code tools/pi_bench.sh}).
@@ -52,8 +53,12 @@ public final class BenchReport {
             // AdvantageKit stops its log receiver thread before the exit hook runs, so threads
             // are read during the run too and the last reading of an exited thread is kept.
             lastSeenThreadNs.putAll(threadCpuNs());
+            // AdvantageKit copies every registered alert out of native code each loop.
+            alertsRegistered = Math.max(alertsRegistered, AlertDataJNI.getNumAlerts());
         }
     }
+
+    private static int alertsRegistered;
 
     private static final Map<String, Long> lastSeenThreadNs = new HashMap<>();
 
@@ -111,6 +116,7 @@ public final class BenchReport {
                         status("VmHWM"),
                         (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory())
                                 / 1e6));
+        sb.append(String.format("[Bench] alerts registered: %d%n", alertsRegistered));
         for (var e : rows) {
             if (e.getValue() < total / 500) {
                 break;

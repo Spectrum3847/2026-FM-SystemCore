@@ -129,7 +129,7 @@ class ConfigInvariantsTest {
             }
         }
         var swerve = config.swerve;
-        String bus = swerve.getDrivetrainConstants().CANBusName;
+        String bus = swerve.getDrivetrainConstants().Network.getName();
         String[] corners = {"FrontLeft", "FrontRight", "BackLeft", "BackRight"};
         var modules = swerve.getModules();
         for (int i = 0; i < modules.length; i++) {

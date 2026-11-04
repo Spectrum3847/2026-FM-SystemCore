@@ -398,7 +398,6 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/System/ThreadCount` |  |  | Threads in the robot program. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
 | `/RealOutputs/System/TopThreads` |  |  | The busiest threads and their CPU share. | src/main/java/frc/spectrumLib/telemetry/SystemLoadMonitor.java |
 | `/RealOutputs/SystemStats/BrownedOut` |  |  | The controller is browned out now (outputs off), where the brownout API works. | src/main/java/frc/robot/Robot.java |
-| `/RealOutputs/SystemStats/BrownoutVoltage` |  | volts | The voltage at which the controller browns out. | src/main/java/frc/robot/Robot.java |
 | `/RealOutputs/Vision/<name>/Connected` |  |  | Per Orin camera: the camera is talking. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/<x>/Connected` |  |  | Per Limelight: the camera is talking, for the Pre-Match tab. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/RealOutputs/Vision/AimBackMT2Only` |  |  | While aiming, only LL-Back's MT2 multi-tag frames update the pose (the side cameras pulled it 15-35 cm off at TXMAN1). | src/main/java/frc/robot/subsystems/vision/Vision.java |
@@ -432,6 +431,7 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Vision/SeedConfirmProgress` |  |  | Frames in the current seed-confirm run, of 50. | src/main/java/frc/robot/subsystems/vision/Vision.java |
 | `/Runtime/BatteryVoltage` | I |  | Battery voltage, as the controller measured it. | src/main/java/frc/robot/RuntimeInputs.java |
 | `/Runtime/BrownedOut` | I |  | The controller is browned out (outputs disabled). False where the API is unavailable. | src/main/java/frc/robot/RuntimeInputs.java |
+| `/Runtime/BrownoutApiAvailable` | I |  | Whether the HAL's brownout API works on this controller; see Robot. | src/main/java/frc/robot/RuntimeInputs.java |
 | `/Runtime/Simulation` | I |  | Whether the recorded run was the desktop simulator (false on a robot). | src/main/java/frc/robot/RuntimeInputs.java |
 | `/SimScript/PlacePose` | I |  | Sim script: where it was placed. | src/main/java/frc/robot/SimScript.java |
 | `/SimScript/PlaceRobot` | I |  | Sim script: the robot was placed at PlacePose this loop. | src/main/java/frc/robot/SimScript.java |

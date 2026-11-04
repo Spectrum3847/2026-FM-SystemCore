@@ -445,7 +445,7 @@ public class IntakeExtension extends Mechanism {
                                 previousSystemState != SystemState.FULL_EXTEND,
                                 RobotState.isEnabled(),
                                 isMotorConnected() && (!useRight || right.isMotorConnected()),
-                                RobotController.getTime() / 1000.0,
+                                RobotController.getTime() / 1e6, // ns to ms
                                 leftPos,
                                 useRight ? right.getPositionRotations() : leftPos,
                                 getVelocityRPM(),

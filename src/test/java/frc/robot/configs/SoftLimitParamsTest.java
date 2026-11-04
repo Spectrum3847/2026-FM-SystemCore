@@ -127,7 +127,7 @@ class SoftLimitParamsTest {
 
     @Test
     void aMechanismTakesTheParamsOnceWhenBuilt() throws IOException {
-        assertTrue(HAL.initialize(500, 0));
+        assertTrue(HAL.initialize());
         Files.writeString(
                 tmp.resolve("soft-limits.json"), "{\"hoodForward\": 0.1, \"hoodReverse\": 0.5}");
         Params.start(tmp, "FM2026", null, null);

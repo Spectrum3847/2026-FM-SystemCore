@@ -33,7 +33,7 @@ public class SwerveInputs implements LoggableInputs {
     public double[] odometryModuleAngles = new double[0];
 
     /** CTRE's own pose estimate, for comparison only. */
-    public Pose2d ctrePose = Pose2d.kZero;
+    public Pose2d ctrePose = Pose2d.ZERO;
 
     /** Chassis velocity CTRE measured from the modules, robot-relative. */
     public ChassisVelocities robotVelocity = new ChassisVelocities();

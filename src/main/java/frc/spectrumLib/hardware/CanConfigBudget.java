@@ -3,7 +3,7 @@ package frc.spectrumLib.hardware;
 import com.ctre.phoenix6.StatusCode;
 import frc.spectrumLib.telemetry.Alert;
 import java.util.function.DoubleFunction;
-import org.wpilib.driverstation.Alert.Level;
+import org.wpilib.util.Alert.Level;
 
 /**
  * A cap on how long boot may spend on CAN device configuration that is not working.

@@ -16,11 +16,11 @@ import frc.spectrumLib.telemetry.Alert;
 import frc.spectrumLib.telemetry.Telemetry;
 import lombok.Getter;
 import org.littletonrobotics.junction.Logger;
-import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.driverstation.RobotState;
 import org.wpilib.math.util.Units;
 import org.wpilib.smartdashboard.Mechanism2d;
 import org.wpilib.system.Timer;
+import org.wpilib.util.Alert.Level;
 
 /** The Hood subsystem. Positions the hood that sets the fuel launch angle. */
 public class Hood extends Mechanism {

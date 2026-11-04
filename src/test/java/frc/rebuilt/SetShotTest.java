@@ -39,7 +39,7 @@ class SetShotTest {
     @Test
     void headingPointsTheBackAtTheHub() {
         for (SetShot shot : SetShot.values()) {
-            Rotation2d toHub = HUB.minus(shot.bluePose.getTranslation()).getAngle();
+            Rotation2d toHub = HUB.minus(shot.bluePose.getTranslation()).getAngle().orElseThrow();
             Rotation2d back = shot.bluePose.getRotation().plus(Rotation2d.k180deg);
             assertEquals(0, back.minus(toHub).getDegrees(), 0.2, shot.label);
         }

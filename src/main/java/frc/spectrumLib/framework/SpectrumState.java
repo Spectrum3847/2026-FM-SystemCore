@@ -8,8 +8,8 @@ import org.wpilib.command2.Command;
 import org.wpilib.command2.Commands;
 import org.wpilib.command2.WaitCommand;
 import org.wpilib.command2.button.Trigger;
-import org.wpilib.driverstation.Alert.Level;
 import org.wpilib.event.EventLoop;
+import org.wpilib.util.Alert.Level;
 
 /**
  * Represents a global or subsystem-specific state that can be used as a Trigger. Integrates with

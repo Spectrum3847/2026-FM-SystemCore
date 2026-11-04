@@ -26,8 +26,10 @@ SRC = os.path.join(ROOT, "src", "main", "java")
 JSON_OUT = os.path.join(ROOT, "src", "main", "deploy", "log-keys.json")
 MD_OUT = os.path.join(ROOT, "docs", "log-keys.md")
 
+# Not WPILib's org.wpilib.telemetry.Telemetry, which publishes to NetworkTables, not the log.
 OUTPUT_CALL = re.compile(
-    r"\b(?:Telemetry\.(?:log|logDash|logDashAlways|logEvent)|Logger\.recordOutput|logEvent)\(")
+    r"(?<!wpilib\.telemetry\.)\b(?:Telemetry\.(?:log|logDash|logDashAlways|logEvent)"
+    r"|Logger\.recordOutput|logEvent)\(")
 PUT_CALL = re.compile(r"\b(\w+)\.put\(")
 SUBTABLE = re.compile(r"\b(\w+)\s*=\s*\w+\.getSubtable\(([^;]+)\);")
 PROCESS = re.compile(r"Logger\.processInputs\(")

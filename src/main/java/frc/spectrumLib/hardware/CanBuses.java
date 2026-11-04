@@ -96,21 +96,10 @@ public final class CanBuses {
      * @return the bus
      */
     public static CANBus forName(String name) {
-        return forName(name, "");
-    }
-
-    /**
-     * Resolves a bus name into a Phoenix {@link CANBus} that also records a hoot log.
-     *
-     * @param name {@code "systemcore:n"} for a native SystemCore port, else a CANivore name
-     * @param hootPath hoot log path, or empty for none
-     * @return the bus
-     */
-    public static CANBus forName(String name, String hootPath) {
         if (name != null && name.startsWith(SYSTEMCORE_PREFIX)) {
             int port = Integer.parseInt(name.substring(SYSTEMCORE_PREFIX.length()));
-            return hootPath.isEmpty() ? CANBus.systemcore(port) : CANBus.systemcore(port, hootPath);
+            return new CANBus(org.wpilib.hardware.bus.CANPort.valueOf("CAN_S" + port));
         }
-        return hootPath.isEmpty() ? new CANBus(name) : new CANBus(name, hootPath);
+        return new CANBus(name);
     }
 }

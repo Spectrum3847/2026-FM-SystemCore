@@ -19,7 +19,7 @@ import re
 import statistics
 import sys
 
-from wpilog_summary import read_wpilog, series
+from wpilog_summary import TICKS_KEY, read_wpilog, series
 
 # About twice the worst of drive, shoot and auto on ubuntu-latest: p95 0.073 m, max 0.090 m,
 # overruns 1.3% (mostly startup loops).
@@ -82,7 +82,7 @@ def check_ended(records, types):
     if windows[-1][1] == math.inf:
         return False, "log ends while enabled: the script did not finish"
     ts = series(records, types, "Timestamp")
-    return True, f"script finished, log ends at {ts[-1][1] / 1e6:.1f} s"
+    return True, f"script finished, log ends at {ts[-1][1] / types[TICKS_KEY]:.1f} s"
 
 
 def check_auto(records, types):
@@ -145,7 +145,7 @@ def check_overruns(records, types):
                    or 0.02)
     # AdvantageKit records one cycle at the end of robot init. The gap from it to the first loop
     # is init's tail and the sim's startup (seconds on a CI runner), not a loop.
-    ts = [v / 1e6 for _, v in series(records, types, "Timestamp")][1:]
+    ts = [v / types[TICKS_KEY] for _, v in series(records, types, "Timestamp")][1:]
     dts = [b - a for a, b in zip(ts, ts[1:])]
     if not dts:
         return False, "no loops"

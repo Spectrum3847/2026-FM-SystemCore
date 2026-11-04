@@ -12,7 +12,7 @@ import org.wpilib.networktables.StringPublisher;
 import org.wpilib.system.Timer;
 
 /**
- * A WPILib {@link org.wpilib.driverstation.Alert} that is also logged and shown on Elastic.
+ * A WPILib {@link org.wpilib.util.Alert} that is also logged and shown on Elastic.
  *
  * <p>WPILib 2027 alpha-6 sends alerts to the Driver Station through the HAL only. They are not
  * published to {@code /SmartDashboard/Alerts}, so Elastic's Alerts widget stays empty. There is no
@@ -24,8 +24,16 @@ import org.wpilib.system.Timer;
  * <p>A drop-in replacement: same constructors and methods, and {@code Alert.Level} still refers to
  * WPILib's levels.
  */
-public class Alert extends org.wpilib.driverstation.Alert {
+public class Alert extends org.wpilib.util.Alert {
     private static final List<Alert> ALL = new CopyOnWriteArrayList<>();
+
+    // WPILib needs an id unique within the group; many alerts share text (often empty until set).
+    private static final java.util.concurrent.atomic.AtomicInteger IDS =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+    private static String nextId() {
+        return "alert" + IDS.incrementAndGet();
+    }
 
     private final Level level;
     private boolean active;
@@ -65,7 +73,7 @@ public class Alert extends org.wpilib.driverstation.Alert {
      * @param level its severity
      */
     public Alert(String text, Level level) {
-        super(text, level);
+        super(nextId(), text, level);
         this.level = level;
         this.text = text;
         ALL.add(this);
@@ -79,7 +87,7 @@ public class Alert extends org.wpilib.driverstation.Alert {
      * @param level its severity
      */
     public Alert(String group, String text, Level level) {
-        super(group, text, level);
+        super(group, nextId(), text, level);
         this.level = level;
         this.text = text;
         ALL.add(this);

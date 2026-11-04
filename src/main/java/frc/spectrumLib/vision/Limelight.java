@@ -10,7 +10,6 @@ import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.util.Units;
 import org.wpilib.networktables.TimestampedDoubleArray;
-import org.wpilib.smartdashboard.SmartDashboard;
 
 /**
  * Provides a high-level interface to a single Limelight camera for AprilTag-based pose estimation
@@ -395,7 +394,7 @@ public class Limelight {
      */
     public Pose3d getMegaTag1_Pose3d() {
         if (!isAttached()) {
-            return Pose3d.kZero;
+            return Pose3d.ZERO;
         }
         return mt1Pose3d();
     }
@@ -407,7 +406,7 @@ public class Limelight {
      */
     public Pose2d getMegaTag2_Pose2d() {
         if (!isAttached()) {
-            return Pose2d.kZero;
+            return Pose2d.ZERO;
         }
         return mt2Estimate().pose;
     }
@@ -760,15 +759,20 @@ public class Limelight {
             return;
         }
         Pose3d botPose3d = getMegaTag1_Pose3d();
-        SmartDashboard.putString("LimelightX", df.format(botPose3d.getTranslation().getX()));
-        SmartDashboard.putString("LimelightY", df.format(botPose3d.getTranslation().getY()));
-        SmartDashboard.putString("LimelightZ", df.format(botPose3d.getTranslation().getZ()));
-        SmartDashboard.putString(
-                "LimelightRoll", df.format(Units.radiansToDegrees(botPose3d.getRotation().getX())));
-        SmartDashboard.putString(
-                "LimelightPitch",
+        org.wpilib.telemetry.Telemetry.log(
+                "SmartDashboard/LimelightX", df.format(botPose3d.getTranslation().getX()));
+        org.wpilib.telemetry.Telemetry.log(
+                "SmartDashboard/LimelightY", df.format(botPose3d.getTranslation().getY()));
+        org.wpilib.telemetry.Telemetry.log(
+                "SmartDashboard/LimelightZ", df.format(botPose3d.getTranslation().getZ()));
+        org.wpilib.telemetry.Telemetry.log(
+                "SmartDashboard/LimelightRoll",
+                df.format(Units.radiansToDegrees(botPose3d.getRotation().getX())));
+        org.wpilib.telemetry.Telemetry.log(
+                "SmartDashboard/LimelightPitch",
                 df.format(Units.radiansToDegrees(botPose3d.getRotation().getY())));
-        SmartDashboard.putString(
-                "LimelightYaw", df.format(Units.radiansToDegrees(botPose3d.getRotation().getZ())));
+        org.wpilib.telemetry.Telemetry.log(
+                "SmartDashboard/LimelightYaw",
+                df.format(Units.radiansToDegrees(botPose3d.getRotation().getZ())));
     }
 }

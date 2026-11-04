@@ -15,6 +15,7 @@ import org.photonvision.EstimatedRobotPose;
 import org.photonvision.PhotonPoseEstimator;
 import org.photonvision.targeting.PhotonPipelineResult;
 import org.photonvision.targeting.PhotonTrackedTarget;
+import org.wpilib.fields.Field;
 import org.wpilib.math.geometry.Pose2d;
 import org.wpilib.math.geometry.Pose3d;
 import org.wpilib.math.geometry.Rotation2d;
@@ -26,7 +27,6 @@ import org.wpilib.math.linalg.Matrix;
 import org.wpilib.math.numbers.N1;
 import org.wpilib.math.numbers.N3;
 import org.wpilib.math.numbers.N8;
-import org.wpilib.vision.apriltag.AprilTagFieldLayout;
 
 /**
  * An Orin camera pose source that uses the robot's heading instead of solving for it. Built on the
@@ -58,7 +58,7 @@ public class OrinGyroSourceIO implements PoseSourceIO {
     private final OrinPoseSourceIO camera;
     private final String logPrefix;
     private final Transform3d robotToCamera;
-    private final AprilTagFieldLayout layout;
+    private final Field layout;
     private final Supplier<Set<Integer>> excludedTags;
     private final DoubleFunction<Pose2d> fusedPoseAt;
     private final PhotonPoseEstimator estimator;
@@ -100,7 +100,7 @@ public class OrinGyroSourceIO implements PoseSourceIO {
             String cameraName,
             OrinPoseSourceIO camera,
             Transform3d robotToCamera,
-            AprilTagFieldLayout layout,
+            Field layout,
             Supplier<Set<Integer>> excludedTags,
             DoubleFunction<Pose2d> fusedPoseAt) {
         this.mode = mode;

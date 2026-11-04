@@ -722,7 +722,7 @@ public class FuelPhysicsSim {
         boolean shouldIntake(SimBall ball, Pose2d robotPose, double bumperHeight) {
             if (!active.getAsBoolean() || ball.pos.getZ() > bumperHeight) return false;
             Translation2d relPos =
-                    new Pose2d(ball.pos.toTranslation2d(), Rotation2d.kZero)
+                    new Pose2d(ball.pos.toTranslation2d(), Rotation2d.ZERO)
                             .relativeTo(robotPose)
                             .getTranslation();
             boolean inside =
@@ -2061,7 +2061,7 @@ public class FuelPhysicsSim {
         if (ball.pos.getZ() > bumperHeight) return;
 
         Translation2d relPos =
-                new Pose2d(ball.pos.toTranslation2d(), Rotation2d.kZero)
+                new Pose2d(ball.pos.toTranslation2d(), Rotation2d.ZERO)
                         .relativeTo(robotPose)
                         .getTranslation();
 

@@ -13,8 +13,8 @@ FM (Spectrum 3847's 2026 robot) on SystemCore, competing as 8515.
 
 ## Build
 
-- Java 25, the WPILib 2027 JDK. On team laptops:
-  `export JAVA_HOME=/c/Users/Public/wpilib/2027_alpha5/jdk`.
+- Java 25, the WPILib 2027 JDK: `JAVA_HOME` is the `jdk` folder of the WPILib install that matches
+  `build.gradle` (on team laptops, under `C:\Users\Public\wpilib\`).
 - `./gradlew build` compiles, applies Spotless (Google Java Format AOSP, 4 spaces) and runs tests.
 - To verify a change, run `python tools/check.py` (add `--quick`, `--sims`, `--log <robot log>`
   as needed) in the background and read its summary. It builds once and runs tests, sims and

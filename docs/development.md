@@ -2,11 +2,9 @@
 
 ## Build and run
 
-Java 25 is required. The JDK that ships with WPILib 2027 works:
-
-```bash
-export JAVA_HOME=/c/Users/Public/wpilib/2027_alpha5/jdk
-```
+Java 25 is required. The JDK that ships with WPILib 2027 works: point `JAVA_HOME` at the `jdk`
+folder of the WPILib install that matches `build.gradle` (on Windows it is under
+`C:\Users\Public\wpilib\`).
 
 Build, format (Spotless, AOSP style) and run the tests:
 

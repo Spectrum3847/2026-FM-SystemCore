@@ -3,8 +3,11 @@
 The robot serves a small pit web app from its deploy folder: open
 `http://robot.local:5800/app/` on a laptop or phone on the robot network. It is plain HTML and
 JavaScript in [`src/main/deploy/app/`](../src/main/deploy/app/), so every `./gradlew deploy` ships the
-app that matches the code. There is no Node, npm or build step. The plan it follows is
-[robot-app-plan.md](robot-app-plan.md).
+app that matches the code. There is no Node, npm or build step.
+
+On FM's SystemCore, SystemCore's own vision service already holds port 5800, so that URL does not
+reach the app there. The plan is to serve the app from its own service on a free port; see
+[robot-app-plan.md](robot-app-plan.md#check-on-the-bench-first).
 
 | Page | What it does |
 | --- | --- |

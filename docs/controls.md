@@ -65,9 +65,9 @@ them. Pilot and Operator bindings did not change. The layout is picked by `Gamep
 
 - **`NI_DS`** is the default, and is what the event needs (the FMS runs the 2026 NI DS).
 - **`WPILIB_DS`** is for driving from the 2027 DS.
-- **`AUTO`** guesses from what the DS says the controller has: button 14 present means the 2027
-  layout, and a POV with no button 14 means the NI layout. If it can't tell, it keeps the last
-  layout it recognised, starting from NI. It is off by default, because the guess is ours and not
+- **`AUTO`** guesses from what the DS says the controller has. It needs all six axes. A POV means
+  the NI layout, even with button 14 present, and button 14 with no POV means the 2027 layout. If
+  it can't tell, it keeps the last layout it recognised, starting from NI. It is off by default, because the guess is ours and not
   documented anywhere.
 
 Whatever the mapping, the same guess raises a warning alert when the controller looks like the

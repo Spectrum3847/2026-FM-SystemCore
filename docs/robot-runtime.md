@@ -27,7 +27,8 @@
   The offseason bot does the same, because mirroring the whole log to NT costs CPU. Skipped
   cycles are merged, not dropped, so a value logged once a second still reaches the dashboard.
 - **`/SmartDashboard/Telemetry/MirrorLogsToNT`** (Diagnostics tab) sends *every* output to NT for a
-  live AdvantageScope session on the bench. It is ignored with the FMS attached. Measured on the bench
+  live AdvantageScope session on the bench. The Orin's raw `.../Results` are never mirrored; read
+  them from the log file. It is ignored with the FMS attached. Measured on the bench
   unit: 154 topics become 966, and AdvantageKit's receiver thread goes from ~11% to ~14% of one core.
   The main loop doesn't move, because the publisher runs off it.
 - **Alerts** are logged (`Alerts/Errors|Warnings|Infos`) and republished to `/SmartDashboard/Alerts`

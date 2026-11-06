@@ -13,16 +13,20 @@ MEDIUM one; both clear on enable.
 | CAN | a device silent for 0.5 s, or never seen | a device rebooted in the last 10 min |
 | Homing | a homing attempt failed (hood timed out) | a soft-limited mechanism lost its position to a reboot |
 | CameraHeading | two cameras, or a camera and the seeded heading, more than 15 deg apart (TXMAN1 Q30) | more than 6 deg |
+| GyroMount | a gyro's yaw sense is reversed, so the heading turns the wrong way | another gyro mount setting looks wrong (the reason names the setting) |
 | Auto | no auto file, no paths, or 0.5 m / 10 deg off the start for 1 s | Do Nothing, no alliance, or the pose not seeded |
 | Battery | under 11.8 V at rest for 3 s, or the same battery as last match | under 12.3 V at rest for 3 s |
 | Coprocessors | a camera the robot fuses not answering | an unfused one missing, or Orin timestamps off |
-| Settings | Orin practice profile on with the FMS attached | the AprilTag layout loaded isn't this event's field, excluded tags, or dashboard switches |
+| Settings | the Jetson's field map hash differs from the robot's, the Orin practice profile is on with the FMS attached, swerve offsets or soft limits changed since boot, or a hard-stop params file was refused | the Jetson reports no field map, the practice profile is on, excluded tags or dashboard switches differ from their defaults, tuning mode is on, or a hard stop is not from git |
 
 On NetworkTables (Elastic, the pit app): `/AdvantageKit/RealOutputs/PreMatch/Go`, `.../Reason`
 (one line), `.../Summary` (one line per check) and `.../Checks/<name>/Status` and `Reason`.
 Elastic shows the verdict on the Pre-Match tab and every check's line on the Pre-Match Checks
 tab. `python tools/wpilog_summary.py <log>` lists every change of verdict. The same-battery check
 needs a battery ID reader, which FM doesn't have, so it is skipped.
+
+The field-map check compares the Jetson against the robot. If `Event.java` names the wrong field,
+both use it and the check still passes.
 
 Before each event, set the event's field (AndyMark or Welded) in
 [Event.java](../src/main/java/frc/robot/Event.java). Vision solves with it, and the Limelights and the

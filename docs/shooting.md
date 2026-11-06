@@ -25,11 +25,12 @@ used to, and pre-spinning with X (track target) before RT takes most of that awa
 
 | | Start a volley | Keep feeding |
 |---|---|---|
-| Flywheel | within 150 RPM of target (`Launcher.onTargetToleranceRPM`) | above 75% of target |
 | Hood | within 1 deg, and moving under 20 deg/s | within 3 deg |
 | Heading (while the drivetrain aims) | within `atan((hub radius - ball) / distance)` (4499), 2-10 deg; 10 deg for feed shots (9470) | twice the start tolerance |
 | Range | distance inside the model's fit, only while vision is under 3 s old | not checked |
 | All of it | held for 0.04 s | |
+
+Flywheel speed is not checked: waiting for it slowed FM's shots.
 
 - **Timeout**: held for 1.0 s in a launch state, it feeds anyway for the rest of that launch, so a
   stuck sensor or an unreachable target can delay a shot by a second but never stop one. This is
@@ -37,17 +38,16 @@ used to, and pre-spinning with X (track target) before RT takes most of that awa
 - **Bypass**: **operator Y** (without LB; LB+Y is the intake reset) feeds while held.
 - Leaving the launch state resets it: the next volley re-earns the start window.
 
-On the dashboard (Match and Shooting tabs): `Shot/Ready` (also lit while tracking with X, before
-RT) and `Shot/BlockedReason`: `None`, `NoShot`, `FlywheelNotReady`, `HoodNotZeroed` (see
+On the dashboard (Match and Shooting tabs): `Shooting/Gate/Ready` (also lit while tracking with X,
+before RT) and `Shooting/Gate/BlockedReason`: `None`, `NoShot`, `HoodNotZeroed` (see
 [Hood homing](#hood-homing-drivers-no-more-pushing-the-hood-down)), `HoodNotReady`, `NotAimed`,
-`InvalidShot` or `Settling`. Also logged: `Shot/Feeding`, `Shot/FeedReason`
+`InvalidShot` or `Settling`. Also logged: `Shooting/Gate/Feeding`, `Shooting/Gate/FeedReason`
 (`Ready`/`Override`/`Timeout`/`Held`), the errors against each target, and running counts.
 `tools/wpilog_summary.py` prints each launch, how long it was held and by what.
 
-In the sim the flywheel runs 124 RPM over target (kS 20 A against no friction, kP 10 A/rps), which
-is why the flywheel tolerance is 150 and not the unused 100; the hood overshoots on Motion Magic,
-which is why its speed is checked. **CALIBRATE all of it from the first practice log**
-(`Shot/FlywheelErrorRPM`, `Shot/HoodErrorDeg`, `Shot/HeadingErrorDeg`, `Shot/SecondsHeld`).
+In the sim the hood overshoots on Motion Magic, which is why its speed is checked. **CALIBRATE
+all of it from the first practice log** (`Shooting/Gate/FlywheelErrorRPM`,
+`Shooting/Gate/HoodErrorDeg`, `Shooting/Gate/HeadingErrorDeg`, `Shooting/Gate/SecondsHeld`).
 
 ## Hood homing (drivers: no more pushing the hood down)
 
@@ -89,7 +89,7 @@ timeout 3 s, re-home within 2 deg of home. Bench checklist, robot on blocks, Adv
 From the offseason bot (463c465, fa1376b), without its turret and without its hub-face shot (FM
 cannot make it). Park at a known spot, point the **back** of the robot (FM's launcher side) at the
 hub, and hold the chord: the hood and flywheel go to FM's own hub model evaluated at that spot's
-range standing still, with the operator's hood trim, and the gate feeds once flywheel and hood are
+range standing still, with the operator's hood trim, and the gate feeds once the hood is
 there. Nothing reads the pose and the aim is not checked: as on the offseason bot, **the driver
 aims by parking**, with translation slowed to the launch states' 10%. Everything is in
 `ShotCalculator.SetShot` (spots per alliance from `Field`, rotated about the field centre for red).
@@ -101,7 +101,7 @@ aims by parking**, with translation slowed to the launch states' 10%. Everything
 | **LB + B** | Right trench: the mirror, (3.609, 0.639) m | -106.7 deg | 3.54 m | 16.4 deg / 2129 RPM |
 
 Hood and RPM follow the Hub Model chooser and the hood trim live; the table is the default model.
-`Shot/SetShotHeadingErrorDeg` logs the fused heading against the spot's (information only).
+`Shooting/Gate/SetShotHeadingErrorDeg` logs the fused heading against the spot's (information only).
 **CALIBRATE** before relying on them: FM's bumper-to-centre (`FM_HALF_LENGTH_METERS`, 0.42 m from
 PathPlanner's 0.84 m frame), and where the tower's centreline really is (`TOWER_CENTRE_Y_METERS`:
 the offseason code says it follows tag 31, FM's `Field` says the field centreline; the range barely
@@ -109,7 +109,7 @@ changes, the heading does). In the `shoot` sim: tower 5 of 8, each trench 7-8 of
 
 ## Shot log
 
-One row per volley under `ShotLog/`, written on the loop the gate opens the feed: distance, radial
+One row per volley under `Shooting/Log/`, written on the loop the gate opens the feed: distance, radial
 and tangential velocity, hood and RPM target and actual, heading error and tolerance, the gate's
 reason (and what an override or timeout bypassed), how long it waited, pose trust
 (`SecondsSinceFusedEstimate`, seed confirmed), set shot or calculated, alliance, mode and match

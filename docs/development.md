@@ -86,8 +86,9 @@ python tools/check.py --sims drive,shoot,auto            # ~2.5 min: everything 
 ```
 
 Loop overruns only warn there, since the jobs share the laptop's CPU; CI judges loop timing.
-`check.py` does not convert old logs: a log recorded before AdvantageKit alpha-7 (microsecond
-timestamps) needs `python tools/akit_log_to_ns.py --in-place <log>` before `--log` can replay it.
+`check.py` does not convert old logs. A log recorded before AdvantageKit alpha-7 (microsecond
+timestamps) needs a converted copy first, so the original stays as it was:
+`python tools/akit_log_to_ns.py old.wpilog old_ns.wpilog`, then `--log old_ns.wpilog`.
 A `--log` replays only the enabled part of the log (10 s before the first enable to 5 s after the
 last disable; `--full-log` for all of it), since a replay costs about 16 s plus 0.1 s per logged
 second. The comparison with the robot then skips the cut's first 2 s, raw odometry and the shadow
@@ -110,7 +111,9 @@ of teleop), Q32 290-335 s (seven teleop volleys, two fed by the gate timeout) an
 
 The fixtures were recorded in microseconds, so they need the conversion to nanoseconds that the
 Replay workflow also runs. To add one, pick a window with the pose seed or some shots (`tools/shot_log.py` lists them), add an
-entry with the full log's SHA-256, and replay it locally:
+entry with the full log's SHA-256, and replay it locally. The fetcher keeps a cut that is already
+in the folder, so after changing a window, delete `build/replay/NAME.wpilog` to cut it again. The
+cuts are copies, so converting them in place is safe:
 
 ```bash
 python tools/fetch_replay_fixtures.py build/replay

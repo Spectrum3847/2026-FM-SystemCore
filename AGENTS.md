@@ -22,8 +22,8 @@ FM (Spectrum 3847's 2026 robot) on SystemCore, competing as 8515.
 - `FM_SIM_SCRIPT=drive ./gradlew run -PnoSimGui` runs one scripted sim by hand; then
   `python tools/wpilog_summary.py logs/<log>.wpilog`.
 - The WPILib API is the 2027 alpha in `build.gradle` (`org.wpilib.*`). Do not guess 2026 names:
-  check the jars (`javap`) or the existing code. Common moves: `DriverStation` → `MatchState` / `RobotState` /
-  `DriverStationErrors`; `ChassisSpeeds` → `ChassisVelocities`; `Timer.getFPGATimestamp` →
+  check the jars (`javap`) or the existing code. Common moves: `DriverStation` → `MatchState` /
+  `RobotState` / `DriverStationErrors`; `ChassisSpeeds` → `ChassisVelocities`; `Timer.getFPGATimestamp` →
   `Timer.getTimestamp`; test mode → utility mode.
 
 ## AdvantageKit rules
@@ -84,8 +84,8 @@ FM (Spectrum 3847's 2026 robot) on SystemCore, competing as 8515.
 ## Robot app
 
 `src/main/deploy/app/` is the Robot App, a web app built for this robot. It lives in this repo, is built by
-the same Gradle build and ships with every deploy. Today the robot program serves it at
-`http://robot.local:5800/app/`; it is moving to its own service. Design: concepts_brief.md.
+the same Gradle build and ships with every deploy. The robot program serves it on port 5800, which
+SystemCore's vision service already holds on FM; it is moving to its own service. Design: concepts_brief.md.
 
 - No npm, no build step on laptops. A library goes in `app/vendor/` as one file.
 - Pages are hand-made for this robot's mechanisms. Keys, params and button bindings come from lists

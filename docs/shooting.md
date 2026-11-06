@@ -46,7 +46,7 @@ before RT) and `Shooting/Gate/BlockedReason`: `None`, `NoShot`, `HoodNotZeroed` 
 `tools/wpilog_summary.py` prints each launch, how long it was held and by what.
 
 In the sim the hood overshoots on Motion Magic, which is why its speed is checked. **CALIBRATE
-all of it from the first practice log** (`Shooting/Gate/FlywheelErrorRPM`,
+all of it from the first practice log** (`Shooting/Gate/FlywheelErrorRPM`, logged for reference only,
 `Shooting/Gate/HoodErrorDeg`, `Shooting/Gate/HeadingErrorDeg`, `Shooting/Gate/SecondsHeld`).
 
 ## Hood homing (drivers: no more pushing the hood down)

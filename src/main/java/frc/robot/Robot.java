@@ -106,7 +106,7 @@ import org.wpilib.util.Alert.Level;
  *
  * <p>The robot code is FM's from 2026-Spectrum {@code main}; the loop structure, telemetry, CAN
  * health logging and pre-match checks are from the {@code 2026-offseason-bot} branch; logging and
- * replay are AdvantageKit. See README.md.
+ * replay are AdvantageKit. See docs/systemcore-port.md.
  *
  * <h2>Loop order</h2>
  *

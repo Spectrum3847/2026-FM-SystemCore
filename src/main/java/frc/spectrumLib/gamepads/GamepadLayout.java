@@ -131,7 +131,7 @@ public enum GamepadLayout {
      *
      * <p>This is inferred, not documented: a POV means {@link #NI_DS} (whatever the button count);
      * button 14 with no POV means {@link #WPILIB_DS}, whose D-pad is buttons 11-14. Anything else
-     * is unknown. Check it with the bench test in the README before trusting {@code AUTO}.
+     * is unknown. Check it with the bench test in docs/controls.md before trusting {@code AUTO}.
      *
      * @param hid the controller
      * @return the layout its data looks like, if it is recognisable

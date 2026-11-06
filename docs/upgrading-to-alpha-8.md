@@ -63,7 +63,7 @@ Each item is on the branch. The ones marked **robot** still need checking on FM.
 - **CAN.** `CANBus(CANPort.CAN_Sn)` for SystemCore buses; swerve uses `withNetwork`.
 - **Gamepads.** Face buttons are `FACE_DOWN/RIGHT/LEFT/UP`. **Robot:** alpha-8 needs the alpha-7
   Driver Station, not the NI one, so check every control on the WPILib DS before driving
-  ([Controllers](../README.md#controllers-and-the-driver-station)).
+  ([Controllers](controls.md#controllers-and-the-driver-station)).
 - **Brownout.** `getBrownoutVoltage` is gone. `Robot` reads only `isBrownedOut()` and keeps the
   default voltages; `SystemStats/BrownoutVoltage` is no longer logged.
 - **Smaller ones.** `RobotBase.startRobot(Robot::new)`, constants ALL_CAPS (`Rotation2d.ZERO`),

@@ -5,7 +5,7 @@ import org.wpilib.framework.RobotBase;
 /**
  * AdvantageKit runtime mode. Always {@link Mode#REAL} on SystemCore. On the desktop it is {@link
  * #simMode}: {@link Mode#SIM} for the physics sim, or {@link Mode#REPLAY} to replay a log (see
- * README, "Replaying a match").
+ * docs/development.md).
  */
 public final class Constants {
     private Constants() {}

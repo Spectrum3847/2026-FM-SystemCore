@@ -18,7 +18,7 @@ import org.wpilib.simulation.GenericHIDSim;
 
 /**
  * The layout tables against WPILib's own classes, and the {@link Gamepad} wrapper reading a
- * simulated controller in each layout: what the bench test in the README checks on hardware.
+ * simulated controller in each layout: what the bench test in docs/controls.md checks on hardware.
  */
 class GamepadLayoutTest {
     private static final int PORT = 3;

@@ -136,7 +136,7 @@ check.dependsOn simTest
 //
 // The sim GUI is on by default so `./gradlew run` gives a drivable robot. AdvantageKit
 // replay requires every HAL sim extension to be off: run replay with
-// `./gradlew run -PnoSimGui` (see README), which turns the GUI off.
+// `./gradlew run -PnoSimGui` (see docs/development.md), which turns the GUI off.
 wpi.sim.addGui().defaultEnabled = !project.hasProperty('noSimGui')
 wpi.sim.addDriverstation()
 

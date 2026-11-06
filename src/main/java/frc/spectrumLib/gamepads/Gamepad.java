@@ -48,7 +48,7 @@ import org.wpilib.util.Alert.Level;
  * false} and axis reads return {@code 0.0}.
  *
  * <p>Each loop it logs the controller's raw data and what the code reads from it under {@code
- * Gamepads/<name>/} (dashboard keys), for checking the mapping on the bench (see the README).
+ * Gamepads/<name>/} (dashboard keys), for checking the mapping on the bench (see docs/controls.md).
  */
 public abstract class Gamepad implements Subsystem {
     /** WPILib alert displayed on the driver station when this gamepad is disconnected. */
@@ -452,8 +452,8 @@ public abstract class Gamepad implements Subsystem {
     }
 
     /**
-     * Logs the controller's raw data next to what the code reads from it, for the bench test in the
-     * README: press each control and check {@code Pressed} names it.
+     * Logs the controller's raw data next to what the code reads from it, for the bench test in
+     * docs/controls.md: press each control and check {@code Pressed} names it.
      */
     private void logBench() {
         var k = benchKeys;

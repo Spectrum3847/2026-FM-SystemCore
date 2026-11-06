@@ -36,7 +36,7 @@ import org.wpilib.simulation.SimHooks;
  * schedules a command that is not in {@link #BINDINGS}.
  *
  * <p>The sweep is generic: it walks the gamepad, not the binding list. {@link #BINDINGS} is the
- * robot's part, the README's binding table in code.
+ * robot's part, docs/controls.md's binding table in code.
  *
  * <p>The robot loop is stepped by hand on a paused sim clock ({@link SimHooks#stepTiming}), the
  * same calls {@code LoggedRobot.startCompetition} makes each cycle, so the timing is the same on
@@ -98,7 +98,7 @@ class BindingsSmokeTest {
     private static final Map<String, Expect> BINDINGS = new LinkedHashMap<>();
 
     static {
-        // Pilot, teleop (README "Bindings").
+        // Pilot, teleop (docs/controls.md "Bindings").
         bind("TELEOP pilot LT", Expect.state(WantedSuperState.INTAKE_FUEL));
         bind("TELEOP pilot RT", Expect.state(WantedSuperState.LAUNCH_WITH_SQUEEZE));
         bind("TELEOP pilot LT+RT", Expect.state(WantedSuperState.LAUNCH_WITHOUT_SQUEEZE));

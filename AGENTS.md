@@ -1,7 +1,15 @@
 # Agent notes
 
-FM (Spectrum 3847's 2026 robot) on SystemCore, competing as 8515. See README.md first, then
-docs/pose-sources.md for the localization testbed.
+FM (Spectrum 3847's 2026 robot) on SystemCore, competing as 8515.
+
+## Source of truth
+
+- The code is the source of truth: the Java, `build.gradle`, `vendordeps/` and `tools/`. Read it to
+  learn how something works or which version is in use.
+- `README.md` and `docs/` are for people, and they can be out of date. When a doc disagrees with
+  the code, trust the code.
+- If your change makes part of a doc wrong, fix or cut that part in the same PR.
+- Agent instructions go in this file, never in `README.md` or `docs/`.
 
 ## Build
 
@@ -13,8 +21,8 @@ docs/pose-sources.md for the localization testbed.
   replays in parallel. Don't run those steps one by one.
 - `FM_SIM_SCRIPT=drive ./gradlew run -PnoSimGui` runs one scripted sim by hand; then
   `python tools/wpilog_summary.py logs/<log>.wpilog`.
-- The WPILib API is 2027 alpha-6 (`org.wpilib.*`). Do not guess 2026 names: check the jars
-  (`javap`) or the existing code. Common moves: `DriverStation` → `MatchState` / `RobotState` /
+- The WPILib API is the 2027 alpha in `build.gradle` (`org.wpilib.*`). Do not guess 2026 names:
+  check the jars (`javap`) or the existing code. Common moves: `DriverStation` → `MatchState` / `RobotState` /
   `DriverStationErrors`; `ChassisSpeeds` → `ChassisVelocities`; `Timer.getFPGATimestamp` →
   `Timer.getTimestamp`; test mode → utility mode.
 

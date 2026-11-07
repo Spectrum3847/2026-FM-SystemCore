@@ -180,7 +180,8 @@ Deployed to the bench SystemCore (no CAN devices, two cameras):
 ## Brownouts
 
 SystemCore browns out in hardware, whatever WPILib does. Below 6.75 V it zeros the digital outputs,
-sends neutral on the PWM outputs for 60 ms and then turns them off, and blinks the red LED fast. It recovers above 7.5 V (Limelight's release
+sets the PWM outputs to neutral (from image 9, neutral for 60 ms and then off), and blinks the red
+LED fast. It recovers above 7.5 V (Limelight's release
 notes, image 4 on). It records brownouts in its fault table, which AdvantageKit logs as
 `SystemStats/Faults/Brownout` and `SystemStats/FaultCounts/Brownout`;
 [MatchSummary](match-summary.md#brownouts) counts those.

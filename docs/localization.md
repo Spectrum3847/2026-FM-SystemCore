@@ -16,6 +16,8 @@ Sources (names are the log paths under `Localization/Sources/`):
 **Every source runs all the time.** "Fuses" only decides whether its accepted measurements move the
 robot's pose. Toggle any of them live from a dashboard at
 `/Localization/Sources/<name>/Enabled` (an AdvantageKit dashboard input, so replay knows too).
+One exception: seeding and the gross-heading correction use the MegaTag1 result of the best of FM's
+Limelights even when that source is turned off.
 
 **All-camera EKF** (`Localization/EKF/Pose`): every tag from both Orin cameras and the three
 Limelights, one at a time, in one EKF. Logged next to the fused pose for comparison; it never moves
@@ -89,8 +91,10 @@ the Jetson's hash differs from the robot's, and warns (with its `Error`) when it
 
 **The whole Orin pipeline replays.**
 - [PhotonOrinIO](../src/main/java/frc/robot/subsystems/vision/PhotonOrinIO.java) logs every PhotonLib
-  result as raw bytes (`Vision/Orin/<camera>/Results`). Empty results are included, so the frame
-  rate and dropouts are in the log. It also logs the calibration and the Jetson's per-camera topics.
+  result as raw bytes (`Vision/Orin/<camera>/Results`) while the robot is enabled. Empty results
+  are included, so the frame rate and dropouts are in the log. While disabled it logs at most one
+  result with targets every 0.1 s and drops empty ones, so a disabled stretch replays only those.
+  It also logs the calibration and the Jetson's per-camera topics.
 - [OrinSolver](../src/main/java/frc/robot/subsystems/vision/OrinSolver.java) solves poses from those
   inputs only, so in replay it runs again. Change a mount, the solver or a gate, replay a match, and
   the Orin poses move. The sim run was checked both ways: an unchanged replay matched exactly, and a
@@ -116,8 +120,9 @@ the Jetson's hash differs from the robot's, and warns (with its `Error`) when it
 - A bad PhotonLib packet is counted and dropped (`DecodeFailures`), so it can't stop the loop
   (section 10b).
 
-**Two more estimates per camera**, logged and shadowed, not fused. Both are built from the same
-logged results, so they replay too, and both need the pose seeded first:
+**Two more estimates per camera**, logged and shadowed. They are not fused unless their source is
+turned on at `/Localization/Sources/<name>/Enabled`, and then only while the robot is enabled.
+Both are built from the same logged results, so they replay too, and both need the pose seeded first:
 - **`Orin-<camera>/Gyro`** (#10 section 3) solves on the robot with the heading held to the gyro at the frame's
   timestamp. With 2+ tags it uses PhotonLib's constrained SolvePnP, seeded from the fused pose. With
   one tag, or if the constrained solve lands more than 1 m from its seed, it uses the distance-trig

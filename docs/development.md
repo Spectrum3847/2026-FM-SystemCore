@@ -82,10 +82,11 @@ tests, scripted sims and replays in parallel, and prints one PASS/FAIL summary (
 
 ```bash
 python tools/check.py --quick --log robotlogs/X.wpilog   # ~80 s: unit tests, drive sim, a replay
-python tools/check.py --sims drive,shoot,auto            # ~2.5 min: everything CI's build and sims run
+python tools/check.py --sims drive,shoot,auto            # ~2.5 min: CI's Gradle tests and sims
 ```
 
 Loop overruns only warn there, since the jobs share the laptop's CPU; CI judges loop timing.
+CI also runs `spotlessCheck` and the Python and Node tool checks, which `check.py` skips.
 `check.py` does not convert old logs. A log recorded before AdvantageKit alpha-7 (microsecond
 timestamps) needs a converted copy first, so the original stays as it was:
 `python tools/akit_log_to_ns.py old.wpilog old_ns.wpilog`, then `--log old_ns.wpilog`.

@@ -42,7 +42,7 @@ The October event runs the 2026 FMS, so FM is driven from the **2026 NI FRC Driv
 2027 WPILib DS is "not supported on any current FIRST FMS"
 ([FirstDriverStation-Public](https://github.com/wpilibsuite/FirstDriverStation-Public); the
 [SystemcoreTesting](https://github.com/wpilibsuite/SystemcoreTesting) README table rates the NI
-DS compatible with images 10-13 on alpha-5/6).
+DS compatible with every current image, including 14 and later on alpha-7/8).
 
 The two Driver Stations send an Xbox controller's data in different orders, and nothing between
 the DS and robot code reorders it. So WPILib 2027's `Gamepad` / `CommandGamepad` reads the wrong controls on

@@ -51,4 +51,5 @@ raises a warning that the replay may differ; `Vision/FieldMap/Solving` shows whi
 - [ ] **Rio.java**: add the SystemCore's serial so it selects `FM2026` by identity (it defaults to FM anyway).
 - [ ] **Hood homing**: the [bench checklist](shooting.md#hood-homing-drivers-no-more-pushing-the-hood-down).
 - [ ] **2026 NI Driver Station** (the event's FMS needs it) and a SystemCore image that matches
-      WPILib alpha-6. Run the [controller bench test](controls.md#bench-test-ni-ds-about-5-minutes) on it.
+      the WPILib version in `build.gradle` (alpha-8 needs image 14 or later). Run the
+      [controller bench test](controls.md#bench-test-ni-ds-about-5-minutes) on it.

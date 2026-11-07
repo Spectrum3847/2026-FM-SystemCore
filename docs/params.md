@@ -28,7 +28,12 @@ the robot booted with and the ones being saved. At boot the file is used only if
 one of those sets (to 0.001 rotations); otherwise, or if a CANcoder doesn't answer, the file is
 refused with a HIGH alert, `Params/Files` shows `refused: ...`, and the values come from git. So a
 SystemCore moved to another chassis doesn't bring the old chassis's offsets or soft limits along.
-Save again to re-stamp. Files left in the old flat folder (`/home/systemcore/params/<group>.json`)
+Saving again stamps the file with the values in use, which after a refusal are the ones from git,
+and renames the refused file `.refused`. If a CANcoder didn't answer, fix it and reboot before you
+save, or copy the tuned values back from the `.refused` file after. A second refused save replaces
+that `.refused` file.
+
+Files left in the old flat folder (`/home/systemcore/params/<group>.json`)
 are read until the next save, which writes the robot folder's file and renames the old one
 `.moved`; a flat-folder `swerve` or `soft-limits` file has no stamp, so it is refused (and renamed
 `.refused` on save). On a robot last deployed with the flat folder, check

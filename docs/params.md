@@ -33,12 +33,13 @@ If a CANcoder didn't answer, the refused boot wrote git's
 offsets to the CANcoders that did, so fixing it and rebooting can leave the file refused. Check
 `Params/Files` after the reboot.
 
-A save rewrites every group and renames each refused file `.refused`, replacing an older one. To
+A save renames each refused file `.refused`, replacing an older one, and writes the values in use in
+its place. To
 keep a refused file's values, copy it (and any older `.refused` file) off the robot before you save.
 Restore values only when you know they belong to this chassis: entering them under `/Tuning/` and
 saving stamps them for it, which skips the check that refused them. Editing a file by hand does not
-update the stamp, so a later boot refuses it. Wait for a new `Params/LastSave` result before you
-reboot.
+update the stamp, so a later boot refuses it. Before you reboot, wait until
+`Params/LastSave` reads `saved ...` for this save, not `save failed: ...`.
 
 Files left in the old flat folder (`/home/systemcore/params/<group>.json`)
 are read until the next save, which writes the robot folder's file and renames the old one

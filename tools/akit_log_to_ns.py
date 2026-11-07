@@ -1,8 +1,9 @@
 """Rewrite an AdvantageKit 27 alpha-4 (microsecond) WPILOG as alpha-7 (nanosecond) so it replays.
 
-AdvantageKit alpha-7 replays only logs whose /Timestamp is in nanoseconds. Record timestamps and
-the /Timestamp values are multiplied by 1000 and /Timestamp's unit becomes "nanoseconds";
-everything else is copied byte for byte. A log already in nanoseconds is left as it is.
+AdvantageKit alpha-7 replays only logs whose /Timestamp is in nanoseconds. The /Timestamp values
+are multiplied by 1000 and its unit becomes "nanoseconds"; everything else, record timestamps
+included (microseconds in every WPILOG), is copied byte for byte. A log already in nanoseconds is
+left as it is.
 
 usage: python tools/akit_log_to_ns.py in.wpilog out.wpilog
        python tools/akit_log_to_ns.py --in-place a.wpilog [b.wpilog ...]
@@ -105,7 +106,7 @@ def convert(data):
             )
         elif eid != 0 and eid == timestamp_id and len(payload) == 8:
             payload = struct.pack("<q", struct.unpack("<q", payload)[0] * 1000)
-        emit(eid, ts * 1000, payload)
+        emit(eid, ts, payload)
     if timestamp_id is None:
         raise ValueError("no /Timestamp entry")
     return bytes(out)

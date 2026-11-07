@@ -41,7 +41,7 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: replay-fixtures
-          key: replay-fixtures-${{ hashFiles('src/test/resources/replay/fixtures.json', 'tools/fetch_replay_fixtures.py', 'tools/trim_wpilog.py') }}
+          key: replay-fixtures-${{ hashFiles('src/test/resources/replay/fixtures.json', 'tools/fetch_replay_fixtures.py', 'tools/trim_wpilog.py', 'tools/akit_log_to_ns.py') }}
 
       - name: Fetch and cut the fixtures
         run: python3 tools/fetch_replay_fixtures.py replay-fixtures

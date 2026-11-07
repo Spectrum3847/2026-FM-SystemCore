@@ -27,15 +27,14 @@ import wpilog_summary  # noqa: E402
 class Log:
     """Writes a WPILOG file: one start record per key, then data records."""
 
-    def __init__(self, metadata=None, ticks=1e6):
+    def __init__(self, metadata=None):
         self.ids = {}
         self.metadata = metadata or {}  # name to entry metadata
-        self.ticks = ticks  # timestamp units per second: 1e6, or 1e9 from AdvantageKit alpha-7 on
         self.out = bytearray(b"WPILOG" + struct.pack("<HI", 0x0100, 0))
 
     def _record(self, entry, t, payload):
         hdr = 3 | (3 << 2) | (7 << 4)  # 4-byte id and size, 8-byte timestamp
-        self.out += bytes([hdr]) + struct.pack("<IIQ", entry, len(payload), int(t * self.ticks)) + payload
+        self.out += bytes([hdr]) + struct.pack("<IIQ", entry, len(payload), int(t * 1e6)) + payload
 
     def _start(self, name, typ):
         if name not in self.ids:
@@ -88,11 +87,11 @@ def shooting_log(prefix, gate, shot_log):
 
 
 def enable_log(ticks):
-    """Disabled at 1 s, enabled from 5 s to 20 s, logged in the given timestamp units."""
+    """Disabled at 1 s, enabled from 5 s to 20 s, with /Timestamp in the given units."""
     metadata = {}
     if ticks == 1e9:
         metadata["/Timestamp"] = '{"source":"AdvantageKit","unit":"nanoseconds"}'
-    log = Log(metadata, ticks)
+    log = Log(metadata)
     for t in (1.0, 5.0, 20.0, 25.0):
         log.put("/Timestamp", t, int(t * ticks))
     log.put("/DriverStation/Enabled", 1.0, False)
@@ -273,12 +272,12 @@ class LogToolsTest(unittest.TestCase):
             log.put("/RealOutputs/Hood/Volts", t, 1.5)
         return log
 
-    def test_ns_converter_scales_timestamps_and_marks_the_unit(self):
+    def test_ns_converter_scales_timestamp_values_and_marks_the_unit(self):
         src = self._alpha4_log().write(self.path("a.wpilog"))
         out = akit_log_to_ns.convert(open(src, "rb").read())
-        # Entry 1 is /Timestamp: its records' timestamps and values go from microseconds to ns.
+        # Entry 1 is /Timestamp: its values go to ns, its record times stay microseconds.
         stamps = [(ts, struct.unpack("<q", p)[0]) for e, ts, p in akit_log_to_ns._records(out) if e == 1]
-        self.assertEqual([(1_000_000_000, 1_000_000_000), (1_020_000_000, 1_020_000_000)], stamps)
+        self.assertEqual([(1_000_000, 1_000_000_000), (1_020_000, 1_020_000_000)], stamps)
         self.assertIn(b'"unit":"nanoseconds"', out)
         self.assertIsNone(akit_log_to_ns.convert(out))  # already converted
 

@@ -53,9 +53,11 @@ public class TagEkf {
 
     /**
      * Bearing std-dev on the optical axis. Was 1 deg, mostly covering mount-yaw error; with
-     * MountEstimator correcting the mounts the tags are good to ~0.25 deg.
+     * MountEstimator correcting the mounts the tags are good to ~0.25 deg. 0.25 proved too tight in
+     * replay of all 14 TXMAN1 matches (NIS 2-7); 0.5 with the capture-time mount fix was best on
+     * every pool (held-out p90 0.247 -> 0.191 m, NIS 3.31 -> 2.18; SpectrumJetson robot-ekf).
      */
-    static final double BEARING_STD_RAD = Math.toRadians(0.25);
+    static final double BEARING_STD_RAD = Math.toRadians(0.5);
 
     static final double RANGE_STD_BASE_M = 0.005;
     static final double RANGE_STD_PER_M2 = 0.005;

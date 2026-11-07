@@ -16,8 +16,10 @@ Sources (names are the log paths under `Localization/Sources/`):
 **Every source runs all the time.** "Fuses" only decides whether its accepted measurements move the
 robot's pose. Toggle any of them live from a dashboard at
 `/Localization/Sources/<name>/Enabled` (an AdvantageKit dashboard input, so replay knows too).
-One exception: seeding and the gross-heading correction use the MegaTag1 result of the best of FM's
-Limelights even when that source is turned off.
+Two exceptions use MegaTag1 results even when that source is turned off. Seeding and the
+gross-heading correction use the best of FM's Limelights. The LL-Back heading correction
+(`Vision/BackHeadingCorrections`) uses `LL-Back/MT1` in teleop, and in auto while the path asks for
+pose updates or the robot is launching.
 
 **All-camera EKF** (`Localization/EKF/Pose`): every tag from both Orin cameras and the three
 Limelights, one at a time, in one EKF. Logged next to the fused pose for comparison; it never moves

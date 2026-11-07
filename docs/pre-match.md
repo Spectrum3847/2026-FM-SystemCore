@@ -39,8 +39,8 @@ raises a warning that the replay may differ; `Vision/FieldMap/Solving` shows whi
 ## Before the event: calibrate and check
 
 - [ ] **CAN wiring** matches `CanBuses` (`USE_CANIVORE` and the [port table](systemcore-port.md#what-changed-for-systemcore)). With a CANivore:
-      CTRE's `canivore-usb` package for the SystemCore's image installed (FM's 1.16 is for image 13;
-      image 15 and later need CTRE's newer package). `SystemCoreCAN<n>/StatusOK` (and
+      CTRE's `canivore-usb` package for the SystemCore's image installed (one per image, listed in
+      wpilibsuite/SystemcoreTesting `CTR-Phoenix.md`; FM's 1.16 is for image 13). `SystemCoreCAN<n>/StatusOK` (and
       `CANivore/StatusOK`) in the log, and nonzero `BusUtilization` on every port in use.
 - [ ] **CTRE firmware** on every device matches the Phoenix 6 version in `vendordeps/` (26.70.x for
       Phoenix 26.70; Phoenix Tuner X).

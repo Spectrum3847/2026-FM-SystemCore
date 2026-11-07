@@ -180,14 +180,16 @@ Deployed to the bench SystemCore (no CAN devices, two cameras):
 ## Brownouts
 
 SystemCore browns out in hardware, whatever WPILib does. Below 6.75 V it zeros the digital outputs,
-sets PWM outputs to neutral and blinks the red LED fast. It recovers above 7.5 V (Limelight's release
+sends neutral on the PWM outputs for 60 ms and then turns them off, and blinks the red LED fast. It recovers above 7.5 V (Limelight's release
 notes, image 4 on). It records brownouts in its fault table, which AdvantageKit logs as
 `SystemStats/Faults/Brownout` and `SystemStats/FaultCounts/Brownout`;
 [MatchSummary](match-summary.md#brownouts) counts those.
 
-- The code keeps SystemCore's default voltages. It reads `RobotController.isBrownedOut()` every
-  loop and logs it as `Runtime/BrownedOut` (input) and `SystemStats/BrownedOut`, gated by
-  `Runtime/BrownoutApiAvailable`.
+- The code keeps SystemCore's default voltages. Where the brownout API works
+  (`Runtime/BrownoutApiAvailable`), it reads `RobotController.isBrownedOut()` every loop and logs it
+  as `Runtime/BrownedOut` (input) and `SystemStats/BrownedOut`. Where it doesn't,
+  `SystemStats/BrownedOut` is not logged and `Runtime/BrownedOut` is always false, which says
+  nothing about brownouts.
 - To change the voltages, use `setBrownoutVoltages(brownout, recovery)`: brownout 5-8 V, recovery at
   most 8.5 V and at least 0.5 V above it. Never set brownout below 6 V
   ([allwpilib#9227](https://github.com/wpilibsuite/allwpilib/issues/9227) cites batteries killed by

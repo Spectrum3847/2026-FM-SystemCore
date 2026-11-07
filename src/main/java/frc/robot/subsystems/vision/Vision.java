@@ -920,7 +920,14 @@ public class Vision implements Subsystem {
                                         dist,
                                         1.0));
                     }
-                    mountEstimator.update(ekf.getPose(), corners);
+                    // The pose at this frame's capture time, not the newest: replay showed the
+                    // newest pose biases the mount estimate while turning (heading 7.4 -> 2.9 deg).
+                    double[] sm = ekf.smoothedAt(r.getTimestampSeconds());
+                    mountEstimator.update(
+                            sm == null
+                                    ? ekf.getPose()
+                                    : new Pose2d(sm[0], sm[1], new Rotation2d(sm[2])),
+                            corners);
                 }
                 List<TagSighting> frame = new ArrayList<>();
                 for (PhotonTrackedTarget t : r.getTargets()) {

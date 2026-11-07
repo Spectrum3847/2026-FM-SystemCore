@@ -758,7 +758,13 @@ public final class TagEkfTuner {
                         Transform3d m = mountEst == null ? base : mountEst.corrected(cam, base);
                         f = remount(f0, m);
                         if (mountEst != null && !heldOut) {
-                            mountEst.update(ekf.getPose(), f.corners());
+                            // The pose at capture time, as Vision passes it.
+                            double[] sm = ekf.smoothedAt(f0.t());
+                            mountEst.update(
+                                    sm == null
+                                            ? ekf.getPose()
+                                            : new Pose2d(sm[0], sm[1], new Rotation2d(sm[2])),
+                                    f.corners());
                             if (cam.equals(KNOCK_CAMERA)
                                     && f0.t() >= knockAt
                                     && Double.isNaN(sc.knockDetectedAfter)

@@ -34,11 +34,10 @@ offsets to the CANcoders that did, so fixing it and rebooting can leave the file
 `Params/Files` after the reboot.
 
 A save renames each refused file `.refused`, replacing an older one, and writes the values in use in
-its place. To
-keep a refused file's values, copy it (and any older `.refused` file) off the robot before you save.
-Restore values only when you know they belong to this chassis: entering them under `/Tuning/` and
-saving stamps them for it, which skips the check that refused them. Editing a file by hand does not
-update the stamp, so a later boot refuses it. Before you reboot, wait until
+its place. To keep a refused file's values, copy it (and any older `.refused` file) off the robot
+before you save. Restore values only when you know they belong to this chassis: entering them under
+`/Tuning/` and saving stamps them for it, which skips the check that refused them. Editing a file by
+hand does not update the stamp, so a later boot refuses it. Before you reboot, wait until
 `Params/LastSave` reads `saved ...` for this save, not `save failed: ...`.
 
 Files left in the old flat folder (`/home/systemcore/params/<group>.json`)

@@ -28,18 +28,17 @@ the robot booted with and the ones being saved. At boot the file is used only if
 one of those sets (to 0.001 rotations); otherwise, or if a CANcoder doesn't answer, the file is
 refused with a HIGH alert, `Params/Files` shows `refused: ...`, and the values come from git. So a
 SystemCore moved to another chassis doesn't bring the old chassis's offsets or soft limits along.
-Saving again stamps the file with the values in use, which after a refusal are the ones from git,
-and renames the refused file `.refused`. If a CANcoder didn't answer, the refused boot wrote git's
+Saving again stamps the file with the values in use, which after a refusal are the ones from git.
+If a CANcoder didn't answer, the refused boot wrote git's
 offsets to the CANcoders that did, so fixing it and rebooting can leave the file refused. Check
-`Params/Files` after the reboot. If it is still refused, recover both groups before you save:
-`swerve` and `soft-limits` share the stamp, so they are refused together, and a save rewrites every
-group and replaces each `.refused` file.
+`Params/Files` after the reboot.
 
-1. Copy both files, and any older `.refused` files, off the robot.
-2. With tuning mode on and the robot disabled off the field, enter the tuned values of both groups
-   from those copies under `/Tuning/`. Editing them into a file by hand does not update the stamp,
-   so a later boot refuses it.
-3. Save, reboot, and check `Params/Files`.
+A save rewrites every group and renames each refused file `.refused`, replacing an older one. To
+keep a refused file's values, copy it (and any older `.refused` file) off the robot before you save.
+Restore values only when you know they belong to this chassis: entering them under `/Tuning/` and
+saving stamps them for it, which skips the check that refused them. Editing a file by hand does not
+update the stamp, so a later boot refuses it. Wait for a new `Params/LastSave` result before you
+reboot.
 
 Files left in the old flat folder (`/home/systemcore/params/<group>.json`)
 are read until the next save, which writes the robot folder's file and renames the old one

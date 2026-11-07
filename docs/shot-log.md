@@ -30,7 +30,7 @@ has no record at this shot's time. **Read a row as each key's last value at or b
 | `Alliance`, `Mode`, `SuperState` | Which alliance, `Auto` or `Teleop`, and which launch state. |
 | `Kind`, `SetShot` | `Calculated` or `SetShot`, and which spot (`Tower`, `LeftTrench`, `RightTrench`). |
 | `FeedReason` | Why the feed opened: `Ready` (the gate), `Override` (operator Y) or `Timeout` (held 1 s). |
-| `Bypassed` | For `Override` and `Timeout`, what was not ready (`FlywheelNotReady`, `NotAimed`, ...). |
+| `Bypassed` | For `Override` and `Timeout`, what was not ready (`HoodNotReady`, `NotAimed`, ...). |
 | `SecondsWaited` | From entering the launch state to this feed: what the gate cost. |
 | `FeedShot`, `Model` | Feed (passing) shot or hub shot, and the fit it was evaluated on (`HubModelStandstill` for a set shot). |
 | `DistanceMeters` | Real distance to the target (a set shot: the spot's range). Bin on this. |

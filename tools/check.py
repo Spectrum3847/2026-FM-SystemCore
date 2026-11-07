@@ -29,7 +29,7 @@ import trim_wpilog
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "build" / "check"
-WPILIB_JDK = Path("C:/Users/Public/wpilib/2027_alpha5/jdk")
+WPILIB_JDK = Path("C:/Users/Public/wpilib/2027_alpha8/jdk")
 SIM_SCRIPTS = {"drive": "drive", "shoot": "shoot", "chords": "chords", "auto": "auto:TBTB Left"}
 JOB_TIMEOUT_S = 600
 # Measured on TXMAN1 Q30: a cut replay's fused pose agrees with the full replay's 0.4 s in.

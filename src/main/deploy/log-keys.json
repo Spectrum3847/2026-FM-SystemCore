@@ -1902,7 +1902,7 @@
   {
    "key": "/RealOutputs/Shooting/Log/Bypassed",
    "unit": "",
-   "doc": "For Override and Timeout, what was not ready (FlywheelNotReady, NotAimed, ...).",
+   "doc": "For Override and Timeout, what was not ready (HoodNotReady, NotAimed, ...).",
    "source": "src/main/java/frc/robot/subsystems/ShotLog.java",
    "input": false
   },

@@ -12,6 +12,7 @@ afterwards (or `python tools/wpilog_summary.py <log>`). Every key below is descr
 - [ ] `/RealMetadata/GitSHA` matches the commit you deployed, and `LogKeyGuide` is present.
 - [ ] `Events` starts with `disabled`. Enable teleop, then disable: `teleop`, then `disabled`.
 - [ ] `Scheduler/RobotPeriodic` (worst loop each second) stays under 10 ms while disabled.
+- [ ] Elastic draws the field, the scheduler and the Limelight values under `SmartDashboard/`.
 
 ## CAN
 
@@ -31,6 +32,9 @@ afterwards (or `python tools/wpilog_summary.py <log>`). Every key below is descr
 - [ ] While enabled, the battery sags under load (a fast spin, or the intake stalled briefly):
   `Runtime/BatteryVoltage` drops, and if it reaches brownout, `Events` shows `brownout (<V>)` and
   `brownout over`.
+- [ ] **Brownout bench test**, with an adjustable supply in place of the battery. Lower it past the
+  brownout voltage: the brownout trips there, `SystemStats/Faults/Brownout` and
+  `Runtime/BrownedOut` go true, and the CAN motors stop. See [Brownouts](robot-runtime.md#brownouts).
 
 ## Jetson and cameras
 

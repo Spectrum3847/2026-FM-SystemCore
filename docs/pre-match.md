@@ -39,8 +39,14 @@ raises a warning that the replay may differ; `Vision/FieldMap/Solving` shows whi
 ## Before the event: calibrate and check
 
 - [ ] **CAN wiring** matches `CanBuses` (`USE_CANIVORE` and the [port table](systemcore-port.md#what-changed-for-systemcore)). With a CANivore:
-      `canivore-usb` installed on the SystemCore. `SystemCoreCAN<n>/StatusOK` (and
+      CTRE's `canivore-usb` package for the SystemCore's image installed (FM's 1.16 is for image 13;
+      image 15 and later need CTRE's newer package). `SystemCoreCAN<n>/StatusOK` (and
       `CANivore/StatusOK`) in the log, and nonzero `BusUtilization` on every port in use.
+- [ ] **CTRE firmware** on every device matches the Phoenix 6 version in `vendordeps/` (26.70.x for
+      Phoenix 26.70; Phoenix Tuner X).
+- [ ] **PhotonVision**: the Jetson's PhotonVision and `photonvision-sc` on the SystemCore are built
+      from the commit of the PhotonLib in `vendordeps/photonlib.json`. Reinstall `photonvision-sc`
+      after reflashing the SystemCore.
 - [ ] **Swerve encoder offsets**: FM's 2026 values are in `params/robots/FM2026/swerve.json`
       (defaults in `FM2026`); re-check with the alignment page.
 - [x] **Limelight mounts**: pushed from code (`pushLimelightMounts`); positions from CAD, angles solved from Q13 rewinds
@@ -51,5 +57,6 @@ raises a warning that the replay may differ; `Vision/FieldMap/Solving` shows whi
 - [ ] **Rio.java**: add the SystemCore's serial so it selects `FM2026` by identity (it defaults to FM anyway).
 - [ ] **Hood homing**: the [bench checklist](shooting.md#hood-homing-drivers-no-more-pushing-the-hood-down).
 - [ ] **2026 NI Driver Station** (the event's FMS needs it) and a SystemCore image that matches
-      the WPILib version in `build.gradle` (alpha-8 needs image 14 or later). Run the
+      the WPILib version in `build.gradle` (alpha-8 needs image 14 or later). After a reflash, set
+      the SystemCore's static IP back to 10.85.15.2. Run the
       [controller bench test](controls.md#bench-test-ni-ds-about-5-minutes) on it.

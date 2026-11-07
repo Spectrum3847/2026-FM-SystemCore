@@ -174,5 +174,29 @@ Deployed to the bench SystemCore (no CAN devices, two cameras):
   re-enabled them, and prints one `SystemCore services:` line
   ([tools/systemcore_services.sh](../tools/systemcore_services.sh)). Without the package, the
   built-in vision is left alone.
-- `RobotController.setBrownoutVoltage` fails (HAL -1098) on that image, so the code doesn't set
-  one and SystemCore keeps its default brownout voltage.
+- The brownout API failed (HAL -1098) on that image. It works on alpha-8; see
+  [Brownouts](#brownouts).
+
+## Brownouts
+
+SystemCore browns out in hardware, whatever WPILib does. Below 6.75 V it zeros the digital outputs,
+sets PWM outputs to neutral and blinks the red LED fast. It recovers above 7.5 V (Limelight's release
+notes, image 4 on). It records brownouts in its fault table, which AdvantageKit logs as
+`SystemStats/Faults/Brownout` and `SystemStats/FaultCounts/Brownout`;
+[MatchSummary](match-summary.md#brownouts) counts those.
+
+- The code keeps SystemCore's default voltages. It reads `RobotController.isBrownedOut()` every
+  loop and logs it as `Runtime/BrownedOut` (input) and `SystemStats/BrownedOut`, gated by
+  `Runtime/BrownoutApiAvailable`.
+- To change the voltages, use `setBrownoutVoltages(brownout, recovery)`: brownout 5-8 V, recovery at
+  most 8.5 V and at least 0.5 V above it. Never set brownout below 6 V
+  ([allwpilib#9227](https://github.com/wpilibsuite/allwpilib/issues/9227) cites batteries killed by
+  low roboRIO settings).
+- **Open: does the fault table see a brownout?** TXMAN1 Q6 logged `SystemStats/BatteryVoltage`
+  under 6.75 V about ten times (down to 6.53 V), yet `Faults/Brownout` never went true and
+  `FaultCounts/Brownout` stayed 0. Short dips may be filtered, or the trip may use another
+  measurement.
+- **Open: CAN motor controllers.** The roboRIO sends them an explicit disable in a brownout.
+  Limelight's notes for SystemCore name only digital and PWM outputs.
+
+Both are in the [brownout bench test](bench-checks.md#power).

@@ -78,7 +78,8 @@ so replay stays clean.
 
 **Field map.** The robot's layout (the event's, see [Pre-match checks](pre-match.md#pre-match-checks)) is the
 one source of truth. At boot it publishes it for the Jetson:
-- `/SpectrumVision/FieldMap/Json`: the layout as WPILib AprilTagFieldLayout JSON
+- `/SpectrumVision/FieldMap/Json`: the layout as WPILib 2027 Field JSON (`field-tags`,
+  `field-dimensions`)
   ([FieldMapJson](../src/main/java/frc/spectrumLib/vision/FieldMapJson.java)).
 - `/SpectrumVision/FieldMap/Hash`: its canonical hash
   ([FieldMapHash](../src/main/java/frc/spectrumLib/vision/FieldMapHash.java)).

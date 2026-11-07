@@ -13,7 +13,7 @@ match logs show which source to trust and when.
 - [AdvantageScope](https://github.com/Mechanical-Advantage/AdvantageScope) 2027, to watch the sim
   and read logs.
 - For the robot, a SystemCore image that matches the WPILib version in `build.gradle`. See
-  [docs/upgrading-to-alpha-8.md](docs/upgrading-to-alpha-8.md).
+  [Before the event](docs/pre-match.md#before-the-event-calibrate-and-check).
 
 Library versions are in `build.gradle` and `vendordeps/`.
 

@@ -31,11 +31,15 @@ SystemCore moved to another chassis doesn't bring the old chassis's offsets or s
 Saving again stamps the file with the values in use, which after a refusal are the ones from git,
 and renames the refused file `.refused`. If a CANcoder didn't answer, the refused boot wrote git's
 offsets to the CANcoders that did, so fixing it and rebooting can leave the file refused. Check
-`Params/Files` after the reboot. If it is still refused, copy the file and any older `.refused` file
-off the robot before you save, because the save replaces the `.refused` file. Then enter the tuned
-values from that copy under `/Tuning/` (tuning mode on, disabled off the field) and save again, so
-the stamp covers them. Editing them into the file by hand does not update the stamp, so a later boot
-refuses it. Reboot and check `Params/Files`.
+`Params/Files` after the reboot. If it is still refused, recover both groups before you save:
+`swerve` and `soft-limits` share the stamp, so they are refused together, and a save rewrites every
+group and replaces each `.refused` file.
+
+1. Copy both files, and any older `.refused` files, off the robot.
+2. With tuning mode on and the robot disabled off the field, enter the tuned values of both groups
+   from those copies under `/Tuning/`. Editing them into a file by hand does not update the stamp,
+   so a later boot refuses it.
+3. Save, reboot, and check `Params/Files`.
 
 Files left in the old flat folder (`/home/systemcore/params/<group>.json`)
 are read until the next save, which writes the robot folder's file and renames the old one

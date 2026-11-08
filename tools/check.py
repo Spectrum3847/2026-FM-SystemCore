@@ -120,7 +120,10 @@ def job_sim(name, env):
 
 
 def enabled_window(data):
-    """(first enable, last disable) in log seconds, or None if the robot never enabled."""
+    """(first enable, last disable) in log seconds, or None if the robot never enabled.
+
+    Record times are microseconds in every WPILOG, whatever unit /Timestamp's values use.
+    """
     enabled_id = None
     first = last = end = None
     enabled = False
@@ -142,8 +145,7 @@ def enabled_window(data):
             end = ts
     if first is None:
         return None
-    ticks = trim_wpilog.ticks_per_second(data)
-    return first / ticks, (last if last is not None else end) / ticks
+    return first / 1e6, (last if last is not None else end) / 1e6
 
 
 def job_replay(log, full_log, env):

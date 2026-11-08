@@ -1,6 +1,6 @@
 # Replays windows of real match logs through the PR's code and through the base branch's, then
 # fails if the fused pose or the shot gate's verdicts moved. Add the replay-change-expected label to
-# a PR whose change is meant to move them. Fixtures and limits: README "CI".
+# a PR whose change is meant to move them. Fixtures and limits: docs/development.md, "CI".
 
 name: Replay
 
@@ -28,9 +28,6 @@ jobs:
   # replay, and the cut windows are cached until that list or the tools that cut them change. Off
   # a PR, only this job runs.
   fixtures:
-    # AdvantageKit 27.0.0-alpha-7 can't replay logs from before it (docs/upgrading-to-alpha-8.md).
-    # Back on once the fixtures are alpha-8 robot logs.
-    if: github.head_ref != 'upgrade/alpha-8'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

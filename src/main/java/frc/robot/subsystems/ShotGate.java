@@ -26,7 +26,9 @@ package frc.robot.subsystems;
  */
 public final class ShotGate {
 
-    /** Why the feed is being held, or {@link #NONE}. Logged as {@code Shot/BlockedReason}. */
+    /**
+     * Why the feed is being held, or {@link #NONE}. Logged as {@code Shooting/Gate/BlockedReason}.
+     */
     public enum Blocker {
         NONE("None"),
         /** Nothing to shoot at: the flywheel is not on a shot (idle, intaking). */
@@ -46,7 +48,7 @@ public final class ShotGate {
         }
     }
 
-    /** Why fuel is (or is not) going in. Logged as {@code Shot/FeedReason}. */
+    /** Why fuel is (or is not) going in. Logged as {@code Shooting/Gate/FeedReason}. */
     public enum FeedReason {
         NOT_LAUNCHING("NotLaunching"),
         HELD("Held"),
@@ -81,7 +83,8 @@ public final class ShotGate {
 
         /**
          * FM's numbers. Each is the offseason bot's, or FM's own constant, unless noted; CALIBRATE
-         * against {@code Shot/*} and {@code ShotLog/*} from the first practice session.
+         * against {@code Shooting/Gate/*} and {@code Shooting/Log/*} from the first practice
+         * session.
          *
          * <ul>
          *   <li>Hood 1 deg to start, 3 to keep. The offseason bot started at 0.5; FM's hood moves

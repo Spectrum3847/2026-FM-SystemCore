@@ -338,7 +338,7 @@ From this repo:
   (`Robot.java:294`), so it stops when the robot program stops, and on SystemCore it collides with
   `visionserver` on 5800. `LimelightHelpers` port forwarding
   uses 5800-5819.
-* Params (`spectrumLib/params`, README "Params"): values declared in code; layers are the code
+* Params (`spectrumLib/params`, docs/params.md): values declared in code; layers are the code
   default, `src/main/deploy/params/<group>.json`, `params/robots/<robot>/<group>.json`, the robot's
   own `/home/systemcore/params/<robot>/<group>.json` (not wiped by a deploy), then live changes over
   NT `/Tuning/`. Live changes need `Constants.TUNING_MODE` (false; a test fails a PR to `main` that

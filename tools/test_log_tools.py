@@ -8,6 +8,7 @@ renames, so the old-name fallbacks are exercised without committing a binary log
 """
 
 import os
+import re
 import struct
 import subprocess
 import sys
@@ -110,6 +111,11 @@ def run(tool, *args):
 
 
 class LogToolsTest(unittest.TestCase):
+
+    def test_check_looks_for_the_jdk_in_the_wpilib_install_gradle_uses(self):
+        with open(os.path.join(TOOLS, "..", "settings.gradle")) as f:
+            year = re.search(r"wpilibYear = '([^']+)'", f.read()).group(1)
+        self.assertEqual(year, check.WPILIB_JDK.parent.name)
 
     def test_check_finds_the_enabled_window_in_either_timestamp_unit(self):
         for ticks in (1e6, 1e9):

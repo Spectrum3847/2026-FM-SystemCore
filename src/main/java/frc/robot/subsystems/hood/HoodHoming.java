@@ -65,7 +65,7 @@ public final class HoodHoming {
             double nearHomeDeg) {
 
         /**
-         * FM's numbers. CALIBRATE on the bench (README, "Hood homing").
+         * FM's numbers. CALIBRATE on the bench (docs/shooting.md, "Hood homing").
          *
          * <ul>
          *   <li>Stop 9 deg: the angle FM's code has always seeded at boot and sent home to.

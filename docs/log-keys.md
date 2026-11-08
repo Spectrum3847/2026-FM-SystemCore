@@ -287,7 +287,7 @@ Inputs (I) are recorded readings that replay feeds back as-is; outputs are compu
 | `/RealOutputs/Shooting/Log/AimToleranceDeg` |  | degrees | Fused heading minus the aim target, and the gate's tolerance at this range. Empty for a set shot (the driver aims). | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/Shooting/Log/AimTrimDeg` |  | degrees | The operator's live trims. | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/Shooting/Log/Alliance` |  |  | Which alliance, Auto or Teleop, and which launch state. | src/main/java/frc/robot/subsystems/ShotLog.java |
-| `/RealOutputs/Shooting/Log/Bypassed` |  |  | For Override and Timeout, what was not ready (FlywheelNotReady, NotAimed, ...). | src/main/java/frc/robot/subsystems/ShotLog.java |
+| `/RealOutputs/Shooting/Log/Bypassed` |  |  | For Override and Timeout, what was not ready (HoodNotReady, NotAimed, ...). | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/Shooting/Log/DistanceMeters` |  | meters | Real distance to the target (a set shot: the spot's range). Bin on this. | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/Shooting/Log/End/BurstSeconds` |  | seconds | How long the feed stayed open. | src/main/java/frc/robot/subsystems/ShotLog.java |
 | `/RealOutputs/Shooting/Log/End/FlywheelDips` |  |  | Dips of the flywheel more than 150 RPM below target, re-armed within 75 RPM (3467's flywheel-drop idea): roughly, balls. CALIBRATE against video before trusting it; the sim's flywheel does not feel fuel. | src/main/java/frc/robot/subsystems/ShotLog.java |

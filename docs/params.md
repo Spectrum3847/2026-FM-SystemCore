@@ -40,8 +40,10 @@ before you save. Restore values only when you know they belong to this chassis: 
 `/Tuning/` and saving stamps them for it, which skips the check that refused them. The stamp checks
 the CANcoders, not the values, so swerve offsets edited into the file by hand load once, and the
 boot after that refuses the file unless they match an offset set in the stamp. Before you reboot,
-wait until `Params/LastSave`, or the Driver Station console, reads `saved ...` for this save, not
-`save failed: ...`.
+wait for the save's result in `Params/LastSave` or the Driver Station console: `saved ...`, not
+`save failed: ...`. Neither names the save it reports, and a save requested while another is still
+writing is dropped, so press save once and wait for a new result. If you changed anything after
+pressing it, save again and wait for the next result.
 
 Files left in the old flat folder (`/home/systemcore/params/<group>.json`)
 are read until the next save, which writes the robot folder's file and renames the old one

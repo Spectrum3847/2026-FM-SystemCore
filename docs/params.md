@@ -42,8 +42,9 @@ the CANcoders, not the values, so swerve offsets edited into the file by hand lo
 boot after that refuses the file unless they match an offset set in the stamp. Before you reboot,
 wait for the save's result in `Params/LastSave` or the Driver Station console: `saved ...`, not
 `save failed: ...`. Neither names the save it reports, and a save requested while another is still
-writing is dropped, so press save once and wait for a new result. If you changed anything after
-pressing it, save again and wait for the next result.
+writing is dropped, so press save once and wait for a new result. If an earlier save may still be
+writing, or you changed anything after pressing it, save again after that result and wait for the
+next one.
 
 Files left in the old flat folder (`/home/systemcore/params/<group>.json`)
 are read until the next save, which writes the robot folder's file and renames the old one

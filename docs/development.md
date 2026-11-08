@@ -90,6 +90,10 @@ CI also runs `spotlessCheck` and the Python and Node tool checks, which `check.p
 `check.py` does not convert old logs. A log recorded before AdvantageKit alpha-7 (microsecond
 timestamps) needs a converted copy first, so the original stays as it was:
 `python tools/akit_log_to_ns.py old.wpilog old_ns.wpilog`, then `--log old_ns.wpilog`.
+The converter changes only `/Timestamp`'s values; record times stay microseconds, as in every
+WPILOG. A copy converted before that rule (record times scaled too) fails here with `no cycles at or
+after START`, and converting it again skips it as already done. Delete it and convert the original
+again; for fixtures, delete `build/replay/*.wpilog` and fetch them again.
 A `--log` replays only the enabled part of the log (10 s before the first enable to 5 s after the
 last disable; `--full-log` for all of it), since a replay costs about 16 s plus 0.1 s per logged
 second. The comparison with the robot then skips the cut's first 2 s, raw odometry and the shadow

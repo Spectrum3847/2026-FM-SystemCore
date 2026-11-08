@@ -28,17 +28,19 @@ the robot booted with and the ones being saved. At boot the file is used only if
 one of those sets (to 0.001 rotations); otherwise, or if a CANcoder doesn't answer, the file is
 refused with a HIGH alert, `Params/Files` shows `refused: ...`, and the values come from git. So a
 SystemCore moved to another chassis doesn't bring the old chassis's offsets or soft limits along.
-Saving again stamps the file with the values in use, which after a refusal are the ones from git.
-If a CANcoder didn't answer, the refused boot wrote git's
-offsets to the CANcoders that did, so fixing it and rebooting can leave the file refused. Check
-`Params/Files` after the reboot.
+Saving again stamps the file with the values in use, which after a refusal are the ones from git. If
+a CANcoder didn't answer, the refused boot wrote git's offsets to the CANcoders that did, so fixing
+it and rebooting can leave the file refused. Check `Params/Files` after the reboot. `Params/` keys
+are in the log; to watch them live, turn on `/SmartDashboard/Telemetry/MirrorLogsToNT`
+([robot-runtime.md](robot-runtime.md#loop-rate-logging-and-the-dashboard)).
 
 A save renames each refused file `.refused`, replacing an older one, and writes the values in use in
 its place. To keep a refused file's values, copy it (and any older `.refused` file) off the robot
 before you save. Restore values only when you know they belong to this chassis: entering them under
-`/Tuning/` and saving stamps them for it, which skips the check that refused them. Editing a file by
-hand does not update the stamp, so a later boot refuses it. Before you reboot, wait until
-`Params/LastSave` reads `saved ...` for this save, not `save failed: ...`.
+`/Tuning/` and saving stamps them for it, which skips the check that refused them. The stamp checks
+the CANcoders, not the values, so swerve offsets edited into the file by hand load once, and the
+boot after that refuses the file. Before you reboot, wait until `Params/LastSave`, or the Driver
+Station console, reads `saved ...` for this save, not `save failed: ...`.
 
 Files left in the old flat folder (`/home/systemcore/params/<group>.json`)
 are read until the next save, which writes the robot folder's file and renames the old one
